@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!--
+        Quadrado arredondado com torii vazado usando fillType evenodd:
+        o path externo (quadrado) preenche; os paths internos (torii)
+        abrem buracos — o Android usa só o canal alpha, então o resultado
+        é quadrado sólido com silhueta do torii transparente.
+    -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="
+        M4,1 L20,1 Q23,1 23,4 L23,20 Q23,23 20,23 L4,23 Q1,23 1,20 L1,4 Q1,1 4,1 Z
+
+        M2.5,7.2 Q12,3.8 21.5,7.2 L21.5,9 Q12,5.6 2.5,9 Z
+
+        M5,11.8 L19,11.8 L19,13.2 L5,13.2 Z
+
+        M7.2,13.2 L9,13.2 L9,22.5 L7.2,22.5 Z
+
+        M15,13.2 L16.8,13.2 L16.8,22.5 L15,22.5 Z
+
+        M5.2,21 L10.8,21 L10.8,22.5 L5.2,22.5 Z
+
+        M13.2,21 L18.8,21 L18.8,22.5 L13.2,22.5 Z
+        " />
+</vector>

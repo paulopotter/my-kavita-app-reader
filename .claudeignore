@@ -1,0 +1,22 @@
+# User-facing docs — not needed in AI context
+README.md
+README.en.md
+CONTRIBUTING.md
+CONTRIBUTING.en.md
+CLA.md
+CLA.en.md
+CHANGELOG.md
+CHANGELOG.en.md
+
+# Load on demand only
+.claude/sessions/
+.claude/completions/
+.claude/docs/
+.claude/skills/
+.claude/agents/
+.claude/templates/
+
+# Build artifacts
+android/app/build/
+frontend/dist/
+frontend/.expo/

@@ -1,0 +1,36 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **English** | [Português abaixo]
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem this solves / Problema que resolve
+      description: Explain the problem, not the solution. / Explique o problema, não a solução.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution / Solução proposta
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / Alternativas consideradas
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this one / Pesquisei issues existentes antes de abrir esta
+          required: true

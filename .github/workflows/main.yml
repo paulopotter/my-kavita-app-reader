@@ -1,0 +1,59 @@
+name: Main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # Placeholder: uncomment when tests exist
+  # test:
+  #   name: Full Test Suite
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Kotlin tests
+  #       working-directory: android
+  #       run: ./gradlew test
+  #     - name: JS tests
+  #       working-directory: frontend
+  #       run: yarn install --frozen-lockfile && yarn test
+
+  tag:
+    name: Generate Tag
+    runs-on: ubuntu-latest
+    # needs: [test]  # uncomment when test job is active
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read APK version
+        id: apk_version
+        run: |
+          VERSION=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "")
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if no version or already tagged
+        id: check
+        run: |
+          VERSION="${{ steps.apk_version.outputs.value }}"
+          if [ -z "$VERSION" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No versionName found — skipping tag"
+          elif git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Tag v$VERSION already exists — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          VERSION="${{ steps.apk_version.outputs.value }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"

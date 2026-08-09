@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build release artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      # Placeholder: uncomment when android/app/build.gradle.kts exists
+      # - name: Build release APK
+      #   working-directory: android
+      #   run: ./gradlew :app:assembleRelease
+
+      # Placeholder: uncomment when frontend/package.json exists
+      # - name: Install JS dependencies
+      #   working-directory: frontend
+      #   run: yarn install --frozen-lockfile
+      #
+      # - name: Build JS bundle
+      #   working-directory: frontend
+      #   run: yarn bundle
+
+      # Placeholder: uncomment when bundle output path is defined
+      # - name: Write latest.json
+      #   run: |
+      #     TAG="${{ github.ref_name }}"
+      #     BUNDLE_VERSION=$(node -p "require('./frontend/package.json').bundleVersion")
+      #     cat > latest.json <<EOF
+      #     {
+      #       "bundleVersion": "$BUNDLE_VERSION",
+      #       "minApkVersion": "0.1.0",
+      #       "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/bundle.js"
+      #     }
+      #     EOF
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          # Extract the block between this version header and the next
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # Keep only the [pt-BR] block for the release body
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.notes }}
+          # Placeholder: add files when artifacts exist
+          # files: |
+          #   android/app/build/outputs/apk/release/app-release.apk
+          #   frontend/dist/bundle.js
+          #   latest.json
+
+  # Placeholder: uncomment when site/ has content to deploy
+  # deploy-pages:
+  #   name: Deploy GitHub Pages
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     pages: write
+  #     id-token: write
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deploy.outputs.page_url }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/configure-pages@v4
+  #     - uses: actions/upload-pages-artifact@v3
+  #       with:
+  #         path: site/
+  #     - id: deploy
+  #       uses: actions/deploy-pages@v4

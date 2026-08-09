@@ -1,0 +1,63 @@
+name: Bug Report
+description: Report a bug in mymangareader
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **English** | [Português abaixo]
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version / Versão do app
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: apk_version
+    attributes:
+      label: APK versionCode
+      placeholder: "Found in app Settings / Encontrado em Configurações do app"
+    validations:
+      required: true
+
+  - type: input
+    id: android_version
+    attributes:
+      label: Android version / Versão do Android
+      placeholder: "e.g. Android 14"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Passos para reproduzir
+      placeholder: |
+        1. Go to...
+        2. Tap...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / Comportamento esperado
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / Comportamento atual
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional / opcional)
+      render: shell
