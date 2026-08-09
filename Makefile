@@ -8,7 +8,7 @@ LANG_IS_PT := $(shell echo "$$LANG $$LC_ALL $$LANGUAGE" | grep -qi 'pt_BR\|pt_PT
 
 ifeq ($(LANG_IS_PT),1)
 MSG_HELP          := Mostra este menu de ajuda / Shows this help menu
-MSG_SETUP         := Valida dependências e instala pacotes JS
+MSG_SETUP         := Valida dependências, instala pacotes JS e git hooks
 MSG_BUILD_ANDROID := Gera APK de debug
 MSG_BUILD_BUNDLE  := Gera bundle JS (React Native / Expo)
 MSG_DEPLOY        := Instala o APK no dispositivo físico via USB
@@ -20,6 +20,7 @@ MSG_NO_JAVA       := ✗ java não encontrado
 MSG_NO_ADB        := ✗ adb não encontrado (instale Android platform-tools)
 MSG_NO_ENV        := ✗ .env não encontrado — copie .env.example e preencha
 MSG_CONVERT_ENV   := → Convertendo .env → local.properties...
+MSG_INSTALL_HOOKS := → Instalando git hooks...
 MSG_INSTALL_JS    := → Instalando dependências JS...
 MSG_READY         := ✓ Ambiente pronto
 MSG_BUILDING_APK  := → Compilando APK...
@@ -30,7 +31,7 @@ MSG_DEPLOYING     := → Instalando no dispositivo...
 MSG_DEPLOY_DONE   := ✓ Instalado
 else
 MSG_HELP          := Shows this help menu / Mostra este menu de ajuda
-MSG_SETUP         := Validate dependencies and install JS packages
+MSG_SETUP         := Validate dependencies, install JS packages and git hooks
 MSG_BUILD_ANDROID := Build debug APK
 MSG_BUILD_BUNDLE  := Build JS bundle (React Native / Expo)
 MSG_DEPLOY        := Install APK on physical device via USB
@@ -42,6 +43,7 @@ MSG_NO_JAVA       := ✗ java not found
 MSG_NO_ADB        := ✗ adb not found (install Android platform-tools)
 MSG_NO_ENV        := ✗ .env not found — copy .env.example and fill in your values
 MSG_CONVERT_ENV   := → Converting .env → local.properties...
+MSG_INSTALL_HOOKS := → Installing git hooks...
 MSG_INSTALL_JS    := → Installing JS dependencies...
 MSG_READY         := ✓ Environment ready
 MSG_BUILDING_APK  := → Building APK...
@@ -69,6 +71,8 @@ setup: ## $(MSG_SETUP)
 	@[ -f .env ] || { echo "$(MSG_NO_ENV)"; exit 1; }
 	@echo "$(MSG_CONVERT_ENV)"
 	@scripts/env-to-local-properties.sh
+	@echo "$(MSG_INSTALL_HOOKS)"
+	@scripts/install-hooks.sh
 	@echo "$(MSG_INSTALL_JS)"
 	@cd $(FRONTEND_DIR) && yarn install
 	@echo "$(MSG_READY)"
