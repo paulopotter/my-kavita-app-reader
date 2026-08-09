@@ -2,10 +2,9 @@
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@screens/*": ["src/screens/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@screens/*": ["./src/screens/*"]
     }
   },
   "include": ["src", "index.tsx", "*.ts", "*.tsx"]
