@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Pre-commit hook — runs only on changed files, never on the full project.
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+STAGED_KT=$(git diff --cached --name-only --diff-filter=ACM | grep '\.kt$' || true)
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+STAGED_SCHEMAS=$(git diff --cached --name-only --diff-filter=ACM | grep 'android/core/schemas/' || true)
+STAGED_ROOM_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACM | grep 'android/core/src.*migrations/.*\.kt$' || true)
+
+FAILED=0
+
+# ── Kotlin lint ────────────────────────────────────────────────────────────────
+if [ -n "$STAGED_KT" ]; then
+  echo "→ ktlint: checking $(echo "$STAGED_KT" | wc -l | tr -d ' ') Kotlin file(s)..."
+  if ! command -v ktlint >/dev/null 2>&1; then
+    echo "  ⚠ ktlint not found — skipping (install via: brew install ktlint)"
+  else
+    echo "$STAGED_KT" | xargs ktlint && echo "  ✓ ktlint passed" || FAILED=1
+  fi
+fi
+
+# ── TypeScript lint + type-check ───────────────────────────────────────────────
+if [ -n "$STAGED_TS" ]; then
+  echo "→ eslint + tsc: checking $(echo "$STAGED_TS" | wc -l | tr -d ' ') TS file(s)..."
+  if [ ! -f "$ROOT/frontend/package.json" ]; then
+    echo "  ⚠ frontend/package.json not found — skipping"
+  else
+    cd "$ROOT/frontend"
+    echo "$STAGED_TS" | sed "s|frontend/||g" | xargs yarn eslint 2>&1 && echo "  ✓ eslint passed" || FAILED=1
+    yarn tsc --noEmit 2>&1 && echo "  ✓ tsc passed" || FAILED=1
+    cd "$ROOT"
+  fi
+fi
+
+# ── Room schema validator ──────────────────────────────────────────────────────
+if [ -n "$STAGED_SCHEMAS" ]; then
+  echo "→ Room schema: checking migration parity..."
+  "$ROOT/scripts/validate-room-schema.sh" && echo "  ✓ schema parity ok" || FAILED=1
+fi
+
+# ── Room migration → JS migration parity ──────────────────────────────────────
+if [ -n "$STAGED_ROOM_MIGRATIONS" ]; then
+  echo "→ Room→JS migration parity..."
+  if [ -f "$ROOT/scripts/validate-js-migration.sh" ]; then
+    "$ROOT/scripts/validate-js-migration.sh" "$STAGED_ROOM_MIGRATIONS" && echo "  ✓ JS migration parity ok" || FAILED=1
+  else
+    echo "  ⚠ validate-js-migration.sh not found — skipping (needed for backlog 012)"
+  fi
+fi
+
+if [ "$FAILED" -eq 1 ]; then
+  echo ""
+  echo "✗ Pre-commit checks failed. Fix the issues above before committing."
+  exit 1
+fi
+
+exit 0

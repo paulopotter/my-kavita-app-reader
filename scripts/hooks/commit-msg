@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Validates commit message format: Conventional Commits.
+# Allows both English and Portuguese messages.
+set -euo pipefail
+
+MSG_FILE="$1"
+MSG=$(cat "$MSG_FILE")
+
+# Skip merge commits and fixup commits
+if echo "$MSG" | grep -qE '^(Merge|fixup!|squash!)'; then
+  exit 0
+fi
+
+# Conventional Commits pattern:
+# type(optional scope): description
+# Types: feat, fix, chore, docs, refactor, test, ci, perf, build, revert
+PATTERN='^(feat|fix|chore|docs|refactor|test|ci|perf|build|revert)(\([a-zA-Z0-9/_-]+\))?: .{1,100}'
+
+if ! echo "$MSG" | grep -qP "$PATTERN" 2>/dev/null; then
+  # Fallback to basic grep if Perl regex not available
+  if ! echo "$MSG" | grep -qE "$PATTERN"; then
+    echo "✗ Invalid commit message format."
+    echo ""
+    echo "  Expected: <type>(<scope>): <description>"
+    echo "  Types: feat, fix, chore, docs, refactor, test, ci, perf, build, revert"
+    echo ""
+    echo "  Examples:"
+    echo "    feat: adiciona tela de biblioteca"
+    echo "    fix(config): corrige validação de URL"
+    echo "    chore: atualiza dependências"
+    echo ""
+    echo "  Your message: $MSG"
+    exit 1
+  fi
+fi
+
+exit 0
