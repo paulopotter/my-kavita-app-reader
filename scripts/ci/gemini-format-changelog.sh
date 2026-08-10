@@ -1,56 +1,26 @@
 #!/usr/bin/env bash
-# Sends structured changelog draft to Gemini.
-# Produces two outputs written to files:
-#   $OUTPUT_USER  — user-facing CHANGELOG.md entry (pt-BR + en, friendly language)
-#   $OUTPUT_TAG   — technical tag annotation (Kotlin/React Native, commit prefixes)
+# Formats changelog draft using AI providers in priority order:
+#   1. Gemini (Google) — primary
+#   2. Groq             — fallback 1 (set GROQ_API_KEY secret)
+#   3. Cloudflare AI    — fallback 2 (set CF_ACCOUNT_ID + CF_API_TOKEN secrets)
+#   4. OpenAI           — fallback 3 (set OPENAI_API_KEY secret)
+#
+# Single AI call produces BOTH outputs (user entry + tag annotation) to reduce RPM usage.
 #
 # Env vars required:
-#   GEMINI_API_KEY
-#   ANDROID_DRAFT   — raw bullets from ### android/ section (may be empty)
-#   FRONTEND_DRAFT  — raw bullets from ### frontend/ section (may be empty)
+#   ANDROID_DRAFT   — raw bullets from ### Backend section
+#   FRONTEND_DRAFT  — raw bullets from ### Frontend section
 #   PR_TITLE
-#   KOTLIN_CURRENT  — current Kotlin semver (e.g. 0.1.0)
-#   KOTLIN_NEXT     — next Kotlin semver after bump
-#   RN_CURRENT      — current RN semver
-#   RN_NEXT         — next RN semver after bump
-#   OUTPUT_USER     — path to write user changelog entry
+#   KOTLIN_CURRENT, KOTLIN_NEXT, RN_CURRENT, RN_NEXT
+#   OUTPUT_USER     — path to write user-facing changelog entry
 #   OUTPUT_TAG      — path to write tag annotation
+#
+# Optional (each enables a provider):
+#   GEMINI_API_KEY, GROQ_API_KEY, CF_ACCOUNT_ID + CF_API_TOKEN, OPENAI_API_KEY
 set -euo pipefail
 
 NO_CHANGES_PT="Sem alteracoes nesta versao"
 NO_CHANGES_EN="No changes in this version"
-
-call_gemini() {
-  local prompt="$1"
-  local response text attempt
-  # flash-lite tem RPM maior no tier gratuito; flash como fallback
-  local models=("gemini-2.0-flash-lite" "gemini-2.0-flash")
-  for attempt in 1 2 3; do
-    for model in "${models[@]}"; do
-      echo "Attempt $attempt with model $model..." >&2
-      response=$(curl -s \
-        "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}" \
-        -H 'Content-Type: application/json' \
-        -d "$(jq -n --arg text "$prompt" '{contents:[{parts:[{text:$text}]}]}')")
-      echo "--- Gemini raw response (first 300 chars) ---" >&2
-      echo "$response" | head -c 300 >&2
-      echo "" >&2
-      if echo "$response" | grep -q '"code": 429'; then
-        echo "Rate limited on $model, waiting 30s before next..." >&2
-        sleep 30
-        continue
-      fi
-      text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
-      if [ -n "$text" ]; then
-        echo "$text"
-        return 0
-      fi
-    done
-    echo "All models exhausted on attempt $attempt, waiting 60s..." >&2
-    sleep 60
-  done
-  echo "" # fallback vazio
-}
 
 # Ensures each non-empty line starts with "- " exactly once
 fmt_bullets() {
@@ -62,10 +32,12 @@ fmt_bullets() {
   fi
 }
 
-# ── User-facing changelog entry ────────────────────────────────────────────────
+# ── Prompt (shared across all providers) ──────────────────────────────────────
 
-USER_PROMPT="You are a changelog editor for an Android app called My Manga Reader.
-Produce a user-facing changelog entry in EXACTLY this markdown structure (no extra text, no code fences):
+COMBINED_PROMPT="You are a changelog editor for an Android app called My Manga Reader.
+Produce TWO sections separated by exactly this delimiter on its own line: ---SPLIT---
+
+SECTION 1: User-facing CHANGELOG.md entry in this exact markdown structure:
 
 One or two sentence summary describing what changed, friendly and non-technical.
 
@@ -85,16 +57,31 @@ One or two sentence summary describing what changed, friendly and non-technical.
 **[en]**
 - bullet in English
 
-Rules:
-- Output ONLY the markdown above, nothing else before or after
-- Always produce BOTH pt-BR and en translations for every bullet
-- User-facing language: describe what the user gains or sees, not technical implementation
-- Past tense (pt-BR: Adicionado/Corrigido/Melhorado; en: Added/Fixed/Improved)
-- No conventional commit prefixes (no feat:, fix:, etc.) in bullet text
-- Max 6 bullets per language per section
-- If a section has no changes, write a single bullet: ${NO_CHANGES_PT} (pt-BR) / ${NO_CHANGES_EN} (en)
-- If android draft is empty: Backend version stays ${KOTLIN_CURRENT} with no-changes bullet
-- If frontend draft is empty: Frontend version stays ${RN_CURRENT} with no-changes bullet
+---SPLIT---
+
+SECTION 2: Git tag annotation in this exact markdown structure:
+
+### Kotlin - \`${KOTLIN_NEXT}\`
+
+- feat: bullet in English
+
+### React Native - \`${RN_NEXT}\`
+
+- feat: bullet in English
+
+Rules for BOTH sections:
+- Output ONLY the two sections and the delimiter, nothing else
+- No code fences, no extra text before or after
+- Section 1: user-facing language (what user gains/sees), past tense, both pt-BR and en always
+- Section 1: no commit prefixes in bullets
+- Section 2: English only, technical, conventional commit prefixes (feat/fix/perf/chore/refactor/style)
+- Section 2: headers must say 'Kotlin' and 'React Native' (not android/frontend)
+- Max 6 bullets per language per section (section 1), max 10 per section (section 2)
+- If a component has no changes:
+  Section 1 pt-BR: ${NO_CHANGES_PT} | Section 1 en: ${NO_CHANGES_EN}
+  Section 2: - No changes
+- If android draft is empty: Backend stays \`${KOTLIN_CURRENT}\` with no-changes bullets
+- If frontend draft is empty: Frontend stays \`${RN_CURRENT}\` with no-changes bullets
 
 android/ changes (Kotlin/Backend):
 ${ANDROID_DRAFT:-none}
@@ -102,10 +89,109 @@ ${ANDROID_DRAFT:-none}
 frontend/ changes (React Native/Frontend):
 ${FRONTEND_DRAFT:-none}"
 
-USER_ENTRY=$(call_gemini "$USER_PROMPT")
+# ── Provider call functions ────────────────────────────────────────────────────
 
-if [ -z "$USER_ENTRY" ]; then
-  echo "WARNING: Gemini returned empty for user entry, using fallback" >&2
+call_gemini() {
+  local models=("gemini-2.0-flash-lite" "gemini-2.0-flash")
+  local response text
+  for model in "${models[@]}"; do
+    echo "Trying Gemini model $model..." >&2
+    response=$(curl -s \
+      "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}" \
+      -H 'Content-Type: application/json' \
+      -d "$(jq -n --arg text "$COMBINED_PROMPT" '{contents:[{parts:[{text:$text}]}]}')")
+    echo "Gemini response (first 200 chars): $(echo "$response" | head -c 200)" >&2
+    if echo "$response" | grep -q '"code": 429'; then
+      echo "Gemini $model rate limited, trying next model..." >&2
+      sleep 10
+      continue
+    fi
+    text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
+    if [ -n "$text" ]; then echo "$text"; return 0; fi
+  done
+  return 1
+}
+
+call_groq() {
+  [ -z "${GROQ_API_KEY:-}" ] && return 1
+  echo "Trying Groq..." >&2
+  local response text
+  response=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+    -H "Authorization: Bearer ${GROQ_API_KEY}" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg text "$COMBINED_PROMPT" '{
+      model: "llama-3.3-70b-versatile",
+      messages: [{role: "user", content: $text}],
+      temperature: 0.3
+    }')")
+  echo "Groq response (first 200 chars): $(echo "$response" | head -c 200)" >&2
+  text=$(echo "$response" | jq -r '.choices[0].message.content // empty')
+  if [ -n "$text" ]; then echo "$text"; return 0; fi
+  return 1
+}
+
+call_cloudflare() {
+  [ -z "${CF_ACCOUNT_ID:-}" ] || [ -z "${CF_API_TOKEN:-}" ] && return 1
+  echo "Trying Cloudflare AI..." >&2
+  local response text
+  response=$(curl -s \
+    "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast" \
+    -H "Authorization: Bearer ${CF_API_TOKEN}" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg text "$COMBINED_PROMPT" '{
+      messages: [{role: "user", content: $text}]
+    }')")
+  echo "Cloudflare response (first 200 chars): $(echo "$response" | head -c 200)" >&2
+  text=$(echo "$response" | jq -r '.result.response // empty')
+  if [ -n "$text" ]; then echo "$text"; return 0; fi
+  return 1
+}
+
+call_openai() {
+  [ -z "${OPENAI_API_KEY:-}" ] && return 1
+  echo "Trying OpenAI..." >&2
+  local response text
+  response=$(curl -s https://api.openai.com/v1/chat/completions \
+    -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg text "$COMBINED_PROMPT" '{
+      model: "gpt-4o-mini",
+      messages: [{role: "user", content: $text}],
+      temperature: 0.3
+    }')")
+  echo "OpenAI response (first 200 chars): $(echo "$response" | head -c 200)" >&2
+  text=$(echo "$response" | jq -r '.choices[0].message.content // empty')
+  if [ -n "$text" ]; then echo "$text"; return 0; fi
+  return 1
+}
+
+# ── Call providers in order ────────────────────────────────────────────────────
+
+AI_OUTPUT=""
+
+if [ -n "${GEMINI_API_KEY:-}" ]; then
+  AI_OUTPUT=$(call_gemini) || true
+fi
+
+if [ -z "$AI_OUTPUT" ] && [ -n "${GROQ_API_KEY:-}" ]; then
+  AI_OUTPUT=$(call_groq) || true
+fi
+
+if [ -z "$AI_OUTPUT" ] && [ -n "${CF_ACCOUNT_ID:-}" ] && [ -n "${CF_API_TOKEN:-}" ]; then
+  AI_OUTPUT=$(call_cloudflare) || true
+fi
+
+if [ -z "$AI_OUTPUT" ] && [ -n "${OPENAI_API_KEY:-}" ]; then
+  AI_OUTPUT=$(call_openai) || true
+fi
+
+# ── Split output or use fallback ───────────────────────────────────────────────
+
+if [ -n "$AI_OUTPUT" ] && echo "$AI_OUTPUT" | grep -q '^---SPLIT---$'; then
+  USER_ENTRY=$(echo "$AI_OUTPUT" | awk '/^---SPLIT---$/{exit} {print}' | sed '/^[[:space:]]*$/d;1{/^[[:space:]]*$/d}')
+  TAG_ENTRY=$(echo "$AI_OUTPUT"  | awk 'found{print} /^---SPLIT---$/{found=1}' | sed '/^[[:space:]]*$/d;1{/^[[:space:]]*$/d}')
+else
+  echo "WARNING: No AI output or delimiter missing — using fallback" >&2
   ANDROID_BULLETS_PT=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_PT")
   ANDROID_BULLETS_EN=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_EN")
   FRONTEND_BULLETS_PT=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_PT")
@@ -128,45 +214,7 @@ ${FRONTEND_BULLETS_PT}
 
 **[en]**
 ${FRONTEND_BULLETS_EN}"
-fi
 
-echo "$USER_ENTRY" > "$OUTPUT_USER"
-
-# Pausa entre chamadas para não estourar RPM do tier gratuito
-echo "Waiting 30s before second Gemini call..." >&2
-sleep 30
-
-# ── Technical tag annotation ───────────────────────────────────────────────────
-
-TAG_PROMPT="You are a technical changelog formatter.
-Produce a git tag annotation in EXACTLY this markdown structure (no extra text, no code fences):
-
-### Kotlin - \`${KOTLIN_NEXT}\`
-
-- feat: bullet describing the change
-
-### React Native - \`${RN_NEXT}\`
-
-- feat: bullet describing the change
-
-Rules:
-- Output ONLY the markdown above, nothing else before or after
-- Use conventional commit prefixes: feat, fix, perf, chore, refactor, style
-- Section header must say 'Kotlin' (not android/Android) and 'React Native' (not frontend/Frontend)
-- Language: English only, technical and precise
-- If a section has no changes, write exactly: - No changes
-- Max 10 bullets per section
-
-android/ changes (will become Kotlin section):
-${ANDROID_DRAFT:-none}
-
-frontend/ changes (will become React Native section):
-${FRONTEND_DRAFT:-none}"
-
-TAG_ENTRY=$(call_gemini "$TAG_PROMPT")
-
-if [ -z "$TAG_ENTRY" ]; then
-  echo "WARNING: Gemini returned empty for tag entry, using fallback" >&2
   TAG_ENTRY="### Kotlin - \`${KOTLIN_NEXT}\`
 
 $(fmt_bullets "$ANDROID_DRAFT" "No changes")
@@ -176,4 +224,7 @@ $(fmt_bullets "$ANDROID_DRAFT" "No changes")
 $(fmt_bullets "$FRONTEND_DRAFT" "No changes")"
 fi
 
-echo "$TAG_ENTRY" > "$OUTPUT_TAG"
+echo "$USER_ENTRY" > "$OUTPUT_USER"
+echo "$TAG_ENTRY"  > "$OUTPUT_TAG"
+
+echo "Done. User entry: $(wc -l < "$OUTPUT_USER") lines, Tag entry: $(wc -l < "$OUTPUT_TAG") lines" >&2
