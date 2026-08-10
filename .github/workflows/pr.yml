@@ -255,44 +255,8 @@ jobs:
           CHANGELOG_DRAFT: ${{ steps.draft.outputs.draft }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          PROMPT=$(cat <<'PROMPT_EOF'
-You are a technical changelog editor for a Kotlin + React Native Android app called "My Manga Reader".
-Take the raw changelog draft below and return ONLY a formatted entry in this exact structure — no extra text, no markdown fences, no explanation:
-
-[pt-BR]
-- bullet in Brazilian Portuguese
-
-[en]
-- bullet in English
-
-Rules:
-- Translate to both pt-BR and en
-- User-facing language: what changed, not how
-- Past tense verbs (pt-BR: "Adicionado", "Corrigido", "Melhorado"; en: "Added", "Fixed", "Improved")
-- No section headers like "### Added" — only the [pt-BR] and [en] blocks
-- Max 8 bullets per language
-- If input is already in both languages, keep and improve them
-PROMPT_EOF
-)
-          FULL_PROMPT="${PROMPT}
-
-PR: ${PR_TITLE}
-
-Draft:
-${CHANGELOG_DRAFT}"
-
-          RESPONSE=$(curl -s \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
-            -H 'Content-Type: application/json' \
-            -d "$(jq -n --arg text "$FULL_PROMPT" '{contents:[{parts:[{text:$text}]}]}')")
-
-          FORMATTED=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
-
-          if [ -z "$FORMATTED" ]; then
-            echo "Gemini returned empty — using raw draft as fallback"
-            FORMATTED="$CHANGELOG_DRAFT"
-          fi
-
+          chmod +x scripts/ci/gemini-format-changelog.sh
+          FORMATTED=$(bash scripts/ci/gemini-format-changelog.sh)
           {
             echo "entry<<HEREDOC"
             echo "$FORMATTED"
@@ -305,42 +269,7 @@ ${CHANGELOG_DRAFT}"
           ENTRY: ${{ steps.gemini.outputs.entry }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          python3 - <<'PYEOF'
-import os, sys, re
-
-entry    = os.environ['ENTRY']
-pr_num   = os.environ['PR_NUMBER']
-pr_title = os.environ['PR_TITLE']
-
-with open('CHANGELOG.md', 'r') as f:
-    content = f.read()
-
-# Find the [Unreleased] section and insert after its closing comment (if any)
-unreleased_match = re.search(r'## \[Unreleased\]', content)
-if not unreleased_match:
-    print("ERROR: [Unreleased] marker not found", file=sys.stderr)
-    sys.exit(1)
-
-insert_at = unreleased_match.end()
-
-# Skip past any HTML comment block
-comment_match = re.search(r'-->', content[insert_at:])
-if comment_match:
-    insert_at += comment_match.end()
-
-# Skip trailing whitespace/newlines after the marker
-while insert_at < len(content) and content[insert_at] in ('\n', '\r', ' '):
-    insert_at += 1
-
-block = f"\n{entry}\n"
-new_content = content[:insert_at] + block + content[insert_at:]
-
-with open('CHANGELOG.md', 'w') as f:
-    f.write(new_content)
-
-print(f"Inserted changelog entry for PR #{pr_num}")
-PYEOF
+        run: python3 scripts/ci/insert-changelog-entry.py
 
       - name: Commit changelog
         if: steps.draft.outputs.skip == 'false'
