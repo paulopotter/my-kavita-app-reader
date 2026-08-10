@@ -14,7 +14,7 @@ react {
     bundleAssetName = "index.android.bundle"
     entryFile = file("../../frontend/index.tsx")
     bundleCommand = "bundle"
-    hermesCommand = "../../frontend/node_modules/react-native/sdks/hermesc/osx-bin/hermesc"
+    // hermesCommand omitted — RN plugin auto-detects the correct binary for the current OS
 }
 
 android {
@@ -26,7 +26,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.2.0"
+        versionName = "0.1.0"
     }
 
     buildTypes {
