@@ -110,6 +110,7 @@ jobs:
           export ANDROID_DRAFT FRONTEND_DRAFT
           chmod +x scripts/ci/gemini-format-changelog.sh
           bash scripts/ci/gemini-format-changelog.sh
+          echo "=== tag-entry.md ===" && cat /tmp/tag-entry.md && echo "=== end ==="
 
       - name: Update CHANGELOG — move Unreleased to versioned entry
         id: changelog
