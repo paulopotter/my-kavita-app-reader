@@ -14,4 +14,4 @@
 | 010 | frontend — bridge types + db-validator.ts | done | 011 | 006, 009 |
 | 011 | frontend — ConfigService + ConfigTransform | done | 012 | 010 |
 | 012 | frontend — componentes dummy + useConfig + ConfigScreen | done | 013 | 011 |
-| 013 | Build + install on device | pending | — | 012 |
+| 013 | Build + install on device | done | — | 012 |

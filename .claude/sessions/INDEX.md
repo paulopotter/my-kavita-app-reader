@@ -2,9 +2,7 @@
 
 ## In progress
 
-| Plan | Status | Description |
-|------|--------|-------------|
-| [001 - Config Screen](active/001%20-%20Config%20Screen/README.md) | pending | First vertical slice: Android scaffold + Kotlin tools + RN Config screen |
+_(no active plans)_
 
 ## Backlog
 
