@@ -23,7 +23,8 @@ NO_CHANGES_EN="No changes in this version"
 call_gemini() {
   local prompt="$1"
   local response text attempt
-  local models=("gemini-2.0-flash-lite" "gemini-2.0-flash" "gemini-1.5-flash")
+  # flash-lite tem RPM maior no tier gratuito; flash como fallback
+  local models=("gemini-2.0-flash-lite" "gemini-2.0-flash")
   for attempt in 1 2 3; do
     for model in "${models[@]}"; do
       echo "Attempt $attempt with model $model..." >&2
@@ -34,10 +35,9 @@ call_gemini() {
       echo "--- Gemini raw response (first 300 chars) ---" >&2
       echo "$response" | head -c 300 >&2
       echo "" >&2
-      # Se for 429, tenta o próximo modelo
       if echo "$response" | grep -q '"code": 429'; then
-        echo "Rate limited on $model, trying next..." >&2
-        sleep 5
+        echo "Rate limited on $model, waiting 30s before next..." >&2
+        sleep 30
         continue
       fi
       text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
@@ -46,8 +46,8 @@ call_gemini() {
         return 0
       fi
     done
-    echo "All models exhausted on attempt $attempt, waiting 15s..." >&2
-    sleep 15
+    echo "All models exhausted on attempt $attempt, waiting 60s..." >&2
+    sleep 60
   done
   echo "" # fallback vazio
 }
@@ -131,6 +131,10 @@ ${FRONTEND_BULLETS_EN}"
 fi
 
 echo "$USER_ENTRY" > "$OUTPUT_USER"
+
+# Pausa entre chamadas para não estourar RPM do tier gratuito
+echo "Waiting 30s before second Gemini call..." >&2
+sleep 30
 
 # ── Technical tag annotation ───────────────────────────────────────────────────
 
