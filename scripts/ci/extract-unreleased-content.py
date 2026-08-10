@@ -4,6 +4,9 @@
 Looks for ### **Backend** / ### **Frontend** subsections first.
 Falls back to treating the entire [Unreleased] body as both drafts if not found.
 
+Strips formatting markers (**[pt-BR]**, **[en]**, ### headers) so Gemini receives
+clean bullet lists as input, not its own previous output format.
+
 Writes to OUTPUT_ANDROID and OUTPUT_FRONTEND env var paths.
 """
 import os
@@ -15,9 +18,8 @@ output_frontend = os.environ['OUTPUT_FRONTEND']
 with open('CHANGELOG.md') as f:
     content = f.read()
 
-# Extract the [Unreleased] block
 unreleased_match = re.search(
-    r'## \[Unreleased\](.*?)(?=## \[|\Z)',
+    r'## \[Unreleased\](.*?)(?=\n## \[|\Z)',
     content,
     re.DOTALL
 )
@@ -29,28 +31,41 @@ if not unreleased_match:
 
 unreleased_body = unreleased_match.group(1).strip()
 
+def clean_bullets(text: str) -> str:
+    """Strip formatting markers, keep only bullet lines."""
+    skip_patterns = re.compile(
+        r'^\s*(\*\*\[pt-BR\]\*\*|\*\*\[en\]\*\*|\[pt-BR\]|\[en\]|###|<!--|-{2,}>)',
+        re.IGNORECASE
+    )
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if skip_patterns.match(stripped):
+            continue
+        lines.append(stripped)
+    return '\n'.join(lines)
+
 def extract_subsection(text: str, header: str) -> str:
     pattern = re.compile(
-        rf'###\s+\*?\*?{re.escape(header)}\*?\*?.*?\n(.*?)(?=###|\Z)',
+        rf'###\s+\*?\*?{re.escape(header)}\*?\*?[^\n]*\n(.*?)(?=\n###|\Z)',
         re.DOTALL | re.IGNORECASE
     )
     m = pattern.search(text)
     if not m:
         return ''
-    lines = [
-        l.strip() for l in m.group(1).splitlines()
-        if l.strip() and not l.strip().startswith('<!--') and '-->' not in l
-    ]
-    return '\n'.join(lines)
+    return clean_bullets(m.group(1))
 
 android_content  = extract_subsection(unreleased_body, 'Backend')
 frontend_content = extract_subsection(unreleased_body, 'Frontend')
 
-# Fallback: no subsections found — use entire body for both
+# Fallback: no subsections — strip formatting from full body and use for both
 if not android_content and not frontend_content:
     print("No Backend/Frontend subsections found, using full [Unreleased] body as draft")
-    android_content  = unreleased_body
-    frontend_content = unreleased_body
+    fallback = clean_bullets(unreleased_body)
+    android_content  = fallback
+    frontend_content = fallback
 
 with open(output_android, 'w') as f:
     f.write(android_content)
@@ -58,5 +73,5 @@ with open(output_android, 'w') as f:
 with open(output_frontend, 'w') as f:
     f.write(frontend_content)
 
-print(f"Backend draft: {len(android_content)} chars")
-print(f"Frontend draft: {len(frontend_content)} chars")
+print(f"Backend draft ({len(android_content)} chars):\n{android_content[:200]}")
+print(f"Frontend draft ({len(frontend_content)} chars):\n{frontend_content[:200]}")
