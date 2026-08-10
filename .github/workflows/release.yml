@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - '[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].*'
+      - '[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9][0-9]'
 
 jobs:
   build:
@@ -38,46 +38,57 @@ jobs:
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
-      # Placeholder: uncomment when android/app/build.gradle.kts exists
-      # - name: Build release APK
-      #   working-directory: android
-      #   run: ./gradlew :app:assembleRelease
+      - name: Read component versions
+        id: versions
+        run: |
+          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "n/a")
+          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "n/a")
+          echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
+          echo "rn=$RN_VER"        >> "$GITHUB_OUTPUT"
 
-      # Placeholder: uncomment when frontend/package.json exists
+      # Placeholder: uncomment when build is stable in CI
       # - name: Install JS dependencies
       #   working-directory: frontend
       #   run: yarn install --frozen-lockfile
       #
       # - name: Build JS bundle
       #   working-directory: frontend
-      #   run: yarn bundle
+      #   run: yarn react-native bundle --platform android --dev false \
+      #     --entry-file index.tsx \
+      #     --bundle-output ../android/app/src/main/assets/index.android.bundle
+      #
+      # - name: Build release APK
+      #   working-directory: android
+      #   run: ./gradlew :app:assembleRelease
 
-      # Placeholder: uncomment when bundle output path is defined
+      # Placeholder: uncomment when OTA (backlog 010) is implemented
       # - name: Write latest.json
       #   run: |
       #     TAG="${{ github.ref_name }}"
-      #     RN_VER=$(node -p "require('./frontend/package.json').version")
+      #     RN_VER="${{ steps.versions.outputs.rn }}"
+      #     KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
       #     cat > latest.json <<EOF
       #     {
       #       "bundleVersion": "$RN_VER",
-      #       "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/bundle.js"
+      #       "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/bundle.js",
+      #       "minAppVersion": "$TAG",
+      #       "minKotlinVersion": "$KOTLIN_VER"
       #     }
       #     EOF
 
-      - name: Extract changelog section
+      - name: Extract changelog for this release
         id: changelog
         run: |
           TAG="${{ github.ref_name }}"
-          # Extract block between this tag's header and the next
           NOTES=$(awk "/^## \[$TAG\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "n/a")
-          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "n/a")
+          KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
+          RN_VER="${{ steps.versions.outputs.rn }}"
           {
             echo "notes<<EOF"
             echo "$NOTES"
             echo ""
             echo "---"
-            echo "**Kotlin:** $KOTLIN_VER | **RN:** $RN_VER"
+            echo "**Kotlin:** \`$KOTLIN_VER\` | **RN:** \`$RN_VER\`"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -90,9 +101,3 @@ jobs:
           #   android/app/build/outputs/apk/release/app-release.apk
           #   frontend/dist/bundle.js
           #   latest.json
-
-  # Placeholder: uncomment when site/ has content to deploy
-  # deploy-pages:
-  #   name: Deploy GitHub Pages
-  #   needs: build
-  #   ...

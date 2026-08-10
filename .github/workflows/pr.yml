@@ -4,51 +4,43 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, closed]
+  issue_comment:
+    types: [created]
 
 jobs:
-  # ─── Checks (run on open/update) ───────────────────────────────────────────
+  # ─── Checks (open/update only) ──────────────────────────────────────────────
 
   lint-kotlin:
     name: Lint Kotlin
-    if: github.event.action != 'closed'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
-
-      # Placeholder: uncomment when ktlint is configured
       # - name: Run ktlint
       #   working-directory: android
       #   run: ./gradlew ktlintCheck
 
   lint-ts:
     name: Lint TypeScript
-    if: github.event.action != 'closed'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
-
-      # Placeholder: uncomment when ESLint is fully configured
       # - name: Install dependencies
       #   working-directory: frontend
       #   run: yarn install --frozen-lockfile
@@ -58,19 +50,87 @@ jobs:
 
   build-apk:
     name: Build APK (verification)
-    if: github.event.action != 'closed'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+      # - name: Build debug APK
+      #   working-directory: android
+      #   run: ./gradlew :app:assembleDebug
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+  build-bundle:
+    name: Build JS Bundle (verification)
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+      # - name: Install dependencies
+      #   working-directory: frontend
+      #   run: yarn install --frozen-lockfile
+      # - name: Build bundle
+      #   working-directory: frontend
+      #   run: yarn bundle
+
+  # ─── RC build (triggered by /rc comment, maintainer only) ───────────────────
+
+  rc-build:
+    name: Build RC APK
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/rc' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Get PR branch
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('ref', pr.data.head.sha);
+            core.setOutput('branch', pr.data.head.ref);
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.ref }}
+
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
@@ -80,38 +140,72 @@ jobs:
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
+      - name: Read versions
+        id: versions
+        run: |
+          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "0.0.0")
+          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "0.0.0")
+          echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
+          echo "rn=$RN_VER" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp RC suffix on versionName
+        run: |
+          PR_NUM="${{ github.event.issue.number }}"
+          SHA="${{ steps.pr.outputs.ref }}"
+          SHORT_SHA="${SHA:0:7}"
+          sed -i "s/versionName = \".*\"/versionName = \"${{ steps.versions.outputs.kotlin }}-rc.pr${PR_NUM}.${SHORT_SHA}\"/" \
+            android/app/build.gradle.kts
+
       # Placeholder: uncomment when build is stable in CI
+      # - name: Install JS dependencies
+      #   working-directory: frontend
+      #   run: yarn install --frozen-lockfile
+      #
+      # - name: Build JS bundle
+      #   working-directory: frontend
+      #   run: yarn react-native bundle --platform android --dev false \
+      #     --entry-file index.tsx \
+      #     --bundle-output ../android/app/src/main/assets/index.android.bundle
+      #
       # - name: Build debug APK
       #   working-directory: android
       #   run: ./gradlew :app:assembleDebug
 
-  build-bundle:
-    name: Build JS Bundle (verification)
-    if: github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - name: Upload RC APK
+        id: upload
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '22'
-          cache: 'yarn'
-          cache-dependency-path: frontend/yarn.lock
+          name: rc-pr${{ github.event.issue.number }}-${{ steps.pr.outputs.ref }}
+          # path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/local.properties  # placeholder — troca pelo APK quando o build estiver ativo
+          retention-days: 7
 
-      # Placeholder: uncomment when bundle build is stable in CI
-      # - name: Install dependencies
-      #   working-directory: frontend
-      #   run: yarn install --frozen-lockfile
-      # - name: Build bundle
-      #   working-directory: frontend
-      #   run: yarn bundle
+      - name: Comment on PR with artifact link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const kotlinVer = '${{ steps.versions.outputs.kotlin }}';
+            const rnVer = '${{ steps.versions.outputs.rn }}';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### RC Build gerado ✅\n\n` +
+                    `| | Versão |\n|---|---|\n` +
+                    `| Kotlin | \`${kotlinVer}-rc\` |\n` +
+                    `| RN | \`${rnVer}\` |\n\n` +
+                    `Artefato disponível por 7 dias: [Ver no Actions](${runUrl})`
+            });
 
-  # ─── Changelog on merge ─────────────────────────────────────────────────────
+  # ─── Changelog on merge ──────────────────────────────────────────────────────
 
   update-changelog:
     name: Update CHANGELOG on merge
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -119,7 +213,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use a PAT so the commit triggers main.yml (GITHUB_TOKEN commits don't)
           token: ${{ secrets.CHANGELOG_TOKEN }}
 
       - name: Extract changelog draft from PR body
@@ -127,55 +220,65 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          # Extract text after "## Changelog" section header until next "## " or end
-          DRAFT=$(echo "$PR_BODY" | awk '/^## Changelog/{found=1; next} found && /^## /{exit} found && /^<!--/{exit} found{print}' | sed '/^[[:space:]]*$/d')
+          # Extract lines after "## Changelog" until next "## " section
+          DRAFT=$(printf '%s' "$PR_BODY" \
+            | awk '/^## Changelog/{found=1; next} found && /^## /{exit} found && /^<!--/{exit} found && /^[[:space:]]*$/{next} found{print}')
+
           if [ -z "$DRAFT" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No changelog content found in PR body — skipping"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            {
-              echo "draft<<HEREDOC"
-              echo "$DRAFT"
-              echo "HEREDOC"
-            } >> "$GITHUB_OUTPUT"
+            echo "PR body has no changelog content — skipping"
+            exit 0
           fi
 
-      - name: Translate and format via Gemini
+          # Check if [Unreleased] already has content in CHANGELOG.md
+          UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
+            | grep -v '^[[:space:]]*$' | grep -v '^<!--' | grep -v '^-->' | head -1)
+
+          if [ -n "$UNRELEASED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "CHANGELOG already has unreleased content — skipping to avoid duplication"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "draft<<HEREDOC"
+            echo "$DRAFT"
+            echo "HEREDOC"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Format and translate via Gemini
         id: gemini
         if: steps.draft.outputs.skip == 'false'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           CHANGELOG_DRAFT: ${{ steps.draft.outputs.draft }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           PROMPT=$(cat <<'PROMPT_EOF'
 You are a technical changelog editor for a Kotlin + React Native Android app called "My Manga Reader".
-Your task: take a raw changelog draft (written in any language) and return a formatted entry in EXACTLY this structure — no extra text, no markdown fences, no explanation:
+Take the raw changelog draft below and return ONLY a formatted entry in this exact structure — no extra text, no markdown fences, no explanation:
 
 [pt-BR]
-- bullet one in Brazilian Portuguese
-- bullet two
+- bullet in Brazilian Portuguese
 
 [en]
-- bullet one in English
-- bullet two
+- bullet in English
 
 Rules:
-- Translate everything to both pt-BR and en
-- Keep bullets concise and user-facing (what changed, not how)
-- Remove duplicates and merge similar items
-- Start each bullet with a verb in the past tense (pt-BR: "Adicionado", "Corrigido"; en: "Added", "Fixed")
-- Do NOT add section headers like "### Added" — only the [pt-BR] and [en] blocks
-- Maximum 8 bullets per language
+- Translate to both pt-BR and en
+- User-facing language: what changed, not how
+- Past tense verbs (pt-BR: "Adicionado", "Corrigido", "Melhorado"; en: "Added", "Fixed", "Improved")
+- No section headers like "### Added" — only the [pt-BR] and [en] blocks
+- Max 8 bullets per language
+- If input is already in both languages, keep and improve them
 PROMPT_EOF
 )
           FULL_PROMPT="${PROMPT}
 
-PR title: ${PR_TITLE}
+PR: ${PR_TITLE}
 
-Changelog draft:
+Draft:
 ${CHANGELOG_DRAFT}"
 
           RESPONSE=$(curl -s \
@@ -186,8 +289,8 @@ ${CHANGELOG_DRAFT}"
           FORMATTED=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
 
           if [ -z "$FORMATTED" ]; then
-            echo "Gemini returned empty response — falling back to raw draft"
-            FORMATTED="${CHANGELOG_DRAFT}"
+            echo "Gemini returned empty — using raw draft as fallback"
+            FORMATTED="$CHANGELOG_DRAFT"
           fi
 
           {
@@ -196,57 +299,50 @@ ${CHANGELOG_DRAFT}"
             echo "HEREDOC"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Insert entry into CHANGELOG.md
+      - name: Insert into CHANGELOG.md
         if: steps.draft.outputs.skip == 'false'
         env:
           ENTRY: ${{ steps.gemini.outputs.entry }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          DATE=$(date -u '+%Y-%m-%d')
-          HEADER="## [Unreleased] — PR #${PR_NUMBER}: ${PR_TITLE} (${DATE})"
-
-          BLOCK="${HEADER}
-
-${ENTRY}
-"
-          # Insert after the first [Unreleased] comment block or after the header
           python3 - <<'PYEOF'
-import os, sys
+import os, sys, re
 
-block = os.environ['BLOCK']
+entry    = os.environ['ENTRY']
+pr_num   = os.environ['PR_NUMBER']
+pr_title = os.environ['PR_TITLE']
+
 with open('CHANGELOG.md', 'r') as f:
     content = f.read()
 
-# Insert after the "## [Unreleased]" section (after the comment block)
-marker = '## [Unreleased]'
-idx = content.find(marker)
-if idx == -1:
-    print("ERROR: [Unreleased] marker not found in CHANGELOG.md", file=sys.stderr)
+# Find the [Unreleased] section and insert after its closing comment (if any)
+unreleased_match = re.search(r'## \[Unreleased\]', content)
+if not unreleased_match:
+    print("ERROR: [Unreleased] marker not found", file=sys.stderr)
     sys.exit(1)
 
-# Find end of the [Unreleased] block (the closing --> of the comment, or next ##)
-after_marker = content[idx:]
-# Look for the first blank line after the comment block ends
-comment_end = after_marker.find('-->')
-if comment_end != -1:
-    insert_at = idx + comment_end + 3
-    # Skip trailing newline
-    while insert_at < len(content) and content[insert_at] == '\n':
-        insert_at += 1
-else:
-    # No comment block — insert right after the [Unreleased] line
-    end_of_line = content.find('\n', idx)
-    insert_at = end_of_line + 1
+insert_at = unreleased_match.end()
 
-new_content = content[:insert_at] + '\n' + block + '\n' + content[insert_at:]
+# Skip past any HTML comment block
+comment_match = re.search(r'-->', content[insert_at:])
+if comment_match:
+    insert_at += comment_match.end()
+
+# Skip trailing whitespace/newlines after the marker
+while insert_at < len(content) and content[insert_at] in ('\n', '\r', ' '):
+    insert_at += 1
+
+block = f"\n{entry}\n"
+new_content = content[:insert_at] + block + content[insert_at:]
+
 with open('CHANGELOG.md', 'w') as f:
     f.write(new_content)
 
-print(f"Inserted changelog entry at position {insert_at}")
+print(f"Inserted changelog entry for PR #{pr_num}")
 PYEOF
 
-      - name: Commit changelog update
+      - name: Commit changelog
         if: steps.draft.outputs.skip == 'false'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -255,5 +351,6 @@ PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
-          git diff --cached --quiet || git commit -m "docs: atualiza changelog via PR #${PR_NUMBER} — ${PR_TITLE}"
+          git diff --cached --quiet && exit 0
+          git commit -m "docs: atualiza changelog via PR #${PR_NUMBER} — ${PR_TITLE}"
           git push origin main

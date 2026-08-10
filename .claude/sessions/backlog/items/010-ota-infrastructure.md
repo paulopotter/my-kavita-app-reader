@@ -11,7 +11,10 @@ Core differentiator — lets UI ship without APK reinstall.
 - Kotlin (`app/`): `OtaManager` — checks `latest.json`, downloads bundle, manages
   current + previous bundle on disk, marks bundle stable after N crash-free opens,
   reverts to previous bundle if crash detected before stability mark
-- `latest.json` schema: `{ bundleVersion, minApkVersion, url }`
+- `latest.json` schema: `{ bundleVersion, url, minAppVersion, minKotlinVersion }`
+  - `minAppVersion`: datetime tag mínima do app (ex: `2026.08.10.1415`)
+  - `minKotlinVersion`: semver mínima do Kotlin (ex: `0.1.0`)
+  - ambos devem ser satisfeitos para aplicar o bundle OTA
 - URL precedence: GitHub Releases default → `.env` override at build time
 - No runtime URL override
 - CI/CD: `release.yml` already has the placeholder — activate it here

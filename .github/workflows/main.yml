@@ -18,46 +18,260 @@ jobs:
   #       working-directory: frontend
   #       run: yarn install --frozen-lockfile && yarn test
 
+  check-unreleased:
+    name: Check for unreleased changelog content
+    runs-on: ubuntu-latest
+    outputs:
+      has_content: ${{ steps.check.outputs.has_content }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check [Unreleased] section
+        id: check
+        run: |
+          # Extract content inside [Unreleased] section (excluding HTML comments)
+          CONTENT=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
+            | grep -v '^[[:space:]]*$' \
+            | grep -v '^<!--' \
+            | grep -v '^-->' \
+            | head -1)
+
+          if [ -n "$CONTENT" ]; then
+            echo "has_content=true" >> "$GITHUB_OUTPUT"
+            echo "Unreleased content found — will trigger tag"
+          else
+            echo "has_content=false" >> "$GITHUB_OUTPUT"
+            echo "No unreleased content — skipping tag"
+          fi
+
   tag:
     name: Generate Tag
+    needs: check-unreleased
+    if: needs.check-unreleased.outputs.has_content == 'true'
     runs-on: ubuntu-latest
-    # needs: [test]  # uncomment when test job is active
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.CHANGELOG_TOKEN }}
 
-      - name: Read component versions
-        id: versions
+      - name: Compute next semver versions
+        id: semver
         run: |
-          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "")
-          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "")
-          echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
-          echo "rn=$RN_VER" >> "$GITHUB_OUTPUT"
+          # Find last tag to get commit range
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            COMMIT_RANGE="HEAD"
+          else
+            COMMIT_RANGE="${LAST_TAG}..HEAD"
+          fi
+
+          # Current versions
+          KOTLIN_CURRENT=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "0.1.0")
+          RN_CURRENT=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "0.1.0")
+
+          # Detect changes by path and commit type
+          KOTLIN_BUMP="none"
+          RN_BUMP="none"
+
+          while IFS= read -r line; do
+            TYPE=$(echo "$line" | grep -oP '^[a-z]+(?=[(:!])')
+            FILES=$(echo "$line" | grep -oP '(?<=\|\|).*' | tr ',' '\n')
+
+            TOUCHES_ANDROID=false
+            TOUCHES_FRONTEND=false
+
+            while IFS= read -r f; do
+              [[ "$f" == android/* ]] && TOUCHES_ANDROID=true
+              [[ "$f" == frontend/* ]] && TOUCHES_FRONTEND=true
+            done <<< "$FILES"
+
+            # Determine bump level per component
+            bump_level() {
+              local current="$1"
+              local type="$2"
+              local is_breaking="$3"
+              if [ "$is_breaking" = "true" ] || echo "$type" | grep -q '!'; then
+                echo "major"
+              elif [ "$type" = "feat" ]; then
+                echo "minor"
+              elif [ "$type" = "fix" ] || [ "$type" = "perf" ]; then
+                echo "patch"
+              else
+                echo "none"
+              fi
+            }
+
+            IS_BREAKING=$(echo "$line" | grep -q 'BREAKING CHANGE' && echo true || echo false)
+
+            if $TOUCHES_ANDROID; then
+              LEVEL=$(bump_level "$KOTLIN_CURRENT" "$TYPE" "$IS_BREAKING")
+              # Keep highest bump seen
+              if [ "$LEVEL" = "major" ] || [ "$KOTLIN_BUMP" = "none" -a "$LEVEL" != "none" ] || [ "$KOTLIN_BUMP" = "patch" -a "$LEVEL" = "minor" ]; then
+                KOTLIN_BUMP="$LEVEL"
+              fi
+            fi
+
+            if $TOUCHES_FRONTEND; then
+              LEVEL=$(bump_level "$RN_CURRENT" "$TYPE" "$IS_BREAKING")
+              if [ "$LEVEL" = "major" ] || [ "$RN_BUMP" = "none" -a "$LEVEL" != "none" ] || [ "$RN_BUMP" = "patch" -a "$LEVEL" = "minor" ]; then
+                RN_BUMP="$LEVEL"
+              fi
+            fi
+          done < <(git log "$COMMIT_RANGE" --format="%s||%H" 2>/dev/null | while read -r msg_hash; do
+            MSG=$(echo "$msg_hash" | grep -oP '^.*(?=\|\|)')
+            HASH=$(echo "$msg_hash" | grep -oP '(?<=\|\|).*')
+            FILES=$(git diff-tree --no-commit-id -r --name-only "$HASH" 2>/dev/null | tr '\n' ',')
+            echo "${MSG}||${FILES}"
+          done)
+
+          # Apply bump to semver
+          apply_bump() {
+            local version="$1"
+            local bump="$2"
+            local major minor patch
+            IFS='.' read -r major minor patch <<< "$version"
+            case "$bump" in
+              major) echo "$((major + 1)).0.0" ;;
+              minor) echo "${major}.$((minor + 1)).0" ;;
+              patch) echo "${major}.${minor}.$((patch + 1))" ;;
+              *)     echo "$version" ;;
+            esac
+          }
+
+          KOTLIN_NEXT=$(apply_bump "$KOTLIN_CURRENT" "$KOTLIN_BUMP")
+          RN_NEXT=$(apply_bump "$RN_CURRENT" "$RN_BUMP")
+
+          echo "kotlin_current=$KOTLIN_CURRENT" >> "$GITHUB_OUTPUT"
+          echo "kotlin_next=$KOTLIN_NEXT"       >> "$GITHUB_OUTPUT"
+          echo "kotlin_bump=$KOTLIN_BUMP"        >> "$GITHUB_OUTPUT"
+          echo "rn_current=$RN_CURRENT"          >> "$GITHUB_OUTPUT"
+          echo "rn_next=$RN_NEXT"                >> "$GITHUB_OUTPUT"
+          echo "rn_bump=$RN_BUMP"                >> "$GITHUB_OUTPUT"
+
+      - name: Update version files
+        id: update_versions
+        run: |
+          KOTLIN_NEXT="${{ steps.semver.outputs.kotlin_next }}"
+          RN_NEXT="${{ steps.semver.outputs.rn_next }}"
+
+          # Update versionName in build.gradle.kts
+          sed -i "s/versionName = \".*\"/versionName = \"${KOTLIN_NEXT}\"/" android/app/build.gradle.kts
+
+          # Update version in package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('frontend/package.json', 'utf8'));
+            pkg.version = '${RN_NEXT}';
+            fs.writeFileSync('frontend/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          echo "done=true" >> "$GITHUB_OUTPUT"
 
       - name: Generate datetime tag
         id: datetag
         run: |
-          BASE=$(date -u '+%Y.%m.%d')
-          # Find next available sequence for today (avoids collisions on same-day releases)
-          N=1
-          while git rev-parse "${BASE}.${N}" >/dev/null 2>&1; do
-            N=$((N + 1))
-          done
-          echo "tag=${BASE}.${N}" >> "$GITHUB_OUTPUT"
+          BASE=$(date -u '+%Y.%m.%d.%H%M')
+          echo "tag=$BASE" >> "$GITHUB_OUTPUT"
 
-      - name: Create tag
+      - name: Update CHANGELOG — move Unreleased to versioned entry
+        id: changelog
+        env:
+          TAG: ${{ steps.datetag.outputs.tag }}
+          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
+          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
         run: |
-          TAG="${{ steps.datetag.outputs.tag }}"
-          KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
-          RN_VER="${{ steps.versions.outputs.rn }}"
+          python3 - <<'PYEOF'
+import os, re
+
+tag         = os.environ['TAG']
+kotlin_next = os.environ['KOTLIN_NEXT']
+rn_next     = os.environ['RN_NEXT']
+
+with open('CHANGELOG.md', 'r') as f:
+    content = f.read()
+
+# Extract the unreleased block content (between [Unreleased] and next ## [)
+unreleased_pattern = re.compile(
+    r'(## \[Unreleased\])(.*?)((?=## \[)|$)',
+    re.DOTALL
+)
+match = unreleased_pattern.search(content)
+if not match:
+    print("ERROR: [Unreleased] not found")
+    raise SystemExit(1)
+
+unreleased_body = match.group(2)
+
+from datetime import date
+today = date.today().isoformat()
+
+versioned_header = f"## [{tag}] — {today}\n\n> Kotlin `{kotlin_next}` | RN `{rn_next}`\n"
+versioned_entry  = f"{versioned_header}{unreleased_body.lstrip()}"
+
+# Replace the [Unreleased] block with empty [Unreleased] + new versioned entry
+empty_unreleased = "## [Unreleased]\n\n"
+new_content = unreleased_pattern.sub(
+    empty_unreleased + versioned_entry,
+    content,
+    count=1
+)
+
+with open('CHANGELOG.md', 'w') as f:
+    f.write(new_content)
+
+print(f"Moved [Unreleased] content to [{tag}]")
+PYEOF
+
+      - name: Copy changelog + version info to docs
+        env:
+          TAG: ${{ steps.datetag.outputs.tag }}
+          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
+          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
+        run: |
+          mkdir -p docs/external
+
+          # Copy full changelog
+          cp CHANGELOG.md docs/external/CHANGELOG.md
+
+          # Write current-version.md
+          cat > docs/external/current-version.md <<EOF
+          # Versão atual / Current version
+
+          | | Versão / Version |
+          |---|---|
+          | App | \`$TAG\` |
+          | Kotlin | \`$KOTLIN_NEXT\` |
+          | RN | \`$RN_NEXT\` |
+
+          _Atualizado em / Updated at: $(date -u '+%Y-%m-%d %H:%M UTC')_
+          EOF
+
+      - name: Commit version bumps + changelog + docs
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add \
+            android/app/build.gradle.kts \
+            frontend/package.json \
+            CHANGELOG.md \
+            docs/external/CHANGELOG.md \
+            docs/external/current-version.md
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: bump versões e fecha changelog para ${{ steps.datetag.outputs.tag }}"
+          git push origin main
+
+      - name: Create annotated tag
+        run: |
+          TAG="${{ steps.datetag.outputs.tag }}"
+          KOTLIN_NEXT="${{ steps.semver.outputs.kotlin_next }}"
+          RN_NEXT="${{ steps.semver.outputs.rn_next }}"
           git tag \
             -a "$TAG" \
             -m "release: $TAG" \
-            -m "kotlin: $KOTLIN_VER" \
-            -m "rn: $RN_VER"
+            -m "kotlin: $KOTLIN_NEXT" \
+            -m "rn: $RN_NEXT"
           git push origin "$TAG"
