@@ -22,19 +22,34 @@ NO_CHANGES_EN="No changes in this version"
 
 call_gemini() {
   local prompt="$1"
-  local response text
-  response=$(curl -s \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
-    -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg text "$prompt" '{contents:[{parts:[{text:$text}]}]}')")
-  echo "--- Gemini raw response (first 300 chars) ---" >&2
-  echo "$response" | head -c 300 >&2
-  echo "" >&2
-  text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
-  echo "--- Gemini extracted text (first 200 chars) ---" >&2
-  echo "$text" | head -c 200 >&2
-  echo "" >&2
-  echo "$text"
+  local response text attempt
+  local models=("gemini-2.0-flash-lite" "gemini-2.0-flash" "gemini-1.5-flash")
+  for attempt in 1 2 3; do
+    for model in "${models[@]}"; do
+      echo "Attempt $attempt with model $model..." >&2
+      response=$(curl -s \
+        "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}" \
+        -H 'Content-Type: application/json' \
+        -d "$(jq -n --arg text "$prompt" '{contents:[{parts:[{text:$text}]}]}')")
+      echo "--- Gemini raw response (first 300 chars) ---" >&2
+      echo "$response" | head -c 300 >&2
+      echo "" >&2
+      # Se for 429, tenta o próximo modelo
+      if echo "$response" | grep -q '"code": 429'; then
+        echo "Rate limited on $model, trying next..." >&2
+        sleep 5
+        continue
+      fi
+      text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
+      if [ -n "$text" ]; then
+        echo "$text"
+        return 0
+      fi
+    done
+    echo "All models exhausted on attempt $attempt, waiting 15s..." >&2
+    sleep 15
+  done
+  echo "" # fallback vazio
 }
 
 # Ensures each non-empty line starts with "- " exactly once
