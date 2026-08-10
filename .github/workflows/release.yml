@@ -46,20 +46,31 @@ jobs:
           echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
           echo "rn=$RN_VER"        >> "$GITHUB_OUTPUT"
 
-      # Placeholder: uncomment when build is stable in CI
-      # - name: Install JS dependencies
-      #   working-directory: frontend
-      #   run: yarn install --frozen-lockfile
-      #
-      # - name: Build JS bundle
-      #   working-directory: frontend
-      #   run: yarn react-native bundle --platform android --dev false \
-      #     --entry-file index.tsx \
-      #     --bundle-output ../android/app/src/main/assets/index.android.bundle
-      #
-      # - name: Build release APK
-      #   working-directory: android
-      #   run: ./gradlew :app:assembleRelease
+      - name: Install JS dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Build JS bundle
+        working-directory: frontend
+        run: |
+          mkdir -p ../android/app/src/main/assets
+          yarn react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.tsx \
+            --bundle-output ../android/app/src/main/assets/index.android.bundle
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug
+        # Note: assembleDebug produces an installable APK signed with the debug key.
+        # Switch to assembleRelease + signing config when a keystore is set up.
+
+      - name: Rename APK with version
+        run: |
+          TAG="${{ github.ref_name }}"
+          mv android/app/build/outputs/apk/debug/app-debug.apk \
+             "my-manga-reader-${TAG}.apk"
 
       # Placeholder: uncomment when OTA (backlog 010) is implemented
       # - name: Write latest.json
@@ -80,7 +91,7 @@ jobs:
         id: changelog
         run: |
           TAG="${{ github.ref_name }}"
-          NOTES=$(awk "/^## \[$TAG\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
           KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
           RN_VER="${{ steps.versions.outputs.rn }}"
           {
@@ -96,8 +107,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body: ${{ steps.changelog.outputs.notes }}
-          # Placeholder: add files when artifacts exist
-          # files: |
-          #   android/app/build/outputs/apk/release/app-release.apk
-          #   frontend/dist/bundle.js
-          #   latest.json
+          files: |
+            my-manga-reader-${{ github.ref_name }}.apk
