@@ -59,4 +59,14 @@ Templates: `.claude/templates/`
 
 ---
 
-**Last Updated**: 2026-08-08
+## Release cycle
+
+See `.claude/docs/release-cycle.md` for:
+- How to write `[Unreleased]` bullets
+- Versioning rules (app tag, Kotlin semver, RN semver)
+- How to trigger an RC build via PR comment
+- Which secrets are required
+
+---
+
+**Last Updated**: 2026-08-10
