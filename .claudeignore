@@ -18,6 +18,7 @@ CHANGELOG.en.md
 
 # External docs (public-facing, not AI context)
 docs/external/
+docs/external/**
 
 # Build artifacts
 android/app/build/

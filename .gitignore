@@ -54,6 +54,9 @@ Icon?
 *.swp
 *.swo
 
+# Claude Code local overrides (machine-specific)
+.claude/settings.local.json
+
 # Misc
 *.log
 *.tmp

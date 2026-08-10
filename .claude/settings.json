@@ -1,0 +1,5 @@
+{
+  "env": {
+    "OTEL_RESOURCE_ATTRIBUTES": "service.name=claude-code,workspace.name=my-kavita-app-reader"
+  }
+}
