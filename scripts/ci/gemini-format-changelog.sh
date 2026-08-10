@@ -124,8 +124,8 @@ call_groq() {
       messages: [{role: "user", content: $text}],
       temperature: 0.3
     }')")
-  echo "Groq response (first 200 chars): $(echo "$response" | head -c 200)" >&2
   text=$(echo "$response" | jq -r '.choices[0].message.content // empty')
+  echo "Groq extracted text (first 500 chars): $(echo "$text" | head -c 500)" >&2
   if [ -n "$text" ]; then echo "$text"; return 0; fi
   return 1
 }
@@ -187,11 +187,21 @@ fi
 
 # ── Split output or use fallback ───────────────────────────────────────────────
 
-if [ -n "$AI_OUTPUT" ] && echo "$AI_OUTPUT" | grep -q '^---SPLIT---$'; then
-  USER_ENTRY=$(echo "$AI_OUTPUT" | awk '/^---SPLIT---$/{exit} {print}' | sed '/^[[:space:]]*$/d;1{/^[[:space:]]*$/d}')
-  TAG_ENTRY=$(echo "$AI_OUTPUT"  | awk 'found{print} /^---SPLIT---$/{found=1}' | sed '/^[[:space:]]*$/d;1{/^[[:space:]]*$/d}')
+echo "=== Full AI output ===" >&2
+echo "$AI_OUTPUT" >&2
+echo "=== End AI output ===" >&2
+
+# Normalize: strip markdown code fences the AI may have added, trim whitespace around delimiter
+AI_OUTPUT_CLEAN=$(echo "$AI_OUTPUT" \
+  | sed 's/^```[a-z]*$//' \
+  | sed 's/^```$//' \
+  | sed 's/^[[:space:]]*---SPLIT---[[:space:]]*$/---SPLIT---/')
+
+if [ -n "$AI_OUTPUT_CLEAN" ] && echo "$AI_OUTPUT_CLEAN" | grep -q '^---SPLIT---$'; then
+  USER_ENTRY=$(echo "$AI_OUTPUT_CLEAN" | awk '/^---SPLIT---$/{exit} {print}' | sed '/^[[:space:]]*$/{ /./!d }')
+  TAG_ENTRY=$(echo "$AI_OUTPUT_CLEAN"  | awk 'found{print} /^---SPLIT---$/{found=1}' | sed '/^[[:space:]]*$/{ /./!d }')
 else
-  echo "WARNING: No AI output or delimiter missing — using fallback" >&2
+  echo "WARNING: No AI output or ---SPLIT--- delimiter missing — using fallback" >&2
   ANDROID_BULLETS_PT=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_PT")
   ANDROID_BULLETS_EN=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_EN")
   FRONTEND_BULLETS_PT=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_PT")
