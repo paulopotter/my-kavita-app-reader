@@ -93,14 +93,9 @@ jobs:
           TAG="${{ github.ref_name }}"
           # Header format: ## [[TAG](url)] - date  OR  ## [TAG] - date
           NOTES=$(awk "/^## \[?\[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
-          RN_VER="${{ steps.versions.outputs.rn }}"
           {
             echo "notes<<EOF"
             echo "$NOTES"
-            echo ""
-            echo "---"
-            echo "**Kotlin:** \`$KOTLIN_VER\` | **RN:** \`$RN_VER\`"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
