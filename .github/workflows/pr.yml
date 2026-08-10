@@ -3,10 +3,14 @@ name: PR Checks
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, closed]
 
 jobs:
+  # ─── Checks (run on open/update) ───────────────────────────────────────────
+
   lint-kotlin:
     name: Lint Kotlin
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,13 +29,14 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
 
-      # Placeholder: uncomment when android/app/build.gradle.kts exists
+      # Placeholder: uncomment when ktlint is configured
       # - name: Run ktlint
       #   working-directory: android
       #   run: ./gradlew ktlintCheck
 
   lint-ts:
     name: Lint TypeScript
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,60 +48,17 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
 
-      # Placeholder: uncomment when frontend/package.json exists
+      # Placeholder: uncomment when ESLint is fully configured
       # - name: Install dependencies
       #   working-directory: frontend
       #   run: yarn install --frozen-lockfile
-      #
       # - name: Run ESLint
       #   working-directory: frontend
       #   run: yarn lint
 
-  # Placeholder: uncomment when Kotlin unit tests exist
-  # test-kotlin:
-  #   name: Unit Tests (Kotlin)
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-java@v4
-  #       with:
-  #         java-version: '17'
-  #         distribution: 'temurin'
-  #     - working-directory: android
-  #       run: ./gradlew test
-
-  # Placeholder: uncomment when JS tests exist
-  # test-js:
-  #   name: Unit Tests (JS)
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #         cache: 'yarn'
-  #         cache-dependency-path: frontend/yarn.lock
-  #     - working-directory: frontend
-  #       run: yarn install --frozen-lockfile
-  #     - working-directory: frontend
-  #       run: yarn test
-
-  # Placeholder: uncomment when bridge contract tests exist
-  # test-bridge:
-  #   name: Bridge Contract Tests
-  #   runs-on: ubuntu-latest
-  #   ...
-
-  # Placeholder: uncomment when Room + JS DB exist
-  # check-migrations:
-  #   name: Room/JS Migration Parity
-  #   runs-on: ubuntu-latest
-  #   # Every Room migration affecting JS-referenced columns must have
-  #   # a corresponding JS migration. This step blocks if parity is broken.
-  #   ...
-
   build-apk:
     name: Build APK (verification)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -116,16 +78,16 @@ jobs:
           key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
 
       - name: Write local.properties
-        run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
-      # Placeholder: uncomment when android/app/build.gradle.kts exists
+      # Placeholder: uncomment when build is stable in CI
       # - name: Build debug APK
       #   working-directory: android
       #   run: ./gradlew :app:assembleDebug
 
   build-bundle:
     name: Build JS Bundle (verification)
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -137,11 +99,161 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
 
-      # Placeholder: uncomment when frontend/package.json exists
+      # Placeholder: uncomment when bundle build is stable in CI
       # - name: Install dependencies
       #   working-directory: frontend
       #   run: yarn install --frozen-lockfile
-      #
       # - name: Build bundle
       #   working-directory: frontend
       #   run: yarn bundle
+
+  # ─── Changelog on merge ─────────────────────────────────────────────────────
+
+  update-changelog:
+    name: Update CHANGELOG on merge
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use a PAT so the commit triggers main.yml (GITHUB_TOKEN commits don't)
+          token: ${{ secrets.CHANGELOG_TOKEN }}
+
+      - name: Extract changelog draft from PR body
+        id: draft
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Extract text after "## Changelog" section header until next "## " or end
+          DRAFT=$(echo "$PR_BODY" | awk '/^## Changelog/{found=1; next} found && /^## /{exit} found && /^<!--/{exit} found{print}' | sed '/^[[:space:]]*$/d')
+          if [ -z "$DRAFT" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No changelog content found in PR body — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "draft<<HEREDOC"
+              echo "$DRAFT"
+              echo "HEREDOC"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Translate and format via Gemini
+        id: gemini
+        if: steps.draft.outputs.skip == 'false'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CHANGELOG_DRAFT: ${{ steps.draft.outputs.draft }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          PROMPT=$(cat <<'PROMPT_EOF'
+You are a technical changelog editor for a Kotlin + React Native Android app called "My Manga Reader".
+Your task: take a raw changelog draft (written in any language) and return a formatted entry in EXACTLY this structure — no extra text, no markdown fences, no explanation:
+
+[pt-BR]
+- bullet one in Brazilian Portuguese
+- bullet two
+
+[en]
+- bullet one in English
+- bullet two
+
+Rules:
+- Translate everything to both pt-BR and en
+- Keep bullets concise and user-facing (what changed, not how)
+- Remove duplicates and merge similar items
+- Start each bullet with a verb in the past tense (pt-BR: "Adicionado", "Corrigido"; en: "Added", "Fixed")
+- Do NOT add section headers like "### Added" — only the [pt-BR] and [en] blocks
+- Maximum 8 bullets per language
+PROMPT_EOF
+)
+          FULL_PROMPT="${PROMPT}
+
+PR title: ${PR_TITLE}
+
+Changelog draft:
+${CHANGELOG_DRAFT}"
+
+          RESPONSE=$(curl -s \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg text "$FULL_PROMPT" '{contents:[{parts:[{text:$text}]}]}')")
+
+          FORMATTED=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+
+          if [ -z "$FORMATTED" ]; then
+            echo "Gemini returned empty response — falling back to raw draft"
+            FORMATTED="${CHANGELOG_DRAFT}"
+          fi
+
+          {
+            echo "entry<<HEREDOC"
+            echo "$FORMATTED"
+            echo "HEREDOC"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Insert entry into CHANGELOG.md
+        if: steps.draft.outputs.skip == 'false'
+        env:
+          ENTRY: ${{ steps.gemini.outputs.entry }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          DATE=$(date -u '+%Y-%m-%d')
+          HEADER="## [Unreleased] — PR #${PR_NUMBER}: ${PR_TITLE} (${DATE})"
+
+          BLOCK="${HEADER}
+
+${ENTRY}
+"
+          # Insert after the first [Unreleased] comment block or after the header
+          python3 - <<'PYEOF'
+import os, sys
+
+block = os.environ['BLOCK']
+with open('CHANGELOG.md', 'r') as f:
+    content = f.read()
+
+# Insert after the "## [Unreleased]" section (after the comment block)
+marker = '## [Unreleased]'
+idx = content.find(marker)
+if idx == -1:
+    print("ERROR: [Unreleased] marker not found in CHANGELOG.md", file=sys.stderr)
+    sys.exit(1)
+
+# Find end of the [Unreleased] block (the closing --> of the comment, or next ##)
+after_marker = content[idx:]
+# Look for the first blank line after the comment block ends
+comment_end = after_marker.find('-->')
+if comment_end != -1:
+    insert_at = idx + comment_end + 3
+    # Skip trailing newline
+    while insert_at < len(content) and content[insert_at] == '\n':
+        insert_at += 1
+else:
+    # No comment block — insert right after the [Unreleased] line
+    end_of_line = content.find('\n', idx)
+    insert_at = end_of_line + 1
+
+new_content = content[:insert_at] + '\n' + block + '\n' + content[insert_at:]
+with open('CHANGELOG.md', 'w') as f:
+    f.write(new_content)
+
+print(f"Inserted changelog entry at position {insert_at}")
+PYEOF
+
+      - name: Commit changelog update
+        if: steps.draft.outputs.skip == 'false'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "docs: atualiza changelog via PR #${PR_NUMBER} — ${PR_TITLE}"
+          git push origin main

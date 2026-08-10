@@ -3,8 +3,10 @@
 Todas as mudanças notáveis deste projeto serão documentadas aqui.
 All notable changes to this project will be documented here.
 
-O formato segue / The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-e este projeto adere ao / and this project adheres to [Semantic Versioning](https://semver.org/).
+O formato segue / The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+App releases use datetime versioning (`YYYY.MM.DD.N`).
+Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 

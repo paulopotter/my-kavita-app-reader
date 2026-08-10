@@ -29,31 +29,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read APK version
-        id: apk_version
+      - name: Read component versions
+        id: versions
         run: |
-          VERSION=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "")
-          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "")
+          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "")
+          echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
+          echo "rn=$RN_VER" >> "$GITHUB_OUTPUT"
 
-      - name: Skip if no version or already tagged
-        id: check
+      - name: Generate datetime tag
+        id: datetag
         run: |
-          VERSION="${{ steps.apk_version.outputs.value }}"
-          if [ -z "$VERSION" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "No versionName found — skipping tag"
-          elif git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Tag v$VERSION already exists — skipping"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+          BASE=$(date -u '+%Y.%m.%d')
+          # Find next available sequence for today (avoids collisions on same-day releases)
+          N=1
+          while git rev-parse "${BASE}.${N}" >/dev/null 2>&1; do
+            N=$((N + 1))
+          done
+          echo "tag=${BASE}.${N}" >> "$GITHUB_OUTPUT"
 
       - name: Create tag
-        if: steps.check.outputs.skip == 'false'
         run: |
-          VERSION="${{ steps.apk_version.outputs.value }}"
+          TAG="${{ steps.datetag.outputs.tag }}"
+          KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
+          RN_VER="${{ steps.versions.outputs.rn }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          git tag \
+            -a "$TAG" \
+            -m "release: $TAG" \
+            -m "kotlin: $KOTLIN_VER" \
+            -m "rn: $RN_VER"
+          git push origin "$TAG"

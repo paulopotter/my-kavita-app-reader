@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].*'
 
 jobs:
   build:
@@ -56,11 +56,10 @@ jobs:
       # - name: Write latest.json
       #   run: |
       #     TAG="${{ github.ref_name }}"
-      #     BUNDLE_VERSION=$(node -p "require('./frontend/package.json').bundleVersion")
+      #     RN_VER=$(node -p "require('./frontend/package.json').version")
       #     cat > latest.json <<EOF
       #     {
-      #       "bundleVersion": "$BUNDLE_VERSION",
-      #       "minApkVersion": "0.1.0",
+      #       "bundleVersion": "$RN_VER",
       #       "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/bundle.js"
       #     }
       #     EOF
@@ -69,13 +68,18 @@ jobs:
         id: changelog
         run: |
           TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          # Extract the block between this version header and the next
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          # Keep only the [pt-BR] block for the release body
-          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$NOTES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # Extract block between this tag's header and the next
+          NOTES=$(awk "/^## \[$TAG\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "n/a")
+          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "n/a")
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo ""
+            echo "---"
+            echo "**Kotlin:** $KOTLIN_VER | **RN:** $RN_VER"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -91,18 +95,4 @@ jobs:
   # deploy-pages:
   #   name: Deploy GitHub Pages
   #   needs: build
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     pages: write
-  #     id-token: write
-  #   environment:
-  #     name: github-pages
-  #     url: ${{ steps.deploy.outputs.page_url }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/configure-pages@v4
-  #     - uses: actions/upload-pages-artifact@v3
-  #       with:
-  #         path: site/
-  #     - id: deploy
-  #       uses: actions/deploy-pages@v4
+  #   ...

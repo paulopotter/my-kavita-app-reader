@@ -14,19 +14,21 @@
 ## Changelog
 
 <!--
-Add an entry below in both languages following the CHANGELOG.md format.
-Adicione uma entrada abaixo nas duas línguas seguindo o formato do CHANGELOG.md.
+Write bullet points describing what changed from the user's perspective.
+You can write in any language — the pipeline will translate to pt-BR and en automatically.
 
-[pt-BR]
-- Descrição da mudança
+Escreva bullets descrevendo o que mudou do ponto de vista do usuário.
+Pode escrever em qualquer idioma — a pipeline vai traduzir para pt-BR e en automaticamente.
 
-[en]
-- Change description
+Examples / Exemplos:
+- Added support for multiple Kavita servers
+- Fixed crash when server URL was empty
+- Adicionado suporte a múltiplos servidores Kavita
+- Corrigido crash quando a URL do servidor estava vazia
 -->
 
 ## Checklist
 
 - [ ] Tests added or updated / Testes adicionados ou atualizados
-- [ ] CHANGELOG.md updated / CHANGELOG.md atualizado
 - [ ] No personal data in code / Sem dados pessoais no código
 - [ ] CLA signed (external contributors) / CLA assinado (contribuidores externos)
