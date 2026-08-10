@@ -16,6 +16,9 @@ CHANGELOG.en.md
 .claude/agents/
 .claude/templates/
 
+# External docs (public-facing, not AI context)
+docs/external/
+
 # Build artifacts
 android/app/build/
 frontend/dist/
