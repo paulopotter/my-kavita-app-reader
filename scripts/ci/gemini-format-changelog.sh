@@ -54,7 +54,7 @@ Produce a user-facing changelog entry in EXACTLY this markdown structure (no ext
 
 One or two sentence summary describing what changed, friendly and non-technical.
 
-### **Backend** -- \`${KOTLIN_NEXT}\`
+### **Backend** - \`${KOTLIN_NEXT}\`
 
 **[pt-BR]**
 - bullet em portugues brasileiro
@@ -62,7 +62,7 @@ One or two sentence summary describing what changed, friendly and non-technical.
 **[en]**
 - bullet in English
 
-### **Frontend** -- \`${RN_NEXT}\`
+### **Frontend** - \`${RN_NEXT}\`
 
 **[pt-BR]**
 - bullet em portugues brasileiro
@@ -98,7 +98,7 @@ if [ -z "$USER_ENTRY" ]; then
 
   USER_ENTRY="Melhorias internas nesta versao. / Internal improvements in this version.
 
-### **Backend** -- \`${KOTLIN_NEXT}\`
+### **Backend** - \`${KOTLIN_NEXT}\`
 
 **[pt-BR]**
 ${ANDROID_BULLETS_PT}
@@ -106,7 +106,7 @@ ${ANDROID_BULLETS_PT}
 **[en]**
 ${ANDROID_BULLETS_EN}
 
-### **Frontend** -- \`${RN_NEXT}\`
+### **Frontend** - \`${RN_NEXT}\`
 
 **[pt-BR]**
 ${FRONTEND_BULLETS_PT}
@@ -122,11 +122,11 @@ echo "$USER_ENTRY" > "$OUTPUT_USER"
 TAG_PROMPT="You are a technical changelog formatter.
 Produce a git tag annotation in EXACTLY this markdown structure (no extra text, no code fences):
 
-### Kotlin -- \`${KOTLIN_NEXT}\`
+### Kotlin - \`${KOTLIN_NEXT}\`
 
 - feat: bullet describing the change
 
-### React Native -- \`${RN_NEXT}\`
+### React Native - \`${RN_NEXT}\`
 
 - feat: bullet describing the change
 
@@ -148,11 +148,11 @@ TAG_ENTRY=$(call_gemini "$TAG_PROMPT")
 
 if [ -z "$TAG_ENTRY" ]; then
   echo "WARNING: Gemini returned empty for tag entry, using fallback" >&2
-  TAG_ENTRY="### Kotlin -- \`${KOTLIN_NEXT}\`
+  TAG_ENTRY="### Kotlin - \`${KOTLIN_NEXT}\`
 
 $(fmt_bullets "$ANDROID_DRAFT" "No changes")
 
-### React Native -- \`${RN_NEXT}\`
+### React Native - \`${RN_NEXT}\`
 
 $(fmt_bullets "$FRONTEND_DRAFT" "No changes")"
 fi
