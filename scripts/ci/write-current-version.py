@@ -19,8 +19,14 @@ content = f"""# Versão atual / Current version
 _Atualizado em / Updated at: {now}_
 """
 
+import json
+
 os.makedirs('docs/external', exist_ok=True)
+
 with open('docs/external/current-version.md', 'w') as f:
     f.write(content)
 
-print(f"Written current-version.md for {tag}")
+with open('docs/external/version.json', 'w') as f:
+    json.dump({"app": tag, "kotlin": kotlin_next, "rn": rn_next}, f)
+
+print(f"Written current-version.md and version.json for {tag}")

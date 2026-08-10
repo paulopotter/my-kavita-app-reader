@@ -141,7 +141,8 @@ jobs:
             frontend/package.json \
             CHANGELOG.md \
             docs/external/CHANGELOG.md \
-            docs/external/current-version.md
+            docs/external/current-version.md \
+            docs/external/version.json
           git diff --cached --quiet && exit 0
           git commit -m "chore: bump versoes e fecha changelog para ${{ steps.datetag.outputs.tag }}"
           git push origin main

@@ -1,6 +1,9 @@
 # My Manga Reader
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![App](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpaulopotter%2Fmy-kavita-app-reader%2Fmain%2Fdocs%2Fexternal%2Fversion.json&query=%24.app&label=App&color=blue)](https://github.com/paulopotter/my-kavita-app-reader/releases/latest)
+[![Kotlin](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpaulopotter%2Fmy-kavita-app-reader%2Fmain%2Fdocs%2Fexternal%2Fversion.json&query=%24.kotlin&label=Kotlin&color=7F52FF)](https://github.com/paulopotter/my-kavita-app-reader/releases/latest)
+[![React Native](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpaulopotter%2Fmy-kavita-app-reader%2Fmain%2Fdocs%2Fexternal%2Fversion.json&query=%24.rn&label=React%20Native&color=61DAFB)](https://github.com/paulopotter/my-kavita-app-reader/releases/latest)
 
 > 🇬🇧 [English version](README.en.md)
 
