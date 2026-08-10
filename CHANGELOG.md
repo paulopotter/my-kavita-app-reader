@@ -10,17 +10,39 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### **Backend**
+## [[2026.08.10.2028](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.2028)] - 2026-08-10
 
-- feat: add Android multi-module scaffold (app, core, tools, features) with Kotlin 2.0.21, Room and Hilt
-- feat: add Room v1 database with server config, auth and UI preferences entities
-- feat: add active URL selector with parallel candidate probing and 15-min cache
-- feat: add ConfigRepository bridge and DbValidatorModule as Native Modules
-- feat: add Kavita authentication via apiKey with JWT storage
-- feat: add CI/CD pipeline with datetime tag, per-component semver bump and APK publish on GitHub Releases
+Agora você pode desfrutar de melhorias no aplicativo My Manga Reader. / You can now enjoy improvements in the My Manga Reader app.
 
-### **Frontend**
+### **Backend** - `0.1.0`
 
-- feat: add React Native 0.75.4 project with TypeScript, ESLint and Metro
-- feat: add ConfigScreen with three sections: Kavita Servers, Authentication and Preferences
-- feat: add TypeScript bridges (config.ts, db-validator.ts) for native backend communication
+**[pt-BR]**
+- Suas configurações são salvas mesmo ao fechar o app
+- O aplicativo pode selecionar automaticamente o melhor endereço para o seu servidor
+- Agora você pode fazer login na sua biblioteca Kavita
+- O aplicativo armazena suas preferências de UI de forma segura
+- O aplicativo valida as configurações do servidor antes de conectá-lo
+
+**[en]**
+- Your settings are saved even when you close the app
+- The app can automatically find the best address for your server
+- You can now log in to your Kavita library
+- The app stores your UI preferences securely
+- The app validates server settings before connecting to it
+
+### **Frontend** - `0.1.0`
+
+**[pt-BR]**
+- Nova tela de configurações com seções para servidor, login e preferências
+- Interface visual conectada ao servidor nativo
+- O aplicativo exibe uma tela de configuração intuitiva e fácil de usar
+- Você pode facilmente navegar pelas diferentes seções da tela de configuração
+- A tela de configuração é responsiva e se adapta a diferentes tamanhos de tela
+
+**[en]**
+- New settings screen with sections for server, login, and preferences
+- Visually connected interface to the native server
+- The app displays an intuitive and easy-to-use settings screen
+- You can easily navigate through the different sections of the settings screen
+- The settings screen is responsive and adapts to different screen sizes
+
