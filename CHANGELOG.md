@@ -12,7 +12,7 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [[2026.08.10.2022](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.2022)] - 2026-08-10
 
-[pt-BR summary: Agora você pode salvar suas configurações e fazer login na sua biblioteca Kavita. O app também encontra automaticamente o melhor endereço para o seu servidor.] / [en summary: You can now save your settings and log in to your Kavita library. The app also automatically finds the best address for your server.]
+Agora você pode salvar suas configurações e fazer login na sua biblioteca Kavita. O app também encontra automaticamente o melhor endereço para o seu servidor. / You can now save your settings and log in to your Kavita library. The app also automatically finds the best address for your server.
 
 ### **Backend** - `0.1.0`
 
