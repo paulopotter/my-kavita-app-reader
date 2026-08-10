@@ -191,15 +191,19 @@ echo "=== Full AI output ===" >&2
 echo "$AI_OUTPUT" >&2
 echo "=== End AI output ===" >&2
 
-# Normalize: strip markdown code fences the AI may have added, trim whitespace around delimiter
+# Normalize: strip code fences, collapse any ---*SPLIT*--- variant to ---SPLIT---
 AI_OUTPUT_CLEAN=$(echo "$AI_OUTPUT" \
   | sed 's/^```[a-z]*$//' \
   | sed 's/^```$//' \
-  | sed 's/^[[:space:]]*---SPLIT---[[:space:]]*$/---SPLIT---/')
+  | sed 's/^[[:space:]]*-\{3,\}SPLIT-\{3,\}[[:space:]]*$/---SPLIT---/' \
+  | sed 's/^[[:space:]]*---[[:space:]]*SPLIT[[:space:]]*---[[:space:]]*$/---SPLIT---/')
 
 if [ -n "$AI_OUTPUT_CLEAN" ] && echo "$AI_OUTPUT_CLEAN" | grep -q '^---SPLIT---$'; then
-  USER_ENTRY=$(echo "$AI_OUTPUT_CLEAN" | awk '/^---SPLIT---$/{exit} {print}' | sed '/^[[:space:]]*$/{ /./!d }')
-  TAG_ENTRY=$(echo "$AI_OUTPUT_CLEAN"  | awk 'found{print} /^---SPLIT---$/{found=1}' | sed '/^[[:space:]]*$/{ /./!d }')
+  USER_ENTRY=$(echo "$AI_OUTPUT_CLEAN" | awk '/^---SPLIT---$/{exit} {print}')
+  TAG_ENTRY=$(echo "$AI_OUTPUT_CLEAN"  | awk 'found{print} /^---SPLIT---$/{found=1}')
+  # Ensure blank line before ### headers and **[xx]** markers so markdown renders correctly
+  USER_ENTRY=$(echo "$USER_ENTRY" | awk 'NR>1 && /^(###|\*\*\[)/ && prev!="" {print ""} {print; prev=$0}')
+  TAG_ENTRY=$(echo "$TAG_ENTRY"   | awk 'NR>1 && /^###/ && prev!="" {print ""} {print; prev=$0}')
 else
   echo "WARNING: No AI output or ---SPLIT--- delimiter missing — using fallback" >&2
   ANDROID_BULLETS_PT=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_PT")
