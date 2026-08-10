@@ -215,58 +215,62 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.CHANGELOG_TOKEN }}
 
-      - name: Extract changelog draft from PR body
+      - name: Extract changelog sections from PR body
         id: draft
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          OUTPUT_ANDROID: /tmp/android-draft.txt
+          OUTPUT_FRONTEND: /tmp/frontend-draft.txt
         run: |
-          # Extract lines after "## Changelog" until next "## " section
-          DRAFT=$(printf '%s' "$PR_BODY" \
-            | awk '/^## Changelog/{found=1; next} found && /^## /{exit} found && /^<!--/{exit} found && /^[[:space:]]*$/{next} found{print}')
-
-          if [ -z "$DRAFT" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "PR body has no changelog content — skipping"
-            exit 0
-          fi
-
-          # Check if [Unreleased] already has content in CHANGELOG.md
+          # Check if [Unreleased] already has content
           UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
             | grep -v '^[[:space:]]*$' | grep -v '^<!--' | grep -v '^-->' | head -1)
-
           if [ -n "$UNRELEASED" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "CHANGELOG already has unreleased content — skipping to avoid duplication"
+            echo "CHANGELOG already has unreleased content, skipping"
             exit 0
           fi
 
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          {
-            echo "draft<<HEREDOC"
-            echo "$DRAFT"
-            echo "HEREDOC"
-          } >> "$GITHUB_OUTPUT"
+          # Extract android/ and frontend/ sections from PR body
+          if python3 scripts/ci/extract-pr-changelog.py; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No changelog content in PR body, skipping"
+          fi
 
-      - name: Format and translate via Gemini
+      - name: Read component versions
+        id: versions
+        if: steps.draft.outputs.skip == 'false'
+        run: |
+          KOTLIN=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "0.1.0")
+          RN=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "0.1.0")
+          echo "kotlin=$KOTLIN" >> "$GITHUB_OUTPUT"
+          echo "rn=$RN" >> "$GITHUB_OUTPUT"
+
+      - name: Format via Gemini
         id: gemini
         if: steps.draft.outputs.skip == 'false'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CHANGELOG_DRAFT: ${{ steps.draft.outputs.draft }}
           PR_TITLE: ${{ github.event.pull_request.title }}
+          KOTLIN_CURRENT: ${{ steps.versions.outputs.kotlin }}
+          KOTLIN_NEXT: ${{ steps.versions.outputs.kotlin }}
+          RN_CURRENT: ${{ steps.versions.outputs.rn }}
+          RN_NEXT: ${{ steps.versions.outputs.rn }}
+          OUTPUT_USER: /tmp/user-entry.md
+          OUTPUT_TAG: /tmp/tag-entry.md
         run: |
+          ANDROID_DRAFT=$(cat /tmp/android-draft.txt 2>/dev/null || echo "")
+          FRONTEND_DRAFT=$(cat /tmp/frontend-draft.txt 2>/dev/null || echo "")
+          export ANDROID_DRAFT FRONTEND_DRAFT
           chmod +x scripts/ci/gemini-format-changelog.sh
-          FORMATTED=$(bash scripts/ci/gemini-format-changelog.sh)
-          {
-            echo "entry<<HEREDOC"
-            echo "$FORMATTED"
-            echo "HEREDOC"
-          } >> "$GITHUB_OUTPUT"
+          bash scripts/ci/gemini-format-changelog.sh
 
       - name: Insert into CHANGELOG.md
         if: steps.draft.outputs.skip == 'false'
         env:
-          ENTRY: ${{ steps.gemini.outputs.entry }}
+          USER_ENTRY_FILE: /tmp/user-entry.md
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: python3 scripts/ci/insert-changelog-entry.py
@@ -281,5 +285,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git diff --cached --quiet && exit 0
-          git commit -m "docs: atualiza changelog via PR #${PR_NUMBER} — ${PR_TITLE}"
+          git commit -m "docs: atualiza changelog via PR #${PR_NUMBER}"
           git push origin main

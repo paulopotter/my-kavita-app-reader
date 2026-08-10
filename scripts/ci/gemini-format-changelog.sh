@@ -1,33 +1,140 @@
 #!/usr/bin/env bash
-# Sends changelog draft to Gemini and returns formatted pt-BR + en entry.
-# Env vars required: GEMINI_API_KEY, CHANGELOG_DRAFT, PR_TITLE
+# Sends structured changelog draft to Gemini.
+# Produces two outputs written to files:
+#   $OUTPUT_USER  — user-facing CHANGELOG.md entry (pt-BR + en, friendly language)
+#   $OUTPUT_TAG   — technical tag annotation (Kotlin/React Native, commit prefixes)
+#
+# Env vars required:
+#   GEMINI_API_KEY
+#   ANDROID_DRAFT   — raw bullets from ### android/ section (may be empty)
+#   FRONTEND_DRAFT  — raw bullets from ### frontend/ section (may be empty)
+#   PR_TITLE
+#   KOTLIN_CURRENT  — current Kotlin semver (e.g. 0.1.0)
+#   KOTLIN_NEXT     — next Kotlin semver after bump
+#   RN_CURRENT      — current RN semver
+#   RN_NEXT         — next RN semver after bump
+#   OUTPUT_USER     — path to write user changelog entry
+#   OUTPUT_TAG      — path to write tag annotation
 set -euo pipefail
 
-PROMPT="You are a technical changelog editor for a Kotlin + React Native Android app called My Manga Reader.
-Take the raw changelog draft below and return ONLY a formatted entry in this exact structure,
-with no extra text, no markdown fences, no explanation.
-Structure: [pt-BR] followed by bullets, then [en] followed by bullets.
-Rules: translate to both pt-BR and en; user-facing language (what changed, not how);
-past tense verbs (pt-BR: Adicionado/Corrigido/Melhorado, en: Added/Fixed/Improved);
-no section headers like Added -- only the [pt-BR] and [en] blocks;
-max 8 bullets per language;
-if input is already in both languages, keep and improve them.
+NO_CHANGES_PT="Sem alterações nesta versão"
+NO_CHANGES_EN="No changes in this version"
 
-PR: ${PR_TITLE}
+call_gemini() {
+  local prompt="$1"
+  local response
+  response=$(curl -s \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg text "$prompt" '{contents:[{parts:[{text:$text}]}]}')")
+  echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty'
+}
 
-Draft:
-${CHANGELOG_DRAFT}"
+# ── User-facing changelog entry ────────────────────────────────────────────────
 
-RESPONSE=$(curl -s \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
-  -H 'Content-Type: application/json' \
-  -d "$(jq -n --arg text "$PROMPT" '{contents:[{parts:[{text:$text}]}]}')")
+USER_PROMPT="You are a changelog editor for an Android app called My Manga Reader.
+Produce a user-facing changelog entry in EXACTLY this markdown structure, nothing else:
 
-FORMATTED=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty')
+<one or two sentence summary of what changed in this version, friendly and non-technical>
 
-if [ -z "$FORMATTED" ]; then
-  echo "Gemini returned empty, using raw draft as fallback" >&2
-  echo "$CHANGELOG_DRAFT"
-else
-  echo "$FORMATTED"
+### **Backend** — \`${KOTLIN_NEXT}\`
+
+**[pt-BR]**
+- bullet in Brazilian Portuguese
+
+**[en]**
+- bullet in English
+
+### **Frontend** — \`${RN_NEXT}\`
+
+**[pt-BR]**
+- bullet in Brazilian Portuguese
+
+**[en]**
+- bullet in English
+
+Rules:
+- Summary: one or two sentences describing the most important user-visible changes across both components
+- Translate all content to both pt-BR and en
+- Language must be user-facing: what the user gains/sees, not implementation details
+- Past tense (pt-BR: Adicionado/Corrigido/Melhorado; en: Added/Fixed/Improved)
+- No commit prefixes like feat: or fix: in the user entry
+- Max 6 bullets per language per section
+- If a component has no changes, use exactly this for both languages:
+  pt-BR: ${NO_CHANGES_PT}
+  en: ${NO_CHANGES_EN}
+- Backend section version: if android draft is empty, keep showing ${KOTLIN_CURRENT} with no-changes message
+- Frontend section version: if frontend draft is empty, keep showing ${RN_CURRENT} with no-changes message
+
+PR title: ${PR_TITLE}
+
+android/ changes (Kotlin/Backend):
+${ANDROID_DRAFT:-none}
+
+frontend/ changes (React Native/Frontend):
+${FRONTEND_DRAFT:-none}"
+
+USER_ENTRY=$(call_gemini "$USER_PROMPT")
+
+if [ -z "$USER_ENTRY" ]; then
+  USER_ENTRY="Melhorias internas nesta versão. / Internal improvements in this version.
+
+### **Backend** -- \`${KOTLIN_NEXT}\`
+
+**[pt-BR]**
+- ${ANDROID_DRAFT:-$NO_CHANGES_PT}
+
+**[en]**
+- ${ANDROID_DRAFT:-$NO_CHANGES_EN}
+
+### **Frontend** -- \`${RN_NEXT}\`
+
+**[pt-BR]**
+- ${FRONTEND_DRAFT:-$NO_CHANGES_PT}
+
+**[en]**
+- ${FRONTEND_DRAFT:-$NO_CHANGES_EN}"
 fi
+
+echo "$USER_ENTRY" > "$OUTPUT_USER"
+
+# ── Technical tag annotation ───────────────────────────────────────────────────
+
+TAG_PROMPT="You are a technical changelog formatter.
+Produce a tag annotation in EXACTLY this markdown structure, nothing else:
+
+### Kotlin -- ${KOTLIN_NEXT}
+
+- feat: bullet (or fix:, perf:, chore:, refactor:, style:)
+
+### React Native -- ${RN_NEXT}
+
+- feat: bullet
+
+Rules:
+- Keep or add conventional commit prefixes (feat, fix, perf, chore, refactor, style)
+- Rename android or Android to Kotlin in the section header
+- Rename frontend or Frontend to React Native in the section header
+- Language: English only, technical and precise
+- If a section has no changes, write: - No changes
+- Max 10 bullets per section
+
+android/ changes (will become Kotlin section):
+${ANDROID_DRAFT:-none}
+
+frontend/ changes (will become React Native section):
+${FRONTEND_DRAFT:-none}"
+
+TAG_ENTRY=$(call_gemini "$TAG_PROMPT")
+
+if [ -z "$TAG_ENTRY" ]; then
+  TAG_ENTRY="### Kotlin -- ${KOTLIN_NEXT}
+
+- ${ANDROID_DRAFT:-No changes}
+
+### React Native -- ${RN_NEXT}
+
+- ${FRONTEND_DRAFT:-No changes}"
+fi
+
+echo "$TAG_ENTRY" > "$OUTPUT_TAG"

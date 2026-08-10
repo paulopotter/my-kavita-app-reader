@@ -14,18 +14,25 @@
 ## Changelog
 
 <!--
-Write bullet points describing what changed from the user's perspective.
-You can write in any language — the pipeline will translate to pt-BR and en automatically.
+List what changed, separated by component. Only fill in the sections that apply.
+Write in any language — the pipeline translates automatically.
 
-Escreva bullets descrevendo o que mudou do ponto de vista do usuário.
-Pode escrever em qualquer idioma — a pipeline vai traduzir para pt-BR e en automaticamente.
+Liste o que mudou, separado por componente. Preencha apenas as seções que se aplicam.
+Pode escrever em qualquer idioma — a pipeline traduz automaticamente.
 
-Examples / Exemplos:
-- Added support for multiple Kavita servers
-- Fixed crash when server URL was empty
-- Adicionado suporte a múltiplos servidores Kavita
-- Corrigido crash quando a URL do servidor estava vazia
+Use conventional commit prefixes: feat, fix, perf, chore, refactor, style
+Use prefixos de commit convencional: feat, fix, perf, chore, refactor, style
 -->
+
+### android/
+
+<!-- Changes to Kotlin / Android code -->
+<!-- Alterações no código Kotlin / Android -->
+
+### frontend/
+
+<!-- Changes to React Native / JS code -->
+<!-- Alterações no código React Native / JS -->
 
 ## Checklist
 

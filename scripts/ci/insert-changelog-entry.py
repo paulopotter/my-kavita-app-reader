@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
-"""Insert a formatted changelog entry after the [Unreleased] section."""
+"""Insert a user-facing changelog entry into the [Unreleased] section of CHANGELOG.md.
+
+Reads the formatted entry from USER_ENTRY_FILE written by gemini-format-changelog.sh.
+"""
 import os
 import re
 import sys
 
-entry    = os.environ['ENTRY']
-pr_num   = os.environ.get('PR_NUMBER', '')
-pr_title = os.environ.get('PR_TITLE', '')
+user_entry_file = os.environ['USER_ENTRY_FILE']
+pr_num          = os.environ.get('PR_NUMBER', '')
+pr_title        = os.environ.get('PR_TITLE', '')
 
-with open('CHANGELOG.md', 'r') as f:
+with open(user_entry_file) as f:
+    entry = f.read().strip()
+
+if not entry:
+    print("Empty entry — nothing to insert", file=sys.stderr)
+    sys.exit(1)
+
+with open('CHANGELOG.md') as f:
     content = f.read()
 
 unreleased_match = re.search(r'## \[Unreleased\]', content)
@@ -25,7 +35,7 @@ if comment_match:
 while insert_at < len(content) and content[insert_at] in ('\n', '\r', ' '):
     insert_at += 1
 
-block = f"\n{entry}\n"
+block = f"\n{entry}\n\n"
 new_content = content[:insert_at] + block + content[insert_at:]
 
 with open('CHANGELOG.md', 'w') as f:

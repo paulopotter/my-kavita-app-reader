@@ -88,37 +88,43 @@ jobs:
           BASE=$(date -u '+%Y.%m.%d.%H%M')
           echo "tag=$BASE" >> "$GITHUB_OUTPUT"
 
+      - name: Generate Gemini entries for CHANGELOG and tag
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PR_TITLE: "Release ${{ steps.datetag.outputs.tag }}"
+          KOTLIN_CURRENT: ${{ steps.semver.outputs.kotlin_current }}
+          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
+          RN_CURRENT: ${{ steps.semver.outputs.rn_current }}
+          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
+          OUTPUT_USER: /tmp/user-entry.md
+          OUTPUT_TAG: /tmp/tag-entry.md
+        run: |
+          # Extract unreleased content split by component from CHANGELOG.md
+          ANDROID_DRAFT=$(awk '/^## \[Unreleased\]/{found=1} found && /^### \*\*Backend/{b=1; next} found && b && /^### /{b=0} b{print}' CHANGELOG.md | grep -v '^[[:space:]]*$' || echo "")
+          FRONTEND_DRAFT=$(awk '/^## \[Unreleased\]/{found=1} found && /^### \*\*Frontend/{f=1; next} found && f && /^### /{f=0} f{print}' CHANGELOG.md | grep -v '^[[:space:]]*$' || echo "")
+          export ANDROID_DRAFT FRONTEND_DRAFT
+          chmod +x scripts/ci/gemini-format-changelog.sh
+          bash scripts/ci/gemini-format-changelog.sh
+
       - name: Update CHANGELOG — move Unreleased to versioned entry
         id: changelog
         env:
           TAG: ${{ steps.datetag.outputs.tag }}
-          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
-          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
+          REPO: ${{ github.repository }}
+          USER_ENTRY_FILE: /tmp/user-entry.md
+          TAG_ENTRY_FILE: /tmp/tag-entry.md
+          TAG_MSG_FILE: /tmp/tag-msg.txt
         run: python3 scripts/ci/move-unreleased-to-version.py
 
-      - name: Copy changelog + version info to docs
+      - name: Copy changelog and version info to docs
         env:
           TAG: ${{ steps.datetag.outputs.tag }}
           KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
           RN_NEXT: ${{ steps.semver.outputs.rn_next }}
         run: |
           mkdir -p docs/external
-
-          # Copy full changelog
           cp CHANGELOG.md docs/external/CHANGELOG.md
-
-          # Write current-version.md
-          cat > docs/external/current-version.md <<EOF
-          # Versão atual / Current version
-
-          | | Versão / Version |
-          |---|---|
-          | App | \`$TAG\` |
-          | Kotlin | \`$KOTLIN_NEXT\` |
-          | RN | \`$RN_NEXT\` |
-
-          _Atualizado em / Updated at: $(date -u '+%Y-%m-%d %H:%M UTC')_
-          EOF
+          python3 scripts/ci/write-current-version.py
 
       - name: Commit version bumps + changelog + docs
         run: |
@@ -131,17 +137,11 @@ jobs:
             docs/external/CHANGELOG.md \
             docs/external/current-version.md
           git diff --cached --quiet && exit 0
-          git commit -m "chore: bump versões e fecha changelog para ${{ steps.datetag.outputs.tag }}"
+          git commit -m "chore: bump versoes e fecha changelog para ${{ steps.datetag.outputs.tag }}"
           git push origin main
 
       - name: Create annotated tag
         run: |
           TAG="${{ steps.datetag.outputs.tag }}"
-          KOTLIN_NEXT="${{ steps.semver.outputs.kotlin_next }}"
-          RN_NEXT="${{ steps.semver.outputs.rn_next }}"
-          git tag \
-            -a "$TAG" \
-            -m "release: $TAG" \
-            -m "kotlin: $KOTLIN_NEXT" \
-            -m "rn: $RN_NEXT"
+          git tag -a "$TAG" -F /tmp/tag-msg.txt
           git push origin "$TAG"
