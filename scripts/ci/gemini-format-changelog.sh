@@ -90,7 +90,7 @@ Rules for Section 1 (user-facing):
 
 Rules for Section 2 (technical tag annotation):
 - Output ONLY two subsections separated by a blank line. No extra text.
-- MUST include BOTH subsection headers: "### Kotlin - \`${KOTLIN_NEXT}\`" and "### React Native - \`${RN_NEXT}\`"
+- MUST include BOTH subsection headers: ### Kotlin - \`${KOTLIN_NEXT}\` and ### React Native - \`${RN_NEXT}\`
 - Assign each bullet to the correct subsection: android/ changes go under Kotlin, frontend/ changes go under React Native
 - English only, precise, keep technical terms
 - Conventional commit prefixes: feat, fix, perf, chore, refactor, style
