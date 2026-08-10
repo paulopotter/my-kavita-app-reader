@@ -19,7 +19,7 @@
 #   GEMINI_API_KEY, GROQ_API_KEY, CF_ACCOUNT_ID + CF_API_TOKEN, OPENAI_API_KEY
 set -euo pipefail
 
-NO_CHANGES_PT="Sem alteracoes nesta versao"
+NO_CHANGES_PT="Sem alterações nesta versão"
 NO_CHANGES_EN="No changes in this version"
 
 # Ensures each non-empty line starts with "- " exactly once
@@ -40,7 +40,7 @@ Produce TWO sections separated by exactly this delimiter on its own line: ---SPL
 
 SECTION 1: User-facing CHANGELOG.md entry in this exact markdown structure:
 
-One or two sentence summary written as if telling a friend what is new. Warm, direct, non-technical.
+[pt-BR summary: one or two sentences in Brazilian Portuguese telling a friend what is new. Warm, direct, non-technical.] / [en summary: same sentence(s) translated to English.]
 
 ### **Backend** - \`${KOTLIN_NEXT}\`
 
