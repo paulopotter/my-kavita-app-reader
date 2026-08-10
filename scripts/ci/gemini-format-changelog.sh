@@ -34,12 +34,13 @@ fmt_bullets() {
 
 # ── Prompt (shared across all providers) ──────────────────────────────────────
 
-COMBINED_PROMPT="You are a changelog editor for an Android app called My Manga Reader.
+COMBINED_PROMPT="You are a changelog editor for an Android manga reading app called My Manga Reader.
+Your audience for Section 1 is the END USER — someone who just wants to know what is new or fixed in the app, not a developer.
 Produce TWO sections separated by exactly this delimiter on its own line: ---SPLIT---
 
 SECTION 1: User-facing CHANGELOG.md entry in this exact markdown structure:
 
-One or two sentence summary describing what changed, friendly and non-technical.
+One or two sentence summary written as if telling a friend what is new. Warm, direct, non-technical.
 
 ### **Backend** - \`${KOTLIN_NEXT}\`
 
@@ -69,19 +70,27 @@ SECTION 2: Git tag annotation in this exact markdown structure:
 
 - feat: bullet in English
 
-Rules for BOTH sections:
-- Output ONLY the two sections and the delimiter, nothing else
-- No code fences, no extra text before or after
-- Section 1: user-facing language (what user gains/sees), past tense, both pt-BR and en always
-- Section 1: no commit prefixes in bullets
-- Section 2: English only, technical, conventional commit prefixes (feat/fix/perf/chore/refactor/style)
-- Section 2: headers must say 'Kotlin' and 'React Native' (not android/frontend)
-- Max 6 bullets per language per section (section 1), max 10 per section (section 2)
-- If a component has no changes:
-  Section 1 pt-BR: ${NO_CHANGES_PT} | Section 1 en: ${NO_CHANGES_EN}
-  Section 2: - No changes
-- If android draft is empty: Backend stays \`${KOTLIN_CURRENT}\` with no-changes bullets
-- If frontend draft is empty: Frontend stays \`${RN_CURRENT}\` with no-changes bullets
+Rules for Section 1 (user-facing):
+- Output ONLY the two sections and the delimiter, nothing else. No code fences.
+- REWRITE the bullets in plain language — do NOT copy technical terms like 'scaffold', 'Room v1', 'Native Module', 'bridge', 'Hilt', 'JWT', 'semver', 'CI/CD pipeline'. Replace them with what the user actually experiences.
+  Examples of rewrites:
+    'Added Room v1 database' -> 'Seus dados de configuracao sao salvos mesmo ao fechar o app'
+    'Added Kavita authentication via apiKey' -> 'Voce pode fazer login na sua biblioteca Kavita'
+    'Added active URL selector' -> 'O app encontra automaticamente o melhor endereco para o seu servidor'
+    'Added CI/CD pipeline' -> can be omitted entirely (not user-visible)
+    'Added ConfigScreen' -> 'Nova tela de configuracoes com secoes para servidor, login e preferencias'
+- Always produce BOTH pt-BR and en for every bullet. Translate naturally, not word-for-word.
+- Past tense. Max 5 bullets per language per section.
+- If a component has no changes: pt-BR: ${NO_CHANGES_PT} | en: ${NO_CHANGES_EN}
+- If android draft is empty: Backend version stays \`${KOTLIN_CURRENT}\`
+- If frontend draft is empty: Frontend version stays \`${RN_CURRENT}\`
+
+Rules for Section 2 (technical tag annotation):
+- English only, precise, keep technical terms
+- Conventional commit prefixes: feat, fix, perf, chore, refactor, style
+- Headers must say 'Kotlin' and 'React Native' (not android/frontend)
+- If a section has no changes: - No changes
+- Max 10 bullets per section
 
 android/ changes (Kotlin/Backend):
 ${ANDROID_DRAFT:-none}
