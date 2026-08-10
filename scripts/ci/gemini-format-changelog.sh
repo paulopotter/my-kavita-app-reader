@@ -73,16 +73,17 @@ SECTION 2: Git tag annotation in this exact markdown structure:
 Rules for Section 1 (user-facing):
 - Output ONLY the two sections and the delimiter, nothing else. No code fences.
 - REWRITE bullets in plain language — do NOT copy technical terms like scaffold, Room, Native Module, bridge, Hilt, JWT, semver, CI/CD pipeline, apiKey. Replace with what the user actually experiences.
-  Examples of good rewrites:
-    feat: add Room v1 database -> Your settings are saved even when you close the app
-    feat: add Kavita authentication via apiKey -> You can now log in to your Kavita library
-    feat: add active URL selector -> The app automatically finds the best address for your server
-    feat: add CI/CD pipeline -> (omit — not visible to users)
-    feat: add ConfigScreen -> New settings screen with sections for server, login and preferences
-- Write in full Brazilian Portuguese with correct accents (configuracoes=configuracoes WRONG, configuracoes=configurações CORRECT). Use proper diacritics always.
+  Examples of good pt-BR rewrites (use these as style reference — note the correct accents):
+    feat: add Room v1 database -> Suas configurações são salvas mesmo ao fechar o app
+    feat: add Kavita authentication via apiKey -> Agora você pode fazer login na sua biblioteca Kavita
+    feat: add active URL selector -> O app encontra automaticamente o melhor endereço para o seu servidor
+    feat: add CI/CD pipeline -> (omit entirely — not visible to users)
+    feat: add ConfigScreen -> Nova tela de configurações com seções para servidor, login e preferências
+    feat: add TypeScript bridges -> Interface visual conectada ao servidor nativo
+- IMPORTANT: pt-BR bullets MUST use full Brazilian Portuguese orthography with all accents: ã, õ, ç, é, ê, á, â, í, ó, ô, ú, ü. Never write "configuracoes" — always "configurações". Never "secoes" — always "seções". Never "preferencias" — always "preferências".
 - Always produce BOTH pt-BR and en for every bullet. Translate naturally, not word-for-word.
 - Past tense. Max 5 bullets per language per section.
-- Backend and Frontend bullets must be DIFFERENT — do not repeat the same bullets in both sections.
+- Backend and Frontend sections MUST have DIFFERENT bullets. Backend = server/data/auth features. Frontend = UI/screens/visual features. Do not repeat the same bullet in both sections.
 - If a component has no changes: pt-BR: ${NO_CHANGES_PT} | en: ${NO_CHANGES_EN}
 - If android draft is empty: Backend version stays \`${KOTLIN_CURRENT}\`
 - If frontend draft is empty: Frontend version stays \`${RN_CURRENT}\`
