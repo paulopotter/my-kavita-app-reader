@@ -77,23 +77,37 @@ ${FRONTEND_DRAFT:-none}"
 USER_ENTRY=$(call_gemini "$USER_PROMPT")
 
 if [ -z "$USER_ENTRY" ]; then
+  fmt_bullets() {
+    local text="$1" fallback="$2"
+    if [ -z "$text" ]; then
+      echo "- $fallback"
+    else
+      # Each line from draft becomes its own bullet
+      echo "$text" | sed '/^[[:space:]]*$/d' | sed 's/^[[:space:]]*/- /'
+    fi
+  }
+  ANDROID_BULLETS_PT=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_PT")
+  ANDROID_BULLETS_EN=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_EN")
+  FRONTEND_BULLETS_PT=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_PT")
+  FRONTEND_BULLETS_EN=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_EN")
+
   USER_ENTRY="Melhorias internas nesta versão. / Internal improvements in this version.
 
 ### **Backend** -- \`${KOTLIN_NEXT}\`
 
 **[pt-BR]**
-- ${ANDROID_DRAFT:-$NO_CHANGES_PT}
+${ANDROID_BULLETS_PT}
 
 **[en]**
-- ${ANDROID_DRAFT:-$NO_CHANGES_EN}
+${ANDROID_BULLETS_EN}
 
 ### **Frontend** -- \`${RN_NEXT}\`
 
 **[pt-BR]**
-- ${FRONTEND_DRAFT:-$NO_CHANGES_PT}
+${FRONTEND_BULLETS_PT}
 
 **[en]**
-- ${FRONTEND_DRAFT:-$NO_CHANGES_EN}"
+${FRONTEND_BULLETS_EN}"
 fi
 
 echo "$USER_ENTRY" > "$OUTPUT_USER"
@@ -128,13 +142,21 @@ ${FRONTEND_DRAFT:-none}"
 TAG_ENTRY=$(call_gemini "$TAG_PROMPT")
 
 if [ -z "$TAG_ENTRY" ]; then
+  fmt_bullets() {
+    local text="$1" fallback="$2"
+    if [ -z "$text" ]; then
+      echo "- $fallback"
+    else
+      echo "$text" | sed '/^[[:space:]]*$/d' | sed 's/^[[:space:]]*/- /'
+    fi
+  }
   TAG_ENTRY="### Kotlin -- ${KOTLIN_NEXT}
 
-- ${ANDROID_DRAFT:-No changes}
+$(fmt_bullets "$ANDROID_DRAFT" "No changes")
 
 ### React Native -- ${RN_NEXT}
 
-- ${FRONTEND_DRAFT:-No changes}"
+$(fmt_bullets "$FRONTEND_DRAFT" "No changes")"
 fi
 
 echo "$TAG_ENTRY" > "$OUTPUT_TAG"

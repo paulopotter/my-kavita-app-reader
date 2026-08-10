@@ -91,7 +91,8 @@ jobs:
         id: changelog
         run: |
           TAG="${{ github.ref_name }}"
-          NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # Header format: ## [[TAG](url)] - date  OR  ## [TAG] - date
+          NOTES=$(awk "/^## \[?\[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
           KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
           RN_VER="${{ steps.versions.outputs.rn }}"
           {
