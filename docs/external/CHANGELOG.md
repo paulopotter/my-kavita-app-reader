@@ -10,63 +10,39 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-## [[2026.08.10.1847](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.1847)] - 2026-08-10
+## [[2026.08.10.2022](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.2022)] - 2026-08-10
 
-Melhorias internas nesta versão. / Internal improvements in this version.
+[pt-BR summary: Agora você pode salvar suas configurações e fazer login na sua biblioteca Kavita. O app também encontra automaticamente o melhor endereço para o seu servidor.] / [en summary: You can now save your settings and log in to your Kavita library. The app also automatically finds the best address for your server.]
 
-### **Backend** -- `0.1.0`
-
-**[pt-BR]**
-- **[pt-BR]**
-- Adicionado scaffold Android multi-módulo (`app`, `core`, `tools`, `features`) com Kotlin 2.0.21, Room e Hilt
-- Adicionado banco de dados Room v1 com entidades de configuração de servidor, autenticação e preferências de UI
-- Adicionado seletor de URL ativa com probe paralelo de candidatos e cache de 15 minutos
-- Adicionada bridge de configuração (`ConfigRepository`) e validador de banco (`DbValidatorModule`) como Native Modules
-- Adicionada autenticação Kavita via `apiKey` com armazenamento de JWT
-- Adicionada pipeline de CI/CD com geração automática de tag datetime, bump semver por componente e publicação de APK no GitHub Releases
-**[en]**
-- Added Android multi-module scaffold (`app`, `core`, `tools`, `features`) with Kotlin 2.0.21, Room and Hilt
-- Added Room v1 database with server config, authentication and UI preferences entities
-- Added active URL selector with parallel candidate probing and 15-minute cache
-- Added config bridge (`ConfigRepository`) and database validator (`DbValidatorModule`) as Native Modules
-- Added Kavita authentication via `apiKey` with JWT storage
-- Added CI/CD pipeline with automatic datetime tag generation, per-component semver bump and APK publishing to GitHub Releases
-
-**[en]**
-- **[pt-BR]**
-- Adicionado scaffold Android multi-módulo (`app`, `core`, `tools`, `features`) com Kotlin 2.0.21, Room e Hilt
-- Adicionado banco de dados Room v1 com entidades de configuração de servidor, autenticação e preferências de UI
-- Adicionado seletor de URL ativa com probe paralelo de candidatos e cache de 15 minutos
-- Adicionada bridge de configuração (`ConfigRepository`) e validador de banco (`DbValidatorModule`) como Native Modules
-- Adicionada autenticação Kavita via `apiKey` com armazenamento de JWT
-- Adicionada pipeline de CI/CD com geração automática de tag datetime, bump semver por componente e publicação de APK no GitHub Releases
-**[en]**
-- Added Android multi-module scaffold (`app`, `core`, `tools`, `features`) with Kotlin 2.0.21, Room and Hilt
-- Added Room v1 database with server config, authentication and UI preferences entities
-- Added active URL selector with parallel candidate probing and 15-minute cache
-- Added config bridge (`ConfigRepository`) and database validator (`DbValidatorModule`) as Native Modules
-- Added Kavita authentication via `apiKey` with JWT storage
-- Added CI/CD pipeline with automatic datetime tag generation, per-component semver bump and APK publishing to GitHub Releases
-
-### **Frontend** -- `0.1.0`
+### **Backend** - `0.1.0`
 
 **[pt-BR]**
-- **[pt-BR]**
-- Adicionado projeto React Native 0.75.4 com TypeScript, ESLint e Metro configurados
-- Adicionada `ConfigScreen` com três seções: Servidores Kavita, Autenticação e Preferências
-- Adicionadas bridges TypeScript (`config.ts`, `db-validator.ts`) para comunicação com o backend nativo
-**[en]**
-- Added React Native 0.75.4 project with TypeScript, ESLint and Metro configured
-- Added `ConfigScreen` with three sections: Kavita Servers, Authentication and Preferences
-- Added TypeScript bridges (`config.ts`, `db-validator.ts`) for native backend communication
+- Suas configurações são salvas mesmo ao fechar o app
+- Agora você pode fazer login na sua biblioteca Kavita
+- O app encontra automaticamente o melhor endereço para o seu servidor
+- Você pode salvar suas preferências de UI
+- O servidor agora pode ser configurado com facilidade
 
 **[en]**
-- **[pt-BR]**
-- Adicionado projeto React Native 0.75.4 com TypeScript, ESLint e Metro configurados
-- Adicionada `ConfigScreen` com três seções: Servidores Kavita, Autenticação e Preferências
-- Adicionadas bridges TypeScript (`config.ts`, `db-validator.ts`) para comunicação com o backend nativo
+- Your settings are saved even when you close the app
+- You can now log in to your Kavita library
+- The app automatically finds the best address for your server
+- You can save your UI preferences
+- The server can now be easily configured
+
+### **Frontend** - `0.1.0`
+
+**[pt-BR]**
+- Nova tela de configurações com seções para servidor, login e preferências
+- Interface visual conectada ao servidor nativo
+- Você pode navegar facilmente pelas seções da tela de configurações
+- As preferências de UI são exibidas de forma clara e organizada
+- A tela de configurações é fácil de usar e entender
+
 **[en]**
-- Added React Native 0.75.4 project with TypeScript, ESLint and Metro configured
-- Added `ConfigScreen` with three sections: Kavita Servers, Authentication and Preferences
-- Added TypeScript bridges (`config.ts`, `db-validator.ts`) for native backend communication
+- New settings screen with sections for server, login, and preferences
+- Visual interface connected to the native server
+- You can easily navigate through the settings screen sections
+- UI preferences are displayed in a clear and organized manner
+- The settings screen is easy to use and understand
 

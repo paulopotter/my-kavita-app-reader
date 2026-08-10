@@ -10,17 +10,39 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### **Backend**
+## [[2026.08.10.2022](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.2022)] - 2026-08-10
 
-- feat: add Android multi-module scaffold (app, core, tools, features) with Kotlin 2.0.21, Room and Hilt
-- feat: add Room v1 database with server config, auth and UI preferences entities
-- feat: add active URL selector with parallel candidate probing and 15-min cache
-- feat: add ConfigRepository bridge and DbValidatorModule as Native Modules
-- feat: add Kavita authentication via apiKey with JWT storage
-- feat: add CI/CD pipeline with datetime tag, per-component semver bump and APK publish on GitHub Releases
+[pt-BR summary: Agora você pode salvar suas configurações e fazer login na sua biblioteca Kavita. O app também encontra automaticamente o melhor endereço para o seu servidor.] / [en summary: You can now save your settings and log in to your Kavita library. The app also automatically finds the best address for your server.]
 
-### **Frontend**
+### **Backend** - `0.1.0`
 
-- feat: add React Native 0.75.4 project with TypeScript, ESLint and Metro
-- feat: add ConfigScreen with three sections: Kavita Servers, Authentication and Preferences
-- feat: add TypeScript bridges (config.ts, db-validator.ts) for native backend communication
+**[pt-BR]**
+- Suas configurações são salvas mesmo ao fechar o app
+- Agora você pode fazer login na sua biblioteca Kavita
+- O app encontra automaticamente o melhor endereço para o seu servidor
+- Você pode salvar suas preferências de UI
+- O servidor agora pode ser configurado com facilidade
+
+**[en]**
+- Your settings are saved even when you close the app
+- You can now log in to your Kavita library
+- The app automatically finds the best address for your server
+- You can save your UI preferences
+- The server can now be easily configured
+
+### **Frontend** - `0.1.0`
+
+**[pt-BR]**
+- Nova tela de configurações com seções para servidor, login e preferências
+- Interface visual conectada ao servidor nativo
+- Você pode navegar facilmente pelas seções da tela de configurações
+- As preferências de UI são exibidas de forma clara e organizada
+- A tela de configurações é fácil de usar e entender
+
+**[en]**
+- New settings screen with sections for server, login, and preferences
+- Visual interface connected to the native server
+- You can easily navigate through the settings screen sections
+- UI preferences are displayed in a clear and organized manner
+- The settings screen is easy to use and understand
+
