@@ -99,9 +99,10 @@ jobs:
           OUTPUT_USER: /tmp/user-entry.md
           OUTPUT_TAG: /tmp/tag-entry.md
         run: |
-          # Extract unreleased content split by component from CHANGELOG.md
-          ANDROID_DRAFT=$(awk '/^## \[Unreleased\]/{found=1} found && /^### \*\*Backend/{b=1; next} found && b && /^### /{b=0} b{print}' CHANGELOG.md | grep -v '^[[:space:]]*$' || echo "")
-          FRONTEND_DRAFT=$(awk '/^## \[Unreleased\]/{found=1} found && /^### \*\*Frontend/{f=1; next} found && f && /^### /{f=0} f{print}' CHANGELOG.md | grep -v '^[[:space:]]*$' || echo "")
+          OUTPUT_ANDROID=/tmp/android-draft.txt OUTPUT_FRONTEND=/tmp/frontend-draft.txt \
+            python3 scripts/ci/extract-unreleased-content.py
+          ANDROID_DRAFT=$(cat /tmp/android-draft.txt)
+          FRONTEND_DRAFT=$(cat /tmp/frontend-draft.txt)
           export ANDROID_DRAFT FRONTEND_DRAFT
           chmod +x scripts/ci/gemini-format-changelog.sh
           bash scripts/ci/gemini-format-changelog.sh
