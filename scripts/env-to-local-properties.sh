@@ -18,7 +18,8 @@ if [ -n "${ANDROID_HOME:-}" ]; then
 elif [ -n "${ANDROID_SDK_ROOT:-}" ]; then
   echo "sdk.dir=$ANDROID_SDK_ROOT" > "$OUT_FILE"
 else
-  echo "sdk.dir=$HOME/Library/Android/sdk" > "$OUT_FILE"
+  echo "✗ ANDROID_HOME not set — export ANDROID_HOME before building" >&2
+  exit 1
 fi
 
 # Append .env values (skip comments and blank lines)

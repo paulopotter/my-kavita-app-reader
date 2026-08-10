@@ -4,13 +4,21 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    includeBuild("../frontend/node_modules/@react-native/gradle-plugin")
 }
 
-// react.settings plugin and ReactSettingsExtension will be configured
-// once frontend/node_modules exists (task 009 — frontend setup)
+plugins {
+    id("com.facebook.react.settings")
+}
+
+extensions.configure<com.facebook.react.ReactSettingsExtension> {
+    autolinkLibrariesFromCommand(
+        workingDirectory = file("../frontend")
+    )
+}
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()

@@ -3,7 +3,18 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
-    // com.facebook.react plugin added in task 009 when frontend/node_modules exists
+    id("com.facebook.react")
+}
+
+react {
+    root = file("../../frontend")
+    reactNativeDir = file("../../frontend/node_modules/react-native")
+    codegenDir = file("../../frontend/node_modules/@react-native/codegen")
+    cliFile = file("../../frontend/node_modules/.bin/react-native")
+    bundleAssetName = "index.android.bundle"
+    entryFile = file("../../frontend/index.tsx")
+    bundleCommand = "bundle"
+    hermesCommand = "../../frontend/node_modules/react-native/sdks/hermesc/osx-bin/hermesc"
 }
 
 android {

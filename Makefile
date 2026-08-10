@@ -1,5 +1,8 @@
 .PHONY: setup build-android build-bundle deploy log help
 
+APP_PACKAGE  := com.mymangareader
+APP_ACTIVITY := .MainActivity
+
 ANDROID_DIR  := android
 FRONTEND_DIR := frontend
 
@@ -94,6 +97,7 @@ deploy: ## $(MSG_DEPLOY)
 	@[ -f $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk ] || \
 	  { echo "$(MSG_BUILDING_APK)"; $(MAKE) build-android; }
 	@adb install -r $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk
+	@adb shell am start -n $(APP_PACKAGE)/$(APP_ACTIVITY)
 	@echo "$(MSG_DEPLOY_DONE)"
 
 log: ## $(MSG_LOG)

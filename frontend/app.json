@@ -1,0 +1,7 @@
+{
+  "name": "mymangareader",
+  "displayName": "My Manga Reader",
+  "android": {
+    "packageName": "com.mymangareader"
+  }
+}

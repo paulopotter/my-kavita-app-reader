@@ -1,10 +1,12 @@
 package com.mymangareader
 
 import android.app.Application
+import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
@@ -21,15 +23,11 @@ class MainApplication : Application(), ReactApplication {
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
-            override fun getPackages(): List<ReactPackage> = listOf(
-                AppReactPackage(configStore, dbStatus)
-            )
-
+            override fun getPackages(): List<ReactPackage> =
+                PackageList(this).packages + AppReactPackage(configStore, dbStatus)
             override fun getJSMainModuleName(): String = "index"
-
-            override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
-
-            override val isNewArchEnabled: Boolean = false
+            override fun getUseDeveloperSupport(): Boolean = false
+            override val isNewArchEnabled: Boolean = true
             override val isHermesEnabled: Boolean = true
         }
     }
@@ -40,5 +38,8 @@ class MainApplication : Application(), ReactApplication {
     override fun onCreate() {
         super.onCreate()
         SoLoader.init(this, false)
+        if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+            DefaultNewArchitectureEntryPoint.load()
+        }
     }
 }
