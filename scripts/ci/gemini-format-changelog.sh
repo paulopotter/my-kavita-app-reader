@@ -72,25 +72,29 @@ SECTION 2: Git tag annotation in this exact markdown structure:
 
 Rules for Section 1 (user-facing):
 - Output ONLY the two sections and the delimiter, nothing else. No code fences.
-- REWRITE the bullets in plain language — do NOT copy technical terms like 'scaffold', 'Room v1', 'Native Module', 'bridge', 'Hilt', 'JWT', 'semver', 'CI/CD pipeline'. Replace them with what the user actually experiences.
-  Examples of rewrites:
-    'Added Room v1 database' -> 'Seus dados de configuracao sao salvos mesmo ao fechar o app'
-    'Added Kavita authentication via apiKey' -> 'Voce pode fazer login na sua biblioteca Kavita'
-    'Added active URL selector' -> 'O app encontra automaticamente o melhor endereco para o seu servidor'
-    'Added CI/CD pipeline' -> can be omitted entirely (not user-visible)
-    'Added ConfigScreen' -> 'Nova tela de configuracoes com secoes para servidor, login e preferencias'
+- REWRITE bullets in plain language — do NOT copy technical terms like scaffold, Room, Native Module, bridge, Hilt, JWT, semver, CI/CD pipeline, apiKey. Replace with what the user actually experiences.
+  Examples of good rewrites:
+    feat: add Room v1 database -> Your settings are saved even when you close the app
+    feat: add Kavita authentication via apiKey -> You can now log in to your Kavita library
+    feat: add active URL selector -> The app automatically finds the best address for your server
+    feat: add CI/CD pipeline -> (omit — not visible to users)
+    feat: add ConfigScreen -> New settings screen with sections for server, login and preferences
+- Write in full Brazilian Portuguese with correct accents (configuracoes=configuracoes WRONG, configuracoes=configurações CORRECT). Use proper diacritics always.
 - Always produce BOTH pt-BR and en for every bullet. Translate naturally, not word-for-word.
 - Past tense. Max 5 bullets per language per section.
+- Backend and Frontend bullets must be DIFFERENT — do not repeat the same bullets in both sections.
 - If a component has no changes: pt-BR: ${NO_CHANGES_PT} | en: ${NO_CHANGES_EN}
 - If android draft is empty: Backend version stays \`${KOTLIN_CURRENT}\`
 - If frontend draft is empty: Frontend version stays \`${RN_CURRENT}\`
 
 Rules for Section 2 (technical tag annotation):
+- Output ONLY two subsections separated by a blank line. No extra text.
+- MUST include BOTH subsection headers: "### Kotlin - \`${KOTLIN_NEXT}\`" and "### React Native - \`${RN_NEXT}\`"
+- Assign each bullet to the correct subsection: android/ changes go under Kotlin, frontend/ changes go under React Native
 - English only, precise, keep technical terms
 - Conventional commit prefixes: feat, fix, perf, chore, refactor, style
-- Headers must say 'Kotlin' and 'React Native' (not android/frontend)
-- If a section has no changes: - No changes
-- Max 10 bullets per section
+- If a subsection has no changes: - No changes
+- Max 10 bullets per subsection
 
 android/ changes (Kotlin/Backend):
 ${ANDROID_DRAFT:-none}
