@@ -5,66 +5,68 @@ All notable changes to this project will be documented here.
 
 O formato segue / The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-App releases use datetime versioning (`YYYY.MM.DD.N`).
+App releases use datetime versioning (`YYYY.MM.DD.HHmm`).
 Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-## [2026.08.10.1746] - 2026-08-10
+## [[2026.08.10.1847](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.1847)] - 2026-08-10
 
-> Kotlin `0.2.0` | RN `0.2.0`
-<!--
-Exemplo de entrada / Entry example:
+Melhorias internas nesta versão. / Internal improvements in this version.
 
-### 0.1.0 - 2026-01-01
+### **Backend** -- `0.1.0`
 
-[pt-BR]
-- Descrição da mudança
+**[pt-BR]**
+- **[pt-BR]**
+- Adicionado scaffold Android multi-módulo (`app`, `core`, `tools`, `features`) com Kotlin 2.0.21, Room e Hilt
+- Adicionado banco de dados Room v1 com entidades de configuração de servidor, autenticação e preferências de UI
+- Adicionado seletor de URL ativa com probe paralelo de candidatos e cache de 15 minutos
+- Adicionada bridge de configuração (`ConfigRepository`) e validador de banco (`DbValidatorModule`) como Native Modules
+- Adicionada autenticação Kavita via `apiKey` com armazenamento de JWT
+- Adicionada pipeline de CI/CD com geração automática de tag datetime, bump semver por componente e publicação de APK no GitHub Releases
+**[en]**
+- Added Android multi-module scaffold (`app`, `core`, `tools`, `features`) with Kotlin 2.0.21, Room and Hilt
+- Added Room v1 database with server config, authentication and UI preferences entities
+- Added active URL selector with parallel candidate probing and 15-minute cache
+- Added config bridge (`ConfigRepository`) and database validator (`DbValidatorModule`) as Native Modules
+- Added Kavita authentication via `apiKey` with JWT storage
+- Added CI/CD pipeline with automatic datetime tag generation, per-component semver bump and APK publishing to GitHub Releases
 
-[en]
-- Change description
--->
+**[en]**
+- **[pt-BR]**
+- Adicionado scaffold Android multi-módulo (`app`, `core`, `tools`, `features`) com Kotlin 2.0.21, Room e Hilt
+- Adicionado banco de dados Room v1 com entidades de configuração de servidor, autenticação e preferências de UI
+- Adicionado seletor de URL ativa com probe paralelo de candidatos e cache de 15 minutos
+- Adicionada bridge de configuração (`ConfigRepository`) e validador de banco (`DbValidatorModule`) como Native Modules
+- Adicionada autenticação Kavita via `apiKey` com armazenamento de JWT
+- Adicionada pipeline de CI/CD com geração automática de tag datetime, bump semver por componente e publicação de APK no GitHub Releases
+**[en]**
+- Added Android multi-module scaffold (`app`, `core`, `tools`, `features`) with Kotlin 2.0.21, Room and Hilt
+- Added Room v1 database with server config, authentication and UI preferences entities
+- Added active URL selector with parallel candidate probing and 15-minute cache
+- Added config bridge (`ConfigRepository`) and database validator (`DbValidatorModule`) as Native Modules
+- Added Kavita authentication via `apiKey` with JWT storage
+- Added CI/CD pipeline with automatic datetime tag generation, per-component semver bump and APK publishing to GitHub Releases
 
-## [0.1.0] - 2026-08-09
+### **Frontend** -- `0.1.0`
 
-[pt-BR]
+**[pt-BR]**
+- **[pt-BR]**
+- Adicionado projeto React Native 0.75.4 com TypeScript, ESLint e Metro configurados
+- Adicionada `ConfigScreen` com três seções: Servidores Kavita, Autenticação e Preferências
+- Adicionadas bridges TypeScript (`config.ts`, `db-validator.ts`) para comunicação com o backend nativo
+**[en]**
+- Added React Native 0.75.4 project with TypeScript, ESLint and Metro configured
+- Added `ConfigScreen` with three sections: Kavita Servers, Authentication and Preferences
+- Added TypeScript bridges (`config.ts`, `db-validator.ts`) for native backend communication
 
-### Adicionado
+**[en]**
+- **[pt-BR]**
+- Adicionado projeto React Native 0.75.4 com TypeScript, ESLint e Metro configurados
+- Adicionada `ConfigScreen` com três seções: Servidores Kavita, Autenticação e Preferências
+- Adicionadas bridges TypeScript (`config.ts`, `db-validator.ts`) para comunicação com o backend nativo
+**[en]**
+- Added React Native 0.75.4 project with TypeScript, ESLint and Metro configured
+- Added `ConfigScreen` with three sections: Kavita Servers, Authentication and Preferences
+- Added TypeScript bridges (`config.ts`, `db-validator.ts`) for native backend communication
 
-- **Scaffold Android multi-módulo** (`app`, `core`, `tools`, `features`) com AGP 8.13.2, Kotlin 2.2.21, KSP 2.2.21-2.0.5, Gradle 8.14.1
-- **Banco de dados Room v1** (`AppDatabase`) com entidades `ServerConfigEntity`, `AuthConfigEntity`, `UiPreferencesEntity` e DAOs correspondentes
-- **Script de geração de migration** (`scripts/generate-migration.sh`) e validação de paridade de schema via hook pré-commit
-- **Seleção ativa de URL** (`ActiveUrlSelector`) com probe paralelo de candidatos e cache de 15 min
-- **Bridge de configuração** (`ConfigRepository` Native Module) + `ConfigStore` (lógica pura testável com Hilt)
-- **Validador de banco** (`DbValidatorModule` Native Module) expondo versão e estado aberto do Room
-- **KavitaUrlSelector**: mapeia `ServerConfigEntity` → `UrlCandidate`, encapsulando a lógica de prioridade/timeout
-- **KavitaAuthFeature**: autenticação via `/api/Plugin/authenticate` com `apiKey`, armazenamento de JWT e limpeza de auth
-- **Wiring completo de DI** com Hilt no `MainApplication`; `AppReactPackage` registra os dois Native Modules
-- **Frontend React Native** com TypeScript 5.9.3, ESLint e Metro configurados
-- **Bridge TypeScript** (`config.ts`, `db-validator.ts`) com tipos `ServerConfig`, `AuthConfig`, `UiPreferences`, `DbStatus`
-- **ConfigService + ConfigTransform**: lógica de carga/gravação e transformação entre form e entidade nativa
-- **useConfig hook** com `useReducer` para gerenciar estado da tela de configuração
-- **ConfigScreen**: três seções (Servidores Kavita, Autenticação, Preferências) com edição inline
-- **Makefile** com targets `setup`, `test`, `lint`, `build`; `make setup` instala git hooks automaticamente
-- **Git hooks** pré-commit (paridade de schema Room, sem paths absolutos de máquina) e commit-msg (Conventional Commits)
-
-[en]
-
-### Added
-
-- **Android multi-module scaffold** (`app`, `core`, `tools`, `features`) with AGP 8.13.2, Kotlin 2.2.21, KSP 2.2.21-2.0.5, Gradle 8.14.1
-- **Room v1 database** (`AppDatabase`) with `ServerConfigEntity`, `AuthConfigEntity`, `UiPreferencesEntity` entities and matching DAOs
-- **Migration generation script** (`scripts/generate-migration.sh`) and schema parity validation via pre-commit hook
-- **Active URL selection** (`ActiveUrlSelector`) with parallel candidate probing and 15-min cache
-- **Config bridge** (`ConfigRepository` Native Module) + `ConfigStore` (pure testable logic with Hilt)
-- **Database validator** (`DbValidatorModule` Native Module) exposing Room version and open state
-- **KavitaUrlSelector**: maps `ServerConfigEntity` → `UrlCandidate`, encapsulating priority/timeout logic
-- **KavitaAuthFeature**: authentication via `/api/Plugin/authenticate` with `apiKey`, JWT storage and auth cleanup
-- **Full Hilt DI wiring** in `MainApplication`; `AppReactPackage` registers both Native Modules
-- **React Native frontend** with TypeScript 5.9.3, ESLint and Metro configured
-- **TypeScript bridge** (`config.ts`, `db-validator.ts`) with `ServerConfig`, `AuthConfig`, `UiPreferences`, `DbStatus` types
-- **ConfigService + ConfigTransform**: load/save logic and form-to-native entity transformation
-- **useConfig hook** with `useReducer` to manage Config screen state
-- **ConfigScreen**: three sections (Kavita Servers, Authentication, Preferences) with inline editing
-- **Makefile** with `setup`, `test`, `lint`, `build` targets; `make setup` installs git hooks automatically
-- **Git hooks** pre-commit (Room schema parity, no machine-absolute paths) and commit-msg (Conventional Commits)
