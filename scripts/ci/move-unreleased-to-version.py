@@ -57,9 +57,8 @@ new_content = unreleased_pattern.sub(
 with open('CHANGELOG.md', 'w') as f:
     f.write(new_content)
 
-# Write tag annotation message
-tag_annotation = f"release: {tag}\n\n{tag_entry}"
+# Write tag annotation message (no redundant header — tag name already carries the version)
 with open(tag_msg_file, 'w') as f:
-    f.write(tag_annotation)
+    f.write(tag_entry)
 
 print(f"Moved [Unreleased] to [{tag}]")

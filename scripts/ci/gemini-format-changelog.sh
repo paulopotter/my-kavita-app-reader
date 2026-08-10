@@ -17,56 +17,69 @@
 #   OUTPUT_TAG      — path to write tag annotation
 set -euo pipefail
 
-NO_CHANGES_PT="Sem alterações nesta versão"
+NO_CHANGES_PT="Sem alteracoes nesta versao"
 NO_CHANGES_EN="No changes in this version"
 
 call_gemini() {
   local prompt="$1"
-  local response
+  local response text
   response=$(curl -s \
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}" \
     -H 'Content-Type: application/json' \
     -d "$(jq -n --arg text "$prompt" '{contents:[{parts:[{text:$text}]}]}')")
-  echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty'
+  echo "--- Gemini raw response (first 300 chars) ---" >&2
+  echo "$response" | head -c 300 >&2
+  echo "" >&2
+  text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
+  echo "--- Gemini extracted text (first 200 chars) ---" >&2
+  echo "$text" | head -c 200 >&2
+  echo "" >&2
+  echo "$text"
+}
+
+# Ensures each non-empty line starts with "- " exactly once
+fmt_bullets() {
+  local text="$1" fallback="$2"
+  if [ -z "$text" ]; then
+    echo "- $fallback"
+  else
+    echo "$text" | sed '/^[[:space:]]*$/d' | sed 's/^[[:space:]]*-[[:space:]]*/- /; t; s/^[[:space:]]*/- /'
+  fi
 }
 
 # ── User-facing changelog entry ────────────────────────────────────────────────
 
 USER_PROMPT="You are a changelog editor for an Android app called My Manga Reader.
-Produce a user-facing changelog entry in EXACTLY this markdown structure, nothing else:
+Produce a user-facing changelog entry in EXACTLY this markdown structure (no extra text, no code fences):
 
-<one or two sentence summary of what changed in this version, friendly and non-technical>
+One or two sentence summary describing what changed, friendly and non-technical.
 
-### **Backend** — \`${KOTLIN_NEXT}\`
+### **Backend** -- \`${KOTLIN_NEXT}\`
 
 **[pt-BR]**
-- bullet in Brazilian Portuguese
+- bullet em portugues brasileiro
 
 **[en]**
 - bullet in English
 
-### **Frontend** — \`${RN_NEXT}\`
+### **Frontend** -- \`${RN_NEXT}\`
 
 **[pt-BR]**
-- bullet in Brazilian Portuguese
+- bullet em portugues brasileiro
 
 **[en]**
 - bullet in English
 
 Rules:
-- Summary: one or two sentences describing the most important user-visible changes across both components
-- Translate all content to both pt-BR and en
-- Language must be user-facing: what the user gains/sees, not implementation details
+- Output ONLY the markdown above, nothing else before or after
+- Always produce BOTH pt-BR and en translations for every bullet
+- User-facing language: describe what the user gains or sees, not technical implementation
 - Past tense (pt-BR: Adicionado/Corrigido/Melhorado; en: Added/Fixed/Improved)
-- No commit prefixes like feat: or fix: in the user entry
+- No conventional commit prefixes (no feat:, fix:, etc.) in bullet text
 - Max 6 bullets per language per section
-- If a component has no changes, use exactly this for both languages:
-  pt-BR: ${NO_CHANGES_PT}
-  en: ${NO_CHANGES_EN}
-- Backend section version: if android draft is empty, keep showing ${KOTLIN_CURRENT} with no-changes message
-- Frontend section version: if frontend draft is empty, keep showing ${RN_CURRENT} with no-changes message
-
-PR title: ${PR_TITLE}
+- If a section has no changes, write a single bullet: ${NO_CHANGES_PT} (pt-BR) / ${NO_CHANGES_EN} (en)
+- If android draft is empty: Backend version stays ${KOTLIN_CURRENT} with no-changes bullet
+- If frontend draft is empty: Frontend version stays ${RN_CURRENT} with no-changes bullet
 
 android/ changes (Kotlin/Backend):
 ${ANDROID_DRAFT:-none}
@@ -77,21 +90,13 @@ ${FRONTEND_DRAFT:-none}"
 USER_ENTRY=$(call_gemini "$USER_PROMPT")
 
 if [ -z "$USER_ENTRY" ]; then
-  fmt_bullets() {
-    local text="$1" fallback="$2"
-    if [ -z "$text" ]; then
-      echo "- $fallback"
-    else
-      # Each line from draft becomes its own bullet
-      echo "$text" | sed '/^[[:space:]]*$/d' | sed 's/^[[:space:]]*/- /'
-    fi
-  }
+  echo "WARNING: Gemini returned empty for user entry, using fallback" >&2
   ANDROID_BULLETS_PT=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_PT")
   ANDROID_BULLETS_EN=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_EN")
   FRONTEND_BULLETS_PT=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_PT")
   FRONTEND_BULLETS_EN=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_EN")
 
-  USER_ENTRY="Melhorias internas nesta versão. / Internal improvements in this version.
+  USER_ENTRY="Melhorias internas nesta versao. / Internal improvements in this version.
 
 ### **Backend** -- \`${KOTLIN_NEXT}\`
 
@@ -115,22 +120,22 @@ echo "$USER_ENTRY" > "$OUTPUT_USER"
 # ── Technical tag annotation ───────────────────────────────────────────────────
 
 TAG_PROMPT="You are a technical changelog formatter.
-Produce a tag annotation in EXACTLY this markdown structure, nothing else:
+Produce a git tag annotation in EXACTLY this markdown structure (no extra text, no code fences):
 
 ### Kotlin -- ${KOTLIN_NEXT}
 
-- feat: bullet (or fix:, perf:, chore:, refactor:, style:)
+- feat: bullet describing the change
 
 ### React Native -- ${RN_NEXT}
 
-- feat: bullet
+- feat: bullet describing the change
 
 Rules:
-- Keep or add conventional commit prefixes (feat, fix, perf, chore, refactor, style)
-- Rename android or Android to Kotlin in the section header
-- Rename frontend or Frontend to React Native in the section header
+- Output ONLY the markdown above, nothing else before or after
+- Use conventional commit prefixes: feat, fix, perf, chore, refactor, style
+- Section header must say 'Kotlin' (not android/Android) and 'React Native' (not frontend/Frontend)
 - Language: English only, technical and precise
-- If a section has no changes, write: - No changes
+- If a section has no changes, write exactly: - No changes
 - Max 10 bullets per section
 
 android/ changes (will become Kotlin section):
@@ -142,14 +147,7 @@ ${FRONTEND_DRAFT:-none}"
 TAG_ENTRY=$(call_gemini "$TAG_PROMPT")
 
 if [ -z "$TAG_ENTRY" ]; then
-  fmt_bullets() {
-    local text="$1" fallback="$2"
-    if [ -z "$text" ]; then
-      echo "- $fallback"
-    else
-      echo "$text" | sed '/^[[:space:]]*$/d' | sed 's/^[[:space:]]*/- /'
-    fi
-  }
+  echo "WARNING: Gemini returned empty for tag entry, using fallback" >&2
   TAG_ENTRY="### Kotlin -- ${KOTLIN_NEXT}
 
 $(fmt_bullets "$ANDROID_DRAFT" "No changes")
