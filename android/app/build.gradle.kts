@@ -1,3 +1,8 @@
+import java.util.Properties
+import java.util.TimeZone
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,6 +22,28 @@ react {
     // hermesCommand omitted — RN plugin auto-detects the correct binary for the current OS
 }
 
+// OTA manifest URL — priority: local.properties > CI env var > default GitHub
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) load(f.inputStream())
+}
+val otaManifestUrl: String =
+    localProps.getProperty("OTA_MANIFEST_URL")
+        ?: System.getenv("OTA_MANIFEST_URL")
+        ?: "https://github.com/paulopotter/my-kavita-app-reader/releases/latest/download/latest.json"
+
+// RN version read from frontend/package.json at build time
+val rnVersion: String = runCatching {
+    val pkgJson = rootProject.file("../frontend/package.json")
+    val versionLine = pkgJson.readLines().first { it.trimStart().startsWith("\"version\"") }
+    versionLine.trim().removePrefix("\"version\":").trim().trim('"', ',', ' ')
+}.getOrDefault("0.0.0")
+
+// App datetime tag generated at build time (YYYY.MM.DD.HHMM, UTC)
+val appBuildDatetime: String = SimpleDateFormat("yyyy.MM.dd.HHmm").apply {
+    timeZone = TimeZone.getTimeZone("UTC")
+}.format(Date())
+
 android {
     namespace = "com.mymangareader"
     compileSdk = 35
@@ -27,6 +54,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
+        buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
+        buildConfigField("String", "RN_VERSION", "\"$rnVersion\"")
+        buildConfigField("String", "APP_BUILD_DATETIME", "\"$appBuildDatetime\"")
     }
 
     buildTypes {
@@ -62,6 +94,7 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.appcompat)
 
     // React Native
     implementation("com.facebook.react:react-android:${libs.versions.reactNative.get()}")
