@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "start": "react-native start",
-    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.tsx --bundle-output android/app/src/main/assets/index.android.bundle",
+    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.tsx --bundle-output ../android/app/src/main/assets/index.android.bundle",
     "lint": "eslint src --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "validate:ota": "bash ../scripts/validate-ota.sh"
   },
   "dependencies": {
     "react": "18.3.1",
