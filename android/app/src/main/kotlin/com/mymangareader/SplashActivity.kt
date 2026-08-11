@@ -12,6 +12,9 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
+import com.mymangareader.core.database.UiPreferencesDao
+import com.mymangareader.features.bff.BffFeature
+import com.mymangareader.features.kavita.KavitaSeriesFeature
 import com.mymangareader.tools.ota.OtaCheckResult
 import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
@@ -24,16 +27,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 private const val MIN_SPLASH_MS = 5_000L
 private const val STABLE_BOOT_DELAY_MS = 5_000L
+private const val SYNC_TIMEOUT_MS = 30_000L
+private const val RECENT_SYNC_WINDOW_MS = 5 * 60 * 1000L
 
 @AndroidEntryPoint
 class SplashActivity : AppCompatActivity() {
 
     @Inject lateinit var otaManager: OtaManager
     @Inject lateinit var otaStore: OtaStore
+    @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
+    @Inject lateinit var bffFeature: BffFeature
+    @Inject lateinit var uiPreferencesDao: UiPreferencesDao
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var mainActivityLaunched = false
@@ -62,7 +71,6 @@ class SplashActivity : AppCompatActivity() {
         val minSplashJob: Job = scope.launch { delay(MIN_SPLASH_MS) }
 
         val otaJob: Job = scope.launch(Dispatchers.IO) {
-            // Observe download progress and update ProgressBar
             val progressJob = launch {
                 otaManager.downloadProgress.collect { progress ->
                     withContext(Dispatchers.Main) { applyProgress(progress) }
@@ -75,8 +83,28 @@ class SplashActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) { handleOtaResult(result) }
         }
 
+        val syncJob: Job = scope.launch(Dispatchers.IO) {
+            val prefs = uiPreferencesDao.get()
+            val lastSync = prefs?.lastSuccessfulSyncAtMs
+            val isRecent = lastSync != null &&
+                (System.currentTimeMillis() - lastSync) < RECENT_SYNC_WINDOW_MS
+
+            if (!isRecent) {
+                withTimeoutOrNull(SYNC_TIMEOUT_MS) {
+                    val seriesResult = kavitaSeriesFeature.listSeries()
+                    val series = seriesResult.getOrNull() ?: return@withTimeoutOrNull
+                    bffFeature.syncBff(series)
+                    uiPreferencesDao.upsert(
+                        (prefs ?: com.mymangareader.core.database.UiPreferencesEntity()).copy(
+                            lastSuccessfulSyncAtMs = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }
+        }
+
         scope.launch {
-            joinAll(minSplashJob, otaJob)
+            joinAll(minSplashJob, otaJob, syncJob)
             if (!mainActivityLaunched && !isBlocked) launchMain()
         }
 
@@ -95,7 +123,7 @@ class SplashActivity : AppCompatActivity() {
 
     private fun markRnUpdated(prevVersion: String, newVersion: String) {
         val prev = prevVersion.ifBlank { BuildConfig.RN_VERSION }
-        val green = 0xFF4ADE80.toInt() // accessible green
+        val green = 0xFF4ADE80.toInt()
         val suffix = " → $newVersion ↑"
         val ssb = SpannableStringBuilder(prev).apply {
             val start = length
@@ -144,7 +172,6 @@ class SplashActivity : AppCompatActivity() {
     }
 
     private fun showBlockedScreen(releaseNotesUrl: String) {
-        // Do not launch MainActivity; show a blocking dialog
         progressBar.visibility = View.GONE
         AlertDialog.Builder(this)
             .setTitle("Atualização obrigatória")

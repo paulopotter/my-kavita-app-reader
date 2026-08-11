@@ -18,6 +18,7 @@ export interface UiPreferences {
   chapterSortMode: 'ASCENDING' | 'DESCENDING' | 'NONE';
   chapterSortFixedThreshold?: number;
   chapterSortProgressPercent: number;
+  language: string;
 }
 
 export interface DbStatus {
@@ -25,21 +26,42 @@ export interface DbStatus {
   isOpen: boolean;
 }
 
+export interface BffServerConfig {
+  id: string;
+  url: string;
+  priority: number;
+  healthCheckPath: string;
+  linkedKavitaServerConfigId?: string;
+}
+
 interface ConfigRepositoryModule {
   getServerConfigs(): Promise<ServerConfig[]>;
-  upsertServerConfig(data: Omit<ServerConfig, never>): Promise<void>;
+  upsertServerConfig(data: ServerConfig): Promise<void>;
   deleteServerConfig(id: string): Promise<void>;
   getAuthConfig(): Promise<AuthConfig | null>;
   upsertAuthConfig(data: AuthConfig): Promise<void>;
   getUiPreferences(): Promise<UiPreferences>;
   upsertUiPreferences(data: Partial<UiPreferences>): Promise<void>;
+  getBffServerConfigs(): Promise<BffServerConfig[]>;
+  insertBffServerConfig(data: Omit<BffServerConfig, 'id'>): Promise<void>;
+  deleteBffServerConfig(id: string): Promise<void>;
 }
 
 interface DbValidatorModule {
   getDbStatus(): Promise<DbStatus>;
 }
 
+interface SetupModuleInterface {
+  getLastKnownUrls(): Promise<{ kavitaUrl?: string; bffUrl?: string }>;
+  testKavitaConnection(): Promise<{ activeUrl: string }>;
+  forceReselectUrl(): Promise<{ activeUrl: string }>;
+  authenticate(apiKey: string): Promise<void>;
+  testBffConnection(): Promise<{ activeUrl: string }>;
+}
+
 export const ConfigRepository: ConfigRepositoryModule =
   NativeModules.ConfigRepository;
 
 export const DbValidator: DbValidatorModule = NativeModules.DbValidator;
+
+export const SetupBridge: SetupModuleInterface = NativeModules.SetupModule;

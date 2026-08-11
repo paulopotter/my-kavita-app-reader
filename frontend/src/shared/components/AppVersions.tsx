@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { OtaModule, AppVersions as Versions } from '../../native/OtaModule';
+import { StyleSheet, Text, View } from 'react-native';
+import { AppVersions as Versions, OtaModule } from '../../native/OtaModule';
+import { Strings } from '../i18n/strings';
 
-export function AppVersions() {
+interface Props {
+  t: Strings;
+}
+
+export function AppVersions({ t }: Props) {
   const [versions, setVersions] = useState<Versions | null>(null);
 
   useEffect(() => {
@@ -13,9 +18,9 @@ export function AppVersions() {
 
   return (
     <View style={styles.row}>
-      <VersionCol label="backend"  value={versions.backend}  />
-      <VersionCol label="app"      value={versions.app}      />
-      <VersionCol label="frontend" value={versions.frontend} />
+      <VersionCol label={t.versionBackend} value={versions.backend} />
+      <VersionCol label={t.versionApp}     value={versions.app}     />
+      <VersionCol label={t.versionFrontend} value={versions.frontend} />
     </View>
   );
 }

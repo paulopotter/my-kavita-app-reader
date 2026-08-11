@@ -16,7 +16,7 @@ describe('validateDb', () => {
   });
 
   it('returns ok=true when version matches and db is open', async () => {
-    mockGetDbStatus.mockResolvedValue({ version: 1, isOpen: true });
+    mockGetDbStatus.mockResolvedValue({ version: 3, isOpen: true });
     const result = await validateDb();
     expect(result.ok).toBe(true);
     expect(result.error).toBeUndefined();
@@ -30,7 +30,7 @@ describe('validateDb', () => {
   });
 
   it('returns ok=false when db is not open', async () => {
-    mockGetDbStatus.mockResolvedValue({ version: 1, isOpen: false });
+    mockGetDbStatus.mockResolvedValue({ version: 3, isOpen: false });
     const result = await validateDb();
     expect(result.ok).toBe(false);
     expect(result.error).toContain('not open');

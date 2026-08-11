@@ -3,6 +3,7 @@ package com.mymangareader.tools.network
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,9 +19,15 @@ class RequestTool @Inject constructor(private val client: OkHttpClient) {
     ): Result<HttpResult> = runCatching {
         val requestBody = body?.toRequestBody("application/json".toMediaType())
 
+        val httpMethod = method.uppercase()
+        val effectiveBody = when {
+            httpMethod == "GET" || httpMethod == "DELETE" -> null
+            requestBody != null -> requestBody
+            else -> RequestBody.create(null, ByteArray(0))
+        }
         val request = Request.Builder()
             .url(url)
-            .method(method.uppercase(), if (method.uppercase() == "GET" || method.uppercase() == "DELETE") null else requestBody)
+            .method(httpMethod, effectiveBody)
             .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
             .build()
 

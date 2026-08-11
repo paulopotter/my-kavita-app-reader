@@ -17,6 +17,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "mymangareader.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .build()
 
     @Provides
@@ -27,4 +28,16 @@ object DatabaseModule {
 
     @Provides
     fun provideUiPreferencesDao(db: AppDatabase): UiPreferencesDao = db.uiPreferencesDao()
+
+    @Provides
+    fun provideChapterCacheDao(db: AppDatabase): ChapterCacheDao = db.chapterCacheDao()
+
+    @Provides
+    fun provideReadingProgressDao(db: AppDatabase): ReadingProgressDao = db.readingProgressDao()
+
+    @Provides
+    fun provideBffMatchDao(db: AppDatabase): BffMatchDao = db.bffMatchDao()
+
+    @Provides
+    fun provideBffServerConfigDao(db: AppDatabase): BffServerConfigDao = db.bffServerConfigDao()
 }

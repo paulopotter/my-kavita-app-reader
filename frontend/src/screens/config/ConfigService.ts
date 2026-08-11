@@ -1,4 +1,10 @@
-import { ConfigRepository, ServerConfig, AuthConfig, UiPreferences } from '../../shared/bridge/config';
+import {
+  AuthConfig,
+  BffServerConfig,
+  ConfigRepository,
+  ServerConfig,
+  UiPreferences,
+} from '../../shared/bridge/config';
 import { extractApiKeyToken } from './ConfigTransform';
 
 export interface SaveServerResult {
@@ -15,13 +21,15 @@ export async function loadConfig(): Promise<{
   servers: ServerConfig[];
   auth: AuthConfig | null;
   prefs: UiPreferences;
+  bffServers: BffServerConfig[];
 }> {
-  const [servers, auth, prefs] = await Promise.all([
+  const [servers, auth, prefs, bffServers] = await Promise.all([
     ConfigRepository.getServerConfigs(),
     ConfigRepository.getAuthConfig(),
     ConfigRepository.getUiPreferences(),
+    ConfigRepository.getBffServerConfigs(),
   ]);
-  return { servers, auth, prefs };
+  return { servers, auth, prefs, bffServers };
 }
 
 export async function saveServer(server: ServerConfig): Promise<SaveServerResult> {
@@ -52,4 +60,21 @@ export async function saveApiKey(rawApiKey: string): Promise<SaveAuthResult> {
 
 export async function savePreferences(prefs: Partial<UiPreferences>): Promise<void> {
   await ConfigRepository.upsertUiPreferences(prefs);
+}
+
+export async function addBffServer(
+  url: string,
+  healthCheckPath: string,
+  linkedKavitaServerConfigId?: string,
+): Promise<void> {
+  await ConfigRepository.insertBffServerConfig({
+    url,
+    priority: 0,
+    healthCheckPath,
+    linkedKavitaServerConfigId,
+  });
+}
+
+export async function removeBffServer(id: string): Promise<void> {
+  await ConfigRepository.deleteBffServerConfig(id);
 }

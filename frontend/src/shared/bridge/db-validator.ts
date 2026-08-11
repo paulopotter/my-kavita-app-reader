@@ -1,6 +1,6 @@
 import { DbValidator, DbStatus } from './config';
 
-const EXPECTED_DB_VERSION = 1;
+const EXPECTED_DB_VERSION = 3;
 
 export interface DbValidationResult {
   ok: boolean;

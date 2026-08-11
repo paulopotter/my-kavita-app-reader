@@ -1,4 +1,4 @@
-.PHONY: setup build-android build-bundle deploy log server help
+.PHONY: setup build-android build-bundle build-all deploy log server help
 
 APP_PACKAGE  := com.mymangareader
 APP_ACTIVITY := .SplashActivity
@@ -27,6 +27,7 @@ MSG_CONVERT_ENV   := → Convertendo .env → local.properties...
 MSG_INSTALL_HOOKS := → Instalando git hooks...
 MSG_INSTALL_JS    := → Instalando dependências JS...
 MSG_READY         := ✓ Ambiente pronto
+MSG_BUILD_ALL     := Gera APK de debug e bundle JS
 MSG_BUILDING_APK  := → Compilando APK...
 MSG_APK_DONE      := ✓ APK gerado
 MSG_BUILDING_BNDL := → Gerando bundle JS...
@@ -51,6 +52,7 @@ MSG_CONVERT_ENV   := → Converting .env → local.properties...
 MSG_INSTALL_HOOKS := → Installing git hooks...
 MSG_INSTALL_JS    := → Installing JS dependencies...
 MSG_READY         := ✓ Environment ready
+MSG_BUILD_ALL     := Build debug APK and JS bundle
 MSG_BUILDING_APK  := → Building APK...
 MSG_APK_DONE      := ✓ APK built
 MSG_BUILDING_BNDL := → Building JS bundle...
@@ -64,6 +66,7 @@ help: ## help
 	@printf "  \033[36m%-18s\033[0m %s\n" "setup"         "$(MSG_SETUP)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "build-android" "$(MSG_BUILD_ANDROID)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "build-bundle"  "$(MSG_BUILD_BUNDLE)"
+	@printf "  \033[36m%-18s\033[0m %s\n" "build-all"     "$(MSG_BUILD_ALL)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "deploy"        "$(MSG_DEPLOY)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "log"           "$(MSG_LOG)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "server"        "$(MSG_SERVER)"
@@ -90,9 +93,11 @@ build-android: ## $(MSG_BUILD_ANDROID)
 	@cd $(ANDROID_DIR) && ./gradlew :app:assembleDebug
 	@echo "$(MSG_APK_DONE)"
 
+build-all: build-bundle build-android ## $(MSG_BUILD_ALL)
+
 build-bundle: ## $(MSG_BUILD_BUNDLE)
 	@echo "$(MSG_BUILDING_BNDL)"
-	@cd $(FRONTEND_DIR) && yarn bundle
+	@cd $(FRONTEND_DIR) && yarn bundle:android
 	@echo "$(MSG_BUNDLE_DONE)"
 
 deploy: ## $(MSG_DEPLOY)

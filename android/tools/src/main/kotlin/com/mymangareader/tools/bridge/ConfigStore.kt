@@ -2,6 +2,8 @@ package com.mymangareader.tools.bridge
 
 import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.AuthConfigEntity
+import com.mymangareader.core.database.BffServerConfigDao
+import com.mymangareader.core.database.BffServerConfigEntity
 import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.ServerConfigEntity
 import com.mymangareader.core.database.UiPreferencesDao
@@ -15,6 +17,7 @@ class ConfigStore @Inject constructor(
     private val serverConfigDao: ServerConfigDao,
     private val authConfigDao: AuthConfigDao,
     private val uiPreferencesDao: UiPreferencesDao,
+    private val bffServerConfigDao: BffServerConfigDao,
 ) {
     // ── Server config ──────────────────────────────────────────────────────────
 
@@ -44,4 +47,12 @@ class ConfigStore @Inject constructor(
         val current = uiPreferencesDao.get() ?: UiPreferencesEntity()
         uiPreferencesDao.upsert(current.update())
     }
+
+    // ── BFF server config ──────────────────────────────────────────────────────
+
+    suspend fun getBffServerConfigs(): List<BffServerConfigEntity> = bffServerConfigDao.getAll()
+
+    suspend fun insertBffServerConfig(entity: BffServerConfigEntity) = bffServerConfigDao.insert(entity)
+
+    suspend fun deleteBffServerConfig(id: String) = bffServerConfigDao.deleteById(id)
 }

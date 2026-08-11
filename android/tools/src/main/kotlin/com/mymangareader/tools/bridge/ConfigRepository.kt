@@ -7,12 +7,13 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.mymangareader.core.database.AuthConfigEntity
+import com.mymangareader.core.database.BffServerConfigEntity
 import com.mymangareader.core.database.ServerConfigEntity
-import com.mymangareader.core.database.UiPreferencesEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,8 +58,8 @@ class ConfigRepository @Inject constructor(
                         url = data.getString("url") ?: error("url required"),
                         timeoutMs = if (data.hasKey("timeoutMs")) data.getInt("timeoutMs") else 5000,
                         priority = if (data.hasKey("priority")) data.getInt("priority") else 0,
-                        healthCheckPath = data.getString("healthCheckPath") ?: "/api/health",
-                    )
+                        healthCheckPath = data.getString("healthCheckPath") ?: "/api/Health",
+                    ),
                 )
                 promise.resolve(null)
             }.onFailure { promise.reject("DB_ERROR", it.message, it) }
@@ -102,7 +103,7 @@ class ConfigRepository @Inject constructor(
                     AuthConfigEntity(
                         apiKey = data.getString("apiKey") ?: error("apiKey required"),
                         jwt = if (data.hasKey("jwt")) data.getString("jwt") else null,
-                    )
+                    ),
                 )
                 promise.resolve(null)
             }.onFailure { promise.reject("DB_ERROR", it.message, it) }
@@ -121,6 +122,7 @@ class ConfigRepository @Inject constructor(
                     putString("chapterSortMode", prefs.chapterSortMode)
                     prefs.chapterSortFixedThreshold?.let { putDouble("chapterSortFixedThreshold", it) }
                     putInt("chapterSortProgressPercent", prefs.chapterSortProgressPercent)
+                    putString("language", prefs.language)
                 }.also { promise.resolve(it) }
             }.onFailure { promise.reject("DB_ERROR", it.message, it) }
         }
@@ -139,8 +141,59 @@ class ConfigRepository @Inject constructor(
                             data.getDouble("chapterSortFixedThreshold") else chapterSortFixedThreshold,
                         chapterSortProgressPercent = if (data.hasKey("chapterSortProgressPercent"))
                             data.getInt("chapterSortProgressPercent") else chapterSortProgressPercent,
+                        language = data.getString("language") ?: language,
                     )
                 }
+                promise.resolve(null)
+            }.onFailure { promise.reject("DB_ERROR", it.message, it) }
+        }
+    }
+
+    // ── BFF server config ──────────────────────────────────────────────────────
+
+    @ReactMethod
+    fun getBffServerConfigs(promise: Promise) {
+        scope.launch {
+            runCatching {
+                val array = Arguments.createArray()
+                store.getBffServerConfigs().forEach { s ->
+                    Arguments.createMap().apply {
+                        putString("id", s.id)
+                        putString("url", s.url)
+                        putInt("priority", s.priority)
+                        putString("healthCheckPath", s.healthCheckPath)
+                        s.linkedKavitaServerConfigId?.let { putString("linkedKavitaServerConfigId", it) }
+                    }.also { array.pushMap(it) }
+                }
+                promise.resolve(array)
+            }.onFailure { promise.reject("DB_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
+    fun insertBffServerConfig(data: ReadableMap, promise: Promise) {
+        scope.launch {
+            runCatching {
+                store.insertBffServerConfig(
+                    BffServerConfigEntity(
+                        id = UUID.randomUUID().toString(),
+                        url = data.getString("url") ?: error("url required"),
+                        priority = if (data.hasKey("priority")) data.getInt("priority") else 0,
+                        healthCheckPath = data.getString("healthCheckPath")?.takeIf { it.isNotBlank() } ?: "/manga",
+                        linkedKavitaServerConfigId = if (data.hasKey("linkedKavitaServerConfigId"))
+                            data.getString("linkedKavitaServerConfigId") else null,
+                    ),
+                )
+                promise.resolve(null)
+            }.onFailure { promise.reject("DB_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
+    fun deleteBffServerConfig(id: String, promise: Promise) {
+        scope.launch {
+            runCatching {
+                store.deleteBffServerConfig(id)
                 promise.resolve(null)
             }.onFailure { promise.reject("DB_ERROR", it.message, it) }
         }

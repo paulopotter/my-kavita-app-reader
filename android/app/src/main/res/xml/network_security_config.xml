@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Allow HTTP for self-hosted servers on the user's local network.
+    The app connects only to servers the user explicitly configures — no third-party
+    cleartext traffic is initiated.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

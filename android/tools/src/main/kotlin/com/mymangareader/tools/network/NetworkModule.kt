@@ -1,5 +1,6 @@
 package com.mymangareader.tools.network
 
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,4 +21,13 @@ object NetworkModule {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class NetworkBindingsModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindUrlSelector(impl: ActiveUrlSelector): UrlSelector
 }

@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val KAVITA_API_KEY_PATH = "/api/Plugin/authenticate"
+private const val KAVITA_AUTH_PATH = "/api/Plugin/authenticate"
+private const val KAVITA_PLUGIN_NAME = "mymangareader"
 
 data class KavitaAuthResult(val jwt: String)
 
@@ -22,14 +23,15 @@ class KavitaAuthFeature @Inject constructor(
 
     suspend fun authenticate(apiKey: String): Result<KavitaAuthResult> {
         val baseUrl = urlSelector.getActiveUrl().getOrElse { return Result.failure(it) }
-        val url = "$baseUrl$KAVITA_API_KEY_PATH?apiKey=$apiKey"
+        val url = "$baseUrl$KAVITA_AUTH_PATH?apiKey=$apiKey&pluginName=$KAVITA_PLUGIN_NAME"
 
-        return requestTool.request(url = url, method = "POST", body = "").mapCatching { http ->
+        return requestTool.request(url = url, method = "POST").mapCatching { http ->
             when {
                 http.status == 200 -> {
-                    val jwt = http.body.trim().removeSurrounding("\"")
-                    authConfigDao.upsert(AuthConfigEntity(apiKey = apiKey, jwt = jwt))
-                    KavitaAuthResult(jwt)
+                    val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                    val user = json.decodeFromString<UserDto>(http.body)
+                    authConfigDao.upsert(AuthConfigEntity(apiKey = apiKey, jwt = user.token))
+                    KavitaAuthResult(user.token)
                 }
                 http.status == 401 -> error("Invalid API key (401)")
                 else -> error("Authentication failed: HTTP ${http.status}")

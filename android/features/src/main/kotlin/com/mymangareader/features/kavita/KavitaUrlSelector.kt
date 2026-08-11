@@ -6,7 +6,7 @@ import com.mymangareader.tools.network.UrlSelector
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val KAVITA_HEALTH_PATH = "/api/health"
+private const val KAVITA_HEALTH_PATH = "/api/Health"
 
 interface KavitaUrlSource {
     suspend fun getActiveUrl(): Result<String>
@@ -26,7 +26,8 @@ class KavitaUrlSelector @Inject constructor(
                 url = entity.url,
                 timeoutMs = entity.timeoutMs,
                 priority = entity.priority,
-                healthCheckPath = entity.healthCheckPath.ifBlank { KAVITA_HEALTH_PATH },
+                healthCheckPath = entity.healthCheckPath.ifBlank { KAVITA_HEALTH_PATH }
+                    .let { if (it.equals("/api/health", ignoreCase = true)) KAVITA_HEALTH_PATH else it },
             )
         }
         return selector.getActiveUrl(candidates)
@@ -39,7 +40,8 @@ class KavitaUrlSelector @Inject constructor(
                 url = entity.url,
                 timeoutMs = entity.timeoutMs,
                 priority = entity.priority,
-                healthCheckPath = entity.healthCheckPath.ifBlank { KAVITA_HEALTH_PATH },
+                healthCheckPath = entity.healthCheckPath.ifBlank { KAVITA_HEALTH_PATH }
+                    .let { if (it.equals("/api/health", ignoreCase = true)) KAVITA_HEALTH_PATH else it },
             )
         }
         return selector.invalidateAndReselect(candidates)

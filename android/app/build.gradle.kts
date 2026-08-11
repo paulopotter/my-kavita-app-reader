@@ -44,6 +44,14 @@ val appBuildDatetime: String = SimpleDateFormat("yyyy.MM.dd.HHmm").apply {
     timeZone = TimeZone.getTimeZone("UTC")
 }.format(Date())
 
+// versionCode derived from git commit count — always grows, never hardcoded
+val gitCommitCount: Int = runCatching {
+    val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+        .directory(rootProject.projectDir)
+        .start()
+    process.inputStream.bufferedReader().readText().trim().toInt()
+}.getOrDefault(1)
+
 android {
     namespace = "com.mymangareader"
     compileSdk = 35
@@ -52,8 +60,8 @@ android {
         applicationId = "com.mymangareader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.2.0"
+        versionCode = gitCommitCount
+        versionName = "0.3.0-rc10"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")

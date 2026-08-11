@@ -10,4 +10,6 @@ data class UiPreferencesEntity(
     val chapterSortMode: String = "ASCENDING",
     val chapterSortFixedThreshold: Double? = null,
     val chapterSortProgressPercent: Int = 50,
+    val language: String = "pt-BR",
+    val lastSuccessfulSyncAtMs: Long? = null,
 )
