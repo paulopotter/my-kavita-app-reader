@@ -85,7 +85,7 @@ Rules for Section 1 (user-facing):
 - Always produce BOTH pt-BR and en for every bullet. Translate naturally, not word-for-word.
 - Past tense. Max 5 bullets per language per section.
 - Backend and Frontend sections MUST have DIFFERENT bullets. Backend = server/data/auth features. Frontend = UI/screens/visual features. Do not repeat the same bullet in both sections.
-- If a component has no changes: pt-BR: ${NO_CHANGES_PT} | en: ${NO_CHANGES_EN}
+- If a component has NO bullets at all (empty draft): use exactly one bullet: pt-BR: ${NO_CHANGES_PT} | en: ${NO_CHANGES_EN}. Never add this bullet if there is already content — do NOT pad with filler bullets.
 - If android draft is empty: Backend version stays \`${KOTLIN_CURRENT}\`
 - If frontend draft is empty: Frontend version stays \`${RN_CURRENT}\`
 
