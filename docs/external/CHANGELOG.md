@@ -10,6 +10,38 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.08.11.0244](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.0244)] - 2026-08-11
+
+Nova versão do My Manga Reader com melhorias e correções. / New version of My Manga Reader with improvements and fixes.
+
+### **Backend** - `0.1.0`
+
+**[pt-BR]**
+- As atualizações agora são baixadas e instaladas automaticamente sem a necessidade de reinstalar o aplicativo.
+- A tela de splash agora exibe as versões do backend, app e frontend.
+- O aplicativo valida a integridade do bundle via SHA-256 para garantir a segurança.
+- Em caso de crash, o aplicativo realiza um rollback automático para o bundle anterior.
+- Foram implementadas políticas de update para garantir a estabilidade do aplicativo.
+
+**[en]**
+- Updates are now downloaded and installed automatically without the need to reinstall the app.
+- The splash screen now displays the versions of the backend, app, and frontend.
+- The app validates the integrity of the bundle via SHA-256 to ensure security.
+- In case of a crash, the app automatically rolls back to the previous bundle.
+- Update policies have been implemented to ensure app stability.
+
+### **Frontend** - `0.1.0`
+
+**[pt-BR]**
+- A tela de configurações agora tem um fundo escuro e respeita a barra de status.
+- As versões do backend, app e frontend são exibidas no rodapé da tela de configurações.
+- Sem alterações adicionais nesta versão.
+
+**[en]**
+- The settings screen now has a dark background and respects the status bar.
+- The versions of the backend, app, and frontend are displayed in the footer of the settings screen.
+- No additional changes in this version.
+
 ## [[2026.08.10.2028](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.2028)] - 2026-08-10
 
 Agora você pode desfrutar de melhorias no aplicativo My Manga Reader. / You can now enjoy improvements in the My Manga Reader app.
