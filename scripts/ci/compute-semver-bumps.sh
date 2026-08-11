@@ -52,7 +52,7 @@ apply_bump() {
   esac
 }
 
-while IFS='||' read -r msg hash; do
+while IFS=$'\t' read -r msg hash; do
   [ -z "$hash" ] && continue
   FILES=$(git diff-tree --no-commit-id -r --name-only "$hash" 2>/dev/null || echo "")
 
@@ -72,7 +72,7 @@ while IFS='||' read -r msg hash; do
     LEVEL=$(bump_level "$msg")
     RN_BUMP=$(upgrade_bump "$RN_BUMP" "$LEVEL")
   fi
-done < <(git log "$COMMIT_RANGE" --format="%s||%H" 2>/dev/null)
+done < <(git log "$COMMIT_RANGE" --format="%s%x09%H" 2>/dev/null)
 
 KOTLIN_NEXT=$(apply_bump "$KOTLIN_CURRENT" "$KOTLIN_BUMP")
 RN_NEXT=$(apply_bump "$RN_CURRENT" "$RN_BUMP")
