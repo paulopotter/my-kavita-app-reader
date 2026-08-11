@@ -20,6 +20,8 @@ jobs:
 
   check-unreleased:
     name: Check for unreleased changelog content
+    # Skip when the push was made by the bot itself (version bump / changelog commit)
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     outputs:
       has_content: ${{ steps.check.outputs.has_content }}
