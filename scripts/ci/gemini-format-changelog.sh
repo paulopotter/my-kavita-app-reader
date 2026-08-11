@@ -40,7 +40,7 @@ Produce TWO sections separated by exactly this delimiter on its own line: ---SPL
 
 SECTION 1: User-facing CHANGELOG.md entry in this exact markdown structure:
 
-Frase em português descrevendo o que há de novo de forma amigável. / Same sentence translated to English.
+Uma frase em português que resume o tema principal desta release baseada nos bullets abaixo — seja específico, mencione o que realmente mudou (ex: "Agora o app se atualiza sozinho sem precisar reinstalar." ou "Correções de estabilidade e nova tela de configurações."). Não use frases genéricas como "melhorias e correções". / Same sentence translated to English.
 
 
 ### **Backend** - \`${KOTLIN_NEXT}\`
