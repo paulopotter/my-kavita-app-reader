@@ -10,6 +10,32 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: tela de biblioteca com listagem de séries via Kavita (`POST /api/Series/all-v2`)
+- feat: enriquecimento de dados via servidor BFF (`GET /manga`) com match por `kavita_id` e nome normalizado
+- feat: alternância de modos de visualização (grid/lista) e ordenação (recente/alfabética) persistidos em Room
+- feat: marcação de séries como favoritas (local-only) via tabela `followed_series`
+- feat: campo `language` em `UiPreferences` para persistir idioma selecionado
+- feat: cache de biblioteca com TTL de 2 minutos; pull-to-refresh ignora o TTL
+- feat: seleção de URL ativa do BFF por vínculo ao servidor Kavita configurado
+- feat: `SetupModule` para guiar o usuário na configuração inicial de servidores
+- fix: autenticação Kavita corrigida (pluginName + UserDto)
+- fix: `RequestTool` não enviava `Content-Type` em POST sem body
+- fix: HTTP cleartext permitido via `network_security_config.xml`
+
+### Frontend
+
+- feat: `LibraryScreen` com `FlatList` 2 colunas, pull-to-refresh e estados de loading/erro/vazia
+- feat: modo lista com `SeriesListItem` (thumbnail, metadados, estrela) e índice alfabético lateral
+- feat: `SeriesCard` com capa, barra de progresso, badge de status e estrela de favorito
+- feat: barra superior com contagem de séries, toggle de visualização e ordenação
+- feat: `SetupScreen` para configuração guiada de servidores Kavita e BFF
+- feat: internacionalização PT-BR / EN com `LanguageContext`, `useStrings` e switch ao vivo na `ConfigScreen`
+- feat: bottom bar de navegação Biblioteca / Ajustes
+- feat: `ConfigScreen` reestruturada com submenus Servidor e Preferências de Leitura
+- feat: seção de configuração do servidor BFF com vínculo opcional a servidor Kavita
+
 ## [[2026.08.11.0302](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.0302)] - 2026-08-11
 
 Agora você pode desfrutar de melhorias no aplicativo My Manga Reader. / You can now enjoy improvements in the My Manga Reader app.

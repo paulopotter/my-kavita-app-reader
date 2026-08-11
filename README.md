@@ -12,13 +12,15 @@ com interface em React Native e atualização de UI sem reinstalar o APK (OTA).
 
 > **Status**: em desenvolvimento inicial — não há release estável ainda.
 
+## Screenshots
+
+![Visão geral das telas](docs/external/screenshots/grid_preview.png)
+
 ## Funcionalidades planejadas
 
-- Biblioteca de séries e capítulos via Kavita
-- Leitor de mangás com controle de progresso
-- Notificações de novos capítulos
-- Atualizações de interface sem reinstalar o APK
-- Suporte a plugins para fontes de dados e notificações
+- [ ] Leitor de mangás com controle de progresso
+- [ ] Notificações de novos capítulos
+- [ ] Suporte a plugins para fontes de dados e notificações
 
 ## Como instalar
 

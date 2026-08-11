@@ -9,13 +9,15 @@ with a React Native UI and over-the-air updates (no APK reinstall required).
 
 > **Status**: early development — no stable release yet.
 
+## Screenshots
+
+![App screens overview](docs/external/screenshots/grid_preview.png)
+
 ## Planned features
 
-- Series and chapter library via Kavita
-- Manga reader with reading progress tracking
-- New-chapter notifications
-- UI updates without reinstalling the APK
-- Plugin support for data sources and notification providers
+- [ ] Manga reader with reading progress tracking
+- [ ] New-chapter notifications
+- [ ] Plugin support for data sources and notification providers
 
 ## Installation
 
