@@ -10,6 +10,20 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: atualização OTA do bundle React Native sem reinstalar o APK
+- feat: splash exibe versões de backend, app e frontend
+- feat: validação de integridade do bundle via SHA-256
+- feat: rollback automático para o bundle anterior em caso de crash
+- feat: políticas de update — `required` bloqueia, `highly_recommended` avisa sem baixar, `recommended` baixa silenciosamente e avisa
+- feat: `make server` para testes locais de OTA
+
+### Frontend
+
+- feat: tela de configurações com fundo escuro e respeito à barra de status
+- feat: versões de backend, app e frontend exibidas no rodapé da tela de configurações
+
 ## [[2026.08.10.2028](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.10.2028)] - 2026-08-10
 
 Agora você pode desfrutar de melhorias no aplicativo My Manga Reader. / You can now enjoy improvements in the My Manga Reader app.

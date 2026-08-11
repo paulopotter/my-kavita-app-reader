@@ -2,7 +2,13 @@
 
 ## In progress
 
-_(no active plans)_
+_nenhum plano ativo_
+
+## Concluídos
+
+| Plan | Versão |
+|------|--------|
+| [010 — OTA Infrastructure](archive/010-ota-infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
 
 ## Backlog
 
@@ -21,3 +27,4 @@ _(no active plans)_
 | [012](backlog/items/012-js-side-db.md) | JS-Side Database | 001 |
 | [013](backlog/items/013-additional-ci-steps.md) | Activate CI placeholders | each row has its own deps |
 | [014](backlog/items/014-additional-skills.md) | Additional Claude skills/agents | 001 + first screens |
+| [015](backlog/items/015-telemetria-interna-debug.md) | Telemetria interna (painel debug) | 010 |

@@ -39,15 +39,22 @@ committing*. This skill only runs after that approval.
    the `plan-manager` agent — do not archive the plan yourself.
 
 6. **Prepare the commit message — do not run `git commit`**. Draft a
-   Conventional Commits message in Portuguese, e.g.:
-   ```
-   feat: adiciona bridge RPC para requests autenticados
+   Conventional Commits message in Portuguese following these rules:
 
-   Implementa authenticatedRequest no Kotlin tools layer com cache em disco
-   e seleção automática de URL ativa. Tipos TypeScript gerados em shared/bridge/.
+   - Scope indicates the layer and sub-path: `android/<layer>` or `front/<layer>`.
+     Examples: `feat(android/tools/ota)`, `feat(front/screen/config)`, `fix(android/app/splash)`.
+   - Keep commits small and focused — one concern per commit; separate Android from frontend.
+   - Message in pt-BR, imperative mood.
+   - No `Co-Authored-By` line — ever.
+
+   Examples:
    ```
-   No `Co-Authored-By` line — ever. Show the message and the files that
-   would be staged. Staging/committing is a separate explicit step.
+   feat(android/tools/ota): adiciona OtaManager com download e validação SHA-256
+   feat(front/screen/config): aplica tema escuro e exibe versões no rodapé
+   fix(android/app/splash): corrige bloqueio de app para policy required
+   ```
+   Show the message and the files that would be staged.
+   Staging/committing is a separate explicit step.
 
 ## What this skill does not do
 
