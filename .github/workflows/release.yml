@@ -13,6 +13,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -46,6 +48,9 @@ jobs:
           echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
           echo "rn=$RN_VER"        >> "$GITHUB_OUTPUT"
 
+      - name: Validate OTA files
+        run: bash scripts/validate-ota.sh
+
       - name: Install JS dependencies
         working-directory: frontend
         run: yarn install --frozen-lockfile
@@ -60,9 +65,113 @@ jobs:
             --entry-file index.tsx \
             --bundle-output ../android/app/src/main/assets/index.android.bundle
 
+      - name: Copy bundle for OTA release
+        run: cp android/app/src/main/assets/index.android.bundle bundle.js
+
+      - name: Compute bundle hash
+        id: bundle_hash
+        run: |
+          HASH="sha256:$(sha256sum bundle.js | awk '{print $1}')"
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Generate latest.json
+        run: |
+          TAG="${{ github.ref_name }}"
+          RN_VER="${{ steps.versions.outputs.rn }}"
+          KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
+          BUNDLE_HASH="${{ steps.bundle_hash.outputs.hash }}"
+          REPO="${{ github.repository }}"
+
+          # Download existing latest.json to preserve policies array
+          EXISTING_POLICIES='{"required":[],"highly_recommended":[],"recommended":[]}'
+          LATEST_URL="https://github.com/${REPO}/releases/latest/download/latest.json"
+          if curl -fsSL "$LATEST_URL" -o existing_latest.json 2>/dev/null; then
+            EXISTING_POLICIES=$(python3 -c "
+          import json, sys
+          d = json.load(open('existing_latest.json'))
+          p = d.get('policies', {'required': [], 'highly_recommended': [], 'recommended': []})
+          print(json.dumps(p))
+          ")
+          fi
+
+          # Process policy-pending.json:
+          # If non-empty, build a new policy entry and append it to the correct level.
+          # policy-pending.json format: {"level":"required","type":"app","minVersion":"auto"}
+          # "auto" for minVersion is resolved here:
+          #   type=app    → TAG (YYYY.MM.DD.HHMM)
+          #   type=rn     → RN_VER
+          #   type=kotlin → KOTLIN_VER
+          PENDING_KEYS=$(python3 -c "import json; print(len(json.load(open('policy-pending.json'))))")
+          if [ "$PENDING_KEYS" -gt 0 ]; then
+            POLICIES=$(python3 -c "
+          import json
+
+          pending = json.load(open('policy-pending.json'))
+          policies = json.loads('$EXISTING_POLICIES')
+
+          level = pending['level']
+          ptype = pending['type']
+          min_ver = pending['minVersion']
+
+          # Resolve 'auto'
+          if min_ver == 'auto':
+              if ptype == 'app':
+                  min_ver = '$TAG'
+              elif ptype == 'rn':
+                  min_ver = '$RN_VER'
+              elif ptype == 'kotlin':
+                  min_ver = '$KOTLIN_VER'
+
+          entry = {
+              'type': ptype,
+              'minVersion': min_ver,
+              'releaseNotesUrl': 'https://github.com/$REPO/releases/tag/$TAG',
+          }
+
+          # Normalize key
+          key = level  # 'required' | 'highly_recommended' | 'recommended'
+          if key not in policies:
+              policies[key] = []
+          policies[key].append(entry)
+
+          print(json.dumps(policies))
+          ")
+          else
+            POLICIES="$EXISTING_POLICIES"
+          fi
+
+          python3 -c "
+          import json
+
+          data = {
+              'lastRNVersion': '$RN_VER',
+              'url': 'https://github.com/$REPO/releases/download/$TAG/bundle.js',
+              'bundleHash': '$BUNDLE_HASH',
+              'minKotlinVersion': '$KOTLIN_VER',
+              'lastAppVersion': '$TAG',
+              'policies': json.loads('''$POLICIES'''),
+          }
+          print(json.dumps(data, indent=2))
+          " > latest.json
+
+          echo "Generated latest.json:"
+          cat latest.json
+
+      - name: Reset policy-pending.json and commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo '{}' > policy-pending.json
+          git add policy-pending.json
+          # Only commit if there are staged changes
+          git diff --cached --quiet || git commit -m "chore: reset policy-pending após release ${{ github.ref_name }}"
+          git push origin HEAD:${{ github.ref_name }} 2>/dev/null || git push origin HEAD:main || true
+
       - name: Build APK
         working-directory: android
         run: ./gradlew :app:assembleDebug
+        env:
+          OTA_MANIFEST_URL: "https://github.com/${{ github.repository }}/releases/latest/download/latest.json"
         # Note: assembleDebug produces an installable APK signed with the debug key.
         # Switch to assembleRelease + signing config when a keystore is set up.
 
@@ -71,21 +180,6 @@ jobs:
           TAG="${{ github.ref_name }}"
           mv android/app/build/outputs/apk/debug/app-debug.apk \
              "my-manga-reader-${TAG}.apk"
-
-      # Placeholder: uncomment when OTA (backlog 010) is implemented
-      # - name: Write latest.json
-      #   run: |
-      #     TAG="${{ github.ref_name }}"
-      #     RN_VER="${{ steps.versions.outputs.rn }}"
-      #     KOTLIN_VER="${{ steps.versions.outputs.kotlin }}"
-      #     cat > latest.json <<EOF
-      #     {
-      #       "bundleVersion": "$RN_VER",
-      #       "url": "https://github.com/${{ github.repository }}/releases/download/$TAG/bundle.js",
-      #       "minAppVersion": "$TAG",
-      #       "minKotlinVersion": "$KOTLIN_VER"
-      #     }
-      #     EOF
 
       - name: Extract changelog for this release
         id: changelog
@@ -105,3 +199,5 @@ jobs:
           body: ${{ steps.changelog.outputs.notes }}
           files: |
             my-manga-reader-${{ github.ref_name }}.apk
+            bundle.js
+            latest.json

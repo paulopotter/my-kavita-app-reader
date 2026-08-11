@@ -10,6 +10,28 @@ on:
 jobs:
   # ─── Checks (open/update only) ──────────────────────────────────────────────
 
+  validate-ota:
+    name: Validate OTA files
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.changed_files > 0 && 'true', 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check if OTA files changed
+        id: ota_changed
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || echo "")
+          if echo "$FILES" | grep -qE "^(policy-pending\.json|latest\.json)$"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate OTA files
+        if: steps.ota_changed.outputs.changed == 'true'
+        run: bash scripts/validate-ota.sh
+
   lint-kotlin:
     name: Lint Kotlin
     if: github.event_name == 'pull_request' && github.event.action != 'closed'

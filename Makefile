@@ -1,7 +1,7 @@
-.PHONY: setup build-android build-bundle deploy log help
+.PHONY: setup build-android build-bundle deploy log server help
 
 APP_PACKAGE  := com.mymangareader
-APP_ACTIVITY := .MainActivity
+APP_ACTIVITY := .SplashActivity
 
 ANDROID_DIR  := android
 FRONTEND_DIR := frontend
@@ -16,6 +16,7 @@ MSG_BUILD_ANDROID := Gera APK de debug
 MSG_BUILD_BUNDLE  := Gera bundle JS (React Native / Expo)
 MSG_DEPLOY        := Instala o APK no dispositivo físico via USB
 MSG_LOG           := Exibe logs do app em tempo real via adb logcat
+MSG_SERVER        := Levanta servidor OTA local na porta 8080 (adb reverse incluso)
 MSG_CHECKING_DEPS := → Verificando dependências...
 MSG_NO_NODE       := ✗ node não encontrado
 MSG_NO_YARN       := ✗ yarn não encontrado
@@ -39,6 +40,7 @@ MSG_BUILD_ANDROID := Build debug APK
 MSG_BUILD_BUNDLE  := Build JS bundle (React Native / Expo)
 MSG_DEPLOY        := Install APK on physical device via USB
 MSG_LOG           := Stream app logs via adb logcat
+MSG_SERVER        := Start local OTA server on port 8080 (adb reverse included)
 MSG_CHECKING_DEPS := → Checking dependencies...
 MSG_NO_NODE       := ✗ node not found
 MSG_NO_YARN       := ✗ yarn not found
@@ -64,6 +66,7 @@ help: ## help
 	@printf "  \033[36m%-18s\033[0m %s\n" "build-bundle"  "$(MSG_BUILD_BUNDLE)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "deploy"        "$(MSG_DEPLOY)"
 	@printf "  \033[36m%-18s\033[0m %s\n" "log"           "$(MSG_LOG)"
+	@printf "  \033[36m%-18s\033[0m %s\n" "server"        "$(MSG_SERVER)"
 
 setup: ## $(MSG_SETUP)
 	@echo "$(MSG_CHECKING_DEPS)"
@@ -102,3 +105,6 @@ deploy: ## $(MSG_DEPLOY)
 
 log: ## $(MSG_LOG)
 	@adb logcat -s mymangareader
+
+server: ## $(MSG_SERVER)
+	@scripts/ota-local-server.sh
