@@ -12,6 +12,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.tools.bridge.ConfigStore
+import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -20,15 +21,19 @@ class MainApplication : Application(), ReactApplication {
 
     @Inject lateinit var configStore: ConfigStore
     @Inject lateinit var dbStatus: DbStatusProvider
+    @Inject lateinit var otaStore: OtaStore
+    @Inject lateinit var crashGuard: CrashGuard
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
-                PackageList(this).packages + AppReactPackage(configStore, dbStatus)
+                PackageList(this).packages + AppReactPackage(configStore, dbStatus, otaStore)
             override fun getJSMainModuleName(): String = "index"
             override fun getUseDeveloperSupport(): Boolean = false
             override val isNewArchEnabled: Boolean = true
             override val isHermesEnabled: Boolean = true
+            override fun getJSBundleFile(): String? =
+                otaStore.bundleFile.takeIf { it.exists() }?.absolutePath
         }
     }
 
@@ -41,5 +46,6 @@ class MainApplication : Application(), ReactApplication {
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
             DefaultNewArchitectureEntryPoint.load()
         }
+        crashGuard.install()
     }
 }
