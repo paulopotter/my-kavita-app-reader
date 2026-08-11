@@ -12,11 +12,21 @@ com interface em React Native e atualização de UI sem reinstalar o APK (OTA).
 
 > **Status**: em desenvolvimento inicial — não há release estável ainda.
 
+## Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/library-populated.svg" width="200" alt="Biblioteca com séries"/>
+  <img src="docs/screenshots/config-screen.svg" width="200" alt="Tela de configurações"/>
+  <img src="docs/screenshots/library-loading.svg" width="200" alt="Carregando biblioteca"/>
+</div>
+
 ## Funcionalidades planejadas
 
-- Biblioteca de séries e capítulos via Kavita
-- Leitor de mangás com controle de progresso
-- Notificações de novos capítulos
+- [x] Biblioteca de séries com progresso de leitura
+- [x] Enriquecimento de dados via BFF (API local)
+- [x] Internacionalização PT-BR / EN
+- [ ] Leitor de mangás com controle de progresso
+- [ ] Notificações de novos capítulos
 - Atualizações de interface sem reinstalar o APK
 - Suporte a plugins para fontes de dados e notificações
 

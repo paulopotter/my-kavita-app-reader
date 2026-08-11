@@ -10,6 +10,29 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: adicionada migração do banco de dados para versão 2 com novas tabelas (`chapter_cache`, `reading_progress`, `bff_match`, `bff_server_config`)
+- feat: adicionado campo `language` em `UiPreferencesEntity` para persistir idioma escolhido (padrão: `pt-BR`)
+- feat: adicionado campo `lastSuccessfulSyncAtMs` em `UiPreferencesEntity` para controle de re-sincronização na splash
+- feat: implementada `KavitaSeriesFeature` para listagem de séries via Kavita com progresso em dois níveis (cache local → API Kavita)
+- feat: implementada `BffFeature` para sincronização com API BFF local, com match por `kavita_id` e fallback por nome normalizado
+- feat: adicionado `LibraryModule` (Native Module) expondo `listSeries`, `syncBff` e `saveReadingProgress` ao JavaScript
+- feat: `ConfigRepository` ampliado com métodos de gerenciamento de servidores BFF (`getBffServerConfigs`, `insertBffServerConfig`, `deleteBffServerConfig`)
+- feat: `SplashActivity` passa a sincronizar biblioteca e BFF na inicialização com timeout de 30 s e janela de skip de 5 min
+
+### Frontend
+
+- feat: implementada `LibraryScreen` com grade de dois cards por linha, pull-to-refresh e estados de carregamento, erro e lista vazia
+- feat: implementado `SeriesCard` exibindo capa, nome, barra de progresso, badge de status de leitura, badge de publicação e contagem de capítulos
+- feat: adicionado sistema de internacionalização PT-BR / EN sem dependências externas (`strings.ts` + hook `useStrings`)
+- feat: switch de idioma na `ConfigScreen` com troca imediata de todos os textos do app
+- feat: adicionada seção de configuração de servidores BFF na `ConfigScreen` com formulário e vínculo opcional a servidor Kavita
+- feat: navegação por bottom bar substituindo navegação por estado em `App.tsx` (tabs: Biblioteca | Ajustes)
+- feat: todos os textos hardcoded das telas existentes migrados para o sistema de i18n
+- feat: adicionados mockups de tela em `docs/screenshots/` e seção Screenshots no `README.md`
+- fix: versão esperada do banco de dados atualizada para 2 no validador e nos testes unitários
+
 ## [[2026.08.11.0302](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.0302)] - 2026-08-11
 
 Agora você pode desfrutar de melhorias no aplicativo My Manga Reader. / You can now enjoy improvements in the My Manga Reader app.
