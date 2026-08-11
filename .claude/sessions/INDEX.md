@@ -9,13 +9,13 @@ _nenhum plano ativo_
 | Plan | Versão |
 |------|--------|
 | [010 — OTA Infrastructure](archive/010-ota-infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
+| [003 — Library Screen](../completions/archive/003%20-%20Library%20Screen/README.md) | todas as 14 tasks concluídas |
 
 ## Backlog
 
 | # | Item | Depends on |
 |---|------|------------|
 | [002](backlog/items/002-splash-screen.md) | Splash Screen | 001 |
-| [003](backlog/items/003-library-screen.md) | Library Screen | 001 |
 | [004](backlog/items/004-following-screen.md) | Following Screen | 001, 003 |
 | [005](backlog/items/005-home-screen.md) | Home Screen | 001, 003 |
 | [006](backlog/items/006-series-detail-screen.md) | Series Detail Screen | 001, 003 |
