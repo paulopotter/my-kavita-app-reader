@@ -10,6 +10,42 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.08.11.1628](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.1628)] - 2026-08-11
+
+Agora o app tem uma tela de biblioteca com listagem de séries e configurações de servidor. / The app now has a library screen with series listing and server settings.
+
+### **Backend** - `0.4.0`
+
+**[pt-BR]**
+- Sua biblioteca é carregada automaticamente quando você abre o app.
+- Você pode alternar entre modos de visualização e ordenação das séries.
+- As séries podem ser marcadas como favoritas para acesso rápido.
+- O app salva suas configurações de idioma e servidor.
+- O cache de biblioteca é atualizado a cada 2 minutos.
+
+**[en]**
+- Your library is loaded automatically when you open the app.
+- You can switch between viewing modes and series sorting.
+- Series can be marked as favorites for quick access.
+- The app saves your language and server settings.
+- The library cache is updated every 2 minutes.
+
+### **Frontend** - `0.4.0`
+
+**[pt-BR]**
+- Nova tela de biblioteca com lista de séries em duas colunas.
+- Modo lista com metadados e estrela de favorito.
+- Barra superior com contagem de séries e opções de visualização.
+- Tela de configuração reestruturada com submenus.
+- Opção de internacionalização com switch ao vivo.
+
+**[en]**
+- New library screen with a two-column series list.
+- List mode with metadata and favorite star.
+- Top bar with series count and viewing options.
+- Restructured settings screen with submenus.
+- Internationalization option with live switch.
+
 ## [[2026.08.11.0302](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.0302)] - 2026-08-11
 
 Agora você pode desfrutar de melhorias no aplicativo My Manga Reader. / You can now enjoy improvements in the My Manga Reader app.
