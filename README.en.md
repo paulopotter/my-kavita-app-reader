@@ -9,21 +9,11 @@ with a React Native UI and over-the-air updates (no APK reinstall required).
 
 > **Status**: early development — no stable release yet.
 
-## Screenshots
-
-<div align="center">
-  <img src="docs/screenshots/library-populated.svg" width="200" alt="Library with series"/>
-  <img src="docs/screenshots/config-screen.svg" width="200" alt="Settings screen"/>
-  <img src="docs/screenshots/library-loading.svg" width="200" alt="Loading library"/>
-</div>
-
 ## Planned features
 
-- [x] Series library with reading progress
-- [x] Data enrichment via BFF (local API)
-- [x] Internationalization PT-BR / EN
-- [ ] Manga reader with reading progress tracking
-- [ ] New-chapter notifications
+- Series and chapter library via Kavita
+- Manga reader with reading progress tracking
+- New-chapter notifications
 - UI updates without reinstalling the APK
 - Plugin support for data sources and notification providers
 
