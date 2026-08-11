@@ -34,7 +34,8 @@ fmt_bullets() {
 
 # ── Prompt (shared across all providers) ──────────────────────────────────────
 
-COMBINED_PROMPT="You are a changelog editor for an Android manga reading app called My Manga Reader.
+COMBINED_PROMPT=$(cat <<EOF
+You are a changelog editor for an Android manga reading app called My Manga Reader.
 Your audience for Section 1 is the END USER — someone who just wants to know what is new or fixed in the app, not a developer.
 Produce TWO sections separated by exactly this delimiter on its own line: ---SPLIT---
 
@@ -102,7 +103,9 @@ android/ changes (Kotlin/Backend):
 ${ANDROID_DRAFT:-none}
 
 frontend/ changes (React Native/Frontend):
-${FRONTEND_DRAFT:-none}"
+${FRONTEND_DRAFT:-none}
+EOF
+)
 
 # ── Provider call functions ────────────────────────────────────────────────────
 
