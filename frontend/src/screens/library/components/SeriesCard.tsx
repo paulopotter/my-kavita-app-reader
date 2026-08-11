@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SeriesSummary } from '../../../shared/bridge/library';
 import { Strings } from '../../../shared/i18n/strings';
 import {
@@ -11,9 +11,10 @@ import {
 interface Props {
   series: SeriesSummary;
   t: Strings;
+  onToggleFollow: (id: number) => void;
 }
 
-export function SeriesCard({ series, t }: Props) {
+export function SeriesCard({ series, t, onToggleFollow }: Props) {
   const pubLabel = publicationLabel(series.publicationStatus, t);
   const progress = formatProgress(series.progressFraction);
   const sLabel = statusLabel(series.readStatus, t);
@@ -25,6 +26,14 @@ export function SeriesCard({ series, t }: Props) {
         style={styles.cover}
         resizeMode="cover"
       />
+      <TouchableOpacity
+        style={styles.starBookmark}
+        onPress={() => onToggleFollow(series.id)}
+        activeOpacity={0.8}>
+        <Text style={[styles.starIcon, series.isFollowed && styles.starIconActive]}>
+          {series.isFollowed ? '★' : '☆'}
+        </Text>
+      </TouchableOpacity>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={2}>{series.name}</Text>
 
@@ -77,6 +86,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  // Bookmark-style: flush to right edge, starts 6dp from top, rounded on left side only
+  starBookmark: {
+    position: 'absolute',
+    top: 6,
+    right: 0,
+    paddingLeft: 6,
+    paddingRight: 4,
+    paddingTop: 4,
+    paddingBottom: 6,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  starIcon: { fontSize: 18, color: '#FFFFFF', lineHeight: 22 },
+  starIconActive: { color: '#F6AD55' },
   cover: {
     width: '100%',
     aspectRatio: 2 / 3,

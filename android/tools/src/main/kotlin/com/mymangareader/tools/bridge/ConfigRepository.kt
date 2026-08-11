@@ -123,6 +123,8 @@ class ConfigRepository @Inject constructor(
                     prefs.chapterSortFixedThreshold?.let { putDouble("chapterSortFixedThreshold", it) }
                     putInt("chapterSortProgressPercent", prefs.chapterSortProgressPercent)
                     putString("language", prefs.language)
+                    putString("libraryViewMode", prefs.libraryViewMode)
+                    putString("librarySortMode", prefs.librarySortMode)
                 }.also { promise.resolve(it) }
             }.onFailure { promise.reject("DB_ERROR", it.message, it) }
         }
@@ -142,6 +144,8 @@ class ConfigRepository @Inject constructor(
                         chapterSortProgressPercent = if (data.hasKey("chapterSortProgressPercent"))
                             data.getInt("chapterSortProgressPercent") else chapterSortProgressPercent,
                         language = data.getString("language") ?: language,
+                        libraryViewMode = data.getString("libraryViewMode") ?: libraryViewMode,
+                        librarySortMode = data.getString("librarySortMode") ?: librarySortMode,
                     )
                 }
                 promise.resolve(null)

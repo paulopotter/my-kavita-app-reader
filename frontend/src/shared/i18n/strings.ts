@@ -57,6 +57,11 @@ export interface Strings {
   libraryEmpty: string;
   libraryError: string;
   libraryRetry: string;
+  librarySortRecentlyUpdated: string;
+  librarySortAlphabetical: string;
+  libraryViewGrid: string;
+  libraryViewList: string;
+  librarySeriesCount: string;
 
   // ── Series card ──────────────────────────────────────────────────────────
   readStatusUnread: string;
@@ -158,6 +163,11 @@ const ptBR: Strings = {
   libraryEmpty: 'Nenhuma série encontrada',
   libraryError: 'Erro ao carregar a biblioteca',
   libraryRetry: 'Tentar novamente',
+  librarySortRecentlyUpdated: 'Atualizado recentemente',
+  librarySortAlphabetical: 'Alfabético',
+  libraryViewGrid: 'Grade',
+  libraryViewList: 'Lista',
+  librarySeriesCount: 'séries',
 
   readStatusUnread: 'Não lido',
   readStatusReading: 'Lendo',
@@ -253,6 +263,11 @@ const en: Strings = {
   libraryEmpty: 'No series found',
   libraryError: 'Failed to load library',
   libraryRetry: 'Try again',
+  librarySortRecentlyUpdated: 'Recently updated',
+  librarySortAlphabetical: 'Alphabetical',
+  libraryViewGrid: 'Grid',
+  libraryViewList: 'List',
+  librarySeriesCount: 'series',
 
   readStatusUnread: 'Unread',
   readStatusReading: 'Reading',

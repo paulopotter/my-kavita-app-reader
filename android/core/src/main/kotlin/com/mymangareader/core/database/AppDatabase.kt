@@ -14,8 +14,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ReadingProgressEntity::class,
         BffMatchEntity::class,
         BffServerConfigEntity::class,
+        FollowedSeriesEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun bffMatchDao(): BffMatchDao
     abstract fun bffServerConfigDao(): BffServerConfigDao
+    abstract fun followedSeriesDao(): FollowedSeriesDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -87,6 +89,21 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE bff_server_config ADD COLUMN healthCheckPath TEXT NOT NULL DEFAULT '/manga'")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS followed_series (
+                        seriesId TEXT NOT NULL PRIMARY KEY,
+                        followedAtMs INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("ALTER TABLE ui_preferences ADD COLUMN libraryViewMode TEXT NOT NULL DEFAULT 'GRID'")
+                db.execSQL("ALTER TABLE ui_preferences ADD COLUMN librarySortMode TEXT NOT NULL DEFAULT 'RECENTLY_UPDATED'")
             }
         }
     }

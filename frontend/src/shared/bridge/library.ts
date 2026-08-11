@@ -1,5 +1,8 @@
 import { NativeModules } from 'react-native';
 
+export type LibraryViewMode = 'GRID' | 'LIST';
+export type LibrarySortMode = 'RECENTLY_UPDATED' | 'ALPHABETICAL';
+
 export interface SeriesSummary {
   id: number;
   name: string;
@@ -14,10 +17,12 @@ export interface SeriesSummary {
   latestChapterLabel: string | null;
   publicationStatus: 'NONE' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'ON_HIATUS' | 'ABANDONED';
   hasErrors: boolean;
+  isFollowed: boolean;
 }
 
 interface LibraryModuleInterface {
   listSeries(forceRefresh: boolean): Promise<SeriesSummary[]>;
+  toggleFollow(seriesId: string): Promise<void>;
   syncBff(): Promise<void>;
   saveReadingProgress(chapterId: string, seriesId: string, page: number): Promise<void>;
 }

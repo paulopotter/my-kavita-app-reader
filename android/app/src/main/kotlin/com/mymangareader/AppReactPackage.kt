@@ -5,6 +5,7 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 import com.mymangareader.core.database.DbStatusProvider
+import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaSeriesFeature
@@ -22,6 +23,7 @@ class AppReactPackage(
     private val kavitaAuthFeature: KavitaAuthFeature,
     private val kavitaSeriesFeature: KavitaSeriesFeature,
     private val bffFeature: BffFeature,
+    private val followedSeriesDao: FollowedSeriesDao,
 ) : ReactPackage {
 
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
@@ -31,7 +33,7 @@ class AppReactPackage(
             ConfigRepository(configStore, context),
             DbValidatorModule(dbStatus, context),
             otaBridge,
-            LibraryModule(kavitaSeriesFeature, bffFeature, context),
+            LibraryModule(kavitaSeriesFeature, bffFeature, followedSeriesDao, context),
             SetupModule(kavitaUrlSource, kavitaAuthFeature, bffFeature, context),
         )
     }

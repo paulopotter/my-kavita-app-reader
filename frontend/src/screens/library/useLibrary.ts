@@ -1,33 +1,77 @@
 import { useCallback, useEffect, useReducer } from 'react';
-import { SeriesSummary } from '../../shared/bridge/library';
-import { fetchSeries, syncBff } from './LibraryService';
+import { ConfigRepository } from '../../shared/bridge/config';
+import { LibrarySortMode, LibraryViewMode, SeriesSummary } from '../../shared/bridge/library';
+import { fetchSeries, syncBff, toggleFollow as bridgeToggleFollow } from './LibraryService';
 
 interface State {
   loading: boolean;
   data: SeriesSummary[];
   error: string | null;
+  viewMode: LibraryViewMode;
+  sortMode: LibrarySortMode;
 }
 
 type Action =
   | { type: 'LOADING' }
   | { type: 'LOADED'; data: SeriesSummary[] }
-  | { type: 'ERROR'; error: string };
+  | { type: 'ERROR'; error: string }
+  | { type: 'SET_VIEW_MODE'; mode: LibraryViewMode }
+  | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
+  | { type: 'TOGGLE_FOLLOW'; seriesId: number };
+
+function sortSeries(data: SeriesSummary[], mode: LibrarySortMode): SeriesSummary[] {
+  if (mode === 'ALPHABETICAL') {
+    return [...data].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  // RECENTLY_UPDATED: descending by lastChapterAddedUtc, fallback to name
+  return [...data].sort((a, b) => {
+    const ta = a.lastChapterAddedUtc ? new Date(a.lastChapterAddedUtc).getTime() : 0;
+    const tb = b.lastChapterAddedUtc ? new Date(b.lastChapterAddedUtc).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return a.name.localeCompare(b.name);
+  });
+}
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'LOADING':
       return { ...state, loading: true, error: null };
     case 'LOADED':
-      return { loading: false, data: action.data, error: null };
+      return { ...state, loading: false, data: sortSeries(action.data, state.sortMode), error: null };
     case 'ERROR':
       return { ...state, loading: false, error: action.error };
+    case 'SET_VIEW_MODE':
+      return { ...state, viewMode: action.mode };
+    case 'SET_SORT_MODE':
+      return { ...state, sortMode: action.mode, data: sortSeries(state.data, action.mode) };
+    case 'TOGGLE_FOLLOW':
+      return {
+        ...state,
+        data: state.data.map(s =>
+          s.id === action.seriesId ? { ...s, isFollowed: !s.isFollowed } : s,
+        ),
+      };
   }
 }
 
-const initial: State = { loading: true, data: [], error: null };
+const initial: State = {
+  loading: true,
+  data: [],
+  error: null,
+  viewMode: 'GRID',
+  sortMode: 'RECENTLY_UPDATED',
+};
 
 export function useLibrary() {
   const [state, dispatch] = useReducer(reducer, initial);
+
+  // Load persisted viewMode + sortMode on mount
+  useEffect(() => {
+    ConfigRepository.getUiPreferences().then(prefs => {
+      if (prefs.libraryViewMode) dispatch({ type: 'SET_VIEW_MODE', mode: prefs.libraryViewMode });
+      if (prefs.librarySortMode) dispatch({ type: 'SET_SORT_MODE', mode: prefs.librarySortMode });
+    }).catch(() => {});
+  }, []);
 
   const refresh = useCallback(async (forceRefresh = false) => {
     dispatch({ type: 'LOADING' });
@@ -41,9 +85,27 @@ export function useLibrary() {
     }
   }, []);
 
-  useEffect(() => {
-    refresh(false);
-  }, [refresh]);
+  useEffect(() => { refresh(false); }, [refresh]);
 
-  return { ...state, refresh };
+  const setViewMode = useCallback((mode: LibraryViewMode) => {
+    dispatch({ type: 'SET_VIEW_MODE', mode });
+    ConfigRepository.upsertUiPreferences({ libraryViewMode: mode } as any).catch(() => {});
+  }, []);
+
+  const setSortMode = useCallback((mode: LibrarySortMode) => {
+    dispatch({ type: 'SET_SORT_MODE', mode });
+    ConfigRepository.upsertUiPreferences({ librarySortMode: mode } as any).catch(() => {});
+  }, []);
+
+  const toggleFollow = useCallback(async (seriesId: number) => {
+    dispatch({ type: 'TOGGLE_FOLLOW', seriesId });
+    try {
+      await bridgeToggleFollow(String(seriesId));
+    } catch {
+      // Revert optimistic update on failure
+      dispatch({ type: 'TOGGLE_FOLLOW', seriesId });
+    }
+  }, []);
+
+  return { ...state, refresh, setViewMode, setSortMode, toggleFollow };
 }

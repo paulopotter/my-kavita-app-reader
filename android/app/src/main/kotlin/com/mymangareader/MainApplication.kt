@@ -11,6 +11,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
 import com.mymangareader.core.database.DbStatusProvider
+import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaSeriesFeature
@@ -31,6 +32,7 @@ class MainApplication : Application(), ReactApplication {
     @Inject lateinit var kavitaAuthFeature: KavitaAuthFeature
     @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
     @Inject lateinit var bffFeature: BffFeature
+    @Inject lateinit var followedSeriesDao: FollowedSeriesDao
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -43,6 +45,7 @@ class MainApplication : Application(), ReactApplication {
                     kavitaAuthFeature = kavitaAuthFeature,
                     kavitaSeriesFeature = kavitaSeriesFeature,
                     bffFeature = bffFeature,
+                    followedSeriesDao = followedSeriesDao,
                 )
 
             override fun getJSMainModuleName(): String = "index"

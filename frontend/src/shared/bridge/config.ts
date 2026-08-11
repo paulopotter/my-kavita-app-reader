@@ -19,6 +19,8 @@ export interface UiPreferences {
   chapterSortFixedThreshold?: number;
   chapterSortProgressPercent: number;
   language: string;
+  libraryViewMode: 'GRID' | 'LIST';
+  librarySortMode: 'RECENTLY_UPDATED' | 'ALPHABETICAL';
 }
 
 export interface DbStatus {

@@ -12,4 +12,6 @@ data class UiPreferencesEntity(
     val chapterSortProgressPercent: Int = 50,
     val language: String = "pt-BR",
     val lastSuccessfulSyncAtMs: Long? = null,
+    val libraryViewMode: String = "GRID",
+    val librarySortMode: String = "RECENTLY_UPDATED",
 )
