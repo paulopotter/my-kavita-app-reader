@@ -1,11 +1,10 @@
-package com.mymangareader.features.kavita
+package com.mymangareader.features.kavita.series
 
 import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.BffMatchDao
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
-import com.mymangareader.core.database.ReadingProgressDao
-import com.mymangareader.core.database.ReadingProgressEntity
+import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -15,7 +14,6 @@ import javax.inject.Singleton
 private const val SERIES_ALL_PATH = "/api/Series/all-v2"
 private const val SERIES_ALL_BODY =
     """{"id":0,"statements":[],"combination":1,"sortOptions":{"sortField":1,"isAscending":true},"limitTo":0}"""
-private const val VOLUMES_PATH_TEMPLATE = "/api/Series/%s/volumes"
 
 private val seriesJson = Json { ignoreUnknownKeys = true }
 
@@ -35,6 +33,18 @@ data class SeriesSummary(
     val hasErrors: Boolean,
 )
 
+data class SeriesDetail(
+    val id: String,
+    val name: String,
+    val coverImageUrl: String,
+)
+
+data class SeriesMetadata(
+    val summary: String?,
+    val genres: List<String>,
+    val tags: List<String>,
+)
+
 @Singleton
 class KavitaSeriesFeature @Inject constructor(
     private val urlSource: KavitaUrlSource,
@@ -42,7 +52,6 @@ class KavitaSeriesFeature @Inject constructor(
     private val authConfigDao: AuthConfigDao,
     private val chapterCacheDao: ChapterCacheDao,
     private val bffMatchDao: BffMatchDao,
-    private val readingProgressDao: ReadingProgressDao,
 ) {
     @Serializable
     private data class SeriesDto(
@@ -54,21 +63,24 @@ class KavitaSeriesFeature @Inject constructor(
     )
 
     @Serializable
-    private data class ChapterDto(
+    private data class SeriesDetailDto(
         val id: Int,
-        val number: String = "",
-        val title: String = "",
-        val pages: Int = 0,
-        val pagesRead: Int = 0,
-        val sortOrder: Double = 0.0,
-        val createdUtc: String? = null,
+        val name: String,
     )
 
     @Serializable
-    private data class VolumeDto(
-        val id: Int,
-        val chapters: List<ChapterDto> = emptyList(),
+    private data class SeriesMetadataDto(
+        val seriesId: Int,
+        val summary: String? = null,
+        val genres: List<GenreDto> = emptyList(),
+        val tags: List<TagDto> = emptyList(),
     )
+
+    @Serializable
+    private data class GenreDto(val id: Int, val title: String)
+
+    @Serializable
+    private data class TagDto(val id: Int, val title: String)
 
     suspend fun listSeries(): Result<List<SeriesSummary>> {
         val auth = authConfigDao.get()
@@ -112,62 +124,52 @@ class KavitaSeriesFeature @Inject constructor(
         }
     }
 
-    suspend fun listChaptersForSeries(seriesId: String): Result<List<ChapterCacheEntity>> {
+    suspend fun getSeriesDetail(seriesId: String): Result<SeriesDetail> {
+        val auth = authConfigDao.get()
+            ?: return Result.failure(IllegalStateException("Not authenticated"))
+        val jwt = auth.jwt
+            ?: return Result.failure(IllegalStateException("Not authenticated"))
+        val apiKey = auth.apiKey
+
+        val baseUrl = urlSource.getActiveUrl().getOrElse { return Result.failure(it) }
+
+        return requestTool.request(
+            url = "$baseUrl/api/Series/$seriesId",
+            method = "GET",
+            headers = mapOf("Authorization" to "Bearer $jwt"),
+        ).mapCatching { http ->
+            if (http.status != 200) error("Series detail failed: HTTP ${http.status}")
+            val dto = seriesJson.decodeFromString<SeriesDetailDto>(http.body)
+            SeriesDetail(
+                id = dto.id.toString(),
+                name = dto.name,
+                coverImageUrl = buildCoverUrl(baseUrl, apiKey, dto.id),
+            )
+        }
+    }
+
+    suspend fun getSeriesMetadata(seriesId: String): Result<SeriesMetadata> {
         val auth = authConfigDao.get()
             ?: return Result.failure(IllegalStateException("Not authenticated"))
         val jwt = auth.jwt
             ?: return Result.failure(IllegalStateException("Not authenticated"))
 
         val baseUrl = urlSource.getActiveUrl().getOrElse { return Result.failure(it) }
-        val path = VOLUMES_PATH_TEMPLATE.format(seriesId)
 
         return requestTool.request(
-            url = "$baseUrl$path",
+            url = "$baseUrl/api/Series/metadata?seriesId=$seriesId",
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
         ).mapCatching { http ->
-            if (http.status != 200) error("Volumes fetch failed: HTTP ${http.status}")
-            val volumes = seriesJson.decodeFromString<List<VolumeDto>>(http.body)
-            val existingChapters = chapterCacheDao.getBySeriesId(seriesId)
-            val readStatusById = existingChapters.associate { it.id to it.readStatus }
-            val pagesReadById = existingChapters.associate { it.id to it.pagesRead }
-            volumes.flatMap { volume ->
-                volume.chapters.map { ch ->
-                    val chId = ch.id.toString()
-                    ChapterCacheEntity(
-                        id = chId,
-                        seriesId = seriesId,
-                        title = ch.title,
-                        number = ch.number,
-                        pageCount = ch.pages,
-                        sortOrder = ch.sortOrder,
-                        readStatus = readStatusById[chId] ?: if (ch.pagesRead >= ch.pages && ch.pages > 0) "READ" else if (ch.pagesRead > 0) "IN_PROGRESS" else "UNREAD",
-                        pagesRead = pagesReadById[chId] ?: ch.pagesRead,
-                        updatedAtLocalMs = null,
-                    )
-                }
-            }
+            if (http.status != 200) error("Series metadata failed: HTTP ${http.status}")
+            val dto = seriesJson.decodeFromString<SeriesMetadataDto>(http.body)
+            SeriesMetadata(
+                summary = dto.summary,
+                genres = dto.genres.map { it.title },
+                tags = dto.tags.map { it.title },
+            )
         }
     }
-
-    suspend fun saveReadingProgress(chapterId: String, seriesId: String, page: Int): Result<Unit> =
-        runCatching {
-            val now = System.currentTimeMillis()
-            readingProgressDao.upsert(
-                ReadingProgressEntity(
-                    chapterId = chapterId,
-                    seriesId = seriesId,
-                    page = page,
-                    updatedAtLocalMs = now,
-                ),
-            )
-            chapterCacheDao.updateReadStatus(
-                chapterId = chapterId,
-                readStatus = "IN_PROGRESS",
-                pagesRead = page,
-                updatedAtLocalMs = now,
-            )
-        }
 
     private fun buildCoverUrl(baseUrl: String, apiKey: String, seriesId: Int): String =
         "${baseUrl.trimEnd('/')}/api/image/series-cover?seriesId=$seriesId&apiKey=$apiKey"

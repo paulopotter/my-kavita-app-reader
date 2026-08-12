@@ -4,7 +4,8 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
-import com.mymangareader.features.kavita.KavitaSeriesFeature
+import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ private const val RECENT_SYNC_WINDOW_MS = 5 * 60 * 1000L
 @Singleton
 class SplashSyncCoordinator @Inject constructor(
     private val kavitaSeriesFeature: KavitaSeriesFeature,
+    private val kavitaChapterFeature: KavitaChapterFeature,
     private val bffFeature: BffFeature,
     private val followedSeriesDao: FollowedSeriesDao,
     private val chapterCacheDao: ChapterCacheDao,
@@ -48,7 +50,7 @@ class SplashSyncCoordinator @Inject constructor(
             val followedIds = runCatching { followedSeriesDao.getAllIds() }.getOrElse { emptyList() }
             for (seriesId in followedIds) {
                 runCatching {
-                    val chapters = kavitaSeriesFeature.listChaptersForSeries(seriesId).getOrNull()
+                    val chapters = kavitaChapterFeature.listChaptersForSeries(seriesId).getOrNull()
                     if (chapters != null) {
                         chapterCacheDao.deleteBySeriesId(seriesId)
                         chapterCacheDao.insertAll(chapters)

@@ -4,7 +4,7 @@ import com.mymangareader.core.database.BffMatchDao
 import com.mymangareader.core.database.BffMatchEntity
 import com.mymangareader.core.database.BffServerConfigDao
 import com.mymangareader.core.database.ServerConfigDao
-import com.mymangareader.features.kavita.SeriesSummary
+import com.mymangareader.features.kavita.series.SeriesSummary
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

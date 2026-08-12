@@ -7,8 +7,9 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.features.bff.BffFeature
-import com.mymangareader.features.kavita.KavitaSeriesFeature
-import com.mymangareader.features.kavita.SeriesSummary
+import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import com.mymangareader.features.kavita.series.KavitaSeriesFeature
+import com.mymangareader.features.kavita.series.SeriesSummary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class LibraryModule @Inject constructor(
     private val kavitaSeriesFeature: KavitaSeriesFeature,
+    private val kavitaChapterFeature: KavitaChapterFeature,
     private val bffFeature: BffFeature,
     private val followedSeriesDao: FollowedSeriesDao,
     context: ReactApplicationContext,
@@ -73,7 +75,7 @@ class LibraryModule @Inject constructor(
     @ReactMethod
     fun saveReadingProgress(chapterId: String, seriesId: String, page: Int, promise: Promise) {
         scope.launch {
-            kavitaSeriesFeature.saveReadingProgress(chapterId, seriesId, page)
+            kavitaChapterFeature.saveReadingProgress(chapterId, seriesId, page)
                 .onSuccess { promise.resolve(null) }
                 .onFailure { promise.reject("PROGRESS_ERROR", it.message, it) }
         }

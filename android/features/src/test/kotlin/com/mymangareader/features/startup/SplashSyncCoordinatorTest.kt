@@ -17,8 +17,9 @@ import com.mymangareader.core.database.ServerConfigEntity
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.core.database.UiPreferencesEntity
 import com.mymangareader.features.bff.BffFeature
-import com.mymangareader.features.kavita.KavitaSeriesFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
+import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +47,7 @@ private class FakeUiPreferencesDao(
 
 private class FakeFollowedSeriesDao : FollowedSeriesDao {
     override suspend fun getAllIds() = emptyList<String>()
+    override fun observeAllIds(): Flow<List<String>> = MutableStateFlow(emptyList())
     override suspend fun isFollowed(seriesId: String) = false
     override suspend fun follow(entity: FollowedSeriesEntity) {}
     override suspend fun unfollow(seriesId: String) {}
@@ -123,12 +125,18 @@ class SplashSyncCoordinatorTest {
     private fun makeCoordinator(): SplashSyncCoordinator {
         val baseUrl = server.url("/").toString()
         val requestTool = RequestTool(OkHttpClient())
-        val kavitaFeature = KavitaSeriesFeature(
+        val kavitaSeriesFeature = KavitaSeriesFeature(
             urlSource = FakeUrlSource(baseUrl),
             requestTool = requestTool,
             authConfigDao = FakeAuthConfigDao(),
             chapterCacheDao = FakeChapterCacheDao(),
             bffMatchDao = FakeBffMatchDao(),
+        )
+        val kavitaChapterFeature = KavitaChapterFeature(
+            urlSource = FakeUrlSource(baseUrl),
+            requestTool = requestTool,
+            authConfigDao = FakeAuthConfigDao(),
+            chapterCacheDao = FakeChapterCacheDao(),
             readingProgressDao = FakeReadingProgressDao(),
         )
         val bffFeature = BffFeature(
@@ -138,7 +146,8 @@ class SplashSyncCoordinatorTest {
             bffMatchDao = FakeBffMatchDao(),
         )
         return SplashSyncCoordinator(
-            kavitaSeriesFeature = kavitaFeature,
+            kavitaSeriesFeature = kavitaSeriesFeature,
+            kavitaChapterFeature = kavitaChapterFeature,
             bffFeature = bffFeature,
             followedSeriesDao = FakeFollowedSeriesDao(),
             chapterCacheDao = FakeChapterCacheDao(),

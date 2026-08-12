@@ -9,13 +9,16 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
+import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
+import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
-import com.mymangareader.features.kavita.KavitaSeriesFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
+import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.ota.OtaStore
@@ -32,10 +35,13 @@ class MainApplication : Application(), ReactApplication {
     @Inject lateinit var kavitaUrlSource: KavitaUrlSource
     @Inject lateinit var kavitaAuthFeature: KavitaAuthFeature
     @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
+    @Inject lateinit var kavitaChapterFeature: KavitaChapterFeature
     @Inject lateinit var bffFeature: BffFeature
     @Inject lateinit var followedSeriesDao: FollowedSeriesDao
     @Inject lateinit var serverConfigDao: ServerConfigDao
     @Inject lateinit var splashSyncCoordinator: SplashSyncCoordinator
+    @Inject lateinit var chapterCacheDao: ChapterCacheDao
+    @Inject lateinit var uiPreferencesDao: UiPreferencesDao
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -47,10 +53,13 @@ class MainApplication : Application(), ReactApplication {
                     kavitaUrlSource = kavitaUrlSource,
                     kavitaAuthFeature = kavitaAuthFeature,
                     kavitaSeriesFeature = kavitaSeriesFeature,
+                    kavitaChapterFeature = kavitaChapterFeature,
                     bffFeature = bffFeature,
                     followedSeriesDao = followedSeriesDao,
                     serverConfigDao = serverConfigDao,
                     splashSyncCoordinator = splashSyncCoordinator,
+                    chapterCacheDao = chapterCacheDao,
+                    uiPreferencesDao = uiPreferencesDao,
                 )
 
             override fun getJSMainModuleName(): String = "index"
