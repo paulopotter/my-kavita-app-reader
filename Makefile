@@ -175,9 +175,7 @@ coverage: coverage-kotlin coverage-js ## $(MSG_COVERAGE)
 coverage-kotlin: ## $(MSG_COVERAGE_KOTLIN)
 	@cd $(ANDROID_DIR) && ./gradlew koverHtmlReport koverXmlReport
 	@echo "→ Relatório HTML: $(ANDROID_DIR)/build/reports/kover/html/index.html"
-	@open $(ANDROID_DIR)/build/reports/kover/html/index.html 2>/dev/null || true
 
 coverage-js: ## $(MSG_COVERAGE_JS)
 	@cd $(FRONTEND_DIR) && yarn test:coverage
 	@echo "→ Relatório HTML: $(FRONTEND_DIR)/coverage/lcov-report/index.html"
-	@open $(FRONTEND_DIR)/coverage/lcov-report/index.html 2>/dev/null || true
