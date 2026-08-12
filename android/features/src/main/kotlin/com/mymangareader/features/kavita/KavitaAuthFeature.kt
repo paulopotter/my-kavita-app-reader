@@ -28,10 +28,11 @@ class KavitaAuthFeature @Inject constructor(
         return requestTool.request(url = url, method = "POST").mapCatching { http ->
             when {
                 http.status == 200 -> {
-                    // /api/Plugin/authenticate returns a bare JSON string (the JWT), not an object
-                    val jwt = kotlinx.serialization.json.Json.decodeFromString<String>(http.body)
-                    authConfigDao.upsert(AuthConfigEntity(apiKey = apiKey, jwt = jwt))
-                    KavitaAuthResult(jwt)
+                    // /api/Plugin/authenticate returns a UserDto object; the JWT is in the "token" field
+                    val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                    val user = json.decodeFromString<UserDto>(http.body)
+                    authConfigDao.upsert(AuthConfigEntity(apiKey = apiKey, jwt = user.token))
+                    KavitaAuthResult(user.token)
                 }
                 http.status == 401 -> error("Invalid API key (401)")
                 else -> error("Authentication failed: HTTP ${http.status}")

@@ -58,7 +58,10 @@ class KavitaAuthFeatureTest {
 
     @Test
     fun `authenticate stores jwt on 200`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("\"jwt-token-abc\""))
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .setBody("""{"username":"user","token":"jwt-token-abc"}"""),
+        )
 
         val result = feature.authenticate("my-api-key")
 
@@ -69,11 +72,15 @@ class KavitaAuthFeatureTest {
     }
 
     @Test
-    fun `authenticate strips surrounding quotes from jwt`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("\"token-with-quotes\""))
+    fun `authenticate ignora campos desconhecidos do UserDto`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"id":0,"username":"user","email":null,"roles":[],"token":"token-with-extra-fields","refreshToken":"r","kavitaVersion":"0.9.0.2"}""",
+            ),
+        )
 
         val result = feature.authenticate("key")
-        assertEquals("token-with-quotes", result.getOrThrow().jwt)
+        assertEquals("token-with-extra-fields", result.getOrThrow().jwt)
     }
 
     @Test
@@ -102,7 +109,7 @@ class KavitaAuthFeatureTest {
 
     @Test
     fun `isAuthenticated returns true after successful auth`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("\"token\""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
         feature.authenticate("key")
 
         assertTrue(feature.isAuthenticated())
@@ -110,7 +117,7 @@ class KavitaAuthFeatureTest {
 
     @Test
     fun `clearAuth removes jwt but keeps apiKey`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("\"token\""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
         feature.authenticate("key-123")
 
         feature.clearAuth()
@@ -126,7 +133,7 @@ class KavitaAuthFeatureTest {
 
     @Test
     fun `getStoredApiKey returns key after auth`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("\"token\""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
         feature.authenticate("my-key")
 
         assertEquals("my-key", feature.getStoredApiKey())
