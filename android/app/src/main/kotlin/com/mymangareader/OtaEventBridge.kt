@@ -31,6 +31,26 @@ class OtaEventBridge(
         promise.resolve(map)
     }
 
+    // Returns the OTA policy result set by SplashActivity, or null if none.
+    // mode: "required" | "highly_recommended" | "recommended" | null
+    @ReactMethod
+    fun getOtaPolicy(promise: Promise) {
+        val (mode, url) = pendingPolicy ?: run { promise.resolve(null); return }
+        val map = Arguments.createMap().apply {
+            putString("mode", mode)
+            putString("releaseNotesUrl", url)
+        }
+        promise.resolve(map)
+    }
+
+    // Called by RN when user dismisses the advisory/blocking dialog.
+    // Clears the pending policy so it won't appear again this session.
+    @ReactMethod
+    fun acknowledgePolicy(promise: Promise) {
+        pendingPolicy = null
+        promise.resolve(null)
+    }
+
     // Called from Kotlin when a new bundle finishes downloading after MainActivity is open.
     @ReactMethod
     fun addListener(eventName: String) = Unit  // required by RN event emitter contract
@@ -50,6 +70,10 @@ class OtaEventBridge(
 
     companion object {
         private var instance: OtaEventBridge? = null
+
+        // Set by SplashActivity before launching MainActivity.
+        // Pair(mode, releaseNotesUrl). Null means no advisory policy active.
+        @Volatile var pendingPolicy: Pair<String, String>? = null
 
         fun register(bridge: OtaEventBridge) { instance = bridge }
 

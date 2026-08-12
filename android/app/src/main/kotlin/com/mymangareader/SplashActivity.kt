@@ -1,7 +1,6 @@
 package com.mymangareader
 
 import android.content.Intent
-import android.os.Bundle
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.text.style.RelativeSizeSpan
@@ -12,37 +11,25 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
-import com.mymangareader.core.database.UiPreferencesDao
-import com.mymangareader.features.bff.BffFeature
-import com.mymangareader.features.kavita.KavitaSeriesFeature
 import com.mymangareader.tools.ota.OtaCheckResult
 import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+import android.os.Bundle
 
-private const val MIN_SPLASH_MS = 5_000L
 private const val STABLE_BOOT_DELAY_MS = 5_000L
-private const val SYNC_TIMEOUT_MS = 30_000L
-private const val RECENT_SYNC_WINDOW_MS = 5 * 60 * 1000L
 
 @AndroidEntryPoint
 class SplashActivity : AppCompatActivity() {
 
     @Inject lateinit var otaManager: OtaManager
     @Inject lateinit var otaStore: OtaStore
-    @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
-    @Inject lateinit var bffFeature: BffFeature
-    @Inject lateinit var uiPreferencesDao: UiPreferencesDao
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var mainActivityLaunched = false
@@ -68,9 +55,7 @@ class SplashActivity : AppCompatActivity() {
         otaManager.applyRollbackIfNeeded()
         otaManager.recordBootStart()
 
-        val minSplashJob: Job = scope.launch { delay(MIN_SPLASH_MS) }
-
-        val otaJob: Job = scope.launch(Dispatchers.IO) {
+        scope.launch(Dispatchers.IO) {
             val progressJob = launch {
                 otaManager.downloadProgress.collect { progress ->
                     withContext(Dispatchers.Main) { applyProgress(progress) }
@@ -80,36 +65,14 @@ class SplashActivity : AppCompatActivity() {
             val result = otaManager.checkAndDownload()
             progressJob.cancel()
 
-            withContext(Dispatchers.Main) { handleOtaResult(result) }
-        }
-
-        val syncJob: Job = scope.launch(Dispatchers.IO) {
-            val prefs = uiPreferencesDao.get()
-            val lastSync = prefs?.lastSuccessfulSyncAtMs
-            val isRecent = lastSync != null &&
-                (System.currentTimeMillis() - lastSync) < RECENT_SYNC_WINDOW_MS
-
-            if (!isRecent) {
-                withTimeoutOrNull(SYNC_TIMEOUT_MS) {
-                    val seriesResult = kavitaSeriesFeature.listSeries()
-                    val series = seriesResult.getOrNull() ?: return@withTimeoutOrNull
-                    bffFeature.syncBff(series)
-                    uiPreferencesDao.upsert(
-                        (prefs ?: com.mymangareader.core.database.UiPreferencesEntity()).copy(
-                            lastSuccessfulSyncAtMs = System.currentTimeMillis(),
-                        ),
-                    )
-                }
+            withContext(Dispatchers.Main) {
+                handleOtaResult(result)
+                if (!mainActivityLaunched && !isBlocked) launchMain()
             }
         }
 
         scope.launch {
-            joinAll(minSplashJob, otaJob, syncJob)
-            if (!mainActivityLaunched && !isBlocked) launchMain()
-        }
-
-        scope.launch {
-            delay(STABLE_BOOT_DELAY_MS)
+            kotlinx.coroutines.delay(STABLE_BOOT_DELAY_MS)
             otaManager.recordStableBoot()
         }
     }
@@ -139,10 +102,16 @@ class SplashActivity : AppCompatActivity() {
             is OtaCheckResult.PolicyMatch -> {
                 when (result.mode) {
                     "required" -> {
+                        // Store in bridge so RN splash can show its own blocking UI,
+                        // but also block at Android level — MainActivity never launches.
+                        OtaEventBridge.pendingPolicy = Pair(result.mode, result.releaseNotesUrl)
                         isBlocked = true
                         showBlockedScreen(result.releaseNotesUrl)
                     }
-                    else -> showUpdateAvailableDialog(result.releaseNotesUrl, result.mode)
+                    else -> {
+                        // Delegate advisory dialogs (highly_recommended, recommended) to RN splash.
+                        OtaEventBridge.pendingPolicy = Pair(result.mode, result.releaseNotesUrl)
+                    }
                 }
             }
             is OtaCheckResult.Updated -> {
@@ -154,7 +123,12 @@ class SplashActivity : AppCompatActivity() {
                 } else {
                     OtaEventBridge.notifyBundleReady()
                 }
-                result.policy?.let { showUpdateAvailableDialog(it.releaseNotesUrl, it.mode) }
+                result.policy?.let {
+                    // Advisory policy after download: pass to RN as well.
+                    if (it.mode != "required") {
+                        OtaEventBridge.pendingPolicy = Pair(it.mode, it.releaseNotesUrl)
+                    }
+                }
             }
             is OtaCheckResult.UpToDate -> Unit
             is OtaCheckResult.Error -> Unit
