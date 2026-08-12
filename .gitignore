@@ -69,6 +69,10 @@ Icon?
 frontend/coverage/
 android/build/reports/kover/
 
+# Assets gerados pelo Metro durante build-bundle (não versionados)
+android/app/src/main/res/drawable-*/src_assets_*
+android/app/src/main/res/drawable-*/node_modules_*
+
 # Misc
 *.log
 *.tmp

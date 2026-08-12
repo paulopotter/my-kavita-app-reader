@@ -2,7 +2,9 @@
 
 ## In progress
 
-_nenhum plano ativo_
+| Plan | Description |
+|------|-------------|
+| [002 — Splash Screen & Navigation](active/002%20-%20Splash%20Screen%20%26%20Navigation/README.md) | Animated RN splash overlay, react-navigation foundation, full route graph with placeholders |
 
 ## Concluídos
 
@@ -15,7 +17,6 @@ _nenhum plano ativo_
 
 | # | Item | Depends on |
 |---|------|------------|
-| [002](backlog/items/002-splash-screen.md) | Splash Screen | 001 |
 | [004](backlog/items/004-following-screen.md) | Following Screen | 001, 003 |
 | [005](backlog/items/005-home-screen.md) | Home Screen | 001, 003 |
 | [006](backlog/items/006-series-detail-screen.md) | Series Detail Screen | 001, 003 |
