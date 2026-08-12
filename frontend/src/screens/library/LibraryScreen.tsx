@@ -11,8 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SeriesSummary } from '../../shared/bridge/library';
 import { useStrings } from '../../shared/i18n/useStrings';
+import { NavOrigin, Routes } from '../../navigation/routes';
 import { SeriesCard } from './components/SeriesCard';
 import { SeriesListItem } from './components/SeriesListItem';
 import { UseLibraryOptions, useLibrary } from './useLibrary';
@@ -26,9 +29,15 @@ const SCROLL_THRESHOLD = 300;
 export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
   const t = useStrings();
   const { loading, data, error, viewMode, sortMode, refresh, setViewMode, setSortMode, toggleFollow } = useLibrary({ filter, prefsKey });
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const listRef = useRef<FlatList>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const lastOffsetY = useRef(0);
+  const origin: NavOrigin = prefsKey === 'following' ? 'FOLLOWING' : 'LIBRARY';
+
+  const openSeriesDetail = useCallback((seriesId: number) => {
+    navigation.navigate(Routes.SERIES_DETAIL, { seriesId: String(seriesId), origin });
+  }, [navigation, origin]);
 
   // ── Alphabet index (only in LIST + ALPHABETICAL) ─────────────────────────
   const alphabetIndex = useMemo<Map<string, number>>(() => {
@@ -50,15 +59,15 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
 
   const renderGridItem = useCallback(({ item }: { item: SeriesSummary | null }) =>
     item ? (
-      <SeriesCard series={item} t={t} onToggleFollow={toggleFollow} />
+      <SeriesCard series={item} t={t} onToggleFollow={toggleFollow} onPress={openSeriesDetail} />
     ) : (
       <View style={styles.cardPlaceholder} />
     ),
-  [t, toggleFollow]);
+  [t, toggleFollow, openSeriesDetail]);
 
   const renderListItem = useCallback(({ item }: { item: SeriesSummary }) =>
-    <SeriesListItem series={item} t={t} onToggleFollow={toggleFollow} />,
-  [t, toggleFollow]);
+    <SeriesListItem series={item} t={t} onToggleFollow={toggleFollow} onPress={openSeriesDetail} />,
+  [t, toggleFollow, openSeriesDetail]);
 
   if (loading && data.length === 0) {
     return (

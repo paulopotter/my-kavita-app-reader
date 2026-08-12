@@ -12,15 +12,20 @@ interface Props {
   series: SeriesSummary;
   t: Strings;
   onToggleFollow: (id: number) => void;
+  onPress?: (id: number) => void;
 }
 
-export function SeriesCard({ series, t, onToggleFollow }: Props) {
+export function SeriesCard({ series, t, onToggleFollow, onPress }: Props) {
   const pubLabel = publicationLabel(series.publicationStatus, t);
   const progress = formatProgress(series.progressFraction);
   const sLabel = statusLabel(series.readStatus, t);
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onPress?.(series.id)}
+      activeOpacity={0.8}
+      disabled={!onPress}>
       <Image
         source={{ uri: series.coverUrl }}
         style={styles.cover}
@@ -66,7 +71,7 @@ export function SeriesCard({ series, t, onToggleFollow }: Props) {
           </Text>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

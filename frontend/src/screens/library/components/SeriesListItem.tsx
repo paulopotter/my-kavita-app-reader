@@ -8,14 +8,19 @@ interface Props {
   series: SeriesSummary;
   t: Strings;
   onToggleFollow: (id: number) => void;
+  onPress?: (id: number) => void;
 }
 
-export function SeriesListItem({ series, t, onToggleFollow }: Props) {
+export function SeriesListItem({ series, t, onToggleFollow, onPress }: Props) {
   const sLabel = statusLabel(series.readStatus, t);
   const progress = formatProgress(series.progressFraction);
 
   return (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => onPress?.(series.id)}
+      activeOpacity={0.8}
+      disabled={!onPress}>
       <Image
         source={{ uri: series.coverUrl }}
         style={styles.thumb}
@@ -36,7 +41,7 @@ export function SeriesListItem({ series, t, onToggleFollow }: Props) {
           {series.isFollowed ? '★' : '☆'}
         </Text>
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 }
 
