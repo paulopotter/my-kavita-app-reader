@@ -128,6 +128,28 @@ export interface Strings {
   exitCancel: string;
   exitConfirm: string;
 
+  // ── Series detail screen ─────────────────────────────────────────────────
+  seriesDetailLoading: string;
+  seriesDetailError: string;
+  seriesDetailRetry: string;
+  seriesDetailStartReading: string;
+  seriesDetailContinueReading: string;
+  seriesDetailRereadFromStart: string;
+  seriesDetailChaptersRead: string;
+  seriesDetailSortAscending: string;
+  seriesDetailSortDescending: string;
+  seriesDetailSortAutoFixed: string;
+  seriesDetailSortAutoProgress: string;
+  seriesDetailSelectionMarkRead: string;
+  seriesDetailSelectionMarkUnread: string;
+  seriesDetailSelectionSelectAll: string;
+  seriesDetailSelectionInvert: string;
+  seriesDetailSortConfigTitle: string;
+  seriesDetailSortConfigFixedThresholdLabel: string;
+  seriesDetailSortConfigProgressPercentLabel: string;
+  seriesDetailSortConfigCancel: string;
+  seriesDetailSortConfigSave: string;
+
   // ── Errors ───────────────────────────────────────────────────────────────
   errorApiKeyEmpty: string;
   errorDbVersionMismatch: string;
@@ -247,6 +269,27 @@ const ptBR: Strings = {
   exitCancel: 'Cancelar',
   exitConfirm: 'Sair',
 
+  seriesDetailLoading: 'Carregando...',
+  seriesDetailError: 'Erro ao carregar a série',
+  seriesDetailRetry: 'Tentar novamente',
+  seriesDetailStartReading: 'Começar a ler',
+  seriesDetailContinueReading: 'Continuar lendo cap. {0}',
+  seriesDetailRereadFromStart: 'Reler',
+  seriesDetailChaptersRead: '{0}/{1} lidos',
+  seriesDetailSortAscending: 'Crescente',
+  seriesDetailSortDescending: 'Decrescente',
+  seriesDetailSortAutoFixed: 'Auto (cap. {0})',
+  seriesDetailSortAutoProgress: 'Auto ({0}%)',
+  seriesDetailSelectionMarkRead: 'Marcar como lido',
+  seriesDetailSelectionMarkUnread: 'Marcar como não lido',
+  seriesDetailSelectionSelectAll: 'Selecionar tudo',
+  seriesDetailSelectionInvert: 'Inverter seleção',
+  seriesDetailSortConfigTitle: 'Ordenação de capítulos',
+  seriesDetailSortConfigFixedThresholdLabel: 'Capítulo limiar',
+  seriesDetailSortConfigProgressPercentLabel: 'Percentual de progresso',
+  seriesDetailSortConfigCancel: 'Cancelar',
+  seriesDetailSortConfigSave: 'Salvar',
+
   errorApiKeyEmpty: 'A API key não pode estar vazia',
   errorDbVersionMismatch: 'Versão do banco incompatível',
   errorDbNotOpen: 'Banco de dados não está aberto',
@@ -364,6 +407,27 @@ const en: Strings = {
   exitMessage: 'Do you want to close the app?',
   exitCancel: 'Cancel',
   exitConfirm: 'Exit',
+
+  seriesDetailLoading: 'Loading...',
+  seriesDetailError: 'Failed to load series',
+  seriesDetailRetry: 'Try again',
+  seriesDetailStartReading: 'Start reading',
+  seriesDetailContinueReading: 'Continue reading ch. {0}',
+  seriesDetailRereadFromStart: 'Reread',
+  seriesDetailChaptersRead: '{0}/{1} read',
+  seriesDetailSortAscending: 'Ascending',
+  seriesDetailSortDescending: 'Descending',
+  seriesDetailSortAutoFixed: 'Auto (ch. {0})',
+  seriesDetailSortAutoProgress: 'Auto ({0}%)',
+  seriesDetailSelectionMarkRead: 'Mark as read',
+  seriesDetailSelectionMarkUnread: 'Mark as unread',
+  seriesDetailSelectionSelectAll: 'Select all',
+  seriesDetailSelectionInvert: 'Invert selection',
+  seriesDetailSortConfigTitle: 'Chapter sort order',
+  seriesDetailSortConfigFixedThresholdLabel: 'Threshold chapter',
+  seriesDetailSortConfigProgressPercentLabel: 'Progress percentage',
+  seriesDetailSortConfigCancel: 'Cancel',
+  seriesDetailSortConfigSave: 'Save',
 
   errorApiKeyEmpty: 'API key cannot be empty',
   errorDbVersionMismatch: 'Database version mismatch',
