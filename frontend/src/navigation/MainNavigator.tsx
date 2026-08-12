@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library/LibraryScreen';
+import { FollowingScreen } from '../screens/following/FollowingScreen';
 import { ConfigScreen } from '../screens/config/ConfigScreen';
 import { useAppShellState } from '../shared/components/AppShellState';
 import { useStrings } from '../shared/i18n/useStrings';
@@ -36,7 +37,7 @@ function ConfigTab({
 }
 
 export function MainNavigator() {
-  const { refresh } = useAppShellState();
+  const { refresh, hasFollowedSeries } = useAppShellState();
   const strings = useStrings();
   const navigation = useNavigation<any>();
   const isConfigSubScreenRef = useRef(false);
@@ -50,8 +51,12 @@ export function MainNavigator() {
     navigation.reset({ index: 0, routes: [{ name: Routes.SETUP }] });
   };
 
+  const initialTab = hasFollowedSeries ? Routes.FOLLOWING : Routes.LIBRARY;
+
   return (
     <Tab.Navigator
+      key={initialTab}
+      initialRouteName={initialTab}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -65,6 +70,16 @@ export function MainNavigator() {
         tabBarLabelStyle: { fontSize: 11 },
       }}
     >
+      {hasFollowedSeries && (
+        <Tab.Screen
+          name={Routes.FOLLOWING}
+          component={FollowingScreen}
+          options={{
+            tabBarLabel: strings.navFollowing,
+            tabBarIcon: ({ focused }) => <TabIcon label="★" focused={focused} />,
+          }}
+        />
+      )}
       <Tab.Screen
         name={Routes.LIBRARY}
         component={LibraryScreen}
@@ -73,7 +88,6 @@ export function MainNavigator() {
           tabBarIcon: ({ focused }) => <TabIcon label="📚" focused={focused} />,
         }}
       />
-      {/* Aba "Seguindo" oculta até o Plano 004 implementar a tela */}
       <Tab.Screen
         name={Routes.CONFIG}
         options={{
