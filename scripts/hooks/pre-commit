@@ -9,6 +9,10 @@ STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx
 STAGED_SCHEMAS=$(git diff --cached --name-only --diff-filter=ACM | grep 'android/core/schemas/' || true)
 STAGED_ROOM_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACM | grep 'android/core/src.*migrations/.*\.kt$' || true)
 
+# Detect if Kotlin or JS/TS source changed (not just config files)
+CHANGED_KT_SRC=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^android/(core|tools|features)/src/' | grep '\.kt$' || true)
+CHANGED_TS_SRC=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/src/' | grep -E '\.(ts|tsx)$' || true)
+
 FAILED=0
 
 # ── Kotlin lint ────────────────────────────────────────────────────────────────
@@ -47,6 +51,31 @@ if [ -n "$STAGED_ROOM_MIGRATIONS" ]; then
     "$ROOT/scripts/validate-js-migration.sh" "$STAGED_ROOM_MIGRATIONS" && echo "  ✓ JS migration parity ok" || FAILED=1
   else
     echo "  ⚠ validate-js-migration.sh not found — skipping (needed for backlog 012)"
+  fi
+fi
+
+# ── Kotlin tests + coverage floor ─────────────────────────────────────────────
+if [ -n "$CHANGED_KT_SRC" ]; then
+  echo "→ Kotlin: running tests + coverage floor check..."
+  if ! (cd "$ROOT/android" && ./gradlew test koverVerify -q 2>&1); then
+    echo "  ✗ Kotlin tests or coverage floor failed"
+    echo "    Run: cd android && ./gradlew test koverVerify"
+    echo "    Or:  make coverage-kotlin"
+    FAILED=1
+  else
+    echo "  ✓ Kotlin tests + coverage ok"
+  fi
+fi
+
+# ── JS/TS tests + coverage floor ──────────────────────────────────────────────
+if [ -n "$CHANGED_TS_SRC" ]; then
+  echo "→ JS/TS: running tests + coverage floor check..."
+  if ! (cd "$ROOT/frontend" && yarn test:coverage --silent 2>&1); then
+    echo "  ✗ JS tests or coverage floor failed"
+    echo "    Run: make coverage-js"
+    FAILED=1
+  else
+    echo "  ✓ JS/TS tests + coverage ok"
   fi
 fi
 
