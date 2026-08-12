@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ConfigRepository, ServerConfig, SetupBridge } from '../../shared/bridge/config';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
+import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
 import { addBffServer, savePreferences, saveServer } from '../config/ConfigService';
 
 const BG = '#1A1A2E';
@@ -136,7 +137,7 @@ export function SetupScreen({ onComplete }: Props) {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const handleAuthenticate = async () => {
-    const key = apiKey.trim();
+    const key = extractKavitaApiKey(apiKey);
     if (!key) return;
     setAuthStatus('loading');
     setAuthMessage('');

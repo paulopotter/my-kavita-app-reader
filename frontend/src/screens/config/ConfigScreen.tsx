@@ -14,6 +14,7 @@ import {
 import { ConfigRepository, SetupBridge } from '../../shared/bridge/config';
 import { AppVersions } from '../../shared/components/AppVersions';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
+import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
 import { addBffServer, savePreferences, saveServer } from './ConfigService';
 import { useConfig } from './useConfig';
 
@@ -222,7 +223,7 @@ function ServerScreen({ onBack, onServerCleared }: { onBack: () => void; onServe
 
   // ── Handlers Auth ─────────────────────────────────────────────────────────
   const handleAuthenticate = async () => {
-    const key = apiKey.trim();
+    const key = extractKavitaApiKey(apiKey);
     if (!key) {return;}
     setAuthStatus('loading'); setAuthMessage('');
     try {
