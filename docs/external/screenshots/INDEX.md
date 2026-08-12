@@ -23,6 +23,12 @@ Anonymized screenshots of the app. IPs, tokens, and real domain names replaced w
 | [library-list-recent.png](library-list-recent.png) | Library in list view, sorted by recently updated |
 | [library-list-alphabetical.png](library-list-alphabetical.png) | Library in list view, sorted alphabetically |
 
+## Following
+
+| File | Description |
+|------|-------------|
+| [following-grid-recent.png](following-grid-recent.png) | Following tab in grid view, sorted by recently updated |
+
 ## Settings
 
 | File | Description |
