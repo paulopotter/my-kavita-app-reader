@@ -6,10 +6,12 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
+import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaSeriesFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
+import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.tools.bridge.ConfigRepository
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.bridge.DbValidatorModule
@@ -24,6 +26,8 @@ class AppReactPackage(
     private val kavitaSeriesFeature: KavitaSeriesFeature,
     private val bffFeature: BffFeature,
     private val followedSeriesDao: FollowedSeriesDao,
+    private val serverConfigDao: ServerConfigDao,
+    private val splashSyncCoordinator: SplashSyncCoordinator,
 ) : ReactPackage {
 
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
@@ -35,6 +39,7 @@ class AppReactPackage(
             otaBridge,
             LibraryModule(kavitaSeriesFeature, bffFeature, followedSeriesDao, context),
             SetupModule(kavitaUrlSource, kavitaAuthFeature, bffFeature, context),
+            StartupModule(serverConfigDao, followedSeriesDao, splashSyncCoordinator, context),
         )
     }
 
