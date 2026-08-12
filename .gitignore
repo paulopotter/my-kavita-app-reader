@@ -21,7 +21,7 @@ android/app/google-services.json
 
 # Node / React Native
 node_modules/
-android/node_modules/
+android/node_modules
 npm-debug.log
 yarn-debug.log
 yarn-error.log

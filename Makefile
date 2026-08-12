@@ -111,6 +111,7 @@ setup: ## $(MSG_SETUP)
 	@scripts/install-hooks.sh
 	@echo "$(MSG_INSTALL_JS)"
 	@cd $(FRONTEND_DIR) && yarn install
+	@[ -L $(ANDROID_DIR)/node_modules ] || ln -s "$(CURDIR)/$(FRONTEND_DIR)/node_modules" $(ANDROID_DIR)/node_modules
 	@echo "$(MSG_READY)"
 
 build-android: ## $(MSG_BUILD_ANDROID)
