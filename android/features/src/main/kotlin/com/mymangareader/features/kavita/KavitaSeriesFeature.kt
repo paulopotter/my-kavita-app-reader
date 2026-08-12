@@ -15,6 +15,7 @@ import javax.inject.Singleton
 private const val SERIES_ALL_PATH = "/api/Series/all-v2"
 private const val SERIES_ALL_BODY =
     """{"id":0,"statements":[],"combination":1,"sortOptions":{"sortField":1,"isAscending":true},"limitTo":0}"""
+private const val VOLUMES_PATH_TEMPLATE = "/api/Series/%s/volumes"
 
 private val seriesJson = Json { ignoreUnknownKeys = true }
 
@@ -50,6 +51,23 @@ class KavitaSeriesFeature @Inject constructor(
         val pagesRead: Int = 0,
         val pages: Int = 0,
         val lastChapterAddedUtc: String? = null,
+    )
+
+    @Serializable
+    private data class ChapterDto(
+        val id: Int,
+        val number: String = "",
+        val title: String = "",
+        val pages: Int = 0,
+        val pagesRead: Int = 0,
+        val sortOrder: Double = 0.0,
+        val createdUtc: String? = null,
+    )
+
+    @Serializable
+    private data class VolumeDto(
+        val id: Int,
+        val chapters: List<ChapterDto> = emptyList(),
     )
 
     suspend fun listSeries(): Result<List<SeriesSummary>> {
@@ -90,6 +108,44 @@ class KavitaSeriesFeature @Inject constructor(
                     publicationStatus = bffMatch?.status?.toPublicationStatus() ?: "NONE",
                     hasErrors = bffMatch?.hasErrors ?: false,
                 )
+            }
+        }
+    }
+
+    suspend fun listChaptersForSeries(seriesId: String): Result<List<ChapterCacheEntity>> {
+        val auth = authConfigDao.get()
+            ?: return Result.failure(IllegalStateException("Not authenticated"))
+        val jwt = auth.jwt
+            ?: return Result.failure(IllegalStateException("Not authenticated"))
+
+        val baseUrl = urlSource.getActiveUrl().getOrElse { return Result.failure(it) }
+        val path = VOLUMES_PATH_TEMPLATE.format(seriesId)
+
+        return requestTool.request(
+            url = "$baseUrl$path",
+            method = "GET",
+            headers = mapOf("Authorization" to "Bearer $jwt"),
+        ).mapCatching { http ->
+            if (http.status != 200) error("Volumes fetch failed: HTTP ${http.status}")
+            val volumes = seriesJson.decodeFromString<List<VolumeDto>>(http.body)
+            val existingChapters = chapterCacheDao.getBySeriesId(seriesId)
+            val readStatusById = existingChapters.associate { it.id to it.readStatus }
+            val pagesReadById = existingChapters.associate { it.id to it.pagesRead }
+            volumes.flatMap { volume ->
+                volume.chapters.map { ch ->
+                    val chId = ch.id.toString()
+                    ChapterCacheEntity(
+                        id = chId,
+                        seriesId = seriesId,
+                        title = ch.title,
+                        number = ch.number,
+                        pageCount = ch.pages,
+                        sortOrder = ch.sortOrder,
+                        readStatus = readStatusById[chId] ?: if (ch.pagesRead >= ch.pages && ch.pages > 0) "READ" else if (ch.pagesRead > 0) "IN_PROGRESS" else "UNREAD",
+                        pagesRead = pagesReadById[chId] ?: ch.pagesRead,
+                        updatedAtLocalMs = null,
+                    )
+                }
             }
         }
     }
