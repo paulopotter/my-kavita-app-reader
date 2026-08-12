@@ -63,7 +63,8 @@ jobs:
             --platform android \
             --dev false \
             --entry-file index.tsx \
-            --bundle-output ../android/app/src/main/assets/index.android.bundle
+            --bundle-output ../android/app/src/main/assets/index.android.bundle \
+            --assets-dest ../android/app/src/main/res
 
       - name: Copy bundle for OTA release
         run: cp android/app/src/main/assets/index.android.bundle bundle.js
