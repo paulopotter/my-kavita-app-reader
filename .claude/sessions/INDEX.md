@@ -4,7 +4,6 @@
 
 | Plan | Description |
 |------|-------------|
-| [002 — Splash Screen & Navigation](active/002%20-%20Splash%20Screen%20%26%20Navigation/README.md) | Animated RN splash overlay, react-navigation foundation, full route graph with placeholders |
 
 ## Concluídos
 
@@ -12,6 +11,7 @@
 |------|--------|
 | [010 — OTA Infrastructure](archive/010-ota-infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
 | [003 — Library Screen](../completions/archive/003%20-%20Library%20Screen/README.md) | todas as 14 tasks concluídas |
+| [002 — Splash Screen & Navigation](../completions/archive/002%20-%20Splash%20Screen%20%26%20Navigation/README.md) | todas as 12 tasks concluídas |
 
 ## Backlog
 
