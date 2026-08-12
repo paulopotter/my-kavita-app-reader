@@ -2,6 +2,8 @@ package com.mymangareader.tools.bridge
 
 import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.AuthConfigEntity
+import com.mymangareader.core.database.BffServerConfigDao
+import com.mymangareader.core.database.BffServerConfigEntity
 import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.ServerConfigEntity
 import com.mymangareader.core.database.UiPreferencesDao
@@ -49,6 +51,13 @@ private class FakeUiPreferencesDao : UiPreferencesDao {
     override suspend fun get(): UiPreferencesEntity? = stored
 }
 
+private class FakeBffServerConfigDao : BffServerConfigDao {
+    private val store = mutableMapOf<String, BffServerConfigEntity>()
+    override suspend fun getAll() = store.values.toList()
+    override suspend fun insert(entity: BffServerConfigEntity) { store[entity.id] = entity }
+    override suspend fun deleteById(id: String) { store.remove(id) }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 class ConfigStoreTest {
@@ -56,6 +65,7 @@ class ConfigStoreTest {
     private lateinit var serverDao: FakeServerConfigDao
     private lateinit var authDao: FakeAuthConfigDao
     private lateinit var prefsDao: FakeUiPreferencesDao
+    private lateinit var bffDao: FakeBffServerConfigDao
     private lateinit var store: ConfigStore
 
     @Before
@@ -63,7 +73,8 @@ class ConfigStoreTest {
         serverDao = FakeServerConfigDao()
         authDao = FakeAuthConfigDao()
         prefsDao = FakeUiPreferencesDao()
-        store = ConfigStore(serverDao, authDao, prefsDao)
+        bffDao = FakeBffServerConfigDao()
+        store = ConfigStore(serverDao, authDao, prefsDao, bffDao)
     }
 
     // ── Server config ──────────────────────────────────────────────────────────
