@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 
 @Dao
 interface ChapterCacheDao {
@@ -26,4 +27,10 @@ interface ChapterCacheDao {
 
     @Query("DELETE FROM chapter_cache WHERE seriesId = :seriesId")
     suspend fun deleteBySeriesId(seriesId: String)
+
+    @Transaction
+    suspend fun replaceForSeries(seriesId: String, chapters: List<ChapterCacheEntity>) {
+        deleteBySeriesId(seriesId)
+        insertAll(chapters)
+    }
 }

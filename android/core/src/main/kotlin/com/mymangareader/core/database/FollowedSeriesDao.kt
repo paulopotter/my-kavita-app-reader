@@ -5,12 +5,16 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FollowedSeriesDao {
 
     @Query("SELECT seriesId FROM followed_series")
     suspend fun getAllIds(): List<String>
+
+    @Query("SELECT seriesId FROM followed_series")
+    fun observeAllIds(): Flow<List<String>>
 
     @Query("SELECT EXISTS(SELECT 1 FROM followed_series WHERE seriesId = :seriesId)")
     suspend fun isFollowed(seriesId: String): Boolean
