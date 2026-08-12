@@ -1,17 +1,17 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { SeriesSummary } from '../../shared/bridge/library';
+import { useStrings } from '../../shared/i18n/useStrings';
+import { LibraryScreen } from '../library/LibraryScreen';
+
+const followingFilter = (s: SeriesSummary) => s.isFollowed;
 
 export function FollowingScreen() {
+  const t = useStrings();
   return (
-    <View style={styles.root}>
-      <Text style={styles.label}>Seguindo</Text>
-      <Text style={styles.sub}>Em breve (Plano 004)</Text>
-    </View>
+    <LibraryScreen
+      filter={followingFilter}
+      prefsKey="following"
+      emptyText={t.followingEmpty}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', alignItems: 'center' },
-  label: { color: '#fff', fontSize: 20, fontWeight: '600' },
-  sub: { color: 'rgba(255,255,255,0.4)', marginTop: 8, fontSize: 13 },
-});

@@ -21,6 +21,8 @@ export interface UiPreferences {
   language: string;
   libraryViewMode: 'GRID' | 'LIST';
   librarySortMode: 'RECENTLY_UPDATED' | 'ALPHABETICAL';
+  followingViewMode: 'GRID' | 'LIST';
+  followingSortMode: 'RECENTLY_UPDATED' | 'ALPHABETICAL';
 }
 
 export interface DbStatus {

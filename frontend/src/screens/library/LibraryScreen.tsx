@@ -15,13 +15,17 @@ import { SeriesSummary } from '../../shared/bridge/library';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { SeriesCard } from './components/SeriesCard';
 import { SeriesListItem } from './components/SeriesListItem';
-import { useLibrary } from './useLibrary';
+import { UseLibraryOptions, useLibrary } from './useLibrary';
+
+interface Props extends UseLibraryOptions {
+  emptyText?: string;
+}
 
 const SCROLL_THRESHOLD = 300;
 
-export function LibraryScreen() {
+export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
   const t = useStrings();
-  const { loading, data, error, viewMode, sortMode, refresh, setViewMode, setSortMode, toggleFollow } = useLibrary();
+  const { loading, data, error, viewMode, sortMode, refresh, setViewMode, setSortMode, toggleFollow } = useLibrary({ filter, prefsKey });
   const listRef = useRef<FlatList>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const lastOffsetY = useRef(0);
@@ -80,7 +84,7 @@ export function LibraryScreen() {
   if (!loading && data.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.message}>{t.libraryEmpty}</Text>
+        <Text style={styles.message}>{emptyText ?? t.libraryEmpty}</Text>
       </View>
     );
   }

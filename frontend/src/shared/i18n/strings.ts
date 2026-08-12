@@ -63,6 +63,9 @@ export interface Strings {
   libraryViewList: string;
   librarySeriesCount: string;
 
+  // ── Following screen ─────────────────────────────────────────────────────
+  followingEmpty: string;
+
   // ── Series card ──────────────────────────────────────────────────────────
   readStatusUnread: string;
   readStatusReading: string;
@@ -188,6 +191,8 @@ const ptBR: Strings = {
   libraryViewList: 'Lista',
   librarySeriesCount: 'séries',
 
+  followingEmpty: 'Nenhuma série seguida. Marque séries na Biblioteca para vê-las aqui.',
+
   readStatusUnread: 'Não lido',
   readStatusReading: 'Lendo',
   readStatusRead: 'Lido',
@@ -303,6 +308,8 @@ const en: Strings = {
   libraryViewGrid: 'Grid',
   libraryViewList: 'List',
   librarySeriesCount: 'series',
+
+  followingEmpty: 'No series followed. Star series in the Library to see them here.',
 
   readStatusUnread: 'Unread',
   readStatusReading: 'Reading',
