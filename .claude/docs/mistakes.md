@@ -167,4 +167,20 @@ await Promise.all([
 
 ---
 
-**Last Updated**: 2026-08-11
+### 11. Logic placed in the wrong domain layer
+
+**Symptom**: `LibraryTransform` formats series data; `SeriesModule` handles
+chapter operations; a screen-level transform duplicates logic from a shared
+domain.
+
+**Rule**: each domain only knows its own concern. Library calls Series to
+handle series data; Series calls Chapter to handle chapter data. Shared domain
+logic lives in `shared/transforms/<domain>.ts`, never inside a screen folder
+or a parent domain file.
+
+**Fix**: move the function to the correct domain transform. Update all import
+sites.
+
+---
+
+**Last Updated**: 2026-08-12

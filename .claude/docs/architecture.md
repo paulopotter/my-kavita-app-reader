@@ -50,6 +50,65 @@ my-kavita-app-reader/
     └── templates/              # Document templates
 ```
 
+## Domain Composition
+
+Domains are organized **micro → macro**. Each domain only handles its own
+concern and delegates downward to the smaller domain when needed:
+
+```
+Page  →  Chapter  →  Series  →  Library
+(micro)                          (macro)
+```
+
+### Rules
+
+- `Chapter` knows how to format/handle a chapter.
+- `Series` knows how to format/handle a series — calls `Chapter` when it needs
+  chapter data.
+- `Library` knows how to format/handle the library — calls `Series` when it
+  needs series data.
+- Each domain owns its transform, service, and bridge files.
+- **Never** put series-domain logic inside Library files, or chapter-domain
+  logic inside Series files.
+
+### In Kotlin
+
+Each subdomain lives in its own subfolder under `features/kavita/`:
+
+```
+features/kavita/
+├── library/    KavitaLibraryFeature.kt  — lists the library (POST /api/Series/all-v2)
+├── series/     KavitaSeriesFeature.kt   — single series detail + metadata
+└── chapter/    KavitaChapterFeature.kt  — chapters, mark-read/unread, progress
+                ChapterSyncCoordinator.kt
+```
+
+Kotlin is a **data bridge only** — it exposes raw data to RN and holds the
+minimum Android-only logic (Room cache, authenticated requests, sync
+coordinators). Business logic, ordering, and formatting live in RN.
+
+When to write Kotlin logic: only when there is an indispensable Android
+technical advantage — Room cache, authenticated HTTP, SyncCoordinator.
+Never duplicate logic the RN layer already performs.
+
+### In React Native
+
+```
+shared/transforms/series.ts    — pure functions for series domain
+shared/transforms/chapter.ts   — pure functions for chapter domain
+shared/bridge/series.ts        — types + bridge for Series/Chapter Native Module
+screens/series-detail/
+  SeriesDetailTransform.ts     — screen-specific derived data (sort, continue-chapter)
+  SeriesDetailService.ts       — thin wrapper delegating to bridge
+  useSeriesDetail.ts           — orchestrates state + side-effects
+```
+
+`screens/*/` contains only what is specific to that screen. Shared domain
+logic must live in `shared/transforms/<domain>.ts` so other screens can
+reuse it without crossing screen boundaries.
+
+---
+
 ## Kotlin Layer Rules
 
 | Layer      | May depend on  | Never depends on |

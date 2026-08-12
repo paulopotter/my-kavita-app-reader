@@ -16,6 +16,9 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
 - Used by 2nd screen → promote to `shared/`
 - Kotlin layers: `core` ← `tools` ← `features` (unidirectional)
 - Zero telemetry / analytics / user identifiers
+- Domain Composition: micro → macro (Page → Chapter → Series → Library).
+  Each domain only handles its own concern and delegates downward.
+  See architecture.md § Domain Composition for full rules.
 
 ## Rules
 - Replies → pt-BR; code + `.claude/` → English
