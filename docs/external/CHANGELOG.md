@@ -10,6 +10,30 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.08.12.1048](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1048)] - 2026-08-12
+
+Agora o app exibe apenas as séries marcadas com estrela na aba "Seguindo" com layout de grid e ordenação independentes. / The app now displays only starred series in the "Following" tab with independent grid layout and sorting.
+
+### **Backend** - `0.5.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
+
+### **Frontend** - `0.6.0`
+
+**[pt-BR]**
+- A aba "Seguindo" exibe apenas as séries que você marcou com estrela, com um layout de grid e ordenação independentes da Biblioteca
+- A aba "Seguindo" aparece automaticamente quando você está seguindo séries e some quando não há nenhuma série sendo seguida
+- Ao marcar ou desmarcar uma série, a aba "Seguindo" é atualizada em tempo real sem precisar reiniciar o app
+
+**[en]**
+- The "Following" tab now displays only the series you've starred, with an independent grid layout and sorting
+- The "Following" tab appears automatically when you're following series and disappears when you're not following any
+- When you star or unstar a series, the "Following" tab updates in real-time without requiring a restart
+
 ## [[2026.08.12.1009](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1009)] - 2026-08-12
 
 Agora o app sincroniza suas séries e capítulos automaticamente na abertura e apresenta uma nova tela de splash com barra de progresso animada. / The app now synchronizes your series and chapters automatically on startup and features a new splash screen with an animated progress bar.

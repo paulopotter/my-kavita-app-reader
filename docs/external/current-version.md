@@ -2,8 +2,8 @@
 
 | | Versão / Version |
 |---|---|
-| App | `2026.08.12.1009` |
+| App | `2026.08.12.1048` |
 | Kotlin (Backend) | `0.5.0` |
-| React Native (Frontend) | `0.5.0` |
+| React Native (Frontend) | `0.6.0` |
 
-_Atualizado em / Updated at: 2026-08-12 10:09 UTC_
+_Atualizado em / Updated at: 2026-08-12 10:48 UTC_
