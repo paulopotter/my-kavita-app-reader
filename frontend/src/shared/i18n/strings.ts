@@ -79,6 +79,25 @@ export interface Strings {
   bottomBarLibrary: string;
   bottomBarSettings: string;
 
+  // ── Bottom nav (react-navigation tabs) ───────────────────────────────────
+  navLibrary: string;
+  navFollowing: string;
+  navSearch: string;
+  navConfig: string;
+
+  // ── Splash screen ─────────────────────────────────────────────────────────
+  splashVersion: string;
+  splashUpdateButton: string;
+
+  // ── OTA policy dialogs ───────────────────────────────────────────────────
+  otaRequiredTitle: string;
+  otaRequiredBody: string;
+  otaHighlyRecTitle: string;
+  otaRecommendedTitle: string;
+  otaAdvisoryBody: string;
+  otaDismiss: string;
+  otaViewNotes: string;
+
   // ── Version labels ────────────────────────────────────────────────────────
   versionBackend: string;
   versionApp: string;
@@ -183,6 +202,22 @@ const ptBR: Strings = {
   bottomBarLibrary: 'Biblioteca',
   bottomBarSettings: 'Ajustes',
 
+  navLibrary: 'Biblioteca',
+  navFollowing: 'Seguindo',
+  navSearch: 'Buscar',
+  navConfig: 'Ajustes',
+
+  splashVersion: 'v',
+  splashUpdateButton: 'Aplicar atualização',
+
+  otaRequiredTitle: 'Atualização obrigatória',
+  otaRequiredBody: 'Esta versão não é mais suportada. Para continuar usando o app, acesse as notas de versão e instale a atualização.',
+  otaHighlyRecTitle: 'Atualização altamente recomendada',
+  otaRecommendedTitle: 'Nova versão disponível',
+  otaAdvisoryBody: 'Uma nova versão do app está disponível. Recomendamos atualizar para ter a melhor experiência.',
+  otaDismiss: 'Agora não',
+  otaViewNotes: 'Ver novidades',
+
   versionBackend: 'backend',
   versionApp: 'app',
   versionFrontend: 'frontend',
@@ -282,6 +317,22 @@ const en: Strings = {
 
   bottomBarLibrary: 'Library',
   bottomBarSettings: 'Settings',
+
+  navLibrary: 'Library',
+  navFollowing: 'Following',
+  navSearch: 'Search',
+  navConfig: 'Settings',
+
+  splashVersion: 'v',
+  splashUpdateButton: 'Apply update',
+
+  otaRequiredTitle: 'Mandatory update',
+  otaRequiredBody: 'This version is no longer supported. To continue using the app, view the release notes and install the update.',
+  otaHighlyRecTitle: 'Highly recommended update',
+  otaRecommendedTitle: 'New version available',
+  otaAdvisoryBody: 'A new version of the app is available. We recommend updating for the best experience.',
+  otaDismiss: 'Not now',
+  otaViewNotes: 'View release notes',
 
   versionBackend: 'backend',
   versionApp: 'app',
