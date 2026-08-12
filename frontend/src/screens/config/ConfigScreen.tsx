@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   Modal,
   ScrollView,
   StyleSheet,
@@ -33,7 +34,7 @@ function isValidUrl(s: string): boolean {
 }
 
 function maskApiKey(key: string): string {
-  if (key.length <= 6) return '*'.repeat(key.length);
+  if (key.length <= 6) {return '*'.repeat(key.length);}
   return key.slice(0, 6) + '*'.repeat(Math.max(1, key.length - 8)) + key.slice(-2);
 }
 
@@ -41,26 +42,31 @@ function maskApiKey(key: string): string {
 
 interface ConfigScreenProps {
   onRegisterBackHandler?: (fn: (() => boolean) | null) => void;
+  onServerCleared?: () => void;
 }
 
-export function ConfigScreen({ onRegisterBackHandler }: ConfigScreenProps) {
+export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigScreenProps) {
   const [screen, setScreen] = useState<Screen>('menu');
 
   const goBack = () => setScreen('menu');
 
   useEffect(() => {
-    if (!onRegisterBackHandler) return;
-    if (screen !== 'menu') {
-      onRegisterBackHandler(() => { goBack(); return true; });
-    } else {
-      onRegisterBackHandler(null);
+    if (screen === 'menu') {
+      onRegisterBackHandler?.(null);
+      return;
     }
+    onRegisterBackHandler?.(() => { goBack(); return true; });
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      goBack();
+      return true;
+    });
+    return () => sub.remove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
   switch (screen) {
     case 'server':
-      return <ServerScreen onBack={goBack} />;
+      return <ServerScreen onBack={goBack} onServerCleared={onServerCleared} />;
     case 'reading':
       return <ReadingPrefsScreen onBack={goBack} />;
     default:
@@ -117,7 +123,7 @@ function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
 
 // ─── Servidor ─────────────────────────────────────────────────────────────────
 
-function ServerScreen({ onBack }: { onBack: () => void }) {
+function ServerScreen({ onBack, onServerCleared }: { onBack: () => void; onServerCleared?: () => void }) {
   const t = useStrings();
   const { servers, auth, bffServers, reload } = useConfig();
 
@@ -157,11 +163,11 @@ function ServerScreen({ onBack }: { onBack: () => void }) {
   // Load last known active URLs from Kotlin cache on mount
   const didLoadKnown = useRef(false);
   useEffect(() => {
-    if (didLoadKnown.current) return;
+    if (didLoadKnown.current) {return;}
     didLoadKnown.current = true;
     SetupBridge.getLastKnownUrls().then(known => {
-      if (known.kavitaUrl) setActiveKavitaUrl(known.kavitaUrl);
-      if (known.bffUrl) setActiveBffUrl(known.bffUrl);
+      if (known.kavitaUrl) {setActiveKavitaUrl(known.kavitaUrl);}
+      if (known.bffUrl) {setActiveBffUrl(known.bffUrl);}
     }).catch(() => {});
   }, []);
 
@@ -185,6 +191,15 @@ function ServerScreen({ onBack }: { onBack: () => void }) {
   const handleDeleteKavita = async (id: string) => {
     setMenu(null);
     await ConfigRepository.deleteServerConfig(id);
+    const remaining = servers.filter(s => s.id !== id);
+    if (remaining.length === 0) {
+      await Promise.all([
+        ConfigRepository.upsertAuthConfig({ apiKey: '' }),
+        ...bffServers.map(b => ConfigRepository.deleteBffServerConfig(b.id)),
+      ]);
+      onServerCleared?.();
+      return;
+    }
     await reload();
     setConnStatus('idle'); setActiveKavitaUrl('');
   };
@@ -208,7 +223,7 @@ function ServerScreen({ onBack }: { onBack: () => void }) {
   // ── Handlers Auth ─────────────────────────────────────────────────────────
   const handleAuthenticate = async () => {
     const key = apiKey.trim();
-    if (!key) return;
+    if (!key) {return;}
     setAuthStatus('loading'); setAuthMessage('');
     try {
       await SetupBridge.authenticate(key);
@@ -291,8 +306,8 @@ function ServerScreen({ onBack }: { onBack: () => void }) {
             {menu?.type !== 'apikey' && (
               <>
                 <TouchableOpacity style={styles.menuItem} onPress={() => {
-                  if (menu?.type === 'kavita') handleEditKavita(menu.id);
-                  else if (menu?.type === 'bff') handleEditBff(menu.id);
+                  if (menu?.type === 'kavita') {handleEditKavita(menu.id);}
+                  else if (menu?.type === 'bff') {handleEditBff(menu.id);}
                 }}>
                   <Text style={styles.menuItemTxt}>{t.serverListEdit}</Text>
                 </TouchableOpacity>
@@ -308,9 +323,9 @@ function ServerScreen({ onBack }: { onBack: () => void }) {
               </>
             )}
             <TouchableOpacity style={styles.menuItem} onPress={() => {
-              if (menu?.type === 'kavita') handleDeleteKavita(menu.id);
-              else if (menu?.type === 'bff') handleDeleteBff(menu!.id);
-              else if (menu?.type === 'apikey') handleDeleteApiKey();
+              if (menu?.type === 'kavita') {handleDeleteKavita(menu.id);}
+              else if (menu?.type === 'bff') {handleDeleteBff(menu!.id);}
+              else if (menu?.type === 'apikey') {handleDeleteApiKey();}
             }}>
               <Text style={[styles.menuItemTxt, styles.menuItemDanger]}>{t.serverListDelete}</Text>
             </TouchableOpacity>
