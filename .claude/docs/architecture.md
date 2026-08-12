@@ -79,6 +79,41 @@ my-kavita-app-reader/
 - `frontend/package.json` → `bundleVersion` (JS bundle)
 - Both are bumped by the `versionar-build` skill before any device build.
 
+## android/node_modules
+
+`android/node_modules` is a **symlink** to `frontend/node_modules`, not a
+real directory. It exists because the Android Gradle plugin for React Native
+resolves packages (e.g. `react-native-screens`) relative to `android/`, so
+`node_modules` must be reachable from there.
+
+- Created automatically by `make setup` after `yarn install`.
+- Never committed — covered by `.gitignore`.
+- After a fresh clone: run `make setup` before `make build-android`.
+
+## Generated Assets (Metro)
+
+`make build-bundle` (i.e. `yarn bundle:android`) copies image assets from
+`frontend/src/assets/` into `android/app/src/main/res/drawable-*/` using a
+path-encoded naming convention:
+
+| Source file | Generated drawable name |
+|---|---|
+| `src/assets/ic_splash.png` | `src_assets_ic_splash.png` |
+
+Metro maps asset density suffixes to Android drawable buckets:
+
+| Suffix | Drawable bucket |
+|---|---|
+| `@1x` | `drawable-mdpi` |
+| `@1.5x` | `drawable-hdpi` |
+| `@2x` | `drawable-xhdpi` |
+| `@3x` | `drawable-xxhdpi` |
+| `@4x` | `drawable-xxxhdpi` |
+
+These generated files are **not committed** — `.gitignore` excludes
+`drawable-*/src_assets_*` and `drawable-*/node_modules_*`. They are
+recreated on every `make build-bundle`.
+
 ---
 
-**Last Updated**: 2026-08-08
+**Last Updated**: 2026-08-11
