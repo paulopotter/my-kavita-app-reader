@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Platform, StatusBar, StyleSheet, View } from 'react-native';
-import { ConfigRepository } from './shared/bridge/config';
+import { Platform, StatusBar, StyleSheet, View } from 'react-native';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { LanguageContext } from './shared/i18n/LanguageContext';
 import { getStrings } from './shared/i18n/strings';
-import { BottomBar, Tab } from './shared/components/BottomBar';
-import { LibraryScreen } from './screens/library/LibraryScreen';
-import { ConfigScreen } from './screens/config/ConfigScreen';
-import { SetupScreen } from './screens/setup/SetupScreen';
-
-type AppState = 'loading' | 'setup' | 'main';
+import { ConfigRepository } from './shared/bridge/config';
+import { StartupBridge } from './shared/bridge/startup';
+import { AppShellStateProvider } from './shared/components/AppShellState';
+import { SplashScreen } from './screens/splash/SplashScreen';
+import { useSplash } from './screens/splash/useSplash';
+import { RootNavigator } from './navigation/RootNavigator';
+import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
 
 function detectSystemLanguage(): string {
   try {
     const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
-    if (locale.startsWith('pt')) return 'pt-BR';
+    if (locale.startsWith('pt')) { return 'pt-BR'; }
     return 'en';
   } catch {
     return 'en';
@@ -21,63 +22,44 @@ function detectSystemLanguage(): string {
 }
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>('loading');
-  const [activeTab, setActiveTab] = useState<Tab>('library');
   const [language, setLanguageState] = useState('pt-BR');
+  const [showSplash, setShowSplash] = useState(true);
 
-  // Exposed to ConfigScreen so it can intercept Android back while in a sub-screen
-  const configBackHandlerRef = useRef<(() => boolean) | null>(null);
+  const navRef = useRef<NavigationContainerRef<any>>(null);
 
-  const applyLanguage = useCallback((lang: string) => {
-    setLanguageState(lang);
-  }, []);
+  const applyLanguage = useCallback((lang: string) => setLanguageState(lang), []);
 
   useEffect(() => {
-    async function bootstrap() {
-      try {
-        const [servers, prefs] = await Promise.all([
-          ConfigRepository.getServerConfigs(),
-          ConfigRepository.getUiPreferences(),
-        ]);
-        const lang = prefs?.language ?? detectSystemLanguage();
-        applyLanguage(lang);
-        setAppState(servers?.length ? 'main' : 'setup');
-      } catch {
-        applyLanguage(detectSystemLanguage());
-        setAppState('setup');
+    async function boot() {
+      let prefs = null;
+      try { prefs = await ConfigRepository.getUiPreferences(); } catch {}
+
+      const lang = (prefs as any)?.language ?? detectSystemLanguage();
+      applyLanguage(lang);
+
+      let restoredRoute: string | null = null;
+      try { restoredRoute = await StartupBridge.getRestoredRoute(); } catch {}
+
+      if (restoredRoute) {
+        const hasServer = await StartupBridge.hasServerConfigured().catch(() => false);
+        if (!hasServer) {
+          // Servidor removido — descarta rota restaurada, mostra setup via splash normal
+          return;
+        }
+        setShowSplash(false);
+        StartupBridge.syncInBackground().catch(() => {});
       }
     }
-    bootstrap();
+    boot().catch(() => { /* splash stays visible */ });
   }, [applyLanguage]);
 
-  // Android hardware back button
-  useEffect(() => {
-    if (appState !== 'main') return;
-    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
-      // If ConfigScreen has a sub-screen open, let it handle back first
-      if (configBackHandlerRef.current?.()) return true;
-      // On library tab (root) → ask to exit
-      if (activeTab === 'library') {
-        Alert.alert(
-          getStrings(language).exitTitle,
-          getStrings(language).exitMessage,
-          [
-            { text: getStrings(language).exitCancel, style: 'cancel' },
-            { text: getStrings(language).exitConfirm, onPress: () => BackHandler.exitApp() },
-          ],
-        );
-        return true;
-      }
-      // On settings tab → go back to library
-      setActiveTab('library');
-      return true;
-    });
-    return () => handler.remove();
-  }, [appState, activeTab, language]);
-
-  if (appState === 'loading') {
-    return <View style={styles.root} />;
-  }
+  const onNavigationStateChange = useCallback(() => {
+    const currentRoute = navRef.current?.getCurrentRoute();
+    if (!currentRoute) { return; }
+    const name = currentRoute.name;
+    const isRoot = BOTTOM_NAV_ROUTES.has(name);
+    StartupBridge.notifyRouteChanged(name, isRoot, isRoot ? name : undefined).catch(() => {});
+  }, []);
 
   const statusBarHeight = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0;
 
@@ -85,25 +67,52 @@ export default function App() {
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>
       <StatusBar backgroundColor="#1A1A2E" barStyle="light-content" translucent={false} />
       <View style={[styles.root, { paddingTop: statusBarHeight }]}>
-        {appState === 'setup' ? (
-          <SetupScreen onComplete={() => setAppState('main')} />
-        ) : (
-          <>
-            <View style={styles.content}>
-              {activeTab === 'library'
-                ? <LibraryScreen />
-                : <ConfigScreen onRegisterBackHandler={fn => { configBackHandlerRef.current = fn; }} />
-              }
-            </View>
-            <BottomBar activeTab={activeTab} onTabPress={setActiveTab} />
-          </>
-        )}
+        <AppShellStateProvider>
+          <NavigationContainer ref={navRef} onStateChange={onNavigationStateChange}>
+            <RootNavigator
+              initialRoute="main"
+              onSetupComplete={() => {
+                navRef.current?.reset({ index: 0, routes: [{ name: 'main' }] });
+              }}
+            />
+          </NavigationContainer>
+
+          {showSplash && (
+            <SplashOverlayWrapper
+              onDone={(destination) => {
+                setShowSplash(false);
+                const target = destination === 'setup' ? Routes.SETUP : 'main';
+                navRef.current?.reset({ index: 0, routes: [{ name: target }] });
+              }}
+            />
+          )}
+        </AppShellStateProvider>
       </View>
     </LanguageContext.Provider>
   );
 }
 
+function SplashOverlayWrapper({ onDone }: { onDone: (dest: 'setup' | 'library' | 'following') => void }) {
+  const { progress, otaUpdateReady, destination, otaPolicy, onPolicyDismissed } = useSplash();
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (destination && !doneRef.current) {
+      doneRef.current = true;
+      onDone(destination);
+    }
+  }, [destination, onDone]);
+
+  return (
+    <SplashScreen
+      progress={progress}
+      otaUpdateReady={otaUpdateReady}
+      otaPolicy={otaPolicy}
+      onPolicyDismissed={onPolicyDismissed}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1A1A2E' },
-  content: { flex: 1 },
 });
