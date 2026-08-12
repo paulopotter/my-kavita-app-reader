@@ -4,15 +4,21 @@
   "private": true,
   "scripts": {
     "start": "react-native start",
-    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.tsx --bundle-output ../android/app/src/main/assets/index.android.bundle",
+    "bundle:android": "react-native bundle --platform android --dev false --entry-file index.tsx --bundle-output ../android/app/src/main/assets/index.android.bundle --assets-dest ../android/app/src/main/res",
     "lint": "eslint src --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "validate:ota": "bash ../scripts/validate-ota.sh"
   },
   "dependencies": {
+    "@react-navigation/bottom-tabs": "6.6.1",
+    "@react-navigation/native": "6.1.18",
+    "@react-navigation/native-stack": "6.11.0",
     "react": "18.3.1",
-    "react-native": "0.75.4"
+    "react-native": "0.75.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "3.35.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.0",
@@ -40,12 +46,34 @@
   "resolutions": {
     "minimatch": "^9.0.7",
     "fast-xml-parser": "^5.7.0",
-    "image-size": "^2.0.2"
+    "image-size": "1.1.1"
   },
   "jest": {
     "preset": "react-native",
     "transformIgnorePatterns": [
       "node_modules/(?!(@react-native|react-native)/)"
-    ]
+    ],
+    "coverageProvider": "v8",
+    "collectCoverage": false,
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "src/**/*.tsx"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/__tests__/",
+      "\\.d\\.ts$",
+      "/src/index\\.ts$"
+    ],
+    "coverageReporters": ["text", "lcov", "html"],
+    "coverageDirectory": "coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 12,
+        "lines": 12,
+        "functions": 32,
+        "branches": 59
+      }
+    }
   }
 }
