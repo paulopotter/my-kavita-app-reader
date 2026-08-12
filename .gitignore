@@ -64,6 +64,10 @@ Icon?
 .claude/sessions/snapshot.md
 .claude/sessions/token-log.md
 
+# Coverage reports (gerados localmente, não versionados)
+frontend/coverage/
+android/build/reports/kover/
+
 # Misc
 *.log
 *.tmp
