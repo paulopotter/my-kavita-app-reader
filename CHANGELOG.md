@@ -10,31 +10,41 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.08.12.1009](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1009)] - 2026-08-12
 
-#### Adicionado
-- Sincronização inicial de séries e capítulos na abertura do app (`SplashSyncCoordinator`)
-- `StartupModule`: módulo nativo com persistência de rota, detecção de servidor e controle do ciclo de vida do processo
-- Policy OTA delegada ao React Native — backend armazena a policy recebida do manifesto e a expõe via `OtaEventBridge`
+Agora o app sincroniza suas séries e capítulos automaticamente na abertura e apresenta uma nova tela de splash com barra de progresso animada. / The app now synchronizes your series and chapters automatically on startup and features a new splash screen with an animated progress bar.
 
-#### Corrigido
-- `ProcessLifecycleMarker` não era resetado após force-stop do app, fazendo a splash ser sempre ignorada
-- `SplashActivity` não delegava corretamente as policies `recommended` e `highly_recommended` ao RN
+### **Backend** - `0.5.0`
 
-### Frontend
+**[pt-BR]**
+- Sua biblioteca é sincronizada automaticamente quando você abre o app.
+- O app agora armazena as políticas de atualização recebidas do manifesto e as expõe via uma ponte de eventos.
+- As configurações do app são salvas mesmo após fechá-lo.
+- O app não ignora mais a tela de splash após um stop forçado.
+- O sistema de políticas de atualização foi implementado com diálogos temáticos.
 
-#### Adicionado
-- Tela de splash com barra de progresso animada, duração mínima de 5 segundos e sincronização paralela
-- Sistema de políticas OTA com diálogo temático (`AppAlert`): `recommended` pede confirmação, `highly_recommended` bloqueia e reexibe após 5 minutos, `required` bloqueia permanentemente
-- Componente `AppAlert` reutilizável com tema da app (fundo `#16213E`, accent `#E94560`), suporte a `dismissible=false`
-- Navegação principal: `RootNavigator` (stack com fade) + `MainNavigator` (bottom tabs: Biblioteca, Configurações)
-- Telas placeholder: Following, Search, Reader, Notifications, SeriesDetail
-- Bridge `StartupBridge` com `safeCall` para acesso seguro ao `StartupModule` nativo
-- Chaves de internacionalização para todas as policies OTA (pt-BR e en)
+**[en]**
+- Your library is now synchronized automatically when you open the app.
+- The app now stores the update policies received from the manifest and exposes them via an event bridge.
+- The app's settings are saved even after closing it.
+- The app no longer ignores the splash screen after a forced stop.
+- The update policy system has been implemented with themed dialogs.
 
-#### Corrigido
-- Imagem da splash não aparecia em dispositivos xxxhdpi por falta dos assets `@1.5x` e `@4x`
-- Timeout de 25s disparava mesmo com diálogo OTA aberto (closure capturava valor antigo de state)
+### **Frontend** - `0.5.0`
+
+**[pt-BR]**
+- Uma nova tela de splash com barra de progresso animada foi adicionada.
+- O app apresenta uma navegação principal com abas inferiores para Biblioteca e Configurações.
+- Telas placeholder foram adicionadas para as seções Following, Search, Reader, Notifications e SeriesDetail.
+- Um componente de diálogo reutilizável foi criado com tema da app.
+- A imagem da splash agora é exibida corretamente em dispositivos xxxhdpi.
+
+**[en]**
+- A new splash screen with an animated progress bar has been added.
+- The app features a main navigation with bottom tabs for Library and Settings.
+- Placeholder screens have been added for the Following, Search, Reader, Notifications, and SeriesDetail sections.
+- A reusable dialog component has been created with the app's theme.
+- The splash image is now displayed correctly on xxxhdpi devices.
 
 ## [[2026.08.11.1628](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.1628)] - 2026-08-11
 

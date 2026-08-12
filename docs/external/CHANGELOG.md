@@ -10,6 +10,42 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.08.12.1009](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1009)] - 2026-08-12
+
+Agora o app sincroniza suas séries e capítulos automaticamente na abertura e apresenta uma nova tela de splash com barra de progresso animada. / The app now synchronizes your series and chapters automatically on startup and features a new splash screen with an animated progress bar.
+
+### **Backend** - `0.5.0`
+
+**[pt-BR]**
+- Sua biblioteca é sincronizada automaticamente quando você abre o app.
+- O app agora armazena as políticas de atualização recebidas do manifesto e as expõe via uma ponte de eventos.
+- As configurações do app são salvas mesmo após fechá-lo.
+- O app não ignora mais a tela de splash após um stop forçado.
+- O sistema de políticas de atualização foi implementado com diálogos temáticos.
+
+**[en]**
+- Your library is now synchronized automatically when you open the app.
+- The app now stores the update policies received from the manifest and exposes them via an event bridge.
+- The app's settings are saved even after closing it.
+- The app no longer ignores the splash screen after a forced stop.
+- The update policy system has been implemented with themed dialogs.
+
+### **Frontend** - `0.5.0`
+
+**[pt-BR]**
+- Uma nova tela de splash com barra de progresso animada foi adicionada.
+- O app apresenta uma navegação principal com abas inferiores para Biblioteca e Configurações.
+- Telas placeholder foram adicionadas para as seções Following, Search, Reader, Notifications e SeriesDetail.
+- Um componente de diálogo reutilizável foi criado com tema da app.
+- A imagem da splash agora é exibida corretamente em dispositivos xxxhdpi.
+
+**[en]**
+- A new splash screen with an animated progress bar has been added.
+- The app features a main navigation with bottom tabs for Library and Settings.
+- Placeholder screens have been added for the Following, Search, Reader, Notifications, and SeriesDetail sections.
+- A reusable dialog component has been created with the app's theme.
+- The splash image is now displayed correctly on xxxhdpi devices.
+
 ## [[2026.08.11.1628](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.1628)] - 2026-08-11
 
 Agora o app tem uma tela de biblioteca com listagem de séries e configurações de servidor. / The app now has a library screen with series listing and server settings.
