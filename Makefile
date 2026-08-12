@@ -132,7 +132,7 @@ deploy: ## $(MSG_DEPLOY)
 	@echo "$(MSG_DEPLOYING)"
 	@[ -f $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk ] || \
 	  { echo "$(MSG_BUILDING_APK)"; $(MAKE) build-android; }
-	@adb install -r $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk
+	@adb install -d -r $(ANDROID_DIR)/app/build/outputs/apk/debug/app-debug.apk
 	@adb shell am start -n $(APP_PACKAGE)/$(APP_ACTIVITY)
 	@echo "$(MSG_DEPLOY_DONE)"
 
