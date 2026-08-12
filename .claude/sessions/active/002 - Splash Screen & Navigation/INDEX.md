@@ -13,4 +13,4 @@
 | 009 | frontend — create RootNavigator.tsx (complete graph + deep links both schemes) + extend App.tsx (NavigationContainer + overlay + persistence listener) | done |
 | 010 | frontend — extend strings.ts (tab labels + splashVersion, PT-BR and EN) | done |
 | 011 | Build + install on device + manual verification (14 scenarios) | done |
-| 012 | Docs — commit with implementation documentation | todo |
+| 012 | Docs — commit with implementation documentation | done |
