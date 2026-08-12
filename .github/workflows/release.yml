@@ -66,6 +66,9 @@ jobs:
             --bundle-output ../android/app/src/main/assets/index.android.bundle \
             --assets-dest ../android/app/src/main/res
 
+      - name: Link node_modules for Gradle
+        run: ln -sf "$PWD/frontend/node_modules" android/node_modules
+
       - name: Copy bundle for OTA release
         run: cp android/app/src/main/assets/index.android.bundle bundle.js
 
