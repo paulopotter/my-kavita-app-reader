@@ -10,6 +10,7 @@
 | Plan | Versão |
 |------|--------|
 | [010 — OTA Infrastructure](archive/010-ota-infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
+| [004 — Following Screen](../completions/2026-08-12_004-following-screen.md) | `0.6.0` — entregue como wrapper da Biblioteca com filtro e prefs independentes |
 | [003 — Library Screen](../completions/archive/003%20-%20Library%20Screen/README.md) | todas as 14 tasks concluídas |
 | [002 — Splash Screen & Navigation](../completions/archive/002%20-%20Splash%20Screen%20%26%20Navigation/README.md) | todas as 12 tasks concluídas |
 
@@ -17,7 +18,6 @@
 
 | # | Item | Depends on |
 |---|------|------------|
-| [004](backlog/items/004-following-screen.md) | Following Screen | 001, 003 |
 | [005](backlog/items/005-home-screen.md) | Home Screen | 001, 003 |
 | [006](backlog/items/006-series-detail-screen.md) | Series Detail Screen | 001, 003 |
 | [007](backlog/items/007-reader-screen.md) | Reader Screen | 001, 006 |
