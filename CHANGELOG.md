@@ -10,31 +10,41 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.08.11.1628](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.1628)] - 2026-08-11
 
-- feat: tela de biblioteca com listagem de séries via Kavita (`POST /api/Series/all-v2`)
-- feat: enriquecimento de dados via servidor BFF (`GET /manga`) com match por `kavita_id` e nome normalizado
-- feat: alternância de modos de visualização (grid/lista) e ordenação (recente/alfabética) persistidos em Room
-- feat: marcação de séries como favoritas (local-only) via tabela `followed_series`
-- feat: campo `language` em `UiPreferences` para persistir idioma selecionado
-- feat: cache de biblioteca com TTL de 2 minutos; pull-to-refresh ignora o TTL
-- feat: seleção de URL ativa do BFF por vínculo ao servidor Kavita configurado
-- feat: `SetupModule` para guiar o usuário na configuração inicial de servidores
-- fix: autenticação Kavita corrigida (pluginName + UserDto)
-- fix: `RequestTool` não enviava `Content-Type` em POST sem body
-- fix: HTTP cleartext permitido via `network_security_config.xml`
+Agora o app tem uma tela de biblioteca com listagem de séries e configurações de servidor. / The app now has a library screen with series listing and server settings.
 
-### Frontend
+### **Backend** - `0.4.0`
 
-- feat: `LibraryScreen` com `FlatList` 2 colunas, pull-to-refresh e estados de loading/erro/vazia
-- feat: modo lista com `SeriesListItem` (thumbnail, metadados, estrela) e índice alfabético lateral
-- feat: `SeriesCard` com capa, barra de progresso, badge de status e estrela de favorito
-- feat: barra superior com contagem de séries, toggle de visualização e ordenação
-- feat: `SetupScreen` para configuração guiada de servidores Kavita e BFF
-- feat: internacionalização PT-BR / EN com `LanguageContext`, `useStrings` e switch ao vivo na `ConfigScreen`
-- feat: bottom bar de navegação Biblioteca / Ajustes
-- feat: `ConfigScreen` reestruturada com submenus Servidor e Preferências de Leitura
-- feat: seção de configuração do servidor BFF com vínculo opcional a servidor Kavita
+**[pt-BR]**
+- Sua biblioteca é carregada automaticamente quando você abre o app.
+- Você pode alternar entre modos de visualização e ordenação das séries.
+- As séries podem ser marcadas como favoritas para acesso rápido.
+- O app salva suas configurações de idioma e servidor.
+- O cache de biblioteca é atualizado a cada 2 minutos.
+
+**[en]**
+- Your library is loaded automatically when you open the app.
+- You can switch between viewing modes and series sorting.
+- Series can be marked as favorites for quick access.
+- The app saves your language and server settings.
+- The library cache is updated every 2 minutes.
+
+### **Frontend** - `0.4.0`
+
+**[pt-BR]**
+- Nova tela de biblioteca com lista de séries em duas colunas.
+- Modo lista com metadados e estrela de favorito.
+- Barra superior com contagem de séries e opções de visualização.
+- Tela de configuração reestruturada com submenus.
+- Opção de internacionalização com switch ao vivo.
+
+**[en]**
+- New library screen with a two-column series list.
+- List mode with metadata and favorite star.
+- Top bar with series count and viewing options.
+- Restructured settings screen with submenus.
+- Internationalization option with live switch.
 
 ## [[2026.08.11.0302](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.0302)] - 2026-08-11
 
