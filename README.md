@@ -18,6 +18,25 @@ com interface em React Native e atualização de UI sem reinstalar o APK (OTA).
 
 ![Visão geral das telas](docs/external/screenshots/grid_preview.png)
 
+## Funcionalidades disponíveis
+
+- [x] Tela de splash com sincronização inicial e progresso visual
+- [x] Navegação principal com abas (Biblioteca, Configurações)
+- [x] Atualizações OTA com políticas configuráveis (none, recommended, highly_recommended, required)
+- [x] Tela de biblioteca com listagem de séries
+- [x] Tela de configurações com gerenciamento de servidor e preferências
+
+## Políticas de atualização OTA
+
+Quando uma nova versão do bundle JS está disponível, o app pode exibir um aviso antes de aplicar a atualização:
+
+| Política | Comportamento |
+|---|---|
+| `none` | Atualiza silenciosamente em background, sem aviso |
+| `recommended` | Exibe um diálogo na splash — o usuário pode ignorar e continuar |
+| `highly_recommended` | Exibe um diálogo bloqueante na splash; reexibe após 5 minutos dentro do app |
+| `required` | Bloqueia o app permanentemente até o usuário acessar as novidades |
+
 ## Funcionalidades planejadas
 
 - [ ] Leitor de mangás com controle de progresso

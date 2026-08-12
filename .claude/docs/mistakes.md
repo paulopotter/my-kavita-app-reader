@@ -104,4 +104,67 @@ table references the affected Room columns.
 
 ---
 
-**Last Updated**: 2026-08-08
+### 8. ProcessLifecycleMarker set in module `init {}` instead of on first navigation
+
+**Symptom**: splash is always skipped even after a force-stop, because
+`getRestoredRoute` returns a saved route instead of null.
+
+**Root cause**: `ProcessLifecycleMarker.isAlive = true` placed inside the
+Kotlin module's `init {}` block runs on every process creation — including
+fresh boots after force-stop. The OS kills the process on force-stop, but
+the new process immediately re-runs `init {}` before any navigation happens.
+
+**Rule**: "process is alive" means the app has actually navigated to a screen
+in *this* process lifetime. Set the marker only inside `notifyRouteChanged`,
+not in the module constructor.
+
+**Fix**: remove the assignment from `init {}` and move it to the first line
+of `notifyRouteChanged()`.
+
+---
+
+### 9. Using `useState` instead of `useRef` to gate a `setTimeout` closure
+
+**Symptom**: a hard timeout (e.g. the 25s splash fallback) fires even though
+a dialog is open and navigation should be blocked.
+
+**Root cause**: `setTimeout` captures the value of a state variable at
+closure creation time. If the state is still `false` when the timeout is
+registered, the closure always sees `false` — state updates do not reach
+already-created closures.
+
+**Rule**: values that need to be readable inside long-lived closures (timers,
+event listeners) must be `useRef`, not `useState`. Use state only for values
+that drive re-renders.
+
+**Fix**: replace `const [blockedByPolicy, setBlockedByPolicy] = useState(false)`
+with `const blockedByPolicyRef = useRef(false)` and read
+`blockedByPolicyRef.current` inside the timeout callback.
+
+---
+
+### 10. Sequential `await` instead of `Promise.all` for a minimum-duration guarantee
+
+**Symptom**: the splash closes immediately after sync finishes, even though a
+5-second minimum was intended. The timer is always 0 when sync takes longer
+than 5 s.
+
+**Root cause**: running `await runSync()` then `await waitForMinDuration()`
+means the timer only starts *after* sync ends. If sync took 7 s, the remaining
+time is already negative and the timer resolves instantly.
+
+**Rule**: to guarantee both "sync finished" and "at least N seconds have
+passed since start", run both in parallel with `Promise.all`. Pass the
+*start timestamp* to `waitForMinDuration`, not the time after sync.
+
+**Fix**:
+```typescript
+await Promise.all([
+  runSyncWithMilestones(cancelled),
+  waitForMinDuration(startMs),   // startMs captured before both start
+]);
+```
+
+---
+
+**Last Updated**: 2026-08-11

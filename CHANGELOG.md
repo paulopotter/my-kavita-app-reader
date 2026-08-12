@@ -10,6 +10,32 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+#### Adicionado
+- Sincronização inicial de séries e capítulos na abertura do app (`SplashSyncCoordinator`)
+- `StartupModule`: módulo nativo com persistência de rota, detecção de servidor e controle do ciclo de vida do processo
+- Policy OTA delegada ao React Native — backend armazena a policy recebida do manifesto e a expõe via `OtaEventBridge`
+
+#### Corrigido
+- `ProcessLifecycleMarker` não era resetado após force-stop do app, fazendo a splash ser sempre ignorada
+- `SplashActivity` não delegava corretamente as policies `recommended` e `highly_recommended` ao RN
+
+### Frontend
+
+#### Adicionado
+- Tela de splash com barra de progresso animada, duração mínima de 5 segundos e sincronização paralela
+- Sistema de políticas OTA com diálogo temático (`AppAlert`): `recommended` pede confirmação, `highly_recommended` bloqueia e reexibe após 5 minutos, `required` bloqueia permanentemente
+- Componente `AppAlert` reutilizável com tema da app (fundo `#16213E`, accent `#E94560`), suporte a `dismissible=false`
+- Navegação principal: `RootNavigator` (stack com fade) + `MainNavigator` (bottom tabs: Biblioteca, Configurações)
+- Telas placeholder: Following, Search, Reader, Notifications, SeriesDetail
+- Bridge `StartupBridge` com `safeCall` para acesso seguro ao `StartupModule` nativo
+- Chaves de internacionalização para todas as policies OTA (pt-BR e en)
+
+#### Corrigido
+- Imagem da splash não aparecia em dispositivos xxxhdpi por falta dos assets `@1.5x` e `@4x`
+- Timeout de 25s disparava mesmo com diálogo OTA aberto (closure capturava valor antigo de state)
+
 ## [[2026.08.11.1628](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.11.1628)] - 2026-08-11
 
 Agora o app tem uma tela de biblioteca com listagem de séries e configurações de servidor. / The app now has a library screen with series listing and server settings.
