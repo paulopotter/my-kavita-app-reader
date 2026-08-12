@@ -42,12 +42,22 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
       - uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
+      - name: Install JS dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Create android/node_modules symlink
+        run: ln -s "$(pwd)/frontend/node_modules" android/node_modules
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
       - name: Run tests + verify coverage floor
@@ -215,6 +225,13 @@ jobs:
 
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      - name: Install JS dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Create android/node_modules symlink
+        run: ln -s "$(pwd)/frontend/node_modules" android/node_modules
 
       - name: Read versions
         id: versions
