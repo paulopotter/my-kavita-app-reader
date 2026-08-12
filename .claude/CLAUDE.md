@@ -23,3 +23,13 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
 - Build for device → `versionar-build` skill (APK + bundle both get `-rcN`)
 - Test + approval before commit
 - Data flow: `Kotlin Tool → Hook → Service → Transform → Screen → Component`
+
+## Coverage
+- Every feature ships with tests. Only skip if technically impossible — ask the user first.
+- Never let coverage drop below the current floor (checked by `koverVerify` + Jest threshold).
+- After finishing a task: run `make coverage`. If coverage increased, bump the floor:
+  - Kotlin: `COVERAGE_FLOOR_KOTLIN` in `android/build.gradle.kts` → `minValue`
+  - JS: `coverageThreshold` in `frontend/package.json`
+- Cannot commit Kotlin/TS source without passing `make coverage` first (pre-commit hook enforces this).
+- Cannot close a task without passing coverage.
+- Floors: Kotlin LINE ≥ 25% · JS statements ≥ 12% lines ≥ 12% functions ≥ 32% branches ≥ 59%

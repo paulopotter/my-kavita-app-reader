@@ -4,6 +4,8 @@
 [![App](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpaulopotter%2Fmy-kavita-app-reader%2Fmain%2Fdocs%2Fexternal%2Fversion.json&query=%24.app&label=App&color=blue)](https://github.com/paulopotter/my-kavita-app-reader/releases/latest)
 [![Backend](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpaulopotter%2Fmy-kavita-app-reader%2Fmain%2Fdocs%2Fexternal%2Fversion.json&query=%24.kotlin&label=Backend&color=7F52FF)](https://github.com/paulopotter/my-kavita-app-reader/releases/latest)
 [![Frontend](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpaulopotter%2Fmy-kavita-app-reader%2Fmain%2Fdocs%2Fexternal%2Fversion.json&query=%24.rn&label=Frontend&color=61DAFB)](https://github.com/paulopotter/my-kavita-app-reader/releases/latest)
+[![Kotlin coverage](https://img.shields.io/badge/Kotlin%20coverage-26%25%20lines-7F52FF)](#)
+[![JS coverage](https://img.shields.io/badge/JS%20coverage-12.93%25%20stmts-61DAFB)](#)
 
 > 🇬🇧 [English version](README.en.md)
 
