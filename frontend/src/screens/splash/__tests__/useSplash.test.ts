@@ -27,15 +27,21 @@ const mockStartupModule = {
   notifyRouteChanged: jest.fn(),
 };
 
+const mockSetupModule = {
+  isAuthenticated: jest.fn<Promise<boolean>, []>(),
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   (NativeModules as any).OtaEventBridge = mockOtaModule;
   (NativeModules as any).StartupModule = mockStartupModule;
+  (NativeModules as any).SetupModule = mockSetupModule;
   mockOtaModule.getOtaPolicy.mockResolvedValue(null);
   mockOtaModule.acknowledgePolicy.mockResolvedValue(undefined);
   mockStartupModule.hasServerConfigured.mockResolvedValue(true);
   mockStartupModule.hasFollowedSeries.mockResolvedValue(false);
   mockStartupModule.syncBlocking.mockResolvedValue({ success: true });
+  mockSetupModule.isAuthenticated.mockResolvedValue(true);
 });
 
 // ── OtaModule bridge contract ─────────────────────────────────────────────────
@@ -87,22 +93,31 @@ describe('OtaModule.acknowledgePolicy — limpa a policy', () => {
 async function resolveDestination(
   hasServer: boolean,
   hasFollowed: boolean,
+  isAuthenticated: boolean,
 ): Promise<'setup' | 'library' | 'following'> {
-  if (!hasServer) { return 'setup'; }
+  if (!hasServer || !isAuthenticated) { return 'setup'; }
   return hasFollowed ? 'following' : 'library';
 }
 
 describe('lógica de destino da splash', () => {
   it('sem servidor → setup', async () => {
-    expect(await resolveDestination(false, false)).toBe('setup');
+    expect(await resolveDestination(false, false, false)).toBe('setup');
   });
 
-  it('com servidor, sem série seguida → library', async () => {
-    expect(await resolveDestination(true, false)).toBe('library');
+  it('com servidor, sem série seguida, autenticado → library', async () => {
+    expect(await resolveDestination(true, false, true)).toBe('library');
   });
 
-  it('com servidor e série seguida → following', async () => {
-    expect(await resolveDestination(true, true)).toBe('following');
+  it('com servidor e série seguida, autenticado → following', async () => {
+    expect(await resolveDestination(true, true, true)).toBe('following');
+  });
+
+  it('com servidor configurado mas sem autenticacao → setup (nao pula a autenticacao)', async () => {
+    expect(await resolveDestination(true, false, false)).toBe('setup');
+  });
+
+  it('com servidor, com serie seguida, mas sem autenticacao → setup', async () => {
+    expect(await resolveDestination(true, true, false)).toBe('setup');
   });
 });
 

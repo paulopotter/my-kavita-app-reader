@@ -63,6 +63,15 @@ class SetupModule @Inject constructor(
     }
 
     @ReactMethod
+    fun isAuthenticated(promise: Promise) {
+        scope.launch {
+            runCatching { kavitaAuthFeature.isAuthenticated() }
+                .onSuccess { promise.resolve(it) }
+                .onFailure { promise.reject("AUTH_STATUS_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
     fun getLastKnownUrls(promise: Promise) {
         Arguments.createMap().apply {
             kavitaUrlSource.getLastKnownUrl()?.let { putString("kavitaUrl", it) }

@@ -60,6 +60,7 @@ interface SetupModuleInterface {
   testKavitaConnection(): Promise<{ activeUrl: string }>;
   forceReselectUrl(): Promise<{ activeUrl: string }>;
   authenticate(apiKey: string): Promise<void>;
+  isAuthenticated(): Promise<boolean>;
   testBffConnection(): Promise<{ activeUrl: string }>;
 }
 

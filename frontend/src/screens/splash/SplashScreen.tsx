@@ -51,7 +51,7 @@ export function SplashScreen({ progress, otaUpdateReady, otaPolicy, onPolicyDism
     <View style={styles.container}>
       <View style={styles.logoArea}>
         <Image
-          source={{ uri: 'asset:/ic_splash.png' }}
+          source={{ uri: 'ic_splash' }}
           style={styles.logo}
           resizeMode="contain"
         />

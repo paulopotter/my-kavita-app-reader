@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { OtaEmitter, OtaModule, OtaPolicy } from '../../native/OtaModule';
+import { SetupBridge } from '../../shared/bridge/config';
 import { StartupBridge } from '../../shared/bridge/startup';
 
 export type SplashDestination = 'setup' | 'library' | 'following';
@@ -86,12 +87,13 @@ export function useSplash(): SplashState {
           return;
         }
 
-        const [hasServer, hasFollowed] = await Promise.all([
+        const [hasServer, hasFollowed, isAuthenticated] = await Promise.all([
           StartupBridge.hasServerConfigured().catch(() => false),
           StartupBridge.hasFollowedSeries().catch(() => false),
+          SetupBridge.isAuthenticated().catch(() => false),
         ]);
 
-        if (!hasServer) {
+        if (!hasServer || !isAuthenticated) {
           await waitForMinDuration(startMs);
           clearTimeout(timeoutHandle);
           navigate('setup');
