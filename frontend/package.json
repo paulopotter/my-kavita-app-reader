@@ -29,6 +29,7 @@
     "@react-native/eslint-config": "0.75.4",
     "@react-native/metro-config": "0.75.4",
     "@react-native/typescript-config": "0.75.4",
+    "@testing-library/react-native": "12.9.0",
     "@types/jest": "^29.5.0",
     "@types/react": "^18.3.0",
     "@types/react-native": "^0.72.0",
@@ -73,10 +74,10 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 12,
-        "lines": 12,
-        "functions": 32,
-        "branches": 59
+        "statements": 20,
+        "lines": 20,
+        "functions": 36,
+        "branches": 70
       }
     }
   }

@@ -41,11 +41,11 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=25 — bump this value whenever coverage improves (never lower it)
+            // COVERAGE_FLOOR_KOTLIN=40 — bump this value whenever coverage improves (never lower it)
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 25
+                        minValue = 40
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
