@@ -7,15 +7,16 @@ import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
-import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
+import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaSeriesFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
+import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.HiltAndroidApp
@@ -33,6 +34,8 @@ class MainApplication : Application(), ReactApplication {
     @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
     @Inject lateinit var bffFeature: BffFeature
     @Inject lateinit var followedSeriesDao: FollowedSeriesDao
+    @Inject lateinit var serverConfigDao: ServerConfigDao
+    @Inject lateinit var splashSyncCoordinator: SplashSyncCoordinator
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -46,19 +49,20 @@ class MainApplication : Application(), ReactApplication {
                     kavitaSeriesFeature = kavitaSeriesFeature,
                     bffFeature = bffFeature,
                     followedSeriesDao = followedSeriesDao,
+                    serverConfigDao = serverConfigDao,
+                    splashSyncCoordinator = splashSyncCoordinator,
                 )
 
             override fun getJSMainModuleName(): String = "index"
             override fun getUseDeveloperSupport(): Boolean = false
-            override val isNewArchEnabled: Boolean = true
+            override val isNewArchEnabled: Boolean = false
             override val isHermesEnabled: Boolean = true
             override fun getJSBundleFile(): String? =
                 otaStore.bundleFile.takeIf { it.exists() }?.absolutePath
         }
     }
 
-    override val reactHost: ReactHost
-        get() = getDefaultReactHost(applicationContext, reactNativeHost)
+    override val reactHost: ReactHost? = null
 
     override fun onCreate() {
         super.onCreate()

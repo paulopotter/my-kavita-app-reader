@@ -107,4 +107,9 @@ dependencies {
     // React Native
     implementation("com.facebook.react:react-android:${libs.versions.reactNative.get()}")
     implementation("com.facebook.react:hermes-android:${libs.versions.reactNative.get()}")
+
+    // Third-party RN modules (autolinking generates PackageList but doesn't inject deps in this layout)
+    implementation(project(":react-native-screens"))
+    implementation(project(":react-native-safe-area-context"))
+
 }
