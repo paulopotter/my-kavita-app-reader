@@ -10,6 +10,8 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.FollowedSeriesEntity
+import com.mymangareader.core.database.PageCacheDao
+import com.mymangareader.core.database.PageCacheEntity
 import com.mymangareader.core.database.ReadingProgressDao
 import com.mymangareader.core.database.ReadingProgressEntity
 import com.mymangareader.core.database.ServerConfigDao
@@ -44,6 +46,14 @@ private class FakeUiPreferencesDao(
     override suspend fun upsert(e: UiPreferencesEntity) { upserted = e; entity = e }
     override fun observe(): Flow<UiPreferencesEntity?> = MutableStateFlow(entity)
     override suspend fun getKeepScreenOnDuringReading(): Boolean? = entity?.keepScreenOnDuringReading
+}
+
+private class FakePageCacheDao : PageCacheDao {
+    override suspend fun getByChapterId(chapterId: String) = emptyList<PageCacheEntity>()
+    override suspend fun countByChapterId(chapterId: String) = 0
+    override suspend fun insertAll(pages: List<PageCacheEntity>) {}
+    override suspend fun deleteByChapterId(chapterId: String) {}
+    override suspend fun replaceForChapter(chapterId: String, pages: List<PageCacheEntity>) {}
 }
 
 private class FakeFollowedSeriesDao : FollowedSeriesDao {
@@ -139,6 +149,7 @@ class SplashSyncCoordinatorTest {
             authConfigDao = FakeAuthConfigDao(),
             chapterCacheDao = FakeChapterCacheDao(),
             readingProgressDao = FakeReadingProgressDao(),
+            pageCacheDao = FakePageCacheDao(),
         )
         val bffFeature = BffFeature(
             requestTool = requestTool,
