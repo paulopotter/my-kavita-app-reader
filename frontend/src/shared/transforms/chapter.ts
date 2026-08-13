@@ -1,5 +1,8 @@
 import { Chapter, ChapterSortMode } from '../bridge/series';
+import { LocalProgress } from '../bridge/chapter';
 import { Strings } from '../i18n/strings';
+
+const READ_THRESHOLD_FRACTION = 0.98;
 
 export function chapterDisplayTitle(chapter: Chapter, t: Strings): string {
   // O Kavita às vezes preenche `title` com o próprio número do capítulo —
@@ -51,4 +54,31 @@ export function sortChapters(
       return actualPercent >= progressPercent ? [...ascending].reverse() : ascending;
     }
   }
+}
+
+export function isChapterEffectivelyRead(chapter: Chapter): boolean {
+  if (chapter.readStatus === 'READ') return true;
+  if (chapter.pageCount <= 0) return false;
+  return chapter.pagesRead / chapter.pageCount >= READ_THRESHOLD_FRACTION;
+}
+
+export function resolveInitialPage(
+  chapter: Chapter,
+  local: LocalProgress | null,
+  serverPage: number | null,
+): { page: number; scrollFraction: number } {
+  if (isChapterEffectivelyRead(chapter)) return { page: 0, scrollFraction: 0 };
+  if (local) return { page: local.page, scrollFraction: local.scrollFraction };
+  if (serverPage != null) return { page: serverPage, scrollFraction: 0 };
+  return { page: 0, scrollFraction: 0 };
+}
+
+export function shouldUnmarkOnReread(
+  wasReadOnOpen: boolean,
+  currentPage: number,
+  totalPages: number,
+  alreadyUnmarkedThisSession: boolean,
+): boolean {
+  if (!wasReadOnOpen || alreadyUnmarkedThisSession) return false;
+  return currentPage < totalPages - 1;
 }

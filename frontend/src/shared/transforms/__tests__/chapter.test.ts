@@ -1,6 +1,14 @@
 import { Chapter } from '../../bridge/series';
+import { LocalProgress } from '../../bridge/chapter';
 import { getStrings } from '../../i18n/strings';
-import { chapterDisplayTitle, chapterNumberComparator, sortChapters } from '../chapter';
+import {
+  chapterDisplayTitle,
+  chapterNumberComparator,
+  isChapterEffectivelyRead,
+  resolveInitialPage,
+  shouldUnmarkOnReread,
+  sortChapters,
+} from '../chapter';
 
 const t = getStrings('pt-BR');
 
@@ -127,5 +135,73 @@ describe('sortChapters', () => {
     ];
     const result = sortChapters(mostlyRead, 'AUTO_PROGRESS', undefined, 50);
     expect(result.map(c => c.number)).toEqual(['2', '1']);
+  });
+});
+
+describe('isChapterEffectivelyRead', () => {
+  it('retorna true quando readStatus e READ', () => {
+    expect(isChapterEffectivelyRead(makeChapter({ readStatus: 'READ', pagesRead: 0, pageCount: 20 }))).toBe(true);
+  });
+
+  it('retorna true quando pagesRead/pageCount atinge o limiar de 98%', () => {
+    expect(isChapterEffectivelyRead(makeChapter({ readStatus: 'IN_PROGRESS', pagesRead: 49, pageCount: 50 }))).toBe(
+      true,
+    );
+  });
+
+  it('retorna false quando abaixo do limiar', () => {
+    expect(isChapterEffectivelyRead(makeChapter({ readStatus: 'IN_PROGRESS', pagesRead: 48, pageCount: 50 }))).toBe(
+      false,
+    );
+  });
+
+  it('retorna false quando pageCount e zero', () => {
+    expect(isChapterEffectivelyRead(makeChapter({ readStatus: 'UNREAD', pagesRead: 0, pageCount: 0 }))).toBe(false);
+  });
+});
+
+describe('resolveInitialPage', () => {
+  it('capitulo efetivamente lido sempre reabre do inicio, mesmo com progresso salvo', () => {
+    const chapter = makeChapter({ readStatus: 'READ', pagesRead: 20, pageCount: 20 });
+    const local: LocalProgress = { page: 10, scrollFraction: 0.5 };
+
+    expect(resolveInitialPage(chapter, local, 15)).toEqual({ page: 0, scrollFraction: 0 });
+  });
+
+  it('usa progresso local antes do servidor quando nao lido', () => {
+    const chapter = makeChapter({ readStatus: 'UNREAD', pagesRead: 0, pageCount: 20 });
+    const local: LocalProgress = { page: 5, scrollFraction: 0.25 };
+
+    expect(resolveInitialPage(chapter, local, 15)).toEqual({ page: 5, scrollFraction: 0.25 });
+  });
+
+  it('usa progresso do servidor quando nao ha local', () => {
+    const chapter = makeChapter({ readStatus: 'UNREAD', pagesRead: 0, pageCount: 20 });
+
+    expect(resolveInitialPage(chapter, null, 8)).toEqual({ page: 8, scrollFraction: 0 });
+  });
+
+  it('usa pagina 0 quando nao ha local nem servidor', () => {
+    const chapter = makeChapter({ readStatus: 'UNREAD', pagesRead: 0, pageCount: 20 });
+
+    expect(resolveInitialPage(chapter, null, null)).toEqual({ page: 0, scrollFraction: 0 });
+  });
+});
+
+describe('shouldUnmarkOnReread', () => {
+  it('nao desmarca se nao estava lido ao abrir', () => {
+    expect(shouldUnmarkOnReread(false, 5, 20, false)).toBe(false);
+  });
+
+  it('nao desmarca se ja foi desmarcado nesta sessao', () => {
+    expect(shouldUnmarkOnReread(true, 5, 20, true)).toBe(false);
+  });
+
+  it('nao desmarca na ultima pagina', () => {
+    expect(shouldUnmarkOnReread(true, 19, 20, false)).toBe(false);
+  });
+
+  it('desmarca quando estava lido, rolou para pagina intermediaria e ainda nao desmarcou', () => {
+    expect(shouldUnmarkOnReread(true, 5, 20, false)).toBe(true);
   });
 });
