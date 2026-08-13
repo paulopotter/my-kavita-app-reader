@@ -18,6 +18,8 @@ import type { NavOrigin } from '../../navigation/routes';
 import { originRouteFor, Routes } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { Chapter } from '../../shared/bridge/series';
+import { FollowStar } from '../../shared/components/FollowStar';
+import { ScrollToTopButton } from '../../shared/components/ScrollToTopButton';
 import { sortModeLabel } from './SeriesDetailTransform';
 import { ChapterListItem } from './components/ChapterListItem';
 import { ChapterSortConfigModal } from './components/ChapterSortConfigModal';
@@ -155,9 +157,7 @@ export function SeriesDetailScreen() {
           onPress={toggleFollow}
           activeOpacity={0.8}
           accessibilityRole="button">
-          <Text style={[styles.starIcon, isFollowed && styles.starIconActive]}>
-            {isFollowed ? '★' : '☆'}
-          </Text>
+          <FollowStar active={isFollowed} size={26} color={ICON_MUTED} activeColor={STAR_ACTIVE} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.topBarButton}
@@ -213,14 +213,12 @@ export function SeriesDetailScreen() {
       />
 
       {showScrollTop && !selectionMode && (
-        <TouchableOpacity
-          style={styles.scrollTopBtn}
+        <ScrollToTopButton
           onPress={() => {
             listRef.current?.scrollToOffset({ offset: 0, animated: true });
             setShowScrollTop(false);
-          }}>
-          <Text style={styles.scrollTopIcon}>↑</Text>
-        </TouchableOpacity>
+          }}
+        />
       )}
 
       {selectionMode && (
@@ -282,8 +280,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   starButton: { alignItems: 'center', justifyContent: 'center' },
-  starIcon: { fontSize: 26, color: ICON_MUTED },
-  starIconActive: { color: STAR_ACTIVE },
   sortBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -296,17 +292,4 @@ const styles = StyleSheet.create({
   chapterCount: { color: ICON_MUTED, fontSize: 12 },
   sortToggle: { paddingHorizontal: 4, paddingVertical: 4 },
   sortToggleText: { color: ACCENT, fontSize: 13, fontWeight: '600' },
-  scrollTopBtn: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E94560',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  scrollTopIcon: { color: '#FFFFFF', fontSize: 20, fontWeight: '700', lineHeight: 24 },
 });

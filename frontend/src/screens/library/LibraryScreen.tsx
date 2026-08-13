@@ -14,6 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SeriesSummary } from '../../shared/bridge/library';
+import { ScrollToTopButton } from '../../shared/components/ScrollToTopButton';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { NavOrigin, Routes } from '../../navigation/routes';
 import { SeriesCard } from './components/SeriesCard';
@@ -164,14 +165,13 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
 
         {/* ── Scroll to top ── */}
         {showScrollTop && (
-          <TouchableOpacity
-            style={styles.scrollTopBtn}
+          <ScrollToTopButton
+            right={36}
             onPress={() => {
               listRef.current?.scrollToOffset({ offset: 0, animated: true });
               setShowScrollTop(false);
-            }}>
-            <Text style={styles.scrollTopIcon}>↑</Text>
-          </TouchableOpacity>
+            }}
+          />
         )}
       </View>
     </View>
@@ -236,18 +236,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-
-  scrollTopBtn: {
-    position: 'absolute',
-    right: 36,
-    bottom: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E94560',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  scrollTopIcon: { color: '#FFFFFF', fontSize: 20, fontWeight: '700', lineHeight: 24 },
 });

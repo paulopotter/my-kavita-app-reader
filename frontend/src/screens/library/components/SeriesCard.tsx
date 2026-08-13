@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SeriesSummary } from '../../../shared/bridge/library';
+import { FollowStar } from '../../../shared/components/FollowStar';
 import { Strings } from '../../../shared/i18n/strings';
 import {
   formatProgress,
@@ -35,9 +36,7 @@ export function SeriesCard({ series, t, onToggleFollow, onPress }: Props) {
         style={styles.starBookmark}
         onPress={() => onToggleFollow(series.id)}
         activeOpacity={0.8}>
-        <Text style={[styles.starIcon, series.isFollowed && styles.starIconActive]}>
-          {series.isFollowed ? '★' : '☆'}
-        </Text>
+        <FollowStar active={series.isFollowed} size={18} color="#FFFFFF" />
       </TouchableOpacity>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={2}>{series.name}</Text>
@@ -107,8 +106,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  starIcon: { fontSize: 18, color: '#FFFFFF', lineHeight: 22 },
-  starIconActive: { color: '#F6AD55' },
   cover: {
     width: '100%',
     aspectRatio: 2 / 3,

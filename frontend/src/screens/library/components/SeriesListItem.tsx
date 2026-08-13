@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SeriesSummary } from '../../../shared/bridge/library';
+import { FollowStar } from '../../../shared/components/FollowStar';
 import { Strings } from '../../../shared/i18n/strings';
 import { formatProgress, statusLabel } from '../LibraryTransform';
 
@@ -37,9 +38,7 @@ export function SeriesListItem({ series, t, onToggleFollow, onPress }: Props) {
         style={styles.starBtn}
         onPress={() => onToggleFollow(series.id)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={[styles.star, series.isFollowed && styles.starActive]}>
-          {series.isFollowed ? '★' : '☆'}
-        </Text>
+        <FollowStar active={series.isFollowed} size={22} color="#4A5568" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -61,6 +60,4 @@ const styles = StyleSheet.create({
   meta: { color: '#A0AEC0', fontSize: 12, marginBottom: 2 },
   chapters: { color: '#718096', fontSize: 11 },
   starBtn: { paddingHorizontal: 12 },
-  star: { fontSize: 22, color: '#4A5568' },
-  starActive: { color: '#F6AD55' },
 });
