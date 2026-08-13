@@ -10,27 +10,41 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
-- feat: adiciona a tela de detalhe da série, com capa, sinopse, gêneros/tags e botão de continuar/começar a ler
-- feat: lista de capítulos com marcação de lido/não lido individual ou em lote (seleção múltipla via toque longo)
-- feat: ordenação de capítulos com três níveis de prioridade — ajuste rápido temporário, preferência fixa por série (com botão de resetar) e preferência global do app
-- feat: adiciona regra de ordenação automática por progresso de leitura (crescente até um limiar de capítulo ou percentual, depois decrescente)
-- fix: corrige a autenticação, que falhava ao processar a resposta do servidor
-- fix: a splash agora exige autenticação válida antes de liberar o acesso ao app
-- fix: corrige rotas de sincronização de série/capítulos que retornavam erro 404
-- fix: corrige o app ficar preso numa versão antiga do pacote JS após atualizações via download automático, mesmo depois de uma reinstalação completa
-- fix: favoritar/desfavoritar uma série dentro da tela de detalhe agora reflete imediatamente na Biblioteca e em Seguindo, sem precisar atualizar manualmente
+## [[2026.08.13.1211](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.13.1211)] - 2026-08-13
 
-### Frontend
-- feat: adiciona modal de configuração de ordenação de capítulos, acessível pela tela de série e por uma nova seção em Ajustes
-- feat: renomeia a aba "Capítulo" em Ajustes para "Página do mangá"
-- feat: adiciona botão de voltar ao topo na lista de capítulos, exibido ao rolar para cima
-- feat: substitui os ícones da barra de navegação inferior por ícones vetoriais
-- fix: corrige o app fechar inesperadamente ao abrir a tela de uma série
-- fix: corrige a estrela de "seguindo" não aparecer marcada ao abrir uma série já seguida
-- fix: corrige a lista "Seguindo" não atualizar automaticamente quando uma série é seguida ou deixada de seguir em outra tela
-- fix: melhora o contraste do texto e a borda de seleção dos capítulos durante a seleção múltipla
-- fix: adiciona validação aos campos de configuração de ordenação (impede valores negativos e percentuais acima de 100)
+Agora o app permite que você organize melhor suas séries e capítulos, com novas opções de ordenação e marcação de leitura. / Now the app allows you to better organize your series and chapters, with new sorting options and reading marks.
+
+### **Backend** - `0.6.0`
+
+**[pt-BR]**
+- Sua lista de capítulos agora pode ser ordenada de acordo com sua preferência, com opções de prioridade e marcação de lido ou não lido.
+- A autenticação foi corrigida para evitar erros de acesso ao app.
+- As rotas de sincronização de séries e capítulos foram corrigidas para evitar erros 404.
+- O app agora exige autenticação válida antes de liberar o acesso.
+- A ordenação automática por progresso de leitura foi adicionada para ajudar a encontrar o próximo capítulo.
+
+**[en]**
+- Your chapter list can now be sorted according to your preference, with priority options and read or unread marks.
+- Authentication was fixed to prevent access errors.
+- Series and chapter synchronization routes were fixed to prevent 404 errors.
+- The app now requires valid authentication before granting access.
+- Automatic sorting by reading progress was added to help find the next chapter.
+
+### **Frontend** - `0.7.0`
+
+**[pt-BR]**
+- Um novo modal de configuração de ordenação de capítulos foi adicionado, acessível pela tela de série e por uma nova seção em Ajustes.
+- O botão de voltar ao topo na lista de capítulos foi adicionado para melhorar a navegação.
+- Os ícones da barra de navegação inferior foram substituídos por ícones vetoriais para melhorar a aparência.
+- A lista "Seguindo" agora atualiza automaticamente quando uma série é seguida ou deixada de seguir em outra tela.
+- A validação dos campos de configuração de ordenação foi adicionada para impedir valores inválidos.
+
+**[en]**
+- A new chapter sorting configuration modal was added, accessible from the series screen and a new section in Settings.
+- A back to top button was added to the chapter list to improve navigation.
+- The bottom navigation bar icons were replaced with vector icons to improve appearance.
+- The "Following" list now updates automatically when a series is followed or unfollowed from another screen.
+- Validation was added to the sorting configuration fields to prevent invalid values.
 
 ## [[2026.08.12.1048](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1048)] - 2026-08-12
 

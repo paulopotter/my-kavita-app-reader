@@ -10,6 +10,42 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.08.13.1211](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.13.1211)] - 2026-08-13
+
+Agora o app permite que você organize melhor suas séries e capítulos, com novas opções de ordenação e marcação de leitura. / Now the app allows you to better organize your series and chapters, with new sorting options and reading marks.
+
+### **Backend** - `0.6.0`
+
+**[pt-BR]**
+- Sua lista de capítulos agora pode ser ordenada de acordo com sua preferência, com opções de prioridade e marcação de lido ou não lido.
+- A autenticação foi corrigida para evitar erros de acesso ao app.
+- As rotas de sincronização de séries e capítulos foram corrigidas para evitar erros 404.
+- O app agora exige autenticação válida antes de liberar o acesso.
+- A ordenação automática por progresso de leitura foi adicionada para ajudar a encontrar o próximo capítulo.
+
+**[en]**
+- Your chapter list can now be sorted according to your preference, with priority options and read or unread marks.
+- Authentication was fixed to prevent access errors.
+- Series and chapter synchronization routes were fixed to prevent 404 errors.
+- The app now requires valid authentication before granting access.
+- Automatic sorting by reading progress was added to help find the next chapter.
+
+### **Frontend** - `0.7.0`
+
+**[pt-BR]**
+- Um novo modal de configuração de ordenação de capítulos foi adicionado, acessível pela tela de série e por uma nova seção em Ajustes.
+- O botão de voltar ao topo na lista de capítulos foi adicionado para melhorar a navegação.
+- Os ícones da barra de navegação inferior foram substituídos por ícones vetoriais para melhorar a aparência.
+- A lista "Seguindo" agora atualiza automaticamente quando uma série é seguida ou deixada de seguir em outra tela.
+- A validação dos campos de configuração de ordenação foi adicionada para impedir valores inválidos.
+
+**[en]**
+- A new chapter sorting configuration modal was added, accessible from the series screen and a new section in Settings.
+- A back to top button was added to the chapter list to improve navigation.
+- The bottom navigation bar icons were replaced with vector icons to improve appearance.
+- The "Following" list now updates automatically when a series is followed or unfollowed from another screen.
+- Validation was added to the sorting configuration fields to prevent invalid values.
+
 ## [[2026.08.12.1048](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1048)] - 2026-08-12
 
 Agora o app exibe apenas as séries marcadas com estrela na aba "Seguindo" com layout de grid e ordenação independentes. / The app now displays only starred series in the "Following" tab with independent grid layout and sorting.
