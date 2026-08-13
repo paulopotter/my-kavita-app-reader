@@ -6,3 +6,4 @@
 | [003 - Library Screen](003%20-%20Library%20Screen/README.md) | Library screen: BFF enrichment, i18n system, bottom navigation bar, splash sync, local reading-progress storage — all 14 tasks done |
 | [002 - Splash Screen & Navigation](002%20-%20Splash%20Screen%20%26%20Navigation/README.md) | Animated RN splash overlay, react-navigation foundation, StartupModule, full route graph with placeholders — all 12 tasks done |
 | [010 - OTA Infrastructure](010%20-%20OTA%20Infrastructure/README.md) | OTA bundle check + download, crash guard, rollback, policy matching, CI release pipeline — all 15 tasks done |
+| [006 - Series Detail Screen](006%20-%20Series%20Detail%20Screen/README.md) | Series detail screen: chapter listing, multi-select, optimistic read/unread marking, 3-level chapter sort, SeriesModule bridge with reactive follow stream — all 11 tasks done |

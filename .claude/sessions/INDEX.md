@@ -2,14 +2,13 @@
 
 ## Em andamento
 
-| Plan | Description |
-|------|-------------|
-| [006 — Series Detail Screen](active/006-series-detail-screen/README.md) | 11 tasks — pending |
+_Nenhum plano em andamento._
 
 ## Concluídos
 
 | Plan | Versão |
 |------|--------|
+| [006 — Series Detail Screen](../completions/archive/006%20-%20Series%20Detail%20Screen/README.md) | `0.6.0` — todas as 11 tasks concluídas |
 | [010 — OTA Infrastructure](../completions/archive/010%20-%20OTA%20Infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
 | [004 — Following Screen](../completions/2026-08-12_004-following-screen.md) | `0.6.0` — entregue como wrapper da Biblioteca com filtro e prefs independentes |
 | [003 — Library Screen](../completions/archive/003%20-%20Library%20Screen/README.md) | todas as 14 tasks concluídas |
