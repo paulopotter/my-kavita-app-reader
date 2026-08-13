@@ -55,7 +55,8 @@ cat > "$SERVE_DIR/latest.json" <<JSON
   "bundleHash": "$HASH",
   "minKotlinVersion": "0.1.0",
   "lastAppVersion": "2026.01.01.0000",
-  "policies": null
+  "policies": null,
+  "bundleBuildTimeMs": $(date +%s000)
 }
 JSON
 

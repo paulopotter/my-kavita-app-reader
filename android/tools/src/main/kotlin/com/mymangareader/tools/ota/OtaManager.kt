@@ -26,7 +26,7 @@ class OtaManager @Inject constructor(
     @OtaManifestUrl private val manifestUrl: String,
     @KotlinVersionName private val kotlinVersion: String,
     @CurrentAppVersion private val appVersion: String,
-    @CurrentRnVersion private val embeddedRnVersion: String,
+    @EmbeddedBundleBuildTimeMs private val embeddedBundleBuildTimeMs: Long,
 ) {
     private val rnVersion: String
         get() = store.readState().currentBundleVersion.ifBlank { "" }
@@ -44,17 +44,20 @@ class OtaManager @Inject constructor(
         }
     }
 
-    // A non-OTA build/deploy repackages a newer bundle inside the APK (BuildConfig.RN_VERSION),
-    // but the OTA bundle saved in app-private storage survives reinstalls untouched — so the app
-    // would keep loading the stale OTA bundle forever unless we detect and discard it here.
+    // A non-OTA build/deploy repackages a bundle inside the APK, built at embeddedBundleBuildTimeMs.
+    // The OTA bundle saved in app-private storage survives reinstalls untouched, and its version
+    // string alone can't be trusted to detect staleness (e.g. "0.6.0-ota-test-none" and "0.6.0"
+    // compare equal by semver). Comparing each bundle's own build time is version-scheme agnostic:
+    // any local rebuild is newer than a previously downloaded OTA built before it.
     fun discardStaleBundleIfNeeded() {
         val state = store.readState()
         if (state.currentBundleVersion.isBlank()) return
-        if (meetsMinRnVersion(state.currentBundleVersion, embeddedRnVersion)) return
+        if (state.bundleBuildTimeMs >= embeddedBundleBuildTimeMs) return
         Log.w(
             TAG,
-            "Embedded bundle $embeddedRnVersion is newer than OTA bundle " +
-                "${state.currentBundleVersion} — discarding stale OTA bundle",
+            "Embedded bundle (built at $embeddedBundleBuildTimeMs) is newer than OTA bundle " +
+                "${state.currentBundleVersion} (built at ${state.bundleBuildTimeMs}) — " +
+                "discarding stale OTA bundle",
         )
         store.bundleFile.delete()
         store.prevBundleFile.delete()
@@ -212,7 +215,14 @@ class OtaManager @Inject constructor(
 
         val state = store.readState()
         val prevVersion = state.currentBundleVersion
-        store.writeState(state.copy(currentBundleVersion = manifest.lastRNVersion, isStable = false, bootCount = 0))
+        store.writeState(
+            state.copy(
+                currentBundleVersion = manifest.lastRNVersion,
+                isStable = false,
+                bootCount = 0,
+                bundleBuildTimeMs = manifest.bundleBuildTimeMs,
+            ),
+        )
 
         _downloadProgress.value = 1f
         Log.d(TAG, "Bundle updated to ${manifest.lastRNVersion}")

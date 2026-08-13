@@ -1,7 +1,7 @@
 package com.mymangareader
 
 import com.mymangareader.tools.ota.CurrentAppVersion
-import com.mymangareader.tools.ota.CurrentRnVersion
+import com.mymangareader.tools.ota.EmbeddedBundleBuildTimeMs
 import com.mymangareader.tools.ota.KotlinVersionName
 import com.mymangareader.tools.ota.OtaManifestUrl
 import com.mymangareader.tools.ota.OtaStore
@@ -32,6 +32,6 @@ object OtaBindingsModule {
 
     @Provides
     @Singleton
-    @CurrentRnVersion
-    fun provideCurrentRnVersion(): String = BuildConfig.RN_VERSION
+    @EmbeddedBundleBuildTimeMs
+    fun provideEmbeddedBundleBuildTimeMs(): Long = BuildConfig.EMBEDDED_BUNDLE_BUILD_TIME_MS
 }

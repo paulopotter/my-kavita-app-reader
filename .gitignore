@@ -9,6 +9,7 @@ gen/
 out/
 release/
 local.properties
+android/app/bundle-build-time.txt
 *.keystore
 !debug.keystore
 .gradle/

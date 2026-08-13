@@ -126,6 +126,7 @@ build-all: build-bundle build-android ## $(MSG_BUILD_ALL)
 build-bundle: ## $(MSG_BUILD_BUNDLE)
 	@echo "$(MSG_BUILDING_BNDL)"
 	@cd $(FRONTEND_DIR) && yarn bundle:android
+	@date +%s000 > $(ANDROID_DIR)/app/bundle-build-time.txt
 	@echo "$(MSG_BUNDLE_DONE)"
 
 deploy: ## $(MSG_DEPLOY)

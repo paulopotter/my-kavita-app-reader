@@ -11,6 +11,9 @@ data class OtaManifest(
     val minKotlinVersion: String,
     val lastAppVersion: String,
     val policies: OtaPolicies? = null,
+    // Epoch millis when this bundle was built (`make build-bundle`). Compared against the
+    // embedded bundle's own build time to detect a stale OTA bundle after a local rebuild.
+    val bundleBuildTimeMs: Long = 0L,
 )
 
 @Serializable

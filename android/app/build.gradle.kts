@@ -44,6 +44,15 @@ val appBuildDatetime: String = SimpleDateFormat("yyyy.MM.dd.HHmm").apply {
     timeZone = TimeZone.getTimeZone("UTC")
 }.format(Date())
 
+// Embedded RN bundle build timestamp (epoch millis), written by `make build-bundle` right after
+// `yarn bundle:android` generates the JS bundle. Falls back to "now" when missing (e.g. a Gradle
+// build run without going through build-bundle first) so the field is always a valid, safe-to-use
+// timestamp rather than 0. Used to detect a stale OTA bundle (saved in app-private storage,
+// survives reinstalls) that predates the currently packaged one — see OtaManager.discardStaleBundleIfNeeded.
+val embeddedBundleBuildTimeMs: Long = runCatching {
+    rootProject.file("app/bundle-build-time.txt").readText().trim().toLong()
+}.getOrDefault(Date().time)
+
 // versionCode derived from git commit count — always grows, never hardcoded
 val gitCommitCount: Int = runCatching {
     val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
@@ -67,6 +76,7 @@ android {
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
         buildConfigField("String", "RN_VERSION", "\"$rnVersion\"")
         buildConfigField("String", "APP_BUILD_DATETIME", "\"$appBuildDatetime\"")
+        buildConfigField("long", "EMBEDDED_BUNDLE_BUILD_TIME_MS", "${embeddedBundleBuildTimeMs}L")
     }
 
     buildTypes {

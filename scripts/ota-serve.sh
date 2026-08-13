@@ -103,6 +103,18 @@ echo "   $HASH"
 
 KOTLIN_VERSION=$(grep 'versionName\s*=' "$ANDROID_DIR/app/build.gradle.kts" | head -1 | sed 's/.*"\(.*\)".*/\1/' || echo "0.0.0")
 
+# ── Read bundle build time (written by `make build-bundle`) ───────────────────
+# Used by OtaManager.discardStaleBundleIfNeeded to detect a stale OTA bundle after a local
+# rebuild. Falls back to "now" if the marker file is missing (e.g. bundle built by some other
+# means) — a fresh timestamp is still safe, it just won't be older than any embedded bundle.
+
+BUNDLE_BUILD_TIME_FILE="$ANDROID_DIR/app/bundle-build-time.txt"
+if [ -f "$BUNDLE_BUILD_TIME_FILE" ]; then
+    BUNDLE_BUILD_TIME_MS=$(cat "$BUNDLE_BUILD_TIME_FILE")
+else
+    BUNDLE_BUILD_TIME_MS=$(date +%s000)
+fi
+
 # ── Build policies block ──────────────────────────────────────────────────────
 
 RELEASE_PAGE="https://github.com/paulopotter/my-kavita-app-reader/releases/latest"
@@ -141,7 +153,8 @@ cat > "$SERVE_DIR/latest.json" <<JSON
   "bundleHash": "$HASH",
   "minKotlinVersion": "0.0.0",
   "lastAppVersion": "2000.01.01.0000",
-  "policies": $POLICIES_JSON
+  "policies": $POLICIES_JSON,
+  "bundleBuildTimeMs": $BUNDLE_BUILD_TIME_MS
 }
 JSON
 
