@@ -16,8 +16,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BffServerConfigEntity::class,
         FollowedSeriesEntity::class,
         SeriesSortPrefsEntity::class,
+        PageCacheEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bffServerConfigDao(): BffServerConfigDao
     abstract fun followedSeriesDao(): FollowedSeriesDao
     abstract fun seriesSortPrefsDao(): SeriesSortPrefsDao
+    abstract fun pageCacheDao(): PageCacheDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -110,5 +112,6 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         val MIGRATION_4_5 = com.mymangareader.core.database.migrations.Migration_4_5
+        val MIGRATION_5_6 = com.mymangareader.core.database.migrations.Migration_5_6
     }
 }

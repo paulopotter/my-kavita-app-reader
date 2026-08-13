@@ -9,4 +9,5 @@ data class ReadingProgressEntity(
     val seriesId: String,
     val page: Int,
     val updatedAtLocalMs: Long,
+    val scrollFraction: Float = 0f,
 )

@@ -15,4 +15,7 @@ interface UiPreferencesDao {
 
     @Query("SELECT * FROM ui_preferences WHERE id = 'prefs' LIMIT 1")
     suspend fun get(): UiPreferencesEntity?
+
+    @Query("SELECT keepScreenOnDuringReading FROM ui_preferences WHERE id = 'prefs' LIMIT 1")
+    suspend fun getKeepScreenOnDuringReading(): Boolean?
 }

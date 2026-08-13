@@ -49,6 +49,7 @@ private class FakeUiPreferencesDao : UiPreferencesDao {
     override suspend fun upsert(entity: UiPreferencesEntity) { stored = entity; _flow.value = entity }
     override fun observe(): Flow<UiPreferencesEntity?> = _flow.asStateFlow()
     override suspend fun get(): UiPreferencesEntity? = stored
+    override suspend fun getKeepScreenOnDuringReading(): Boolean? = stored?.keepScreenOnDuringReading
 }
 
 private class FakeBffServerConfigDao : BffServerConfigDao {

@@ -43,6 +43,7 @@ private class FakeUiPreferencesDao(
     override suspend fun get() = entity
     override suspend fun upsert(e: UiPreferencesEntity) { upserted = e; entity = e }
     override fun observe(): Flow<UiPreferencesEntity?> = MutableStateFlow(entity)
+    override suspend fun getKeepScreenOnDuringReading(): Boolean? = entity?.keepScreenOnDuringReading
 }
 
 private class FakeFollowedSeriesDao : FollowedSeriesDao {
