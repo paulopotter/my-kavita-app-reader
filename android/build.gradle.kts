@@ -41,17 +41,15 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=33 — bump this value whenever coverage improves (never lower it).
-            // Lowered from 40 in 2026-08-12: pre-commit hook ran koverVerify without
-            // --rerun-tasks, so Gradle's UP-TO-DATE cache masked real coverage drops for a
-            // while — the true floor had silently fallen to ~34% before anyone noticed.
-            // Hook now runs with --rerun-tasks; this value reflects the honest baseline.
-            // Target: recover to 40% by adding tests to the lowest-covered packages
-            // (core/database, tools/ota, tools/bridge, features/bff — see coverage HTML report).
+            // COVERAGE_FLOOR_KOTLIN=44 — bump this value whenever coverage improves (never lower it).
+            // Was 33 as of 2026-08-13 (honest baseline after fixing a stale-cache masking bug in
+            // the pre-commit hook — see git history). Plano 006 (Series Detail Screen) added
+            // SeriesSortPrefsDao + OtaManager.discardStaleBundleIfNeeded coverage, real measured
+            // value is ~45%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 33
+                        minValue = 44
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
