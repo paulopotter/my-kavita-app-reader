@@ -12,6 +12,8 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
 import com.mymangareader.core.database.FollowedSeriesDao
+import com.mymangareader.core.database.SeriesSortPrefsDao
+import com.mymangareader.core.database.SeriesSortPrefsEntity
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.core.database.UiPreferencesEntity
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
@@ -34,6 +36,7 @@ class SeriesModule @Inject constructor(
     private val chapterCacheDao: ChapterCacheDao,
     private val followedSeriesDao: FollowedSeriesDao,
     private val uiPreferencesDao: UiPreferencesDao,
+    private val seriesSortPrefsDao: SeriesSortPrefsDao,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
@@ -178,6 +181,54 @@ class SeriesModule @Inject constructor(
             }
                 .onSuccess { promise.resolve(null) }
                 .onFailure { promise.reject("SORT_PREFS_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
+    fun getSeriesSortPrefs(seriesId: String, promise: Promise) {
+        scope.launch {
+            runCatching { seriesSortPrefsDao.get(seriesId) }
+                .onSuccess { prefs ->
+                    if (prefs == null) {
+                        promise.resolve(null)
+                    } else {
+                        Arguments.createMap().apply {
+                            putString("mode", prefs.chapterSortMode)
+                            prefs.chapterSortFixedThreshold?.let { putDouble("fixedThreshold", it) }
+                            putInt("progressPercent", prefs.chapterSortProgressPercent)
+                        }.let { promise.resolve(it) }
+                    }
+                }
+                .onFailure { promise.reject("SERIES_SORT_PREFS_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
+    fun setSeriesSortPrefs(seriesId: String, mode: String, fixedThreshold: Dynamic, progressPercent: Int, promise: Promise) {
+        val threshold = if (fixedThreshold.type == ReadableType.Number) fixedThreshold.asDouble() else null
+        fixedThreshold.recycle()
+        scope.launch {
+            runCatching {
+                seriesSortPrefsDao.upsert(
+                    SeriesSortPrefsEntity(
+                        seriesId = seriesId,
+                        chapterSortMode = mode,
+                        chapterSortFixedThreshold = threshold,
+                        chapterSortProgressPercent = progressPercent,
+                    ),
+                )
+            }
+                .onSuccess { promise.resolve(null) }
+                .onFailure { promise.reject("SERIES_SORT_PREFS_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
+    fun resetSeriesSortPrefs(seriesId: String, promise: Promise) {
+        scope.launch {
+            runCatching { seriesSortPrefsDao.delete(seriesId) }
+                .onSuccess { promise.resolve(null) }
+                .onFailure { promise.reject("SERIES_SORT_PREFS_ERROR", it.message, it) }
         }
     }
 

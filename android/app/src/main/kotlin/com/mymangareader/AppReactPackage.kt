@@ -8,6 +8,7 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
+import com.mymangareader.core.database.SeriesSortPrefsDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
@@ -34,6 +35,7 @@ class AppReactPackage(
     private val splashSyncCoordinator: SplashSyncCoordinator,
     private val chapterCacheDao: ChapterCacheDao,
     private val uiPreferencesDao: UiPreferencesDao,
+    private val seriesSortPrefsDao: SeriesSortPrefsDao,
 ) : ReactPackage {
 
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
@@ -52,6 +54,7 @@ class AppReactPackage(
                 chapterCacheDao,
                 followedSeriesDao,
                 uiPreferencesDao,
+                seriesSortPrefsDao,
                 context,
             ),
         )

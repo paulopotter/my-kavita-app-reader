@@ -13,6 +13,7 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
+import com.mymangareader.core.database.SeriesSortPrefsDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.KavitaAuthFeature
@@ -42,6 +43,7 @@ class MainApplication : Application(), ReactApplication {
     @Inject lateinit var splashSyncCoordinator: SplashSyncCoordinator
     @Inject lateinit var chapterCacheDao: ChapterCacheDao
     @Inject lateinit var uiPreferencesDao: UiPreferencesDao
+    @Inject lateinit var seriesSortPrefsDao: SeriesSortPrefsDao
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -60,6 +62,7 @@ class MainApplication : Application(), ReactApplication {
                     splashSyncCoordinator = splashSyncCoordinator,
                     chapterCacheDao = chapterCacheDao,
                     uiPreferencesDao = uiPreferencesDao,
+                    seriesSortPrefsDao = seriesSortPrefsDao,
                 )
 
             override fun getJSMainModuleName(): String = "index"
