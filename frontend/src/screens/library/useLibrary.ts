@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { ConfigRepository } from '../../shared/bridge/config';
 import { LibrarySortMode, LibraryViewMode, SeriesSummary } from '../../shared/bridge/library';
 import { SeriesFollowedEmitter } from '../../shared/bridge/series';
@@ -99,14 +99,13 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     dispatch({ type: 'LOADING' });
     try {
       const all = await fetchSeries(forceRefresh);
-      const series = filter ? all.filter(filter) : all;
-      dispatch({ type: 'LOADED', data: series });
+      dispatch({ type: 'LOADED', data: all });
       syncBff().catch(() => {});
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
       dispatch({ type: 'ERROR', error: msg });
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => { refresh(false); }, [refresh]);
 
@@ -141,5 +140,13 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     }
   }, [refreshShell]);
 
-  return { ...state, refresh, setViewMode, setSortMode, toggleFollow };
+  // Applied on every render (not once at fetch time) so screens like FollowingScreen react
+  // immediately when isFollowed changes via SET_FOLLOWED_IDS/TOGGLE_FOLLOW — an item must be
+  // able to appear/disappear from a filtered list without a refetch.
+  const data = useMemo(
+    () => (filter ? state.data.filter(filter) : state.data),
+    [state.data, filter],
+  );
+
+  return { ...state, data, refresh, setViewMode, setSortMode, toggleFollow };
 }

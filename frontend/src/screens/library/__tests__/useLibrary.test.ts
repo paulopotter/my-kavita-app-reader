@@ -55,3 +55,28 @@ describe('reducer — SET_FOLLOWED_IDS (sincroniza follow entre telas)', () => {
     expect(state.loading).toBe(false);
   });
 });
+
+// A FollowingScreen aplica um filtro isFollowed sobre state.data (fora do reducer, em useLibrary).
+// Esses testes simulam esse filtro para garantir que ele reage a mudanças de follow — o bug
+// original: LOADED aplicava o filtro uma única vez no fetch, então um item recém-seguido nunca
+// entrava na lista e um item desseguido nunca saía, até um refresh manual.
+describe('filtro isFollowed aplicado sobre state.data (regressão FollowingScreen)', () => {
+  const followingFilter = (s: SeriesSummary) => s.isFollowed;
+
+  it('SET_FOLLOWED_IDS faz um item recém-seguido aparecer no filtro', () => {
+    const state = reducer(baseState, { type: 'SET_FOLLOWED_IDS', ids: ['1', '2', '3'] });
+    const filtered = state.data.filter(followingFilter);
+    expect(filtered.map(s => s.id)).toEqual([1, 2, 3]);
+  });
+
+  it('SET_FOLLOWED_IDS faz um item desseguido sumir do filtro', () => {
+    const state = reducer(baseState, { type: 'SET_FOLLOWED_IDS', ids: [] });
+    expect(state.data.filter(followingFilter)).toHaveLength(0);
+  });
+
+  it('TOGGLE_FOLLOW também reflete no filtro imediatamente (update otimista)', () => {
+    const state = reducer(baseState, { type: 'TOGGLE_FOLLOW', seriesId: 2 });
+    const filtered = state.data.filter(followingFilter);
+    expect(filtered.map(s => s.id)).toEqual([1, 2, 3]);
+  });
+});
