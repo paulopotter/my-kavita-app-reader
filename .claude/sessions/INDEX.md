@@ -28,3 +28,4 @@
 | [013](backlog/items/013-additional-ci-steps.md) | Activate CI placeholders | each row has its own deps |
 | [014](backlog/items/014-additional-skills.md) | Additional Claude skills/agents | 001 + first screens |
 | [015](backlog/items/015-telemetria-interna-debug.md) | Telemetria interna (painel debug) | 010 |
+| [016](backlog/items/016-migration-rollback-strategy.md) | Estratégia de rollback de migrations Room | 001 |
