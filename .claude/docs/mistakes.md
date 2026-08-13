@@ -207,6 +207,73 @@ in `android/app/build.gradle.kts`, next to `react-native-screens` /
 `rm -rf android/build/generated/autolinking` before rebuilding, since that
 file caches the dependency list from before the install.
 
+---
+
+### 13. OTA bundle version string alone can't detect staleness
+
+**Symptom**: after testing an OTA update (`make ota-none` or similar) and
+later doing a full native rebuild + deploy (`make build-all` + `make
+deploy`), the app keeps loading the old JS bundle indefinitely — even
+across a full reinstall. UI fixes that were clearly shipped in the new
+build never show up on device.
+
+**Root cause**: `OtaStore.bundleFile` lives in app-private storage
+(`filesDir/ota/bundle.js`), which survives reinstalls untouched.
+`MainApplication.getJSBundleFile()` always prefers that file over the
+bundle packaged inside the APK if it exists, with no check for staleness.
+Comparing bundle *version strings* to decide staleness doesn't work either:
+a test OTA version like `"0.6.0-ota-test-none"` and a clean rebuild's
+`"0.6.0"` compare equal under semver (the suffix is ignored), so the app
+keeps serving the stale test bundle forever.
+
+**Rule**: staleness must be detected by **build time**, not version
+string. `make build-bundle` writes `android/app/bundle-build-time.txt`
+right after generating the JS bundle; `android/app/build.gradle.kts`
+reads it into `BuildConfig.EMBEDDED_BUNDLE_BUILD_TIME_MS`. The OTA
+manifest (`latest.json`) carries the same kind of timestamp as
+`bundleBuildTimeMs`, saved into `OtaState.bundleBuildTimeMs` on every
+download. `OtaManager.discardStaleBundleIfNeeded()` (called from
+`MainApplication.onCreate()`, before the bundle is resolved) compares the
+two timestamps and wipes the OTA bundle if the embedded one is newer —
+regardless of how the version strings compare.
+
+---
+
+### 14. Screen state doesn't reflect a change made from another screen
+
+**Symptom**: toggling state in one screen (e.g. favoriting a series in
+`SeriesDetailScreen`) doesn't show up in another screen that's still
+mounted in the navigation stack (e.g. the star in `LibraryScreen` stays
+unfilled, or an item doesn't appear/disappear from a filtered list like
+`FollowingScreen`) — until a manual pull-to-refresh.
+
+**Root cause, two variants seen in this codebase**:
+1. **Missing initial fetch**: a screen initializes state to a default
+   (`isFollowed: false`) and only updates it by listening to a native
+   event (`SeriesFollowedEmitter`). If that event was already emitted
+   before this screen's listener subscribed (the normal case — the
+   `NativeModule`'s `init {}` runs once at app boot, long before the user
+   navigates here), the listener never receives the current value. Fix:
+   fetch the current state explicitly (e.g. a dedicated
+   `isSeriesFollowed(seriesId)` bridge call) in the same
+   `Promise.all` as the rest of the initial load — the event listener is
+   still useful for *live* updates while the screen stays mounted, but it
+   can't be the only source of truth for the initial value.
+2. **Filter applied once at fetch time, not reactively**: a screen filters
+   a list (e.g. `FollowingScreen`'s `filter: s => s.isFollowed`) inside the
+   `refresh()`/fetch callback, then stores only the filtered result in
+   state. Once stored, an item that becomes newly matching (just followed)
+   never enters the list, and one that stops matching (just unfollowed)
+   never leaves it — because nothing re-evaluates the filter after the
+   fetch. Fix: keep the *unfiltered* list in state, and apply the filter
+   on every render (e.g. `useMemo(() => data.filter(filter), [data,
+   filter])`) so it reacts to any state change, not just a refetch.
+
+Screens that stay alive in the navigation stack (React Navigation doesn't
+remount on back) are exactly where this bites — always ask "what happens
+if this state changes while I'm not focused" for anything shared across
+screens.
+
 **Fix**: `implementation(project(":react-native-svg"))` added to
 `android/app/build.gradle.kts`.
 

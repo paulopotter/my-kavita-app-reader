@@ -130,7 +130,17 @@ reuse it without crossing screen boundaries.
   Can be promoted to Room later via a defined migration protocol.
 - **OTA**: app checks `latest.json` on startup; downloads newer JS bundle
   in background; switches on next launch. Rollback: keeps previous bundle,
-  marks stable after N crash-free opens.
+  marks stable after N crash-free opens. Staleness after a local rebuild
+  is detected by comparing build timestamps, not version strings — see
+  `mistakes.md` #13.
+- **Layered preference override**: a setting can exist at up to three
+  priority levels — session-only (in-memory, resets on screen exit),
+  per-item persisted override (e.g. `series_sort_prefs`, with an explicit
+  reset-to-default action), and app-wide global default. The effective
+  value is resolved top-down (session > per-item > global) each time the
+  screen loads. First used for chapter sort mode in Series Detail; reuse
+  this pattern for any future setting that needs the same "quick session
+  tweak vs. sticky per-item vs. app default" shape.
 
 ## Versioning
 
