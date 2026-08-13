@@ -11,6 +11,7 @@ import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.SeriesSortPrefsDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
+import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
@@ -36,6 +37,7 @@ class AppReactPackage(
     private val chapterCacheDao: ChapterCacheDao,
     private val uiPreferencesDao: UiPreferencesDao,
     private val seriesSortPrefsDao: SeriesSortPrefsDao,
+    private val activeUrlWatcher: ActiveUrlWatcher,
 ) : ReactPackage {
 
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
@@ -57,6 +59,7 @@ class AppReactPackage(
                 seriesSortPrefsDao,
                 context,
             ),
+            ReaderModule(kavitaChapterFeature, activeUrlWatcher, uiPreferencesDao, context),
         )
     }
 

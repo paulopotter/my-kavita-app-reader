@@ -16,6 +16,7 @@ import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.SeriesSortPrefsDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
+import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
@@ -46,6 +47,7 @@ class MainApplication : Application(), ReactApplication {
     @Inject lateinit var chapterCacheDao: ChapterCacheDao
     @Inject lateinit var uiPreferencesDao: UiPreferencesDao
     @Inject lateinit var seriesSortPrefsDao: SeriesSortPrefsDao
+    @Inject lateinit var activeUrlWatcher: ActiveUrlWatcher
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -65,6 +67,7 @@ class MainApplication : Application(), ReactApplication {
                     chapterCacheDao = chapterCacheDao,
                     uiPreferencesDao = uiPreferencesDao,
                     seriesSortPrefsDao = seriesSortPrefsDao,
+                    activeUrlWatcher = activeUrlWatcher,
                 )
 
             override fun getJSMainModuleName(): String = "index"

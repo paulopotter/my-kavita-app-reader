@@ -125,4 +125,7 @@ dependencies {
     implementation(project(":shopify_flash-list"))
     implementation(project(":react-native-community_netinfo"))
 
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockito.kotlin)
 }
