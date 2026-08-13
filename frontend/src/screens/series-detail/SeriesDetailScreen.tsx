@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
   FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   RefreshControl,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ArrowLeft, ArrowUp, Settings } from 'lucide-react-native';
 import type { NavOrigin } from '../../navigation/routes';
 import { originRouteFor, Routes } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
@@ -21,6 +24,11 @@ import { ChapterSortConfigModal } from './components/ChapterSortConfigModal';
 import { SelectionBottomBar } from './components/SelectionBottomBar';
 import { SeriesDetailHeader } from './components/SeriesDetailHeader';
 import { useSeriesDetail } from './useSeriesDetail';
+
+const ICON_COLOR = '#FFFFFF';
+const ICON_MUTED = '#A0AEC0';
+const ACCENT = '#E94560';
+const STAR_ACTIVE = '#F6AD55';
 
 type RouteParams = {
   SeriesDetail: { seriesId: string; origin?: NavOrigin };
@@ -33,6 +41,10 @@ export function SeriesDetailScreen() {
   const t = useStrings();
 
   const [sortConfigVisible, setSortConfigVisible] = useState(false);
+  const listRef = useRef<FlatList>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const lastOffsetY = useRef(0);
+  const headerHeightRef = useRef(0);
 
   const {
     loading,
@@ -45,6 +57,7 @@ export function SeriesDetailScreen() {
     sortMode,
     sortFixedThreshold,
     sortProgressPercent,
+    hasSeriesSortOverride,
     selectionMode,
     selectedIds,
     continueChapter,
@@ -54,6 +67,7 @@ export function SeriesDetailScreen() {
     toggleFollow,
     toggleSortOrder,
     updateSortPrefs,
+    resetSortPrefs,
     onChapterLongPress,
     onChapterClick,
     selectAll,
@@ -101,6 +115,14 @@ export function SeriesDetailScreen() {
     navigation.navigate(Routes.READER, { seriesId, chapterId: target.id, origin });
   }
 
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const currentY = e.nativeEvent.contentOffset.y;
+    const scrollingUp = currentY < lastOffsetY.current;
+    lastOffsetY.current = currentY;
+    const headerGone = currentY > headerHeightRef.current;
+    setShowScrollTop(headerGone && scrollingUp);
+  }
+
   if (loading && chapters.length === 0 && !detail) {
     return (
       <View style={styles.center}>
@@ -124,43 +146,58 @@ export function SeriesDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <TouchableOpacity style={styles.back} onPress={handleBack} accessibilityRole="button">
-        <Text style={styles.backText}>← Voltar</Text>
-      </TouchableOpacity>
-
-      <View style={styles.sortBar}>
-        <TouchableOpacity style={styles.sortToggle} onPress={toggleSortOrder}>
-          <Text style={styles.sortToggleText}>
-            {sortModeLabel(sortMode, sortFixedThreshold, sortProgressPercent, t)}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.topBarButton} onPress={handleBack} accessibilityRole="button" hitSlop={8}>
+          <ArrowLeft size={22} color={ICON_COLOR} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.starButton}
+          onPress={toggleFollow}
+          activeOpacity={0.8}
+          accessibilityRole="button">
+          <Text style={[styles.starIcon, isFollowed && styles.starIconActive]}>
+            {isFollowed ? '★' : '☆'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.sortConfigButton}
+          style={styles.topBarButton}
           onPress={() => setSortConfigVisible(true)}
-          accessibilityRole="button">
-          <Text style={styles.sortConfigIcon}>⚙</Text>
+          accessibilityRole="button"
+          hitSlop={8}>
+          <Settings size={22} color={ICON_MUTED} />
         </TouchableOpacity>
       </View>
 
       <FlatList
+        ref={listRef}
         data={chapters}
         keyExtractor={item => item.id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#E94560" />
         }
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
         ListHeaderComponent={
-          detail ? (
-            <SeriesDetailHeader
-              detail={detail}
-              metadata={metadata}
-              chapters={chapters}
-              continueChapter={continueChapter}
-              isFollowed={isFollowed}
-              t={t}
-              onToggleFollow={toggleFollow}
-              onActionPress={handleActionPress}
-            />
-          ) : null
+          <View onLayout={e => { headerHeightRef.current = e.nativeEvent.layout.height; }}>
+            {detail && (
+              <SeriesDetailHeader
+                detail={detail}
+                metadata={metadata}
+                chapters={chapters}
+                continueChapter={continueChapter}
+                t={t}
+                onActionPress={handleActionPress}
+              />
+            )}
+            <View style={styles.sortBar}>
+              <Text style={styles.chapterCount}>{chapters.filter(c => c.readStatus === 'READ').length}/{chapters.length}</Text>
+              <TouchableOpacity style={styles.sortToggle} onPress={toggleSortOrder}>
+                <Text style={styles.sortToggleText}>
+                  {sortModeLabel(sortMode, sortFixedThreshold, sortProgressPercent, t)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         }
         renderItem={({ item, index }) => (
           <ChapterListItem
@@ -168,11 +205,23 @@ export function SeriesDetailScreen() {
             index={index}
             selectionMode={selectionMode}
             selected={selectedIds.has(item.id)}
+            t={t}
             onPress={() => handleChapterPress(item)}
             onLongPress={() => onChapterLongPress(item.id)}
           />
         )}
       />
+
+      {showScrollTop && !selectionMode && (
+        <TouchableOpacity
+          style={styles.scrollTopBtn}
+          onPress={() => {
+            listRef.current?.scrollToOffset({ offset: 0, animated: true });
+            setShowScrollTop(false);
+          }}>
+          <ArrowUp size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
 
       {selectionMode && (
         <SelectionBottomBar
@@ -189,9 +238,14 @@ export function SeriesDetailScreen() {
         mode={sortMode}
         fixedThreshold={sortFixedThreshold}
         progressPercent={sortProgressPercent}
+        hasSeriesOverride={hasSeriesSortOverride}
         t={t}
         onSave={(mode, fixedThreshold, progressPercent) => {
           updateSortPrefs(mode, fixedThreshold, progressPercent);
+          setSortConfigVisible(false);
+        }}
+        onReset={() => {
+          resetSortPrefs();
           setSortConfigVisible(false);
         }}
         onCancel={() => setSortConfigVisible(false)}
@@ -214,19 +268,44 @@ const styles = StyleSheet.create({
   errorDetail: { color: '#A0AEC0', fontSize: 13, marginBottom: 20, textAlign: 'center' },
   retryButton: { backgroundColor: '#E94560', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   retryText: { color: '#FFFFFF', fontWeight: '600' },
-  back: { position: 'absolute', top: 20, left: 16, padding: 8, zIndex: 1 },
-  backText: { color: '#E94560', fontSize: 15 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  topBarButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  starButton: { alignItems: 'center', justifyContent: 'center' },
+  starIcon: { fontSize: 26, color: ICON_MUTED },
+  starIconActive: { color: STAR_ACTIVE },
   sortBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#0F3460',
   },
-  sortToggle: { paddingHorizontal: 10, paddingVertical: 4 },
-  sortToggleText: { color: '#E94560', fontSize: 13, fontWeight: '600' },
-  sortConfigButton: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  sortConfigIcon: { color: '#A0AEC0', fontSize: 16 },
+  chapterCount: { color: ICON_MUTED, fontSize: 12 },
+  sortToggle: { paddingHorizontal: 4, paddingVertical: 4 },
+  sortToggleText: { color: ACCENT, fontSize: 13, fontWeight: '600' },
+  scrollTopBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E94560',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+  },
 });

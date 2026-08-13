@@ -9,9 +9,7 @@ interface Props {
   metadata: SeriesMetadata | null;
   chapters: Chapter[];
   continueChapter: Chapter | null;
-  isFollowed: boolean;
   t: Strings;
-  onToggleFollow: () => void;
   onActionPress: () => void;
 }
 
@@ -20,9 +18,7 @@ export function SeriesDetailHeader({
   metadata,
   chapters,
   continueChapter,
-  isFollowed,
   t,
-  onToggleFollow,
   onActionPress,
 }: Props) {
   const readCount = chapters.filter(c => c.readStatus === 'READ').length;
@@ -35,16 +31,6 @@ export function SeriesDetailHeader({
         <Image source={{ uri: detail.coverImageUrl }} style={styles.cover} resizeMode="cover" />
         <View style={styles.info}>
           <Text style={styles.name} numberOfLines={3}>{detail.name}</Text>
-          <TouchableOpacity
-            style={styles.starButton}
-            onPress={onToggleFollow}
-            activeOpacity={0.8}
-            accessibilityRole="button">
-            <Text style={[styles.starIcon, isFollowed && styles.starIconActive]}>
-              {isFollowed ? '★' : '☆'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.count}>{readCount}/{chapters.length}</Text>
         </View>
       </View>
 
@@ -73,10 +59,6 @@ const styles = StyleSheet.create({
   cover: { width: 100, aspectRatio: 2 / 3, borderRadius: 8, backgroundColor: '#0F3460' },
   info: { flex: 1, marginLeft: 12, justifyContent: 'flex-start' },
   name: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-  starButton: { marginTop: 8, alignSelf: 'flex-start' },
-  starIcon: { fontSize: 24, color: '#FFFFFF' },
-  starIconActive: { color: '#F6AD55' },
-  count: { color: '#A0AEC0', fontSize: 12, marginTop: 8 },
   summary: { color: '#CBD5E0', fontSize: 13, marginTop: 12, lineHeight: 18 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   chip: { backgroundColor: '#16213E', borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
