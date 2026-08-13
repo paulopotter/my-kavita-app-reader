@@ -111,5 +111,6 @@ dependencies {
     // Third-party RN modules (autolinking generates PackageList but doesn't inject deps in this layout)
     implementation(project(":react-native-screens"))
     implementation(project(":react-native-safe-area-context"))
+    implementation(project(":react-native-svg"))
 
 }

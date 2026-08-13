@@ -183,4 +183,33 @@ sites.
 
 ---
 
+### 12. New RN native module (with native code) installed but not linked into `:app`
+
+**Symptom**: `IllegalViewOperationException: No ViewManager found for class
+RNSVGPath` (or similar) crashes the app at runtime, even though the JS
+package resolves fine and the build compiles.
+
+**Root cause**: `android/app/build.gradle.kts` declares third-party RN
+native modules as explicit Gradle project dependencies — see the comment
+above them: `// Third-party RN modules (autolinking generates PackageList
+but doesn't inject deps in this layout)`. Gradle's `autolinkLibrariesFromCommand`
+(in `settings.gradle.kts`) only discovers the module and adds it as a
+buildable subproject; it does **not** wire it into `:app`'s dependency list
+in this repo's custom layout. `PackageList.java` gets generated correctly
+(so the module *looks* linked), but the native view manager class is never
+on `:app`'s classpath, so it's missing at runtime.
+
+**Rule**: after `yarn add`-ing any RN library with native Android code
+(anything under `<pkg>/android/`, not pure-JS), add
+`implementation(project(":<package-name>"))` to the `dependencies {}` block
+in `android/app/build.gradle.kts`, next to `react-native-screens` /
+`react-native-safe-area-context`. Then run
+`rm -rf android/build/generated/autolinking` before rebuilding, since that
+file caches the dependency list from before the install.
+
+**Fix**: `implementation(project(":react-native-svg"))` added to
+`android/app/build.gradle.kts`.
+
+---
+
 **Last Updated**: 2026-08-12
