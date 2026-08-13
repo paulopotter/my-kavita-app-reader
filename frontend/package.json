@@ -12,9 +12,11 @@
     "validate:ota": "bash ../scripts/validate-ota.sh"
   },
   "dependencies": {
+    "@react-native-community/netinfo": "^11",
     "@react-navigation/bottom-tabs": "6.6.1",
     "@react-navigation/native": "6.1.18",
     "@react-navigation/native-stack": "6.11.0",
+    "@shopify/flash-list": "^1.7",
     "lucide-react-native": "^1.31.0",
     "react": "18.3.1",
     "react-native": "0.75.4",

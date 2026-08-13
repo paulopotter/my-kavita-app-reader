@@ -122,5 +122,7 @@ dependencies {
     implementation(project(":react-native-screens"))
     implementation(project(":react-native-safe-area-context"))
     implementation(project(":react-native-svg"))
+    implementation(project(":shopify_flash-list"))
+    implementation(project(":react-native-community_netinfo"))
 
 }
