@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Library, Settings, Star } from 'lucide-react-native';
 import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library/LibraryScreen';
 import { FollowingScreen } from '../screens/following/FollowingScreen';
@@ -15,10 +15,6 @@ const BG = '#16213E';
 const BORDER = '#0F3460';
 const ACTIVE = '#E94560';
 const INACTIVE = 'rgba(255,255,255,0.45)';
-
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  return <Text style={{ fontSize: 11, color: focused ? ACTIVE : INACTIVE, marginTop: 2 }}>{label}</Text>;
-}
 
 // Extracted to avoid react/no-unstable-nested-components lint warning.
 function ConfigTab({
@@ -76,7 +72,7 @@ export function MainNavigator() {
           component={FollowingScreen}
           options={{
             tabBarLabel: strings.navFollowing,
-            tabBarIcon: ({ focused }) => <TabIcon label="★" focused={focused} />,
+            tabBarIcon: ({ focused }) => <Star size={20} color={focused ? ACTIVE : INACTIVE} />,
           }}
         />
       )}
@@ -85,14 +81,14 @@ export function MainNavigator() {
         component={LibraryScreen}
         options={{
           tabBarLabel: strings.navLibrary,
-          tabBarIcon: ({ focused }) => <TabIcon label="📚" focused={focused} />,
+          tabBarIcon: ({ focused }) => <Library size={20} color={focused ? ACTIVE : INACTIVE} />,
         }}
       />
       <Tab.Screen
         name={Routes.CONFIG}
         options={{
           tabBarLabel: strings.navConfig,
-          tabBarIcon: ({ focused }) => <TabIcon label="⚙️" focused={focused} />,
+          tabBarIcon: ({ focused }) => <Settings size={20} color={focused ? ACTIVE : INACTIVE} />,
         }}
       >
         {() => (
