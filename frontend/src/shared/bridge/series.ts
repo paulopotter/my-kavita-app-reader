@@ -43,6 +43,7 @@ interface SeriesModuleInterface {
   markChaptersRead(seriesId: string, chapterIds: string[]): Promise<void>;
   markChaptersUnread(seriesId: string, chapterIds: string[]): Promise<void>;
   toggleFollow(seriesId: string): Promise<void>;
+  isSeriesFollowed(seriesId: string): Promise<boolean>;
   getChapterSortPrefs(): Promise<ChapterSortPrefs>;
   setChapterSortPrefs(
     mode: ChapterSortMode,

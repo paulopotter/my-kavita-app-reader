@@ -39,6 +39,10 @@ export async function toggleFollow(seriesId: string): Promise<void> {
   return SeriesBridge.toggleFollow(seriesId);
 }
 
+export async function fetchIsSeriesFollowed(seriesId: string): Promise<boolean> {
+  return SeriesBridge.isSeriesFollowed(seriesId);
+}
+
 export async function getChapterSortPrefs(): Promise<ChapterSortPrefs> {
   return SeriesBridge.getChapterSortPrefs();
 }

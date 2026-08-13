@@ -150,6 +150,15 @@ class SeriesModule @Inject constructor(
     }
 
     @ReactMethod
+    fun isSeriesFollowed(seriesId: String, promise: Promise) {
+        scope.launch {
+            runCatching { followedSeriesDao.isFollowed(seriesId) }
+                .onSuccess { promise.resolve(it) }
+                .onFailure { promise.reject("FOLLOW_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
     fun getChapterSortPrefs(promise: Promise) {
         scope.launch {
             runCatching { uiPreferencesDao.get() ?: UiPreferencesEntity() }

@@ -13,6 +13,7 @@ import { computeContinueChapter } from '../../shared/transforms/series';
 import {
   fetchCachedChapters,
   fetchChapters,
+  fetchIsSeriesFollowed,
   fetchSeriesDetail,
   fetchSeriesMetadata,
   getChapterSortPrefs,
@@ -170,14 +171,16 @@ export function useSeriesDetail(seriesId: string) {
 
   const loadStatic = useCallback(async (): Promise<ChapterSortPrefs | null> => {
     try {
-      const [detail, metadata, globalPrefs, seriesOverride] = await Promise.all([
+      const [detail, metadata, globalPrefs, seriesOverride, isFollowed] = await Promise.all([
         fetchSeriesDetail(seriesId),
         fetchSeriesMetadata(seriesId),
         getChapterSortPrefs(),
         getSeriesSortPrefs(seriesId),
+        fetchIsSeriesFollowed(seriesId),
       ]);
       dispatch({ type: 'DETAIL_LOADED', detail });
       dispatch({ type: 'METADATA_LOADED', metadata });
+      dispatch({ type: 'SET_FOLLOWED', isFollowed });
       // Override da série (salvo via modal) tem prioridade sobre o global.
       const effective = seriesOverride ?? globalPrefs;
       dispatch({
