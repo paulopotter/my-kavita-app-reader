@@ -10,6 +10,28 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+- feat: adiciona a tela de detalhe da série, com capa, sinopse, gêneros/tags e botão de continuar/começar a ler
+- feat: lista de capítulos com marcação de lido/não lido individual ou em lote (seleção múltipla via toque longo)
+- feat: ordenação de capítulos com três níveis de prioridade — ajuste rápido temporário, preferência fixa por série (com botão de resetar) e preferência global do app
+- feat: adiciona regra de ordenação automática por progresso de leitura (crescente até um limiar de capítulo ou percentual, depois decrescente)
+- fix: corrige a autenticação, que falhava ao processar a resposta do servidor
+- fix: a splash agora exige autenticação válida antes de liberar o acesso ao app
+- fix: corrige rotas de sincronização de série/capítulos que retornavam erro 404
+- fix: corrige o app ficar preso numa versão antiga do pacote JS após atualizações via download automático, mesmo depois de uma reinstalação completa
+- fix: favoritar/desfavoritar uma série dentro da tela de detalhe agora reflete imediatamente na Biblioteca e em Seguindo, sem precisar atualizar manualmente
+
+### Frontend
+- feat: adiciona modal de configuração de ordenação de capítulos, acessível pela tela de série e por uma nova seção em Ajustes
+- feat: renomeia a aba "Capítulo" em Ajustes para "Página do mangá"
+- feat: adiciona botão de voltar ao topo na lista de capítulos, exibido ao rolar para cima
+- feat: substitui os ícones da barra de navegação inferior por ícones vetoriais
+- fix: corrige o app fechar inesperadamente ao abrir a tela de uma série
+- fix: corrige a estrela de "seguindo" não aparecer marcada ao abrir uma série já seguida
+- fix: corrige a lista "Seguindo" não atualizar automaticamente quando uma série é seguida ou deixada de seguir em outra tela
+- fix: melhora o contraste do texto e a borda de seleção dos capítulos durante a seleção múltipla
+- fix: adiciona validação aos campos de configuração de ordenação (impede valores negativos e percentuais acima de 100)
+
 ## [[2026.08.12.1048](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.12.1048)] - 2026-08-12
 
 Agora o app exibe apenas as séries marcadas com estrela na aba "Seguindo" com layout de grid e ordenação independentes. / The app now displays only starred series in the "Following" tab with independent grid layout and sorting.
