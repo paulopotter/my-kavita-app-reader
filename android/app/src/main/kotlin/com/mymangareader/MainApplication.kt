@@ -22,6 +22,7 @@ import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.tools.bridge.ConfigStore
+import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -32,6 +33,7 @@ class MainApplication : Application(), ReactApplication {
     @Inject lateinit var configStore: ConfigStore
     @Inject lateinit var dbStatus: DbStatusProvider
     @Inject lateinit var otaStore: OtaStore
+    @Inject lateinit var otaManager: OtaManager
     @Inject lateinit var crashGuard: CrashGuard
     @Inject lateinit var kavitaUrlSource: KavitaUrlSource
     @Inject lateinit var kavitaAuthFeature: KavitaAuthFeature
@@ -78,6 +80,7 @@ class MainApplication : Application(), ReactApplication {
 
     override fun onCreate() {
         super.onCreate()
+        otaManager.discardStaleBundleIfNeeded()
         SoLoader.init(this, false)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
             DefaultNewArchitectureEntryPoint.load()

@@ -1,6 +1,7 @@
 package com.mymangareader
 
 import com.mymangareader.tools.ota.CurrentAppVersion
+import com.mymangareader.tools.ota.CurrentRnVersion
 import com.mymangareader.tools.ota.KotlinVersionName
 import com.mymangareader.tools.ota.OtaManifestUrl
 import com.mymangareader.tools.ota.OtaStore
@@ -28,4 +29,9 @@ object OtaBindingsModule {
     @Singleton
     @CurrentAppVersion
     fun provideCurrentAppVersion(): String = BuildConfig.APP_BUILD_DATETIME
+
+    @Provides
+    @Singleton
+    @CurrentRnVersion
+    fun provideCurrentRnVersion(): String = BuildConfig.RN_VERSION
 }

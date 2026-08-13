@@ -26,6 +26,7 @@ class OtaManager @Inject constructor(
     @OtaManifestUrl private val manifestUrl: String,
     @KotlinVersionName private val kotlinVersion: String,
     @CurrentAppVersion private val appVersion: String,
+    @CurrentRnVersion private val embeddedRnVersion: String,
 ) {
     private val rnVersion: String
         get() = store.readState().currentBundleVersion.ifBlank { "" }
@@ -41,6 +42,23 @@ class OtaManager @Inject constructor(
             store.prevBundleFile.copyTo(store.bundleFile, overwrite = true)
             store.writeState(OtaState())
         }
+    }
+
+    // A non-OTA build/deploy repackages a newer bundle inside the APK (BuildConfig.RN_VERSION),
+    // but the OTA bundle saved in app-private storage survives reinstalls untouched — so the app
+    // would keep loading the stale OTA bundle forever unless we detect and discard it here.
+    fun discardStaleBundleIfNeeded() {
+        val state = store.readState()
+        if (state.currentBundleVersion.isBlank()) return
+        if (meetsMinRnVersion(state.currentBundleVersion, embeddedRnVersion)) return
+        Log.w(
+            TAG,
+            "Embedded bundle $embeddedRnVersion is newer than OTA bundle " +
+                "${state.currentBundleVersion} — discarding stale OTA bundle",
+        )
+        store.bundleFile.delete()
+        store.prevBundleFile.delete()
+        store.writeState(OtaState())
     }
 
     fun recordBootStart() {

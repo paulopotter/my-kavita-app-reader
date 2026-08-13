@@ -40,6 +40,8 @@ dependencies {
     compileOnly("com.facebook.react:react-android:${libs.versions.reactNative.get()}")
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
 }
