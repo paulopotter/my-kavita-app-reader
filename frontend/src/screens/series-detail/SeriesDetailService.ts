@@ -50,3 +50,20 @@ export async function setChapterSortPrefs(
 ): Promise<void> {
   return SeriesBridge.setChapterSortPrefs(mode, fixedThreshold, progressPercent);
 }
+
+export async function getSeriesSortPrefs(seriesId: string): Promise<ChapterSortPrefs | null> {
+  return SeriesBridge.getSeriesSortPrefs(seriesId);
+}
+
+export async function setSeriesSortPrefs(
+  seriesId: string,
+  mode: ChapterSortMode,
+  fixedThreshold: number | undefined,
+  progressPercent: number,
+): Promise<void> {
+  return SeriesBridge.setSeriesSortPrefs(seriesId, mode, fixedThreshold, progressPercent);
+}
+
+export async function resetSeriesSortPrefs(seriesId: string): Promise<void> {
+  return SeriesBridge.resetSeriesSortPrefs(seriesId);
+}

@@ -49,6 +49,14 @@ interface SeriesModuleInterface {
     fixedThreshold: number | undefined,
     progressPercent: number,
   ): Promise<void>;
+  getSeriesSortPrefs(seriesId: string): Promise<ChapterSortPrefs | null>;
+  setSeriesSortPrefs(
+    seriesId: string,
+    mode: ChapterSortMode,
+    fixedThreshold: number | undefined,
+    progressPercent: number,
+  ): Promise<void>;
+  resetSeriesSortPrefs(seriesId: string): Promise<void>;
 }
 
 export const SeriesBridge: SeriesModuleInterface = NativeModules.SeriesModule;

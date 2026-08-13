@@ -16,6 +16,8 @@ export interface Strings {
   configLanguageEn: string;
   configMenuServer: string;
   configMenuReading: string;
+  configMenuChapter: string;
+  configChapterSortGroupTitle: string;
 
   // ── Server form ─────────────────────────────────────────────────────────
   serverFormUrlLabel: string;
@@ -136,6 +138,8 @@ export interface Strings {
   seriesDetailContinueReading: string;
   seriesDetailRereadFromStart: string;
   seriesDetailChaptersRead: string;
+  seriesDetailChapterNumberLabel: string;
+  seriesDetailChapterUntitled: string;
   seriesDetailSortAscending: string;
   seriesDetailSortDescending: string;
   seriesDetailSortAutoFixed: string;
@@ -146,9 +150,13 @@ export interface Strings {
   seriesDetailSelectionInvert: string;
   seriesDetailSortConfigTitle: string;
   seriesDetailSortConfigFixedThresholdLabel: string;
+  seriesDetailSortConfigFixedThresholdHint: string;
   seriesDetailSortConfigProgressPercentLabel: string;
+  seriesDetailSortConfigProgressPercentHint: string;
   seriesDetailSortConfigCancel: string;
   seriesDetailSortConfigSave: string;
+  seriesDetailSortConfigReset: string;
+  seriesDetailSortConfigOverrideNote: string;
 
   // ── Errors ───────────────────────────────────────────────────────────────
   errorApiKeyEmpty: string;
@@ -171,6 +179,8 @@ const ptBR: Strings = {
   configLanguageEn: 'English',
   configMenuServer: 'Servidor',
   configMenuReading: 'Preferências de leitura',
+  configMenuChapter: 'Página do mangá',
+  configChapterSortGroupTitle: 'Ordenação de capítulos',
 
   serverFormUrlLabel: 'URL do servidor',
   serverFormUrlPlaceholder: 'http://192.168.1.100:5000',
@@ -276,6 +286,8 @@ const ptBR: Strings = {
   seriesDetailContinueReading: 'Continuar lendo cap. {0}',
   seriesDetailRereadFromStart: 'Reler',
   seriesDetailChaptersRead: '{0}/{1} lidos',
+  seriesDetailChapterNumberLabel: 'Capítulo {0}',
+  seriesDetailChapterUntitled: 'Sem título',
   seriesDetailSortAscending: 'Crescente',
   seriesDetailSortDescending: 'Decrescente',
   seriesDetailSortAutoFixed: 'Auto (cap. {0})',
@@ -286,9 +298,13 @@ const ptBR: Strings = {
   seriesDetailSelectionInvert: 'Inverter seleção',
   seriesDetailSortConfigTitle: 'Ordenação de capítulos',
   seriesDetailSortConfigFixedThresholdLabel: 'Capítulo limiar',
+  seriesDetailSortConfigFixedThresholdHint: 'Decrescente a partir deste capítulo',
   seriesDetailSortConfigProgressPercentLabel: 'Percentual de progresso',
+  seriesDetailSortConfigProgressPercentHint: 'Decrescente a partir deste percentual (0–100)',
   seriesDetailSortConfigCancel: 'Cancelar',
   seriesDetailSortConfigSave: 'Salvar',
+  seriesDetailSortConfigReset: 'Usar padrão do app',
+  seriesDetailSortConfigOverrideNote: 'Esta série tem uma ordenação própria, diferente do padrão do app.',
 
   errorApiKeyEmpty: 'A API key não pode estar vazia',
   errorDbVersionMismatch: 'Versão do banco incompatível',
@@ -310,6 +326,8 @@ const en: Strings = {
   configLanguageEn: 'English',
   configMenuServer: 'Server',
   configMenuReading: 'Reading preferences',
+  configMenuChapter: 'Manga page',
+  configChapterSortGroupTitle: 'Chapter sort order',
 
   serverFormUrlLabel: 'Server URL',
   serverFormUrlPlaceholder: 'http://192.168.1.100:5000',
@@ -415,6 +433,8 @@ const en: Strings = {
   seriesDetailContinueReading: 'Continue reading ch. {0}',
   seriesDetailRereadFromStart: 'Reread',
   seriesDetailChaptersRead: '{0}/{1} read',
+  seriesDetailChapterNumberLabel: 'Chapter {0}',
+  seriesDetailChapterUntitled: 'Untitled',
   seriesDetailSortAscending: 'Ascending',
   seriesDetailSortDescending: 'Descending',
   seriesDetailSortAutoFixed: 'Auto (ch. {0})',
@@ -425,9 +445,13 @@ const en: Strings = {
   seriesDetailSelectionInvert: 'Invert selection',
   seriesDetailSortConfigTitle: 'Chapter sort order',
   seriesDetailSortConfigFixedThresholdLabel: 'Threshold chapter',
+  seriesDetailSortConfigFixedThresholdHint: 'Descending from this chapter onward',
   seriesDetailSortConfigProgressPercentLabel: 'Progress percentage',
+  seriesDetailSortConfigProgressPercentHint: 'Descending from this percentage onward (0–100)',
   seriesDetailSortConfigCancel: 'Cancel',
   seriesDetailSortConfigSave: 'Save',
+  seriesDetailSortConfigReset: 'Use app default',
+  seriesDetailSortConfigOverrideNote: 'This series has its own sort order, different from the app default.',
 
   errorApiKeyEmpty: 'API key cannot be empty',
   errorDbVersionMismatch: 'Database version mismatch',

@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useRef } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChapterSortMode } from '../../../shared/bridge/series';
+import { ChapterSortConfigFields } from '../../../shared/components/ChapterSortConfigFields';
 import { Strings } from '../../../shared/i18n/strings';
-import { parseSortConfigInput, sortModeLabel } from '../SeriesDetailTransform';
-
-const MODES: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 'AUTO_PROGRESS'];
 
 interface Props {
   visible: boolean;
   mode: ChapterSortMode;
   fixedThreshold?: number;
   progressPercent: number;
+  hasSeriesOverride: boolean;
   t: Strings;
   onSave: (mode: ChapterSortMode, fixedThreshold: number | undefined, progressPercent: number) => void;
+  onReset: () => void;
   onCancel: () => void;
 }
 
@@ -21,17 +21,21 @@ export function ChapterSortConfigModal({
   mode,
   fixedThreshold,
   progressPercent,
+  hasSeriesOverride,
   t,
   onSave,
+  onReset,
   onCancel,
 }: Props) {
-  const [selectedMode, setSelectedMode] = useState<ChapterSortMode>(mode);
-  const [thresholdText, setThresholdText] = useState(String(fixedThreshold ?? ''));
-  const [progressText, setProgressText] = useState(String(progressPercent));
+  const pendingRef = useRef<{ mode: ChapterSortMode; fixedThreshold: number | undefined; progressPercent: number }>({
+    mode,
+    fixedThreshold,
+    progressPercent,
+  });
 
   function handleSave() {
-    const parsed = parseSortConfigInput(thresholdText, progressText, progressPercent);
-    onSave(selectedMode, parsed.fixedThreshold, parsed.progressPercent);
+    const { mode: m, fixedThreshold: ft, progressPercent: pp } = pendingRef.current;
+    onSave(m, ft, pp);
   }
 
   return (
@@ -40,43 +44,22 @@ export function ChapterSortConfigModal({
         <Pressable style={styles.card} onPress={() => {}}>
           <Text style={styles.title}>{t.seriesDetailSortConfigTitle}</Text>
 
-          <View style={styles.modeList}>
-            {MODES.map(m => (
-              <Pressable
-                key={m}
-                style={[styles.modeOption, selectedMode === m && styles.modeOptionSelected]}
-                onPress={() => setSelectedMode(m)}>
-                <Text style={[styles.modeOptionText, selectedMode === m && styles.modeOptionTextSelected]}>
-                  {sortModeLabel(m, fixedThreshold, progressPercent, t)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {selectedMode === 'AUTO_FIXED' && (
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t.seriesDetailSortConfigFixedThresholdLabel}</Text>
-              <TextInput
-                style={styles.input}
-                value={thresholdText}
-                onChangeText={setThresholdText}
-                keyboardType="numeric"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-              />
-            </View>
+          {hasSeriesOverride && (
+            <Text style={styles.overrideNote}>{t.seriesDetailSortConfigOverrideNote}</Text>
           )}
 
-          {selectedMode === 'AUTO_PROGRESS' && (
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t.seriesDetailSortConfigProgressPercentLabel}</Text>
-              <TextInput
-                style={styles.input}
-                value={progressText}
-                onChangeText={setProgressText}
-                keyboardType="numeric"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-              />
-            </View>
+          <ChapterSortConfigFields
+            mode={mode}
+            fixedThreshold={fixedThreshold}
+            progressPercent={progressPercent}
+            t={t}
+            onChange={(m, ft, pp) => { pendingRef.current = { mode: m, fixedThreshold: ft, progressPercent: pp }; }}
+          />
+
+          {hasSeriesOverride && (
+            <Pressable style={styles.resetBtn} onPress={onReset}>
+              <Text style={styles.resetBtnText}>{t.seriesDetailSortConfigReset}</Text>
+            </Pressable>
           )}
 
           <View style={styles.actions}>
@@ -110,28 +93,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
-  modeList: { gap: 8 },
-  modeOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  modeOptionSelected: { borderColor: '#E94560', backgroundColor: 'rgba(233,69,96,0.12)' },
-  modeOptionText: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  modeOptionTextSelected: { color: '#FFFFFF', fontWeight: '600' },
-  field: { gap: 4 },
-  fieldLabel: { color: 'rgba(255,255,255,0.72)', fontSize: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
+  overrideNote: { color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 16 },
+  resetBtn: { alignSelf: 'flex-start', paddingVertical: 4 },
+  resetBtnText: { color: '#E94560', fontSize: 13, fontWeight: '600' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 4 },
   btn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, minWidth: 80, alignItems: 'center' },
   btnPrimary: { backgroundColor: '#E94560' },

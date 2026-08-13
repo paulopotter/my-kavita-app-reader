@@ -1,10 +1,15 @@
 import { Chapter, ChapterSortMode } from '../bridge/series';
+import { Strings } from '../i18n/strings';
 
-export function chapterDisplayTitle(chapter: Chapter): string {
-  const numberLabel = chapter.number ? `Cap. ${chapter.number}` : '';
-  if (!chapter.title) return numberLabel || 'Sem título';
-  if (!numberLabel) return chapter.title;
-  return `${numberLabel} — ${chapter.title}`;
+export function chapterDisplayTitle(chapter: Chapter, t: Strings): string {
+  // O Kavita às vezes preenche `title` com o próprio número do capítulo —
+  // isso não conta como um título real, só um número duplicado.
+  const hasRealTitle = chapter.title.trim().length > 0 && chapter.title !== chapter.number;
+  if (hasRealTitle) {
+    return chapter.number ? `${chapter.number}. ${chapter.title}` : chapter.title;
+  }
+  if (chapter.number) return t.seriesDetailChapterNumberLabel.replace('{0}', chapter.number);
+  return t.seriesDetailChapterUntitled;
 }
 
 export function chapterNumberComparator(a: Chapter, b: Chapter): number {
@@ -16,13 +21,6 @@ export function chapterNumberComparator(a: Chapter, b: Chapter): number {
   if (validA && !validB) return -1;
   if (!validA && validB) return 1;
   return a.title.localeCompare(b.title);
-}
-
-function isReadEnough(chapter: Chapter, progressPercent: number): boolean {
-  if (chapter.readStatus === 'READ') return true;
-  if (chapter.pageCount <= 0) return chapter.readStatus !== 'UNREAD';
-  const fraction = chapter.pagesRead / chapter.pageCount;
-  return fraction * 100 >= progressPercent;
 }
 
 export function sortChapters(
@@ -39,16 +37,18 @@ export function sortChapters(
     case 'DESCENDING':
       return [...ascending].reverse();
     case 'AUTO_FIXED': {
-      const threshold = fixedThreshold ?? 0;
-      const hasUnreadPastThreshold = ascending.some(
-        c => parseFloat(c.number) >= threshold && c.readStatus !== 'READ',
-      );
-      return hasUnreadPastThreshold ? ascending : [...ascending].reverse();
+      if (fixedThreshold == null) return ascending;
+      const lastReadNumber = ascending
+        .filter(c => c.readStatus === 'READ')
+        .map(c => parseFloat(c.number))
+        .filter(n => !isNaN(n))
+        .reduce((max, n) => Math.max(max, n), 0);
+      return lastReadNumber > fixedThreshold ? [...ascending].reverse() : ascending;
     }
     case 'AUTO_PROGRESS': {
-      const readCount = ascending.filter(c => isReadEnough(c, progressPercent)).length;
-      const fractionRead = ascending.length > 0 ? readCount / ascending.length : 0;
-      return fractionRead * 100 >= progressPercent ? [...ascending].reverse() : ascending;
+      const readCount = ascending.filter(c => c.readStatus === 'READ').length;
+      const actualPercent = ascending.length === 0 ? 0 : (readCount / ascending.length) * 100;
+      return actualPercent >= progressPercent ? [...ascending].reverse() : ascending;
     }
   }
 }

@@ -12,8 +12,10 @@ describe('ChapterSortConfigModal', () => {
         visible={false}
         mode="ASCENDING"
         progressPercent={50}
+        hasSeriesOverride={false}
         t={t}
         onSave={jest.fn()}
+        onReset={jest.fn()}
         onCancel={jest.fn()}
       />,
     );
@@ -26,8 +28,10 @@ describe('ChapterSortConfigModal', () => {
         visible={true}
         mode="ASCENDING"
         progressPercent={50}
+        hasSeriesOverride={false}
         t={t}
         onSave={jest.fn()}
+        onReset={jest.fn()}
         onCancel={jest.fn()}
       />,
     );
@@ -43,8 +47,10 @@ describe('ChapterSortConfigModal', () => {
         visible={true}
         mode="ASCENDING"
         progressPercent={50}
+        hasSeriesOverride={false}
         t={t}
         onSave={jest.fn()}
+        onReset={jest.fn()}
         onCancel={onCancel}
       />,
     );
@@ -59,8 +65,10 @@ describe('ChapterSortConfigModal', () => {
         visible={true}
         mode="ASCENDING"
         progressPercent={50}
+        hasSeriesOverride={false}
         t={t}
         onSave={onSave}
+        onReset={jest.fn()}
         onCancel={jest.fn()}
       />,
     );
@@ -75,8 +83,10 @@ describe('ChapterSortConfigModal', () => {
         visible={true}
         mode="ASCENDING"
         progressPercent={50}
+        hasSeriesOverride={false}
         t={t}
         onSave={onSave}
+        onReset={jest.fn()}
         onCancel={jest.fn()}
       />,
     );
@@ -91,12 +101,66 @@ describe('ChapterSortConfigModal', () => {
         visible={true}
         mode="ASCENDING"
         progressPercent={50}
+        hasSeriesOverride={false}
         t={t}
         onSave={jest.fn()}
+        onReset={jest.fn()}
         onCancel={jest.fn()}
       />,
     );
     fireEvent.press(getByText(t.seriesDetailSortAutoFixed.replace('{0}', '0')));
     expect(getByText(t.seriesDetailSortConfigFixedThresholdLabel)).toBeTruthy();
+  });
+
+  it('nao exibe o botao de reset nem a nota quando hasSeriesOverride=false', () => {
+    const { queryByText } = render(
+      <ChapterSortConfigModal
+        visible={true}
+        mode="ASCENDING"
+        progressPercent={50}
+        hasSeriesOverride={false}
+        t={t}
+        onSave={jest.fn()}
+        onReset={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    );
+    expect(queryByText(t.seriesDetailSortConfigReset)).toBeNull();
+    expect(queryByText(t.seriesDetailSortConfigOverrideNote)).toBeNull();
+  });
+
+  it('exibe o botao de reset e a nota quando hasSeriesOverride=true', () => {
+    const { getByText } = render(
+      <ChapterSortConfigModal
+        visible={true}
+        mode="DESCENDING"
+        progressPercent={50}
+        hasSeriesOverride={true}
+        t={t}
+        onSave={jest.fn()}
+        onReset={jest.fn()}
+        onCancel={jest.fn()}
+      />,
+    );
+    expect(getByText(t.seriesDetailSortConfigReset)).toBeTruthy();
+    expect(getByText(t.seriesDetailSortConfigOverrideNote)).toBeTruthy();
+  });
+
+  it('chama onReset ao tocar no botao de resetar', () => {
+    const onReset = jest.fn();
+    const { getByText } = render(
+      <ChapterSortConfigModal
+        visible={true}
+        mode="DESCENDING"
+        progressPercent={50}
+        hasSeriesOverride={true}
+        t={t}
+        onSave={jest.fn()}
+        onReset={onReset}
+        onCancel={jest.fn()}
+      />,
+    );
+    fireEvent.press(getByText(t.seriesDetailSortConfigReset));
+    expect(onReset).toHaveBeenCalledTimes(1);
   });
 });

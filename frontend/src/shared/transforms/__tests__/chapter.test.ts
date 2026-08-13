@@ -1,5 +1,8 @@
 import { Chapter } from '../../bridge/series';
+import { getStrings } from '../../i18n/strings';
 import { chapterDisplayTitle, chapterNumberComparator, sortChapters } from '../chapter';
+
+const t = getStrings('pt-BR');
 
 function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
   return {
@@ -17,24 +20,29 @@ function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
 }
 
 describe('chapterDisplayTitle', () => {
-  it('combina numero e titulo quando ambos existem', () => {
+  it('combina numero e titulo quando titulo e real (diferente do numero)', () => {
     const chapter = makeChapter({ number: '5', title: 'A Chegada' });
-    expect(chapterDisplayTitle(chapter)).toBe('Cap. 5 — A Chegada');
+    expect(chapterDisplayTitle(chapter, t)).toBe('5. A Chegada');
   });
 
-  it('usa apenas o numero quando titulo esta vazio', () => {
+  it('usa "Capitulo N" quando titulo esta vazio', () => {
     const chapter = makeChapter({ number: '5', title: '' });
-    expect(chapterDisplayTitle(chapter)).toBe('Cap. 5');
+    expect(chapterDisplayTitle(chapter, t)).toBe('Capítulo 5');
+  });
+
+  it('usa "Capitulo N" quando titulo e igual ao numero (redundante)', () => {
+    const chapter = makeChapter({ number: '5', title: '5' });
+    expect(chapterDisplayTitle(chapter, t)).toBe('Capítulo 5');
   });
 
   it('usa apenas o titulo quando numero esta vazio', () => {
     const chapter = makeChapter({ number: '', title: 'Especial' });
-    expect(chapterDisplayTitle(chapter)).toBe('Especial');
+    expect(chapterDisplayTitle(chapter, t)).toBe('Especial');
   });
 
   it('retorna fallback quando numero e titulo estao vazios', () => {
     const chapter = makeChapter({ number: '', title: '' });
-    expect(chapterDisplayTitle(chapter)).toBe('Sem título');
+    expect(chapterDisplayTitle(chapter, t)).toBe('Sem título');
   });
 });
 
@@ -69,18 +77,33 @@ describe('sortChapters', () => {
     expect(result.map(c => c.number)).toEqual(['3', '2', '1']);
   });
 
-  it('AUTO_FIXED usa ordem ascendente quando ha nao-lido a partir do limiar', () => {
+  it('AUTO_FIXED usa ordem ascendente quando ultimo lido esta no limiar ou abaixo', () => {
     const result = sortChapters(chapters, 'AUTO_FIXED', 2);
     expect(result.map(c => c.number)).toEqual(['1', '2', '3']);
   });
 
-  it('AUTO_FIXED usa ordem descendente quando tudo a partir do limiar esta lido', () => {
-    const allRead: Chapter[] = [
-      makeChapter({ id: '1', number: '1', readStatus: 'READ', pagesRead: 20, pageCount: 20 }),
-      makeChapter({ id: '2', number: '2', readStatus: 'READ', pagesRead: 20, pageCount: 20 }),
+  it('AUTO_FIXED usa ordem descendente quando ultimo lido passou do limiar', () => {
+    const readPast: Chapter[] = [
+      makeChapter({ id: '1', number: '1', readStatus: 'READ' }),
+      makeChapter({ id: '2', number: '2', readStatus: 'READ' }),
+      makeChapter({ id: '3', number: '3', readStatus: 'UNREAD' }),
     ];
-    const result = sortChapters(allRead, 'AUTO_FIXED', 1);
-    expect(result.map(c => c.number)).toEqual(['2', '1']);
+    const result = sortChapters(readPast, 'AUTO_FIXED', 1);
+    expect(result.map(c => c.number)).toEqual(['3', '2', '1']);
+  });
+
+  it('AUTO_FIXED usa ordem ascendente quando nenhum capitulo foi lido', () => {
+    const noneRead: Chapter[] = [
+      makeChapter({ id: '1', number: '1', readStatus: 'UNREAD' }),
+      makeChapter({ id: '2', number: '2', readStatus: 'UNREAD' }),
+    ];
+    const result = sortChapters(noneRead, 'AUTO_FIXED', 0);
+    expect(result.map(c => c.number)).toEqual(['1', '2']);
+  });
+
+  it('AUTO_FIXED usa ordem ascendente quando fixedThreshold esta ausente', () => {
+    const result = sortChapters(chapters, 'AUTO_FIXED', undefined);
+    expect(result.map(c => c.number)).toEqual(['1', '2', '3']);
   });
 
   it('AUTO_PROGRESS usa ordem ascendente quando progresso esta abaixo do limiar', () => {
@@ -88,10 +111,19 @@ describe('sortChapters', () => {
     expect(result.map(c => c.number)).toEqual(['1', '2', '3']);
   });
 
-  it('AUTO_PROGRESS usa ordem descendente quando progresso atinge o limiar', () => {
+  it('AUTO_PROGRESS usa ordem descendente quando progresso atinge exatamente o limiar', () => {
     const mostlyRead: Chapter[] = [
-      makeChapter({ id: '1', number: '1', readStatus: 'READ', pagesRead: 20, pageCount: 20 }),
-      makeChapter({ id: '2', number: '2', readStatus: 'READ', pagesRead: 20, pageCount: 20 }),
+      makeChapter({ id: '1', number: '1', readStatus: 'READ' }),
+      makeChapter({ id: '2', number: '2', readStatus: 'READ' }),
+    ];
+    const result = sortChapters(mostlyRead, 'AUTO_PROGRESS', undefined, 100);
+    expect(result.map(c => c.number)).toEqual(['2', '1']);
+  });
+
+  it('AUTO_PROGRESS usa ordem descendente quando progresso ultrapassa o limiar', () => {
+    const mostlyRead: Chapter[] = [
+      makeChapter({ id: '1', number: '1', readStatus: 'READ' }),
+      makeChapter({ id: '2', number: '2', readStatus: 'READ' }),
     ];
     const result = sortChapters(mostlyRead, 'AUTO_PROGRESS', undefined, 50);
     expect(result.map(c => c.number)).toEqual(['2', '1']);

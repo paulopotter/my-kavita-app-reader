@@ -16,10 +16,12 @@ import {
   fetchSeriesDetail,
   fetchSeriesMetadata,
   getChapterSortPrefs,
+  getSeriesSortPrefs,
   markChaptersRead,
   markChaptersUnread,
   replaceCachedChapters,
-  setChapterSortPrefs,
+  resetSeriesSortPrefs,
+  setSeriesSortPrefs,
   toggleFollow as bridgeToggleFollow,
 } from './SeriesDetailService';
 
@@ -38,6 +40,9 @@ export interface State {
   sortMode: ChapterSortMode;
   sortFixedThreshold?: number;
   sortProgressPercent: number;
+  // true quando a série tem um override de sort próprio (salvo via modal),
+  // que tem prioridade sobre a preferência global do app.
+  hasSeriesSortOverride: boolean;
   selectionMode: boolean;
   selectedIds: Set<string>;
 }
@@ -49,10 +54,10 @@ export type Action =
   | { type: 'CHAPTERS_LOADED'; chapters: Chapter[]; sortMode: ChapterSortMode; fixedThreshold?: number; progressPercent: number }
   | { type: 'DETAIL_LOADED'; detail: SeriesDetail }
   | { type: 'METADATA_LOADED'; metadata: SeriesMetadata }
-  | { type: 'SORT_PREFS_LOADED'; mode: ChapterSortMode; fixedThreshold?: number; progressPercent: number }
+  | { type: 'SORT_PREFS_LOADED'; mode: ChapterSortMode; fixedThreshold?: number; progressPercent: number; hasSeriesOverride: boolean }
   | { type: 'SET_FOLLOWED'; isFollowed: boolean }
   | { type: 'SET_SORT_MODE'; mode: ChapterSortMode }
-  | { type: 'SET_SORT_PREFS'; mode: ChapterSortMode; fixedThreshold?: number; progressPercent: number }
+  | { type: 'SET_SORT_PREFS'; mode: ChapterSortMode; fixedThreshold?: number; progressPercent: number; hasSeriesOverride: boolean }
   | { type: 'UPDATE_CHAPTERS_READ_STATUS'; ids: string[]; readStatus: Chapter['readStatus']; nowMs: number }
   | { type: 'LONG_PRESS'; chapterId: string }
   | { type: 'CLICK'; chapterId: string }
@@ -86,6 +91,7 @@ export function reducer(state: State, action: Action): State {
         sortMode: action.mode,
         sortFixedThreshold: action.fixedThreshold,
         sortProgressPercent: action.progressPercent,
+        hasSeriesSortOverride: action.hasSeriesOverride,
         chapters: applySort(state.chapters, action.mode, action.fixedThreshold, action.progressPercent),
       };
     case 'SET_FOLLOWED':
@@ -102,6 +108,7 @@ export function reducer(state: State, action: Action): State {
         sortMode: action.mode,
         sortFixedThreshold: action.fixedThreshold,
         sortProgressPercent: action.progressPercent,
+        hasSeriesSortOverride: action.hasSeriesOverride,
         chapters: applySort(state.chapters, action.mode, action.fixedThreshold, action.progressPercent),
       };
     case 'UPDATE_CHAPTERS_READ_STATUS': {
@@ -148,6 +155,7 @@ export const initial: State = {
   sortMode: 'ASCENDING',
   sortFixedThreshold: undefined,
   sortProgressPercent: 50,
+  hasSeriesSortOverride: false,
   selectionMode: false,
   selectedIds: new Set(),
 };
@@ -157,24 +165,32 @@ export function useSeriesDetail(seriesId: string) {
   const lastFetchMsRef = useRef(0);
   const chaptersRef = useRef<Chapter[]>([]);
   chaptersRef.current = state.chapters;
+  const sortPrefsRef = useRef({ mode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent });
+  sortPrefsRef.current = { mode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent };
 
-  const loadStatic = useCallback(async () => {
+  const loadStatic = useCallback(async (): Promise<ChapterSortPrefs | null> => {
     try {
-      const [detail, metadata, prefs] = await Promise.all([
+      const [detail, metadata, globalPrefs, seriesOverride] = await Promise.all([
         fetchSeriesDetail(seriesId),
         fetchSeriesMetadata(seriesId),
         getChapterSortPrefs(),
+        getSeriesSortPrefs(seriesId),
       ]);
       dispatch({ type: 'DETAIL_LOADED', detail });
       dispatch({ type: 'METADATA_LOADED', metadata });
+      // Override da série (salvo via modal) tem prioridade sobre o global.
+      const effective = seriesOverride ?? globalPrefs;
       dispatch({
         type: 'SORT_PREFS_LOADED',
-        mode: prefs.mode,
-        fixedThreshold: prefs.fixedThreshold,
-        progressPercent: prefs.progressPercent,
+        mode: effective.mode,
+        fixedThreshold: effective.fixedThreshold,
+        progressPercent: effective.progressPercent,
+        hasSeriesOverride: seriesOverride !== null,
       });
+      return effective;
     } catch {
       // Non-fatal: header renders with partial data
+      return null;
     }
   }, [seriesId]);
 
@@ -205,7 +221,10 @@ export function useSeriesDetail(seriesId: string) {
     }
   }, [seriesId]);
 
-  const load = useCallback(async (forceRefresh = false) => {
+  const load = useCallback(async (
+    prefs: { mode: ChapterSortMode; fixedThreshold?: number; progressPercent: number },
+    forceRefresh = false,
+  ) => {
     dispatch({ type: 'LOADING' });
     try {
       const cached = await fetchCachedChapters(seriesId);
@@ -213,34 +232,39 @@ export function useSeriesDetail(seriesId: string) {
         dispatch({
           type: 'CHAPTERS_LOADED',
           chapters: cached,
-          sortMode: state.sortMode,
-          fixedThreshold: state.sortFixedThreshold,
-          progressPercent: state.sortProgressPercent,
+          sortMode: prefs.mode,
+          fixedThreshold: prefs.fixedThreshold,
+          progressPercent: prefs.progressPercent,
         });
       }
       const now = Date.now();
       const withinWindow = !forceRefresh && now - lastFetchMsRef.current < REFRESH_WINDOW_MS;
       if (!withinWindow) {
-        await syncChapters({ mode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent });
+        await syncChapters(prefs);
       } else if (cached.length === 0) {
-        dispatch({ type: 'CHAPTERS_LOADED', chapters: [], sortMode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent });
+        dispatch({ type: 'CHAPTERS_LOADED', chapters: [], sortMode: prefs.mode, fixedThreshold: prefs.fixedThreshold, progressPercent: prefs.progressPercent });
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
       dispatch({ type: 'ERROR', error: msg });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesId, syncChapters]);
 
   useEffect(() => {
-    loadStatic();
-    load(false);
+    let cancelled = false;
+    (async () => {
+      const prefs = await loadStatic();
+      if (cancelled) return;
+      const effectivePrefs = prefs ?? { mode: initial.sortMode, fixedThreshold: initial.sortFixedThreshold, progressPercent: initial.sortProgressPercent };
+      await load(effectivePrefs, false);
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seriesId]);
 
   useFocusEffect(
     useCallback(() => {
-      syncChapters({ mode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent });
+      syncChapters(sortPrefsRef.current);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [seriesId]),
   );
@@ -254,8 +278,7 @@ export function useSeriesDetail(seriesId: string) {
 
   const refresh = useCallback(async () => {
     dispatch({ type: 'REFRESHING' });
-    await syncChapters({ mode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    await syncChapters(sortPrefsRef.current);
   }, [syncChapters]);
 
   const markRead = useCallback(async (chapterIds: string[]) => {
@@ -285,17 +308,39 @@ export function useSeriesDetail(seriesId: string) {
     }
   }, [seriesId, state.isFollowed]);
 
-  const toggleSortOrder = useCallback(async () => {
+  // Toggle rápido é sempre temporário: só altera o estado da sessão atual,
+  // nunca persiste. A preferência salva (override da série ou global) só
+  // muda via updateSortPrefs (modal de configuração), e volta a valer na
+  // próxima vez que a tela abrir.
+  const toggleSortOrder = useCallback(() => {
     const currentIndex = SORT_CYCLE.indexOf(state.sortMode);
     const nextMode = SORT_CYCLE[(currentIndex + 1) % SORT_CYCLE.length];
     dispatch({ type: 'SET_SORT_MODE', mode: nextMode });
-    setChapterSortPrefs(nextMode, state.sortFixedThreshold, state.sortProgressPercent).catch(() => {});
-  }, [state.sortMode, state.sortFixedThreshold, state.sortProgressPercent]);
+  }, [state.sortMode]);
 
+  // Modal de configuração grava um override FIXO só desta série — tem
+  // prioridade sobre a preferência global do app (que fica em Ajustes).
   const updateSortPrefs = useCallback(async (mode: ChapterSortMode, fixedThreshold: number | undefined, progressPercent: number) => {
-    dispatch({ type: 'SET_SORT_PREFS', mode, fixedThreshold, progressPercent });
-    setChapterSortPrefs(mode, fixedThreshold, progressPercent).catch(() => {});
-  }, []);
+    dispatch({ type: 'SET_SORT_PREFS', mode, fixedThreshold, progressPercent, hasSeriesOverride: true });
+    setSeriesSortPrefs(seriesId, mode, fixedThreshold, progressPercent).catch(() => {});
+  }, [seriesId]);
+
+  // Remove o override desta série e volta a respeitar a preferência global.
+  const resetSortPrefs = useCallback(async () => {
+    try {
+      await resetSeriesSortPrefs(seriesId);
+      const globalPrefs = await getChapterSortPrefs();
+      dispatch({
+        type: 'SET_SORT_PREFS',
+        mode: globalPrefs.mode,
+        fixedThreshold: globalPrefs.fixedThreshold,
+        progressPercent: globalPrefs.progressPercent,
+        hasSeriesOverride: false,
+      });
+    } catch {
+      // Non-fatal: mantém o estado atual se o reset falhar
+    }
+  }, [seriesId]);
 
   const onChapterLongPress = useCallback((chapterId: string) => {
     dispatch({ type: 'LONG_PRESS', chapterId });
@@ -320,6 +365,7 @@ export function useSeriesDetail(seriesId: string) {
     toggleFollow,
     toggleSortOrder,
     updateSortPrefs,
+    resetSortPrefs,
     onChapterLongPress,
     onChapterClick,
     selectAll,

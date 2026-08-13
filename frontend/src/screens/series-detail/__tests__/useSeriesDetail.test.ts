@@ -218,10 +218,24 @@ describe('reducer — 4 modos de ordenacao', () => {
       mode: 'AUTO_FIXED',
       fixedThreshold: 5,
       progressPercent: 80,
+      hasSeriesOverride: true,
     });
     expect(state.sortMode).toBe('AUTO_FIXED');
     expect(state.sortFixedThreshold).toBe(5);
     expect(state.sortProgressPercent).toBe(80);
+    expect(state.hasSeriesSortOverride).toBe(true);
+  });
+
+  it('SET_SORT_PREFS com hasSeriesOverride=false reflete reset para o global', () => {
+    const overridden: State = { ...loaded, hasSeriesSortOverride: true };
+    const state = reducer(overridden, {
+      type: 'SET_SORT_PREFS',
+      mode: 'ASCENDING',
+      fixedThreshold: undefined,
+      progressPercent: 50,
+      hasSeriesOverride: false,
+    });
+    expect(state.hasSeriesSortOverride).toBe(false);
   });
 });
 
