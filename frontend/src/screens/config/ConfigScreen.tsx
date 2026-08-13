@@ -12,7 +12,9 @@ import {
   View,
 } from 'react-native';
 import { ConfigRepository, SetupBridge } from '../../shared/bridge/config';
+import { ChapterSortMode, SeriesBridge } from '../../shared/bridge/series';
 import { AppVersions } from '../../shared/components/AppVersions';
+import { ChapterSortConfigFields } from '../../shared/components/ChapterSortConfigFields';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
 import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
 import { addBffServer, savePreferences, saveServer } from './ConfigService';
@@ -25,7 +27,7 @@ const RED = '#E94560';
 const GREEN = '#38A169';
 const MUTED = '#A0AEC0';
 
-type Screen = 'menu' | 'server' | 'reading';
+type Screen = 'menu' | 'server' | 'reading' | 'chapter';
 type ConnStatus = 'idle' | 'testing' | 'ok' | 'error';
 type AuthStatus = 'idle' | 'loading' | 'ok' | 'error';
 interface MenuState { type: 'kavita' | 'bff' | 'apikey'; id: string }
@@ -70,6 +72,8 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
       return <ServerScreen onBack={goBack} onServerCleared={onServerCleared} />;
     case 'reading':
       return <ReadingPrefsScreen onBack={goBack} />;
+    case 'chapter':
+      return <ChapterSortSettingsScreen onBack={goBack} />;
     default:
       return <ConfigMenuScreen onNavigate={setScreen} />;
   }
@@ -97,6 +101,11 @@ function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
       <View style={styles.divider} />
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('reading')}>
         <Text style={styles.menuRowLabel}>{t.configMenuReading}</Text>
+        <Text style={styles.menuRowArrow}>›</Text>
+      </TouchableOpacity>
+      <View style={styles.divider} />
+      <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('chapter')}>
+        <Text style={styles.menuRowLabel}>{t.configMenuChapter}</Text>
         <Text style={styles.menuRowArrow}>›</Text>
       </TouchableOpacity>
       <View style={styles.divider} />
@@ -599,6 +608,58 @@ function ReadingPrefsScreen({ onBack }: { onBack: () => void }) {
         </View>
         <View style={styles.divider} />
       </View>
+    </View>
+  );
+}
+
+// ─── Ordenação de capítulos (global) ───────────────────────────────────────────
+
+function ChapterSortSettingsScreen({ onBack }: { onBack: () => void }) {
+  const t = useStrings();
+  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<ChapterSortMode>('ASCENDING');
+  const [fixedThreshold, setFixedThreshold] = useState<number | undefined>(undefined);
+  const [progressPercent, setProgressPercent] = useState(50);
+
+  useEffect(() => {
+    SeriesBridge.getChapterSortPrefs()
+      .then(prefs => {
+        setMode(prefs.mode);
+        setFixedThreshold(prefs.fixedThreshold);
+        setProgressPercent(prefs.progressPercent);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  function handleChange(nextMode: ChapterSortMode, nextThreshold: number | undefined, nextPercent: number) {
+    setMode(nextMode);
+    setFixedThreshold(nextThreshold);
+    setProgressPercent(nextPercent);
+    SeriesBridge.setChapterSortPrefs(nextMode, nextThreshold, nextPercent).catch(() => {});
+  }
+
+  return (
+    <View style={styles.root}>
+      <View style={styles.subHeader}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtnArea} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.backChevron}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.subTitle}>{t.configMenuChapter}</Text>
+      </View>
+
+      {!loading && (
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.section}>{t.configChapterSortGroupTitle}</Text>
+          <ChapterSortConfigFields
+            mode={mode}
+            fixedThreshold={fixedThreshold}
+            progressPercent={progressPercent}
+            t={t}
+            onChange={handleChange}
+          />
+        </ScrollView>
+      )}
     </View>
   );
 }
