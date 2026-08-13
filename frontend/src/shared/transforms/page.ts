@@ -60,11 +60,15 @@ export function buildReaderList(viewer: ViewerChapters, _measuredHeights: Map<st
 }
 
 export function pagePreloadOrder(currentIndex: number, windowRadius: number, totalPages: number): number[] {
-  if (totalPages <= 0) return [];
+  if (totalPages <= 0) {
+    return [];
+  }
   const candidates = new Map<number, number>();
   for (let offset = -windowRadius; offset <= windowRadius; offset++) {
     const index = currentIndex + offset;
-    if (index < 0 || index >= totalPages) continue;
+    if (index < 0 || index >= totalPages) {
+      continue;
+    }
     candidates.set(index, Math.abs(offset));
   }
   return Array.from(candidates.entries())
@@ -73,7 +77,9 @@ export function pagePreloadOrder(currentIndex: number, windowRadius: number, tot
 }
 
 export function isNearChapterEdge(currentPage: number, totalPages: number, edgeThreshold: number): boolean {
-  if (totalPages <= 0) return false;
+  if (totalPages <= 0) {
+    return false;
+  }
   return currentPage >= totalPages - 1 - edgeThreshold;
 }
 
