@@ -57,7 +57,7 @@ fi
 # ── Kotlin tests + coverage floor ─────────────────────────────────────────────
 if [ -n "$CHANGED_KT_SRC" ]; then
   echo "→ Kotlin: running tests + coverage floor check..."
-  if ! (cd "$ROOT/android" && ./gradlew test koverVerify -q 2>&1); then
+  if ! (cd "$ROOT/android" && ./gradlew test koverVerify -q --rerun-tasks 2>&1); then
     echo "  ✗ Kotlin tests or coverage floor failed"
     echo "    Run: cd android && ./gradlew test koverVerify"
     echo "    Or:  make coverage-kotlin"

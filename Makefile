@@ -174,7 +174,7 @@ ota-recommended: ## $(MSG_OTA_RECOMMENDED)
 coverage: coverage-kotlin coverage-js ## $(MSG_COVERAGE)
 
 coverage-kotlin: ## $(MSG_COVERAGE_KOTLIN)
-	@cd $(ANDROID_DIR) && ./gradlew koverHtmlReport koverXmlReport
+	@cd $(ANDROID_DIR) && ./gradlew koverHtmlReport koverXmlReport koverVerify --rerun-tasks
 	@echo "→ Relatório HTML: $(ANDROID_DIR)/build/reports/kover/html/index.html"
 
 coverage-js: ## $(MSG_COVERAGE_JS)
