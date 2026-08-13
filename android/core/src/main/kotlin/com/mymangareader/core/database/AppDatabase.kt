@@ -15,8 +15,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BffMatchEntity::class,
         BffServerConfigEntity::class,
         FollowedSeriesEntity::class,
+        SeriesSortPrefsEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bffMatchDao(): BffMatchDao
     abstract fun bffServerConfigDao(): BffServerConfigDao
     abstract fun followedSeriesDao(): FollowedSeriesDao
+    abstract fun seriesSortPrefsDao(): SeriesSortPrefsDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -106,5 +108,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE ui_preferences ADD COLUMN librarySortMode TEXT NOT NULL DEFAULT 'RECENTLY_UPDATED'")
             }
         }
+
+        val MIGRATION_4_5 = com.mymangareader.core.database.migrations.Migration_4_5
     }
 }
