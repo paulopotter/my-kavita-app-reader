@@ -29,6 +29,17 @@ Anonymized screenshots of the app. IPs, tokens, and real domain names replaced w
 |------|-------------|
 | [following-grid-recent.png](following-grid-recent.png) | Following tab in grid view, sorted by recently updated |
 
+## Series Detail
+
+| File | Description |
+|------|-------------|
+| [series-detail-full.jpeg](series-detail-full.jpeg) | Series detail — cover, summary, tags, and continue-reading button |
+| [series-detail-scrolled.jpeg](series-detail-scrolled.jpeg) | Series detail — scrolled past the header, chapter list visible |
+| [series-detail-selection-mode.jpeg](series-detail-selection-mode.jpeg) | Series detail — multi-select mode active (long-press a chapter) |
+| [series-detail-sort-modal.jpeg](series-detail-sort-modal.jpeg) | Series detail — per-series chapter sort override modal |
+| [settings-chapter-sort-fixed.jpeg](settings-chapter-sort-fixed.jpeg) | Settings → Manga page — global sort, fixed chapter threshold mode |
+| [settings-chapter-sort-progress.jpeg](settings-chapter-sort-progress.jpeg) | Settings → Manga page — global sort, progress percentage mode |
+
 ## Settings
 
 | File | Description |
