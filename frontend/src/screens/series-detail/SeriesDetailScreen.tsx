@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, ArrowUp, Settings } from 'lucide-react-native';
+import { ArrowLeft, Settings } from 'lucide-react-native';
 import type { NavOrigin } from '../../navigation/routes';
 import { originRouteFor, Routes } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
@@ -219,7 +219,7 @@ export function SeriesDetailScreen() {
             listRef.current?.scrollToOffset({ offset: 0, animated: true });
             setShowScrollTop(false);
           }}>
-          <ArrowUp size={22} color="#FFFFFF" />
+          <Text style={styles.scrollTopIcon}>↑</Text>
         </TouchableOpacity>
       )}
 
@@ -308,4 +308,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 4,
   },
+  scrollTopIcon: { color: '#FFFFFF', fontSize: 20, fontWeight: '700', lineHeight: 24 },
 });
