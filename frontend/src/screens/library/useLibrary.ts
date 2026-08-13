@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import { ConfigRepository } from '../../shared/bridge/config';
 import { LibrarySortMode, LibraryViewMode, SeriesSummary } from '../../shared/bridge/library';
+import { SeriesFollowedEmitter } from '../../shared/bridge/series';
 import { useAppShellState } from '../../shared/components/AppShellState';
 import { fetchSeries, syncBff, toggleFollow as bridgeToggleFollow } from './LibraryService';
 
@@ -23,7 +24,8 @@ type Action =
   | { type: 'ERROR'; error: string }
   | { type: 'SET_VIEW_MODE'; mode: LibraryViewMode }
   | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
-  | { type: 'TOGGLE_FOLLOW'; seriesId: number };
+  | { type: 'TOGGLE_FOLLOW'; seriesId: number }
+  | { type: 'SET_FOLLOWED_IDS'; ids: string[] };
 
 function sortSeries(data: SeriesSummary[], mode: LibrarySortMode): SeriesSummary[] {
   if (mode === 'ALPHABETICAL') {
@@ -38,7 +40,7 @@ function sortSeries(data: SeriesSummary[], mode: LibrarySortMode): SeriesSummary
   });
 }
 
-function reducer(state: State, action: Action): State {
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'LOADING':
       return { ...state, loading: true, error: null };
@@ -57,6 +59,13 @@ function reducer(state: State, action: Action): State {
           s.id === action.seriesId ? { ...s, isFollowed: !s.isFollowed } : s,
         ),
       };
+    case 'SET_FOLLOWED_IDS': {
+      const followedIds = new Set(action.ids);
+      return {
+        ...state,
+        data: state.data.map(s => ({ ...s, isFollowed: followedIds.has(String(s.id)) })),
+      };
+    }
   }
 }
 
@@ -100,6 +109,16 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   }, [filter]);
 
   useEffect(() => { refresh(false); }, [refresh]);
+
+  // Series follow state can change from another screen (e.g. SeriesDetailScreen) while this
+  // screen stays mounted in the navigation stack (React Navigation keeps it alive, it never
+  // remounts on back) — sync isFollowed reactively instead of relying on a refetch on focus.
+  useEffect(() => {
+    const sub = SeriesFollowedEmitter.addListener('seriesFollowedIds', (ids: string[]) => {
+      dispatch({ type: 'SET_FOLLOWED_IDS', ids });
+    });
+    return () => sub.remove();
+  }, []);
 
   const setViewMode = useCallback((mode: LibraryViewMode) => {
     dispatch({ type: 'SET_VIEW_MODE', mode });
