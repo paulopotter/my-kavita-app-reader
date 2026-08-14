@@ -55,11 +55,32 @@ export function ReaderScreen() {
       `[ReaderScreen] scrollToPageRequest=${reader.scrollToPageRequest} currChapterId=${currChapterId} targetKey=${targetKey} resolvedIndex=${index} listLength=${list.length} hasPrev=${reader.viewer.prev != null} hasNext=${reader.viewer.next != null}`,
     );
     if (index >= 0) {
-      listRef.current?.scrollToIndex({ index, animated: false });
-    } else {
-      console.log('[ReaderScreen] scrollToIndex SKIPPED — targetKey not found in list');
+      // getLayout(index), usado internamente por scrollToIndex, só reflete alturas REAIS já
+      // medidas via onLayout — antes disso ele usa estimatedItemSize, que diverge muito da
+      // altura real de páginas de manga (podem passar de 2000px). Uma única chamada logo
+      // após a inserção do bloco caía num offset fisicamente errado. Repetir a chamada por
+      // alguns frames dá tempo para os onLayout reais dos itens acima do alvo chegarem e
+      // corrigirem o layout interno, convergindo para a posição certa.
+      let cancelled = false;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 8;
+      const scrollAttempt = () => {
+        if (cancelled) {return;}
+        listRef.current?.scrollToIndex({ index, animated: false });
+        attempts += 1;
+        if (attempts < MAX_ATTEMPTS) {
+          requestAnimationFrame(scrollAttempt);
+        }
+      };
+      scrollAttempt();
+      reader.handleScrollToPageHandled();
+      return () => {
+        cancelled = true;
+      };
     }
+    console.log('[ReaderScreen] scrollToIndex SKIPPED — targetKey not found in list');
     reader.handleScrollToPageHandled();
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reader.scrollToPageRequest, reader.viewer]);
 
