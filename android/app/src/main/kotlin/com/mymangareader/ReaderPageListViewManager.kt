@@ -26,6 +26,19 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         view.setBlocks(parsed)
     }
 
+    // One-shot scroll request: RN sets this to jump the list to a specific chapter/page (e.g.
+    // "continue reading" on open), then clears it back to null once onScrollToChapterHandled
+    // fires — see ReaderPageList's scrollToChapterId doc for why this must stay one-shot.
+    @ReactProp(name = "scrollToChapterId")
+    fun setScrollToChapterId(view: ReaderPageListView, chapterId: String?) {
+        view.setScrollToChapterId(chapterId)
+    }
+
+    @ReactProp(name = "scrollToPageIndex", defaultInt = -1)
+    fun setScrollToPageIndex(view: ReaderPageListView, pageIndex: Int) {
+        view.setScrollToPageIndex(pageIndex.takeIf { it >= 0 })
+    }
+
     private fun parseBlock(map: ReadableMap): ChapterBlock? {
         val chapterId = map.getString("chapterId") ?: return null
         val chapterTitle = map.getString("chapterTitle") ?: return null
@@ -42,5 +55,8 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
     }
 
     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> =
-        MapBuilder.of("onVisiblePageChanged", MapBuilder.of("registrationName", "onVisiblePageChanged"))
+        MapBuilder.of(
+            "onVisiblePageChanged", MapBuilder.of("registrationName", "onVisiblePageChanged"),
+            "onScrollToChapterHandled", MapBuilder.of("registrationName", "onScrollToChapterHandled"),
+        )
 }

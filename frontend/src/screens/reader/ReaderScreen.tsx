@@ -49,7 +49,7 @@ export function ReaderScreen() {
     return <View style={styles.root} />;
   }
 
-  const { curr, next } = reader.viewer;
+  const { prev, curr, next } = reader.viewer;
 
   const toBlock = (
     entry: NonNullable<typeof curr>,
@@ -63,19 +63,34 @@ export function ReaderScreen() {
     nextChapterLabel: t.readerNextChapterLabel,
   });
 
-  // Só curr+next por enquanto (baby step) — prev fica de fora até o scroll-pra-trás ser
-  // implementado numa rodada futura; o botão/tela anterior continua sendo o caminho de volta.
-  const blocks: ReaderChapterBlock[] = [toBlock(curr, next)];
-  if (next) {
-    blocks.push(toBlock(next, null));
-  }
+  // Trio completo — prev/curr/next, cada um já carregado pelo useReader — dá scroll contínuo
+  // nas duas direções. O Kotlin só desenha os blocos; ele nunca decide qual capítulo é "prev"
+  // ou "next".
+  const blocks: ReaderChapterBlock[] = [
+    ...(prev ? [toBlock(prev, curr)] : []),
+    toBlock(curr, next),
+    ...(next ? [toBlock(next, null)] : []),
+  ];
+
+  // scrollToPageRequest é um pedido one-shot ("continuar lendo" ao abrir a tela, ou reajuste de
+  // posição ao inserir o bloco prev na frente da lista) — só aponta pro capítulo atual porque é
+  // isso que o useReader sabe hoje; nunca deve disparar para o avanço/retrocesso natural de
+  // scroll entre blocos já visíveis, daí ser limpo assim que o nativo confirma o salto.
+  const scrollToChapterId = reader.scrollToPageRequest != null ? curr.chapter.id : null;
+  const scrollToPageIndex = reader.scrollToPageRequest ?? -1;
 
   // TEMP DEBUG: isolando a ReaderPageListView nativa sozinha, sem Pressable/overlay/progress
   // bar por cima, para descobrir se a "tripa fina" persistente vem do componente nativo em si
   // ou de alguma interação com o resto da árvore RN desta tela.
   return (
     <View style={styles.root}>
-      <ReaderPageListView blocks={blocks} onVisiblePageChanged={handleVisiblePageChanged} />
+      <ReaderPageListView
+        blocks={blocks}
+        scrollToChapterId={scrollToChapterId}
+        scrollToPageIndex={scrollToPageIndex}
+        onVisiblePageChanged={handleVisiblePageChanged}
+        onScrollToChapterHandled={reader.handleScrollToPageHandled}
+      />
     </View>
   );
 }

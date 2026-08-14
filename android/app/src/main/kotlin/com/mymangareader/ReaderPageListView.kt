@@ -25,6 +25,8 @@ import com.mymangareader.features.kavita.reader.ui.ReaderPageList
 class ReaderPageListView(context: Context) : AbstractComposeView(context) {
 
     private var currentBlocks by mutableStateOf<List<ChapterBlock>>(emptyList())
+    private var currentScrollToChapterId by mutableStateOf<String?>(null)
+    private var currentScrollToPageIndex by mutableStateOf<Int?>(null)
 
     init {
         // RN can detach/reattach this View across re-renders of the host screen; the default
@@ -40,9 +42,23 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
         currentBlocks = blocks
     }
 
+    fun setScrollToChapterId(chapterId: String?) {
+        currentScrollToChapterId = chapterId
+    }
+
+    fun setScrollToPageIndex(pageIndex: Int?) {
+        currentScrollToPageIndex = pageIndex
+    }
+
     @androidx.compose.runtime.Composable
     override fun Content() {
-        ReaderPageList(blocks = currentBlocks, onVisiblePageChanged = ::emitVisiblePageChanged)
+        ReaderPageList(
+            blocks = currentBlocks,
+            scrollToChapterId = currentScrollToChapterId,
+            scrollToPageIndex = currentScrollToPageIndex,
+            onVisiblePageChanged = ::emitVisiblePageChanged,
+            onScrollToChapterHandled = ::emitScrollToChapterHandled,
+        )
     }
 
     private fun emitVisiblePageChanged(chapterId: String, pageIndex: Int) {
@@ -54,5 +70,12 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
         reactContext
             .getJSModule(RCTEventEmitter::class.java)
             .receiveEvent(id, "onVisiblePageChanged", payload)
+    }
+
+    private fun emitScrollToChapterHandled() {
+        val reactContext = context as? ReactContext ?: return
+        reactContext
+            .getJSModule(RCTEventEmitter::class.java)
+            .receiveEvent(id, "onScrollToChapterHandled", Arguments.createMap())
     }
 }

@@ -135,4 +135,37 @@ class ReaderPageListTest {
             assertTrue(!tree.contains("Próximo:"))
         }
     }
+
+    @Test
+    fun `onScrollToChapterHandled fires once after a pending scroll request resolves`() {
+        var handledCount = 0
+        composeRule.setContent {
+            ReaderPageList(
+                blocks = listOf(
+                    block("c1", "Capítulo 1", (0 until 30).map { "https://example.com/$it.webp" }),
+                ),
+                scrollToChapterId = "c1",
+                scrollToPageIndex = 5,
+                onScrollToChapterHandled = { handledCount++ },
+            )
+        }
+
+        composeRule.waitForIdle()
+        assertTrue(handledCount == 1)
+    }
+
+    @Test
+    fun `does not attempt a scroll when scrollToChapterId is null`() {
+        var handledCount = 0
+        composeRule.setContent {
+            ReaderPageList(
+                blocks = listOf(block("c1", "Capítulo 1", listOf("https://example.com/1.webp"))),
+                scrollToChapterId = null,
+                onScrollToChapterHandled = { handledCount++ },
+            )
+        }
+
+        composeRule.waitForIdle()
+        assertTrue(handledCount == 0)
+    }
 }

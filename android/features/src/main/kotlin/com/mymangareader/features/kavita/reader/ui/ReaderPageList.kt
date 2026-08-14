@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -51,12 +52,16 @@ private sealed interface ListEntry {
     data class Header(val block: ChapterBlock) : ListEntry
     data class Page(val chapterId: String, val pageIndexInChapter: Int, val url: String) : ListEntry
     data class Footer(val block: ChapterBlock) : ListEntry
+    data class Gap(val afterChapterId: String, val beforeChapterId: String) : ListEntry
 }
 
-private fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = blocks.flatMap { block ->
-    buildList {
+private fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = buildList {
+    blocks.forEachIndexed { index, block ->
+        if (index > 0) {
+            add(ListEntry.Gap(afterChapterId = blocks[index - 1].chapterId, beforeChapterId = block.chapterId))
+        }
         add(ListEntry.Header(block))
-        block.pageUrls.forEachIndexed { index, url -> add(ListEntry.Page(block.chapterId, index, url)) }
+        block.pageUrls.forEachIndexed { pageIndex, url -> add(ListEntry.Page(block.chapterId, pageIndex, url)) }
         add(ListEntry.Footer(block))
     }
 }
@@ -65,6 +70,7 @@ private fun ListEntry.key(): String = when (this) {
     is ListEntry.Header -> "header:${block.chapterId}"
     is ListEntry.Page -> "page:$chapterId:$pageIndexInChapter"
     is ListEntry.Footer -> "footer:${block.chapterId}"
+    is ListEntry.Gap -> "gap:$afterChapterId:$beforeChapterId"
 }
 
 /**
@@ -78,8 +84,17 @@ private fun ListEntry.key(): String = when (this) {
 @Composable
 fun ReaderPageList(
     blocks: List<ChapterBlock>,
+    // Which page RN wants the list scrolled to right now — set once when the reader opens (or
+    // reopens a different chapterId) to jump straight to the Header of that chapter, matching
+    // "continue reading" semantics. Left unset (null pageIndex) while merely scrolling forward
+    // to a chapter that was already the visible next block — that natural scroll must never be
+    // fought by a programmatic jump, which is why this is a one-shot request, not a continuous
+    // binding: RN clears it after the native side reports the scroll happened.
+    scrollToChapterId: String? = null,
+    scrollToPageIndex: Int? = null,
     modifier: Modifier = Modifier,
     onVisiblePageChanged: (chapterId: String, pageIndex: Int) -> Unit = { _, _ -> },
+    onScrollToChapterHandled: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -91,13 +106,24 @@ fun ReaderPageList(
         onDispose { preloader.clear() }
     }
 
+    LaunchedEffect(entries, scrollToChapterId, scrollToPageIndex) {
+        if (scrollToChapterId == null) return@LaunchedEffect
+        val targetIndex = entries.indexOfFirst {
+            it is ListEntry.Page && it.chapterId == scrollToChapterId && it.pageIndexInChapter == (scrollToPageIndex ?: 0)
+        }
+        if (targetIndex >= 0) {
+            listState.scrollToItem(targetIndex)
+        }
+        onScrollToChapterHandled()
+    }
+
     LaunchedEffect(listState, entries) {
         snapshotFlow { listState.firstVisibleItemIndex }
             .collect { firstVisibleItemIndex ->
-                // The visible item can be a Header/Footer (e.g. right after opening the reader,
-                // before any scroll) — fall through to the nearest Page at or after that index so
-                // a chapter/page is always reported, matching "first page of this block is what's
-                // effectively visible".
+                // The visible item can be a Header/Footer/Gap (e.g. right after opening the
+                // reader, before any scroll) — fall through to the nearest Page at or after that
+                // index so a chapter/page is always reported, matching "first page of this block
+                // is what's effectively visible".
                 val visibleEntry = entries.drop(firstVisibleItemIndex).firstOrNull { it is ListEntry.Page }
                     as? ListEntry.Page ?: return@collect
                 onVisiblePageChanged(visibleEntry.chapterId, visibleEntry.pageIndexInChapter)
@@ -120,10 +146,19 @@ fun ReaderPageList(
                         nextChapterLabel = entry.block.nextChapterLabel,
                         nextChapterTitle = entry.block.nextChapterTitle,
                     )
+                    is ListEntry.Gap -> ChapterGapItem()
                 }
             }
         }
     }
+}
+
+/** Spacer between consecutive chapter blocks — gives scroll a bit of dead zone before the next
+ * chapter's Page items can become the most-visible item, avoiding accidental chapter switches
+ * right as the Footer/Header boundary scrolls past. Mirrors the reference project's Gap. */
+@Composable
+internal fun ChapterGapItem() {
+    Box(modifier = Modifier.fillMaxWidth().height(48.dp).background(Color.Black))
 }
 
 /** Mirrors the RN dummy ChapterHeader.tsx visual contract — black background, no series name yet. */
