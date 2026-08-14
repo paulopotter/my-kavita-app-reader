@@ -28,6 +28,7 @@ export function ReaderSideProgressBar({
     <View style={styles.root}>
       <TouchableOpacity
         testID="side-bar-prev"
+        style={styles.arrowButton}
         disabled={!hasPrev}
         onPress={() => {
           if (hasPrev) {onPrevChapter();}
@@ -43,6 +44,7 @@ export function ReaderSideProgressBar({
       </View>
       <TouchableOpacity
         testID="side-bar-next"
+        style={styles.arrowButton}
         disabled={!hasNext}
         onPress={() => {
           if (hasNext) {onNextChapter();}
@@ -62,9 +64,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  arrowButton: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    padding: 6,
+  },
   arrow: { color: '#FFFFFF', fontSize: 20 },
   arrowDisabled: { color: '#4A5568' },
-  dots: { flex: 1, justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: 8 },
+  dots: {
+    flex: 1,
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingVertical: 8,
+    width: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#A0AEC0', marginVertical: 2 },
   dotActive: { backgroundColor: '#E94560', width: 8, height: 8, borderRadius: 4 },
 });
