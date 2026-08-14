@@ -81,33 +81,34 @@ export function ReaderScreen() {
 
   return (
     <View style={styles.root}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={reader.toggleOverlay} />
-      <FlashList
-        ref={listRef}
-        data={listItems}
-        keyExtractor={item => item.key}
-        estimatedItemSize={800}
-        onScroll={handleScrollEvent}
-        onScrollEndDrag={handleScrollEndDragEvent}
-        onMomentumScrollEnd={handleScrollEndDragEvent}
-        renderItem={({ item }: { item: ReaderListItem }) => {
-          const entry = entryForChapterId(item.chapterId);
-          const nextEntry = nextEntryAfter(item.chapterId);
-          return (
-            <ReaderListItemRenderer
-              item={item}
-              seriesName=""
-              chapterTitle={chapterHeaderTitle(entry.chapter, t)}
-              nextChapterTitle={nextEntry ? chapterHeaderTitle(nextEntry.chapter, t) : null}
-              hasNext={nextEntry != null}
-              pageUrl={item.kind === 'PAGE' ? entry.pages[item.pageIndex ?? 0] : undefined}
-              gapHeight={gapHeight}
-              onLayout={handleLayout}
-              t={t}
-            />
-          );
-        }}
-      />
+      <Pressable style={styles.pressableList} onPress={reader.toggleOverlay}>
+        <FlashList
+          ref={listRef}
+          data={listItems}
+          keyExtractor={item => item.key}
+          estimatedItemSize={800}
+          onScroll={handleScrollEvent}
+          onScrollEndDrag={handleScrollEndDragEvent}
+          onMomentumScrollEnd={handleScrollEndDragEvent}
+          renderItem={({ item }: { item: ReaderListItem }) => {
+            const entry = entryForChapterId(item.chapterId);
+            const nextEntry = nextEntryAfter(item.chapterId);
+            return (
+              <ReaderListItemRenderer
+                item={item}
+                seriesName=""
+                chapterTitle={chapterHeaderTitle(entry.chapter, t)}
+                nextChapterTitle={nextEntry ? chapterHeaderTitle(nextEntry.chapter, t) : null}
+                hasNext={nextEntry != null}
+                pageUrl={item.kind === 'PAGE' ? entry.pages[item.pageIndex ?? 0] : undefined}
+                gapHeight={gapHeight}
+                onLayout={handleLayout}
+                t={t}
+              />
+            );
+          }}
+        />
+      </Pressable>
       <ReaderThinProgressBar
         fraction={progressBarFraction(reader.currentVisiblePage, reader.scrollFraction, curr.pages.length)}
       />
@@ -133,4 +134,5 @@ export function ReaderScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
+  pressableList: { flex: 1 },
 });
