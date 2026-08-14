@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { Image } from 'react-native';
 import { Chapter } from '../../../shared/bridge/series';
 import { ViewerChapters } from '../../../shared/transforms/page';
 
@@ -16,6 +17,31 @@ jest.mock('../ReaderService', () => ({
   saveServerProgress: (...args: unknown[]) => mockSaveServerProgress(...args),
   markChapterRead: (...args: unknown[]) => mockMarkChapterRead(...args),
   markChapterUnread: (...args: unknown[]) => mockMarkChapterUnread(...args),
+}));
+
+const mockFetchPageUrls = jest.fn();
+jest.mock('../PageService', () => ({
+  fetchPageUrls: (...args: unknown[]) => mockFetchPageUrls(...args),
+}));
+
+let activeUrlChangedListener: ((event: { url: string }) => void) | null = null;
+const mockGetPageCacheUrls = jest.fn();
+const mockInvalidatePageCache = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('../../../shared/bridge/network', () => ({
+  ActiveUrlChangedEmitter: {
+    addListener: jest.fn((_event: string, cb: (event: { url: string }) => void) => {
+      activeUrlChangedListener = cb;
+      return { remove: jest.fn() };
+    }),
+  },
+}));
+
+jest.mock('../../../shared/bridge/page', () => ({
+  ReaderBridge: {
+    getPageCacheUrls: (...args: unknown[]) => mockGetPageCacheUrls(...args),
+    invalidatePageCache: (...args: unknown[]) => mockInvalidatePageCache(...args),
+  },
 }));
 
 import { useReader } from '../useReader';
@@ -44,6 +70,9 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockFetchLocalProgress.mockResolvedValue(null);
   mockFetchServerReadProgress.mockResolvedValue(null);
+  mockGetPageCacheUrls.mockResolvedValue([]);
+  activeUrlChangedListener = null;
+  jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -311,5 +340,145 @@ describe('useReader — navegação entre capítulos', () => {
 
     expect(mockMarkChapterRead).not.toHaveBeenCalled();
     expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+  });
+});
+
+describe('useReader — pré-carregamento de páginas', () => {
+  it('nunca mais de 3 Image.prefetch em voo simultaneamente', async () => {
+    let resolvers: Array<() => void> = [];
+    (Image.prefetch as jest.Mock).mockImplementation(
+      () =>
+        new Promise<boolean>(resolve => {
+          resolvers.push(() => resolve(true));
+        }),
+    );
+    const chapter = makeChapter({ pageCount: 10 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: makeViewer(chapter, Array.from({ length: 10 }, (_, i) => `url${i}`)),
+        initialPage: 5,
+        initialScrollFraction: 0,
+      });
+    });
+
+    // Janela de 7 candidatos (3+3+atual), mas só 3 podem estar em voo ao mesmo tempo.
+    expect((Image.prefetch as jest.Mock).mock.calls.length).toBe(3);
+
+    await act(async () => {
+      // Resolve em rounds, já que cada prefetch resolvido dispara o próximo da fila
+      // (pool nunca ultrapassa 3 em voo — por isso mais de uma rodada é necessária).
+      for (let round = 0; round < 3; round++) {
+        const toResolve = resolvers;
+        resolvers = [];
+        toResolve.forEach(r => r());
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      }
+    });
+
+    // Janela completa (3+3+atual = 7) processada, nunca mais de 3 em voo por vez.
+    expect((Image.prefetch as jest.Mock).mock.calls.length).toBe(7);
+  });
+
+  it('inverter direcao descarta prefetches fora da nova janela sem erro', async () => {
+    const chapter = makeChapter({ pageCount: 20 });
+    const pages = Array.from({ length: 20 }, (_, i) => `url${i}`);
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: makeViewer(chapter, pages),
+        initialPage: 10,
+        initialScrollFraction: 0,
+      });
+    });
+
+    expect(() => {
+      act(() => {
+        result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 2, scrollFraction: 0 });
+      });
+    }).not.toThrow();
+  });
+
+  it('borda de 5 paginas do fim dispara pre-carregamento do vizinho exatamente uma vez', async () => {
+    const curr = makeChapter({ id: 'c1', pageCount: 10 });
+    const next = makeChapter({ id: 'c2', pageCount: 5 });
+    const pages = Array.from({ length: 10 }, (_, i) => `url${i}`);
+    const nextPages = Array.from({ length: 5 }, (_, i) => `next${i}`);
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: { prev: null, curr: { chapter: curr, pages }, next: { chapter: next, pages: nextPages } },
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+    const callsBeforeEdge = (Image.prefetch as jest.Mock).mock.calls.length;
+
+    await act(async () => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 4, scrollFraction: 0 });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const callsAtEdge = (Image.prefetch as jest.Mock).mock.calls.length;
+    expect(callsAtEdge).toBeGreaterThan(callsBeforeEdge);
+    expect((Image.prefetch as jest.Mock).mock.calls).toEqual(expect.arrayContaining([['next0']]));
+
+    await act(async () => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 5, scrollFraction: 0 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // Trigger de vizinho já disparado nesta sessão para este capítulo — não repete.
+    const next0Calls = (Image.prefetch as jest.Mock).mock.calls.filter(c => c[0] === 'next0').length;
+    expect(next0Calls).toBe(1);
+  });
+});
+
+describe('useReader — reação a activeUrlChanged', () => {
+  it('recarrega apenas o capitulo com host desatualizado', async () => {
+    const curr = makeChapter({ id: 'c1', pageCount: 2 });
+    const next = makeChapter({ id: 'c2', pageCount: 2 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: {
+          prev: null,
+          curr: { chapter: curr, pages: ['https://old-host/1', 'https://old-host/2'] },
+          next: { chapter: next, pages: ['https://new-host/1', 'https://new-host/2'] },
+        },
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+
+    mockGetPageCacheUrls.mockImplementation(async (chapterId: string) => {
+      if (chapterId === 'c1') {return [{ pageIndex: 0, url: 'https://old-host/1' }];}
+      return [{ pageIndex: 0, url: 'https://new-host/1' }];
+    });
+    mockFetchPageUrls.mockResolvedValue(['https://new-host/1', 'https://new-host/2']);
+
+    await act(async () => {
+      activeUrlChangedListener?.({ url: 'https://new-host' });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockInvalidatePageCache).toHaveBeenCalledWith('c1');
+    expect(mockInvalidatePageCache).not.toHaveBeenCalledWith('c2');
+    expect(mockFetchPageUrls).toHaveBeenCalledWith('c1', 2);
+    expect(result.current.viewer?.curr.pages).toEqual(['https://new-host/1', 'https://new-host/2']);
+    expect(result.current.viewer?.next?.pages).toEqual(['https://new-host/1', 'https://new-host/2']);
   });
 });

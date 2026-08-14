@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { Image } from 'react-native';
+import { ActiveUrlChangedEmitter, ActiveUrlChangedEvent } from '../../shared/bridge/network';
+import { ReaderBridge } from '../../shared/bridge/page';
 import { Chapter } from '../../shared/bridge/series';
 import { isChapterEffectivelyRead, shouldUnmarkOnReread } from '../../shared/transforms/chapter';
-import { currChapterOf, ViewerChapters } from '../../shared/transforms/page';
+import { currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../../shared/transforms/page';
+import { fetchPageUrls } from './PageService';
 import {
   fetchLocalProgress,
   fetchServerReadProgress,
@@ -13,6 +17,17 @@ import {
 
 const LOCAL_SAVE_INTERVAL_MS = 2_000;
 const SERVER_SYNC_INTERVAL_MS = 20_000;
+const PRELOAD_WINDOW_RADIUS = 3;
+const MAX_CONCURRENT_PREFETCH = 3;
+const CHAPTER_EDGE_THRESHOLD = 5;
+
+function urlHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
 
 export interface State {
   loading: boolean;
@@ -31,6 +46,7 @@ export type Action =
   | { type: 'ERROR'; error: string }
   | { type: 'VIEWER_READY'; viewer: ViewerChapters; initialPage: number; initialScrollFraction: number }
   | { type: 'SET_VIEWER'; viewer: ViewerChapters; page: number; scrollFraction: number }
+  | { type: 'UPDATE_VIEWER'; viewer: ViewerChapters }
   | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number }
   | { type: 'SCROLL_TO_PAGE'; page: number }
   | { type: 'SCROLL_TO_PAGE_HANDLED' }
@@ -88,6 +104,8 @@ export function reducer(state: State, action: Action): State {
         scrollFraction: action.scrollFraction,
         isAdvancing: false,
       };
+    case 'UPDATE_VIEWER':
+      return { ...state, viewer: action.viewer };
     case 'SET_CURRENT_PAGE':
       return { ...state, currentVisiblePage: action.page, scrollFraction: action.scrollFraction };
     case 'SCROLL_TO_PAGE':
@@ -278,6 +296,90 @@ export function useReader(_seriesId: string, _chapterId: string) {
   const goToPrevChapterManual = useCallback(async () => {
     await retreatToPrevChapter();
   }, [retreatToPrevChapter]);
+
+  // ── Pré-carregamento de páginas ──────────────────────────────────────────
+  const desiredPrefetchUrlsRef = useRef<Set<string>>(new Set());
+  const inFlightPrefetchCountRef = useRef(0);
+  const prefetchQueueRef = useRef<string[]>([]);
+
+  const pumpPrefetchQueue = useCallback(() => {
+    while (inFlightPrefetchCountRef.current < MAX_CONCURRENT_PREFETCH && prefetchQueueRef.current.length > 0) {
+      const url = prefetchQueueRef.current.shift();
+      if (!url) {break;}
+      if (!desiredPrefetchUrlsRef.current.has(url)) {continue;}
+      inFlightPrefetchCountRef.current++;
+      Image.prefetch(url)
+        .catch(() => {})
+        .then(() => {
+          inFlightPrefetchCountRef.current--;
+          pumpPrefetchQueue();
+        });
+    }
+  }, []);
+
+  const preloadPages = useCallback(
+    (pages: string[], currentIndex: number) => {
+      const order = pagePreloadOrder(currentIndex, PRELOAD_WINDOW_RADIUS, pages.length);
+      const desiredUrls = order.map(i => pages[i]);
+      desiredPrefetchUrlsRef.current = new Set(desiredUrls);
+      prefetchQueueRef.current = desiredUrls;
+      pumpPrefetchQueue();
+    },
+    [pumpPrefetchQueue],
+  );
+
+  useEffect(() => {
+    const viewer = state.viewer;
+    if (!viewer) {return;}
+    const curr = currChapterOf(viewer);
+    preloadPages(curr.pages, state.currentVisiblePage);
+  }, [state.viewer, state.currentVisiblePage, preloadPages]);
+
+  const neighborPreloadTriggeredRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const viewer = state.viewer;
+    if (!viewer) {return;}
+    const curr = currChapterOf(viewer);
+    const nearEdge = isNearChapterEdge(state.currentVisiblePage, curr.pages.length, CHAPTER_EDGE_THRESHOLD);
+    if (!nearEdge) {return;}
+    const neighbor = viewer.next;
+    if (!neighbor || neighborPreloadTriggeredRef.current.has(neighbor.chapter.id)) {return;}
+    neighborPreloadTriggeredRef.current.add(neighbor.chapter.id);
+    preloadPages(neighbor.pages, 0);
+  }, [state.viewer, state.currentVisiblePage, preloadPages]);
+
+  // ── Reação a activeUrlChanged ────────────────────────────────────────────
+  useEffect(() => {
+    const sub = ActiveUrlChangedEmitter.addListener('activeUrlChanged', async (event: ActiveUrlChangedEvent) => {
+      const viewer = viewerRef.current;
+      if (!viewer) {return;}
+      const entries = [viewer.prev, viewer.curr, viewer.next].filter(
+        (e): e is ViewerChapters['curr'] => e != null,
+      );
+      const newHost = urlHost(event.url);
+      for (const entry of entries) {
+        const cached = await ReaderBridge.getPageCacheUrls(entry.chapter.id);
+        const firstUrl = cached[0]?.url;
+        if (!firstUrl || urlHost(firstUrl) === newHost) {continue;}
+        await ReaderBridge.invalidatePageCache(entry.chapter.id);
+        const freshUrls = await fetchPageUrls(entry.chapter.id, entry.chapter.pageCount);
+        const updateEntry = (e: ViewerChapters['curr'] | null): ViewerChapters['curr'] | null =>
+          e && e.chapter.id === entry.chapter.id ? { ...e, pages: freshUrls } : e;
+        const current = viewerRef.current;
+        if (!current) {continue;}
+        dispatch({
+          type: 'UPDATE_VIEWER',
+          viewer: {
+            prev: updateEntry(current.prev),
+            curr: updateEntry(current.curr) ?? current.curr,
+            next: updateEntry(current.next),
+          },
+        });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const toggleOverlay = useCallback(() => dispatch({ type: 'TOGGLE_OVERLAY' }), []);
 
