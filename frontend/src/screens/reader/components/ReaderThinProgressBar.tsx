@@ -10,7 +10,7 @@ export function ReaderThinProgressBar({ fraction }: Props) {
 
   return (
     <View style={styles.track}>
-      <View testID="reader-thin-progress-fill" style={[styles.fill, { width: `${clamped * 100}%` }]} />
+      <View testID="reader-thin-progress-fill" style={[styles.fill, { height: `${clamped * 100}%` }]} />
     </View>
   );
 }
@@ -18,11 +18,15 @@ export function ReaderThinProgressBar({ fraction }: Props) {
 const styles = StyleSheet.create({
   track: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    right: 4,
+    top: '10%',
+    bottom: '10%',
+    width: 3,
+    borderRadius: 1.5,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    overflow: 'hidden',
   },
-  fill: { height: 3, backgroundColor: '#E9C46A' },
+  fill: { width: 3, backgroundColor: '#FFC107' },
 });
