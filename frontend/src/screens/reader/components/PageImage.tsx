@@ -34,7 +34,7 @@ export function PageImage({ url, onLayout }: Props) {
 
   return (
     <View testID="page-image-root" style={[styles.root, computedHeight != null && { height: computedHeight }]} onLayout={handleLayout}>
-      <Image source={{ uri: url }} style={styles.image} resizeMode="cover" onLoadEnd={() => setLoading(false)} />
+      <Image source={{ uri: url }} style={styles.image} resizeMode="contain" onLoadEnd={() => setLoading(false)} />
       {loading && (
         <View testID="page-image-loading" style={styles.loadingOverlay}>
           <ActivityIndicator color="#E94560" />
