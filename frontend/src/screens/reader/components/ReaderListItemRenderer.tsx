@@ -1,4 +1,5 @@
 import React from 'react';
+import { Strings } from '../../../shared/i18n/strings';
 import { ReaderListItem } from '../../../shared/transforms/page';
 import { ChapterFooter } from './ChapterFooter';
 import { ChapterHeader } from './ChapterHeader';
@@ -14,6 +15,7 @@ interface Props {
   pageUrl: string | undefined;
   gapHeight: number;
   onLayout: (key: string, height: number) => void;
+  t: Strings;
 }
 
 export function ReaderListItemRenderer({
@@ -25,6 +27,7 @@ export function ReaderListItemRenderer({
   pageUrl,
   gapHeight,
   onLayout,
+  t,
 }: Props) {
   switch (item.kind) {
     case 'HEADER':
@@ -41,6 +44,7 @@ export function ReaderListItemRenderer({
           hasNext={hasNext}
           chapterTitle={nextChapterTitle}
           onLayout={height => onLayout(item.key, height)}
+          t={t}
         />
       );
     case 'GAP':

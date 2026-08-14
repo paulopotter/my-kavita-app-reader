@@ -41,15 +41,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=44 — bump this value whenever coverage improves (never lower it).
-            // Was 33 as of 2026-08-13 (honest baseline after fixing a stale-cache masking bug in
-            // the pre-commit hook — see git history). Plano 006 (Series Detail Screen) added
-            // SeriesSortPrefsDao + OtaManager.discardStaleBundleIfNeeded coverage, real measured
-            // value is ~45%.
+            // COVERAGE_FLOOR_KOTLIN=48 — bump this value whenever coverage improves (never lower it).
+            // Was 44 as of 2026-08-13. Plano 007 (Reader Screen) added KavitaChapterFeature
+            // page/progress expansion, ActiveUrlWatcher, ReaderModule and Migration_5_6/PageCacheDao
+            // coverage, real measured value is ~48.69%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 44
+                        minValue = 48
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

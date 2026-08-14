@@ -1,20 +1,22 @@
 import React from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import { Strings } from '../../../shared/i18n/strings';
 
 interface Props {
   hasNext: boolean;
   chapterTitle: string | null;
   onLayout: (height: number) => void;
+  t: Strings;
 }
 
-export function ChapterFooter({ hasNext, chapterTitle, onLayout }: Props) {
+export function ChapterFooter({ hasNext, chapterTitle, onLayout, t }: Props) {
   const handleLayout = (event: LayoutChangeEvent) => {
     onLayout(event.nativeEvent.layout.height);
   };
 
   return (
     <View testID="chapter-footer-root" style={styles.root} onLayout={handleLayout}>
-      <Text style={styles.endLabel}>Fim do capítulo</Text>
+      <Text style={styles.endLabel}>{t.readerEndOfChapter}</Text>
       {hasNext && chapterTitle != null && (
         <Text style={styles.nextPreview} numberOfLines={1}>
           {chapterTitle}

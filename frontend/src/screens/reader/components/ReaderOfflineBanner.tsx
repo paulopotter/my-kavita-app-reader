@@ -1,16 +1,18 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Strings } from '../../../shared/i18n/strings';
 
 interface Props {
   visible: boolean;
+  t: Strings;
 }
 
-export function ReaderOfflineBanner({ visible }: Props) {
+export function ReaderOfflineBanner({ visible, t }: Props) {
   if (!visible) {return null;}
 
   return (
     <View style={styles.root}>
-      <Text style={styles.text}>Sem conexão</Text>
+      <Text style={styles.text}>{t.readerOffline}</Text>
     </View>
   );
 }

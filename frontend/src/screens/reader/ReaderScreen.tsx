@@ -103,6 +103,7 @@ export function ReaderScreen() {
               pageUrl={item.kind === 'PAGE' ? entry.pages[item.pageIndex ?? 0] : undefined}
               gapHeight={gapHeight}
               onLayout={handleLayout}
+              t={t}
             />
           );
         }}
@@ -125,7 +126,7 @@ export function ReaderScreen() {
           />
         </>
       )}
-      <ReaderOfflineBanner visible={reader.offline} />
+      <ReaderOfflineBanner visible={reader.offline} t={t} />
     </View>
   );
 }

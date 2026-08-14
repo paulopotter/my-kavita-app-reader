@@ -158,6 +158,15 @@ export interface Strings {
   seriesDetailSortConfigReset: string;
   seriesDetailSortConfigOverrideNote: string;
 
+  // ── Reader screen ────────────────────────────────────────────────────────
+  readerLoading: string;
+  readerError: string;
+  readerRetry: string;
+  readerOffline: string;
+  readerEndOfChapter: string;
+  readerNoNextChapter: string;
+  readerNoPrevChapter: string;
+
   // ── Errors ───────────────────────────────────────────────────────────────
   errorApiKeyEmpty: string;
   errorDbVersionMismatch: string;
@@ -306,6 +315,14 @@ const ptBR: Strings = {
   seriesDetailSortConfigReset: 'Usar padrão do app',
   seriesDetailSortConfigOverrideNote: 'Esta série tem uma ordenação própria, diferente do padrão do app.',
 
+  readerLoading: 'Carregando...',
+  readerError: 'Erro ao carregar o capítulo',
+  readerRetry: 'Tentar novamente',
+  readerOffline: 'Sem conexão',
+  readerEndOfChapter: 'Fim do capítulo',
+  readerNoNextChapter: 'Não há próximo capítulo',
+  readerNoPrevChapter: 'Não há capítulo anterior',
+
   errorApiKeyEmpty: 'A API key não pode estar vazia',
   errorDbVersionMismatch: 'Versão do banco incompatível',
   errorDbNotOpen: 'Banco de dados não está aberto',
@@ -452,6 +469,14 @@ const en: Strings = {
   seriesDetailSortConfigSave: 'Save',
   seriesDetailSortConfigReset: 'Use app default',
   seriesDetailSortConfigOverrideNote: 'This series has its own sort order, different from the app default.',
+
+  readerLoading: 'Loading...',
+  readerError: 'Failed to load chapter',
+  readerRetry: 'Retry',
+  readerOffline: 'No connection',
+  readerEndOfChapter: 'End of chapter',
+  readerNoNextChapter: 'No next chapter',
+  readerNoPrevChapter: 'No previous chapter',
 
   errorApiKeyEmpty: 'API key cannot be empty',
   errorDbVersionMismatch: 'Database version mismatch',

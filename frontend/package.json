@@ -81,10 +81,10 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 27,
-        "lines": 27,
-        "functions": 38,
-        "branches": 75
+        "statements": 41,
+        "lines": 41,
+        "functions": 57,
+        "branches": 82
       }
     }
   }

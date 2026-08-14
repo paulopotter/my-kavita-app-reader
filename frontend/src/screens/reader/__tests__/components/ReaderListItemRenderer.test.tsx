@@ -1,5 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { getStrings } from '../../../../shared/i18n/strings';
 import { ReaderListItem } from '../../../../shared/transforms/page';
 import { ReaderListItemRenderer } from '../../components/ReaderListItemRenderer';
 
@@ -11,6 +12,7 @@ const baseProps = {
   pageUrl: 'https://example/p0.jpg',
   gapHeight: 60,
   onLayout: jest.fn(),
+  t: getStrings('pt-BR'),
 };
 
 describe('ReaderListItemRenderer', () => {
