@@ -36,6 +36,20 @@ export function ReaderScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (reader.scrollToPageRequest == null || !reader.viewer) {return;}
+    const currChapterId = reader.viewer.curr.chapter.id;
+    const targetKey = `${currChapterId}:PAGE:${reader.scrollToPageRequest}`;
+    const index = buildReaderList(reader.viewer, measuredHeightsRef.current).findIndex(
+      item => item.key === targetKey,
+    );
+    if (index >= 0) {
+      listRef.current?.scrollToIndex({ index, animated: false });
+    }
+    reader.handleScrollToPageHandled();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reader.scrollToPageRequest, reader.viewer]);
+
   function handleBack() {
     if (navigation.canGoBack()) {
       navigation.goBack();

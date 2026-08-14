@@ -41,6 +41,7 @@ const mockGoToPrevChapterManual = jest.fn();
 const mockGoToNextChapterManual = jest.fn();
 const mockHandleScroll = jest.fn();
 const mockHandleScrollEndDrag = jest.fn();
+const mockHandleScrollToPageHandled = jest.fn();
 
 function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
   return {
@@ -85,6 +86,7 @@ beforeEach(() => {
     goToNextChapterManual: mockGoToNextChapterManual,
     handleScroll: mockHandleScroll,
     handleScrollEndDrag: mockHandleScrollEndDrag,
+    handleScrollToPageHandled: mockHandleScrollToPageHandled,
   };
 });
 
@@ -112,5 +114,19 @@ describe('ReaderScreen', () => {
     const { getByTestId } = render(<ReaderScreen />);
 
     await waitFor(() => expect(getByTestId('chapter-header-root')).toBeTruthy());
+  });
+
+  it('rola até a página solicitada e sinaliza o pedido como atendido', async () => {
+    const chapter = makeChapter();
+    mockReaderState = {
+      ...mockReaderState,
+      loading: false,
+      viewer: { prev: null, curr: { chapter, pages: ['url0', 'url1'] }, next: null },
+      scrollToPageRequest: 1,
+    };
+
+    render(<ReaderScreen />);
+
+    await waitFor(() => expect(mockHandleScrollToPageHandled).toHaveBeenCalledTimes(1));
   });
 });
