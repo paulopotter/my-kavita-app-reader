@@ -46,7 +46,7 @@ function updateChapterReadStatusInViewer(
   readStatus: Chapter['readStatus'],
 ): ViewerChapters {
   const applyTo = (entry: ViewerChapters['curr'] | null) => {
-    if (!entry || entry.chapter.id !== chapterId) return entry;
+    if (!entry || entry.chapter.id !== chapterId) {return entry;}
     return {
       ...entry,
       chapter: {
@@ -143,7 +143,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
   const syncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const markAsReadIfNeeded = useCallback(async (chapter: Chapter, seriesId: string) => {
-    if (sessionMarkedReadRef.current.has(chapter.id)) return;
+    if (sessionMarkedReadRef.current.has(chapter.id)) {return;}
     sessionMarkedReadRef.current.add(chapter.id);
     suppressServerSyncRef.current.add(chapter.id);
     dispatch({ type: 'OPTIMISTIC_MARK_READ', chapterId: chapter.id });
@@ -175,7 +175,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
 
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer) return;
+    if (!viewer) {return;}
     const curr = currChapterOf(viewer);
     if (!wasReadOnOpenRef.current.has(curr.chapter.id)) {
       wasReadOnOpenRef.current.set(curr.chapter.id, isChapterEffectivelyRead(curr.chapter));
@@ -184,7 +184,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
 
   useEffect(() => {
     const viewer = state.viewer;
-    if (!viewer) return undefined;
+    if (!viewer) {return undefined;}
     const curr = currChapterOf(viewer);
     const chapterId = curr.chapter.id;
     const seriesId = curr.chapter.seriesId;
@@ -196,16 +196,16 @@ export function useReader(_seriesId: string, _chapterId: string) {
     syncTimerRef.current = setInterval(() => {
       const page = currentPageRef.current;
       const lastSynced = lastSyncedPageRef.current.get(chapterId);
-      if (page === lastSynced) return;
-      if (suppressServerSyncRef.current.has(chapterId)) return;
+      if (page === lastSynced) {return;}
+      if (suppressServerSyncRef.current.has(chapterId)) {return;}
       saveServerProgress(chapterId, seriesId, page)
         .then(() => lastSyncedPageRef.current.set(chapterId, page))
         .catch(() => {});
     }, SERVER_SYNC_INTERVAL_MS);
 
     return () => {
-      if (localTimerRef.current) clearInterval(localTimerRef.current);
-      if (syncTimerRef.current) clearInterval(syncTimerRef.current);
+      if (localTimerRef.current) {clearInterval(localTimerRef.current);}
+      if (syncTimerRef.current) {clearInterval(syncTimerRef.current);}
     };
   }, [state.viewer]);
 
@@ -213,7 +213,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
 
   useEffect(() => {
     const viewer = state.viewer;
-    if (!viewer) return;
+    if (!viewer) {return;}
     const curr = currChapterOf(viewer);
     // Desmarcação por releitura só reage a mudança de página vinda de interação real do
     // usuário — a página inicial (de resolveInitialPage) nunca dispara desmarcação sozinha,
@@ -229,10 +229,10 @@ export function useReader(_seriesId: string, _chapterId: string) {
   }, [state.viewer, state.currentVisiblePage, markAsReadIfNeeded, unmarkIfRereading]);
 
   const onScreenExit = useCallback(async () => {
-    if (localTimerRef.current) clearInterval(localTimerRef.current);
-    if (syncTimerRef.current) clearInterval(syncTimerRef.current);
+    if (localTimerRef.current) {clearInterval(localTimerRef.current);}
+    if (syncTimerRef.current) {clearInterval(syncTimerRef.current);}
     const viewer = viewerRef.current;
-    if (!viewer) return;
+    if (!viewer) {return;}
     const curr = currChapterOf(viewer);
     saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
       () => {},
@@ -252,7 +252,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
 
   const advanceToNextChapter = useCallback(async () => {
     const viewer = viewerRef.current;
-    if (!viewer || !viewer.next || state.isAdvancing) return;
+    if (!viewer || !viewer.next || state.isAdvancing) {return;}
     dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
     const curr = currChapterOf(viewer);
     saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
@@ -265,7 +265,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
 
   const retreatToPrevChapter = useCallback(async () => {
     const viewer = viewerRef.current;
-    if (!viewer || !viewer.prev || state.isAdvancing) return;
+    if (!viewer || !viewer.prev || state.isAdvancing) {return;}
     dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
     const prevViewer: ViewerChapters = { prev: null, curr: viewer.prev, next: viewer.curr };
     dispatch({ type: 'SET_VIEWER', viewer: prevViewer, page: 0, scrollFraction: 0 });
