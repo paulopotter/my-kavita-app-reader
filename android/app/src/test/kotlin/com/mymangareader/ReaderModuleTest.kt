@@ -139,4 +139,9 @@ class ReaderModuleTest {
 
         assertEquals("SERVER_PROGRESS_ERROR", promise.rejectedCode)
     }
+
+    // keepScreenOn/allowScreenOff usam UiThreadUtil.runOnUiThread (com.facebook.react.bridge),
+    // que por sua vez depende de android.os.Handler real — não executável em teste JVM puro sem
+    // Robolectric/instrumentação. Mesma limitação documentada para Arguments.createMap acima;
+    // cobertos pelo smoke test manual em dispositivo físico (Task 018).
 }

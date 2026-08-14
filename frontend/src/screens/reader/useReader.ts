@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import { Image } from 'react-native';
+import { Image, PixelRatio, StatusBar } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { ActiveUrlChangedEmitter, ActiveUrlChangedEvent } from '../../shared/bridge/network';
 import { ReaderBridge } from '../../shared/bridge/page';
 import { Chapter } from '../../shared/bridge/series';
@@ -7,8 +8,11 @@ import { isChapterEffectivelyRead, shouldUnmarkOnReread } from '../../shared/tra
 import { currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../../shared/transforms/page';
 import { fetchPageUrls } from './PageService';
 import {
+  allowScreenOff,
+  fetchKeepScreenOnPref,
   fetchLocalProgress,
   fetchServerReadProgress,
+  keepScreenOn as keepScreenOnBridge,
   markChapterRead,
   markChapterUnread,
   saveLocalProgress,
@@ -20,6 +24,7 @@ const SERVER_SYNC_INTERVAL_MS = 20_000;
 const PRELOAD_WINDOW_RADIUS = 3;
 const MAX_CONCURRENT_PREFETCH = 3;
 const CHAPTER_EDGE_THRESHOLD = 5;
+const OVERSCROLL_TRIGGER_DP = 72;
 
 function urlHost(url: string): string {
   try {
@@ -381,6 +386,55 @@ export function useReader(_seriesId: string, _chapterId: string) {
     return () => sub.remove();
   }, []);
 
+  // ── Tela cheia (status bar) ──────────────────────────────────────────────
+  useEffect(() => {
+    StatusBar.setHidden(true, 'fade');
+    return () => StatusBar.setHidden(false, 'fade');
+  }, []);
+
+  // ── Keep screen on ────────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    fetchKeepScreenOnPref()
+      .then(enabled => {
+        if (!cancelled && enabled) {keepScreenOnBridge().catch(() => {});}
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      allowScreenOff().catch(() => {});
+    };
+  }, []);
+
+  // ── Offline ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(netState => {
+      dispatch({ type: 'SET_OFFLINE', offline: netState.isConnected === false });
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ── Overscroll no topo (dispara loadPreviousChapter equivalente) ─────────
+  const overscrollArmedRef = useRef(true);
+  const overscrollTriggerPx = PixelRatio.getPixelSizeForLayoutSize(OVERSCROLL_TRIGGER_DP);
+
+  const handleScroll = useCallback(
+    (contentOffsetY: number, isFirstItemChapterHeader: boolean) => {
+      if (contentOffsetY < -overscrollTriggerPx && isFirstItemChapterHeader && overscrollArmedRef.current) {
+        overscrollArmedRef.current = false;
+        retreatToPrevChapter();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [overscrollTriggerPx],
+  );
+
+  const handleScrollEndDrag = useCallback((contentOffsetY: number) => {
+    if (contentOffsetY >= 0) {
+      overscrollArmedRef.current = true;
+    }
+  }, []);
+
   const toggleOverlay = useCallback(() => dispatch({ type: 'TOGGLE_OVERLAY' }), []);
 
   const scrollToPage = useCallback((page: number) => dispatch({ type: 'SCROLL_TO_PAGE', page }), []);
@@ -407,5 +461,7 @@ export function useReader(_seriesId: string, _chapterId: string) {
     retreatToPrevChapter,
     goToNextChapterManual,
     goToPrevChapterManual,
+    handleScroll,
+    handleScrollEndDrag,
   };
 }

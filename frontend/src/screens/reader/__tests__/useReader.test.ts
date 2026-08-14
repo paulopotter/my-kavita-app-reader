@@ -9,6 +9,9 @@ const mockSaveLocalProgress = jest.fn().mockResolvedValue(undefined);
 const mockSaveServerProgress = jest.fn().mockResolvedValue(undefined);
 const mockMarkChapterRead = jest.fn().mockResolvedValue(undefined);
 const mockMarkChapterUnread = jest.fn().mockResolvedValue(undefined);
+const mockFetchKeepScreenOnPref = jest.fn().mockResolvedValue(false);
+const mockKeepScreenOnBridge = jest.fn().mockResolvedValue(undefined);
+const mockAllowScreenOff = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('../ReaderService', () => ({
   fetchLocalProgress: (...args: unknown[]) => mockFetchLocalProgress(...args),
@@ -17,6 +20,22 @@ jest.mock('../ReaderService', () => ({
   saveServerProgress: (...args: unknown[]) => mockSaveServerProgress(...args),
   markChapterRead: (...args: unknown[]) => mockMarkChapterRead(...args),
   markChapterUnread: (...args: unknown[]) => mockMarkChapterUnread(...args),
+  fetchKeepScreenOnPref: (...args: unknown[]) => mockFetchKeepScreenOnPref(...args),
+  keepScreenOn: (...args: unknown[]) => mockKeepScreenOnBridge(...args),
+  allowScreenOff: (...args: unknown[]) => mockAllowScreenOff(...args),
+}));
+
+let netInfoListener: ((state: { isConnected: boolean | null }) => void) | null = null;
+const mockNetInfoUnsubscribe = jest.fn();
+
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    addEventListener: jest.fn((cb: (state: { isConnected: boolean | null }) => void) => {
+      netInfoListener = cb;
+      return mockNetInfoUnsubscribe;
+    }),
+  },
 }));
 
 const mockFetchPageUrls = jest.fn();
@@ -71,7 +90,9 @@ beforeEach(() => {
   mockFetchLocalProgress.mockResolvedValue(null);
   mockFetchServerReadProgress.mockResolvedValue(null);
   mockGetPageCacheUrls.mockResolvedValue([]);
+  mockFetchKeepScreenOnPref.mockResolvedValue(false);
   activeUrlChangedListener = null;
+  netInfoListener = null;
   jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
 });
 
@@ -480,5 +501,134 @@ describe('useReader — reação a activeUrlChanged', () => {
     expect(mockFetchPageUrls).toHaveBeenCalledWith('c1', 2);
     expect(result.current.viewer?.curr.pages).toEqual(['https://new-host/1', 'https://new-host/2']);
     expect(result.current.viewer?.next?.pages).toEqual(['https://new-host/1', 'https://new-host/2']);
+  });
+});
+
+describe('useReader — overlay, keepScreenOn, offline, overscroll', () => {
+  it('toggleOverlay alterna overlayVisible a cada chamada', () => {
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    expect(result.current.overlayVisible).toBe(false);
+
+    act(() => result.current.toggleOverlay());
+    expect(result.current.overlayVisible).toBe(true);
+
+    act(() => result.current.toggleOverlay());
+    expect(result.current.overlayVisible).toBe(false);
+  });
+
+  it('chama keepScreenOn ao montar quando a preferencia e true', async () => {
+    mockFetchKeepScreenOnPref.mockResolvedValue(true);
+
+    renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(mockKeepScreenOnBridge).toHaveBeenCalledTimes(1));
+  });
+
+  it('nao chama keepScreenOn ao montar quando a preferencia e false', async () => {
+    mockFetchKeepScreenOnPref.mockResolvedValue(false);
+
+    renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(mockFetchKeepScreenOnPref).toHaveBeenCalled());
+    expect(mockKeepScreenOnBridge).not.toHaveBeenCalled();
+  });
+
+  it('chama allowScreenOff ao desmontar independente da preferencia', async () => {
+    mockFetchKeepScreenOnPref.mockResolvedValue(true);
+    const { unmount } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(mockKeepScreenOnBridge).toHaveBeenCalled());
+
+    unmount();
+
+    expect(mockAllowScreenOff).toHaveBeenCalledTimes(1);
+  });
+
+  it('offline reflete o estado emitido pelo NetInfo', () => {
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    expect(result.current.offline).toBe(false);
+
+    act(() => netInfoListener?.({ isConnected: false }));
+    expect(result.current.offline).toBe(true);
+
+    act(() => netInfoListener?.({ isConnected: true }));
+    expect(result.current.offline).toBe(false);
+  });
+
+  it('overscroll no topo do capitulo atual dispara retreatToPrevChapter', () => {
+    const prev = makeChapter({ id: 'c0', pageCount: 3 });
+    const curr = makeChapter({ id: 'c1', pageCount: 3 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: {
+          prev: { chapter: prev, pages: ['a', 'b', 'c'] },
+          curr: { chapter: curr, pages: ['a', 'b', 'c'] },
+          next: null,
+        },
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+
+    act(() => result.current.handleScroll(-200, true));
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+  });
+
+  it('overscroll nao dispara quando o primeiro item nao e o header do capitulo atual', () => {
+    const prev = makeChapter({ id: 'c0', pageCount: 3 });
+    const curr = makeChapter({ id: 'c1', pageCount: 3 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: {
+          prev: { chapter: prev, pages: ['a', 'b', 'c'] },
+          curr: { chapter: curr, pages: ['a', 'b', 'c'] },
+          next: null,
+        },
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+
+    act(() => result.current.handleScroll(-200, false));
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c1');
+  });
+
+  it('overscroll rearma somente apos handleScrollEndDrag com offset nao-negativo', () => {
+    const prev = makeChapter({ id: 'c0', pageCount: 3 });
+    const curr = makeChapter({ id: 'c1', pageCount: 3 });
+    const next = makeChapter({ id: 'c2', pageCount: 3 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: {
+          prev: { chapter: prev, pages: ['a', 'b', 'c'] },
+          curr: { chapter: curr, pages: ['a', 'b', 'c'] },
+          next: { chapter: next, pages: ['a', 'b', 'c'] },
+        },
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+
+    act(() => result.current.handleScroll(-200, true));
+    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+
+    // Sem rearmar, um segundo overscroll não deve disparar de novo.
+    act(() => result.current.handleScroll(-200, true));
+    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+
+    // Rearma somente quando o dedo sai do topo (offset >= 0).
+    act(() => result.current.handleScrollEndDrag(0));
+    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
   });
 });

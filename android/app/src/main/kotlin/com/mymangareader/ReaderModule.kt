@@ -5,10 +5,12 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import android.view.WindowManager
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -134,6 +136,22 @@ class ReaderModule @Inject constructor(
             runCatching { uiPreferencesDao.getKeepScreenOnDuringReading() ?: true }
                 .onSuccess { promise.resolve(it) }
                 .onFailure { promise.reject("KEEP_SCREEN_ON_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
+    fun keepScreenOn(promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            currentActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            promise.resolve(null)
+        }
+    }
+
+    @ReactMethod
+    fun allowScreenOff(promise: Promise) {
+        UiThreadUtil.runOnUiThread {
+            currentActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            promise.resolve(null)
         }
     }
 

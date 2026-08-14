@@ -13,6 +13,8 @@ interface ReaderChapterBridgeInterface {
   saveLocalProgress(chapterId: string, seriesId: string, page: number, scrollFraction: number): Promise<void>;
   saveReadingProgress(chapterId: string, seriesId: string, page: number): Promise<void>;
   getKeepScreenOnDuringReading(): Promise<boolean>;
+  keepScreenOn(): Promise<void>;
+  allowScreenOff(): Promise<void>;
 }
 
 export const ReaderChapterBridge: ReaderChapterBridgeInterface = NativeModules.ReaderModule;

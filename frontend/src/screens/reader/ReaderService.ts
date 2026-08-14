@@ -26,6 +26,14 @@ export async function fetchKeepScreenOnPref(): Promise<boolean> {
   return ReaderChapterBridge.getKeepScreenOnDuringReading();
 }
 
+export async function keepScreenOn(): Promise<void> {
+  return ReaderChapterBridge.keepScreenOn();
+}
+
+export async function allowScreenOff(): Promise<void> {
+  return ReaderChapterBridge.allowScreenOff();
+}
+
 export async function markChapterRead(seriesId: string, chapterId: string): Promise<void> {
   return SeriesBridge.markChaptersRead(seriesId, [chapterId]);
 }

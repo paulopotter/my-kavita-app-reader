@@ -1,9 +1,11 @@
 import { SeriesBridge } from '../../../shared/bridge/series';
 import { ReaderChapterBridge } from '../../../shared/bridge/chapter';
 import {
+  allowScreenOff,
   fetchKeepScreenOnPref,
   fetchLocalProgress,
   fetchServerReadProgress,
+  keepScreenOn,
   markChapterRead,
   markChapterUnread,
   saveLocalProgress,
@@ -17,6 +19,8 @@ jest.mock('../../../shared/bridge/chapter', () => ({
     saveLocalProgress: jest.fn(),
     saveReadingProgress: jest.fn(),
     getKeepScreenOnDuringReading: jest.fn(),
+    keepScreenOn: jest.fn(),
+    allowScreenOff: jest.fn(),
   },
 }));
 
@@ -67,6 +71,18 @@ describe('ReaderService', () => {
     const result = await fetchKeepScreenOnPref();
 
     expect(result).toBe(true);
+  });
+
+  it('keepScreenOn delega para ReaderChapterBridge.keepScreenOn', async () => {
+    await keepScreenOn();
+
+    expect(ReaderChapterBridge.keepScreenOn).toHaveBeenCalledTimes(1);
+  });
+
+  it('allowScreenOff delega para ReaderChapterBridge.allowScreenOff', async () => {
+    await allowScreenOff();
+
+    expect(ReaderChapterBridge.allowScreenOff).toHaveBeenCalledTimes(1);
   });
 
   it('markChapterRead delega para SeriesBridge.markChaptersRead com array de um item', async () => {
