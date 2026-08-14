@@ -1,20 +1,28 @@
 import React from 'react';
 import { act, render, waitFor } from '@testing-library/react-native';
-import { Image } from 'react-native';
 import { PageImage } from '../../components/PageImage';
 
-describe('PageImage', () => {
-  beforeEach(() => {
-    jest.spyOn(Image, 'getSize').mockImplementation((_uri, success) => {
-      success(800, 1200);
-    });
-  });
+const mockUseImage = jest.fn();
 
+jest.mock('@shopify/react-native-skia', () => {
+  const mock = jest.requireActual('@shopify/react-native-skia/lib/commonjs/mock').Mock();
+  return {
+    ...mock,
+    useImage: (...args: unknown[]) => mockUseImage(...args),
+  };
+});
+
+function makeSkImage(width: number, height: number) {
+  return { width: () => width, height: () => height };
+}
+
+describe('PageImage', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
   it('propaga a altura via onLayout', async () => {
+    mockUseImage.mockReturnValue(makeSkImage(800, 1200));
     const onLayout = jest.fn();
     const { getByTestId } = render(<PageImage url="https://example/1.jpg" onLayout={onLayout} />);
 
@@ -27,21 +35,22 @@ describe('PageImage', () => {
     expect(onLayout).toHaveBeenCalledWith(812);
   });
 
-  it('esconde o indicador de loading quando a imagem termina de carregar', async () => {
-    const { getByTestId, queryByTestId, UNSAFE_getByType } = render(
-      <PageImage url="https://example/1.jpg" onLayout={jest.fn()} />,
-    );
+  it('mostra o indicador de loading enquanto a imagem ainda nao decodificou', () => {
+    mockUseImage.mockReturnValue(null);
+    const { getByTestId } = render(<PageImage url="https://example/1.jpg" onLayout={jest.fn()} />);
 
-    expect(getByTestId('page-image-root')).toBeTruthy();
+    expect(getByTestId('page-image-loading')).toBeTruthy();
+  });
 
-    await act(async () => {
-      UNSAFE_getByType(Image).props.onLoadEnd();
-    });
+  it('esconde o indicador de loading quando a imagem decodifica', () => {
+    mockUseImage.mockReturnValue(makeSkImage(800, 1200));
+    const { queryByTestId } = render(<PageImage url="https://example/1.jpg" onLayout={jest.fn()} />);
 
     expect(queryByTestId('page-image-loading')).toBeNull();
   });
 
   it('calcula a altura a partir do aspect ratio real da imagem', async () => {
+    mockUseImage.mockReturnValue(makeSkImage(800, 1200));
     const { getByTestId } = render(<PageImage url="https://example/1.jpg" onLayout={jest.fn()} />);
 
     await waitFor(() => {
