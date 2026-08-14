@@ -18,15 +18,27 @@ class ReaderPageListTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private fun block(
+        chapterId: String,
+        chapterTitle: String,
+        pageUrls: List<String>,
+        nextChapterTitle: String? = null,
+    ) = ChapterBlock(
+        chapterId = chapterId,
+        chapterTitle = chapterTitle,
+        pageUrls = pageUrls,
+        nextChapterTitle = nextChapterTitle,
+        endOfChapterLabel = "Fim do capítulo",
+        nextChapterLabel = "Próximo:",
+    )
+
     @Test
     fun `renders one page node per url`() {
         composeRule.setContent {
             ReaderPageList(
-                pageUrls = listOf("https://example.com/1.webp", "https://example.com/2.png"),
-                chapterTitle = "Capítulo 1",
-                nextChapterTitle = null,
-                endOfChapterLabel = "Fim do capítulo",
-                nextChapterLabel = "Próximo:",
+                blocks = listOf(
+                    block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
+                ),
             )
         }
 
@@ -36,15 +48,9 @@ class ReaderPageListTest {
     }
 
     @Test
-    fun `renders nothing for an empty page list without crashing`() {
+    fun `renders nothing for an empty block list without crashing`() {
         composeRule.setContent {
-            ReaderPageList(
-                pageUrls = emptyList(),
-                chapterTitle = "Capítulo 1",
-                nextChapterTitle = null,
-                endOfChapterLabel = "Fim do capítulo",
-                nextChapterLabel = "Próximo:",
-            )
+            ReaderPageList(blocks = emptyList())
         }
 
         composeRule.waitForIdle()
@@ -52,36 +58,50 @@ class ReaderPageListTest {
 
     @Test
     fun `onVisiblePageChanged is invoked at least once after the initial composition settles`() {
-        var lastReported = -1
+        var lastChapterId: String? = null
+        var lastPageIndex = -1
         composeRule.setContent {
             ReaderPageList(
-                pageUrls = listOf("https://example.com/1.webp", "https://example.com/2.png"),
-                chapterTitle = "Capítulo 1",
-                nextChapterTitle = null,
-                endOfChapterLabel = "Fim do capítulo",
-                nextChapterLabel = "Próximo:",
-                onVisiblePageChanged = { lastReported = it },
+                blocks = listOf(
+                    block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
+                ),
+                onVisiblePageChanged = { chapterId, pageIndex ->
+                    lastChapterId = chapterId
+                    lastPageIndex = pageIndex
+                },
             )
         }
 
         composeRule.waitForIdle()
-        assertTrue(lastReported >= 0)
+        assertTrue(lastChapterId == "c1")
+        assertTrue(lastPageIndex >= 0)
     }
 
     @Test
     fun `renders the chapter title in the header`() {
         composeRule.setContent {
             ReaderPageList(
-                pageUrls = listOf("https://example.com/1.webp"),
-                chapterTitle = "Capítulo 42. O Retorno",
-                nextChapterTitle = null,
-                endOfChapterLabel = "Fim do capítulo",
-                nextChapterLabel = "Próximo:",
+                blocks = listOf(block("c1", "Capítulo 42. O Retorno", listOf("https://example.com/1.webp"))),
             )
         }
 
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Capítulo 42. O Retorno").assertExists()
+    }
+
+    @Test
+    fun `renders multiple chapter blocks back to back`() {
+        composeRule.setContent {
+            ReaderPageList(
+                blocks = listOf(
+                    block("c1", "Capítulo 1", listOf("https://example.com/1.webp"), nextChapterTitle = "Capítulo 2"),
+                    block("c2", "Capítulo 2", listOf("https://example.com/2.webp")),
+                ),
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Capítulo 1").assertExists()
     }
 
     @Test

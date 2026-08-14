@@ -23,6 +23,8 @@ const mockScrollToPage = jest.fn();
 const mockGoToPrevChapterManual = jest.fn();
 const mockGoToNextChapterManual = jest.fn();
 const mockSetCurrentPage = jest.fn();
+const mockAdvanceToNextChapter = jest.fn();
+const mockRetreatToPrevChapter = jest.fn();
 
 function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
   return {
@@ -65,6 +67,8 @@ beforeEach(() => {
     goToPrevChapterManual: mockGoToPrevChapterManual,
     goToNextChapterManual: mockGoToNextChapterManual,
     setCurrentPage: mockSetCurrentPage,
+    advanceToNextChapter: mockAdvanceToNextChapter,
+    retreatToPrevChapter: mockRetreatToPrevChapter,
   };
 });
 
@@ -81,7 +85,7 @@ describe('ReaderScreen', () => {
     expect(mockOnScreenExit).toHaveBeenCalledTimes(1);
   });
 
-  it('renderiza a lista nativa de páginas do capítulo atual quando o viewer está pronto', async () => {
+  it('renderiza um bloco com as páginas do capítulo atual quando o viewer está pronto', async () => {
     const chapter = makeChapter();
     mockReaderState = {
       ...mockReaderState,
@@ -92,10 +96,32 @@ describe('ReaderScreen', () => {
     const { getByTestId } = render(<ReaderScreen />);
 
     await waitFor(() => expect(getByTestId('reader-page-list-view')).toBeTruthy());
-    expect(getByTestId('reader-page-list-view').props.pageUrls).toEqual(['url0', 'url1']);
+    const blocks = getByTestId('reader-page-list-view').props.blocks;
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({ chapterId: 'c1', pageUrls: ['url0', 'url1'] });
   });
 
-  it('atualiza a posicao de leitura quando a view nativa reporta a pagina visivel', async () => {
+  it('inclui um segundo bloco com as páginas do próximo capítulo quando ele já foi carregado', async () => {
+    const chapter = makeChapter();
+    const nextChapter = makeChapter({ id: 'c2', number: '2' });
+    mockReaderState = {
+      ...mockReaderState,
+      loading: false,
+      viewer: {
+        prev: null,
+        curr: { chapter, pages: ['url0', 'url1'] },
+        next: { chapter: nextChapter, pages: ['url2'] },
+      },
+    };
+
+    const { getByTestId } = render(<ReaderScreen />);
+
+    const blocks = getByTestId('reader-page-list-view').props.blocks;
+    expect(blocks).toHaveLength(2);
+    expect(blocks[1]).toMatchObject({ chapterId: 'c2', pageUrls: ['url2'] });
+  });
+
+  it('atualiza a posicao de leitura quando a view nativa reporta a pagina visivel do capitulo atual', async () => {
     const chapter = makeChapter({ pageCount: 1 });
     mockReaderState = {
       ...mockReaderState,
@@ -107,9 +133,56 @@ describe('ReaderScreen', () => {
     const nativeList = getByTestId('reader-page-list-view');
 
     act(() => {
-      nativeList.props.onVisiblePageChanged({ nativeEvent: { pageIndex: 0 } });
+      nativeList.props.onVisiblePageChanged({ nativeEvent: { chapterId: 'c1', pageIndex: 0 } });
     });
 
     await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalledWith(0, 0));
+  });
+
+  it('avanca para o proximo capitulo quando a view nativa reporta uma pagina do capitulo seguinte', async () => {
+    const chapter = makeChapter();
+    const nextChapter = makeChapter({ id: 'c2', number: '2' });
+    mockReaderState = {
+      ...mockReaderState,
+      loading: false,
+      viewer: {
+        prev: null,
+        curr: { chapter, pages: ['url0'] },
+        next: { chapter: nextChapter, pages: ['url1'] },
+      },
+    };
+
+    const { getByTestId } = render(<ReaderScreen />);
+    const nativeList = getByTestId('reader-page-list-view');
+
+    act(() => {
+      nativeList.props.onVisiblePageChanged({ nativeEvent: { chapterId: 'c2', pageIndex: 0 } });
+    });
+
+    await waitFor(() => expect(mockAdvanceToNextChapter).toHaveBeenCalledTimes(1));
+    expect(mockSetCurrentPage).not.toHaveBeenCalled();
+  });
+
+  it('retrocede para o capitulo anterior quando a view nativa reporta uma pagina do capitulo anterior', async () => {
+    const chapter = makeChapter();
+    const prevChapter = makeChapter({ id: 'c0', number: '0' });
+    mockReaderState = {
+      ...mockReaderState,
+      loading: false,
+      viewer: {
+        prev: { chapter: prevChapter, pages: ['url_prev'] },
+        curr: { chapter, pages: ['url0'] },
+        next: null,
+      },
+    };
+
+    const { getByTestId } = render(<ReaderScreen />);
+    const nativeList = getByTestId('reader-page-list-view');
+
+    act(() => {
+      nativeList.props.onVisiblePageChanged({ nativeEvent: { chapterId: 'c0', pageIndex: 0 } });
+    });
+
+    await waitFor(() => expect(mockRetreatToPrevChapter).toHaveBeenCalledTimes(1));
   });
 });

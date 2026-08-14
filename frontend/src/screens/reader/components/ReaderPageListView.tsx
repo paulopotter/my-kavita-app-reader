@@ -1,30 +1,32 @@
 import React from 'react';
 import { Dimensions, NativeSyntheticEvent, requireNativeComponent, ViewStyle } from 'react-native';
 
+export interface ReaderChapterBlock {
+  chapterId: string;
+  chapterTitle: string;
+  pageUrls: string[];
+  nextChapterTitle: string | null;
+  endOfChapterLabel: string;
+  nextChapterLabel: string;
+}
+
 interface VisiblePageChangedEvent {
+  chapterId: string;
   pageIndex: number;
 }
 
 interface NativeProps {
   testID?: string;
   style?: ViewStyle | ViewStyle[];
-  pageUrls: string[];
-  chapterTitle: string;
-  nextChapterTitle: string | null;
-  endOfChapterLabel: string;
-  nextChapterLabel: string;
+  blocks: ReaderChapterBlock[];
   onVisiblePageChanged?: (event: NativeSyntheticEvent<VisiblePageChangedEvent>) => void;
 }
 
 const RCTReaderPageListView = requireNativeComponent<NativeProps>('ReaderPageListView');
 
 interface Props {
-  pageUrls: string[];
-  chapterTitle: string;
-  nextChapterTitle: string | null;
-  endOfChapterLabel: string;
-  nextChapterLabel: string;
-  onVisiblePageChanged?: (pageIndex: number) => void;
+  blocks: ReaderChapterBlock[];
+  onVisiblePageChanged?: (chapterId: string, pageIndex: number) => void;
 }
 
 // flex:1 sozinho não é suficiente para Views nativas customizadas sem filhos JS — o Yoga não
@@ -32,25 +34,19 @@ interface Props {
 // explícitos elimina essa ambiguidade.
 const windowSize = Dimensions.get('window');
 
-export function ReaderPageListView({
-  pageUrls,
-  chapterTitle,
-  nextChapterTitle,
-  endOfChapterLabel,
-  nextChapterLabel,
-  onVisiblePageChanged,
-}: Props) {
+// Kotlin nunca decide navegação (quais capítulos carregar, quando avançar/retroceder o trio) —
+// só desenha os blocos que RN mandar e reporta a página visível. Toda a lógica de troca de
+// capítulo (useReader.advanceToNextChapter/retreatToPrevChapter) fica inteiramente aqui.
+export function ReaderPageListView({ blocks, onVisiblePageChanged }: Props) {
   return (
     <RCTReaderPageListView
       testID="reader-page-list-view"
       style={[styles.root, { width: windowSize.width, height: windowSize.height }]}
-      pageUrls={pageUrls}
-      chapterTitle={chapterTitle}
-      nextChapterTitle={nextChapterTitle}
-      endOfChapterLabel={endOfChapterLabel}
-      nextChapterLabel={nextChapterLabel}
+      blocks={blocks}
       onVisiblePageChanged={
-        onVisiblePageChanged ? event => onVisiblePageChanged(event.nativeEvent.pageIndex) : undefined
+        onVisiblePageChanged
+          ? event => onVisiblePageChanged(event.nativeEvent.chapterId, event.nativeEvent.pageIndex)
+          : undefined
       }
     />
   );

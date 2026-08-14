@@ -32,52 +32,96 @@ import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 
 /**
- * Renders the current chapter's pages as a continuous vertical scroll, mirroring the reference
- * project's WebtoonColumn (my-manga-app-reader). SubcomposeAsyncImage + Modifier.fillMaxWidth()
- * (no fixed height) lets Compose's own draw pipeline handle tall webtoon pages without the
+ * One chapter's worth of content in the reader list. RN owns all navigation decisions (which
+ * chapters are loaded, when the trio slides forward/back) — this is a dumb rendering unit: the
+ * Kotlin/Compose side never decides chapter order or triggers navigation itself, it only draws
+ * whatever list of blocks it's given and reports which page is visible via
+ * [ReaderPageList]'s onVisiblePageChanged callback.
+ */
+data class ChapterBlock(
+    val chapterId: String,
+    val chapterTitle: String,
+    val pageUrls: List<String>,
+    val nextChapterTitle: String?,
+    val endOfChapterLabel: String,
+    val nextChapterLabel: String,
+)
+
+private sealed interface ListEntry {
+    data class Header(val block: ChapterBlock) : ListEntry
+    data class Page(val chapterId: String, val pageIndexInChapter: Int, val url: String) : ListEntry
+    data class Footer(val block: ChapterBlock) : ListEntry
+}
+
+private fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = blocks.flatMap { block ->
+    buildList {
+        add(ListEntry.Header(block))
+        block.pageUrls.forEachIndexed { index, url -> add(ListEntry.Page(block.chapterId, index, url)) }
+        add(ListEntry.Footer(block))
+    }
+}
+
+private fun ListEntry.key(): String = when (this) {
+    is ListEntry.Header -> "header:${block.chapterId}"
+    is ListEntry.Page -> "page:$chapterId:$pageIndexInChapter"
+    is ListEntry.Footer -> "footer:${block.chapterId}"
+}
+
+/**
+ * Renders one or more chapters as a continuous vertical scroll, mirroring the reference
+ * project's WebtoonColumn (my-manga-app-reader) — but blocks come entirely from RN via
+ * [blocks], never decided here. SubcomposeAsyncImage + Modifier.fillMaxWidth() (no fixed
+ * height) lets Compose's own draw pipeline handle tall webtoon pages without the
  * GL_MAX_TEXTURE_SIZE ceiling that a single classic-View ImageView hits — no manual bitmap
  * slicing needed.
  */
 @Composable
 fun ReaderPageList(
-    pageUrls: List<String>,
-    chapterTitle: String,
-    nextChapterTitle: String?,
-    endOfChapterLabel: String,
-    nextChapterLabel: String,
+    blocks: List<ChapterBlock>,
     modifier: Modifier = Modifier,
-    onVisiblePageChanged: (Int) -> Unit = {},
+    onVisiblePageChanged: (chapterId: String, pageIndex: Int) -> Unit = { _, _ -> },
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
     val preloader = remember { PagePreloader(context) }
+    val entries = remember(blocks) { flattenBlocks(blocks) }
+    val allPageUrls = remember(blocks) { blocks.flatMap { it.pageUrls } }
 
     DisposableEffect(Unit) {
         onDispose { preloader.clear() }
     }
 
-    LaunchedEffect(listState, pageUrls) {
+    LaunchedEffect(listState, entries) {
         snapshotFlow { listState.firstVisibleItemIndex }
             .collect { firstVisibleItemIndex ->
-                // Item 0 is the chapter header, so page N sits at list index N + 1 — subtract
-                // that offset and clamp to the page range before reporting/preloading.
-                val pageIndex = (firstVisibleItemIndex - 1).coerceIn(0, (pageUrls.size - 1).coerceAtLeast(0))
-                onVisiblePageChanged(pageIndex)
-                preloader.updateWindow(computePreloadWindow(pageUrls, pageIndex))
+                // The visible item can be a Header/Footer (e.g. right after opening the reader,
+                // before any scroll) — fall through to the nearest Page at or after that index so
+                // a chapter/page is always reported, matching "first page of this block is what's
+                // effectively visible".
+                val visibleEntry = entries.drop(firstVisibleItemIndex).firstOrNull { it is ListEntry.Page }
+                    as? ListEntry.Page ?: return@collect
+                onVisiblePageChanged(visibleEntry.chapterId, visibleEntry.pageIndexInChapter)
+
+                val absoluteIndex = allPageUrls.indexOf(visibleEntry.url)
+                if (absoluteIndex >= 0) {
+                    preloader.updateWindow(computePreloadWindow(allPageUrls, absoluteIndex))
+                }
             }
     }
 
     LazyColumn(state = listState, modifier = modifier.fillMaxSize()) {
-        item(key = "header") { ChapterHeaderItem(chapterTitle = chapterTitle) }
-        items(count = pageUrls.size, key = { pageUrls[it] }) { index ->
-            ReaderPageImage(url = pageUrls[index])
-        }
-        item(key = "footer") {
-            ChapterFooterItem(
-                endOfChapterLabel = endOfChapterLabel,
-                nextChapterLabel = nextChapterLabel,
-                nextChapterTitle = nextChapterTitle,
-            )
+        entries.forEach { entry ->
+            item(key = entry.key()) {
+                when (entry) {
+                    is ListEntry.Header -> ChapterHeaderItem(chapterTitle = entry.block.chapterTitle)
+                    is ListEntry.Page -> ReaderPageImage(url = entry.url)
+                    is ListEntry.Footer -> ChapterFooterItem(
+                        endOfChapterLabel = entry.block.endOfChapterLabel,
+                        nextChapterLabel = entry.block.nextChapterLabel,
+                        nextChapterTitle = entry.block.nextChapterTitle,
+                    )
+                }
+            }
         }
     }
 }

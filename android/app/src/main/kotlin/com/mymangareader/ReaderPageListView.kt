@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.events.RCTEventEmitter
+import com.mymangareader.features.kavita.reader.ui.ChapterBlock
 import com.mymangareader.features.kavita.reader.ui.ReaderPageList
 
 /**
@@ -23,11 +24,7 @@ import com.mymangareader.features.kavita.reader.ui.ReaderPageList
  */
 class ReaderPageListView(context: Context) : AbstractComposeView(context) {
 
-    private var currentPageUrls by mutableStateOf<List<String>>(emptyList())
-    private var currentChapterTitle by mutableStateOf("")
-    private var currentNextChapterTitle by mutableStateOf<String?>(null)
-    private var currentEndOfChapterLabel by mutableStateOf("")
-    private var currentNextChapterLabel by mutableStateOf("")
+    private var currentBlocks by mutableStateOf<List<ChapterBlock>>(emptyList())
 
     init {
         // RN can detach/reattach this View across re-renders of the host screen; the default
@@ -36,40 +33,23 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
     }
 
-    fun setPageUrls(urls: List<String>) {
-        currentPageUrls = urls
-    }
-
-    fun setChapterTitle(chapterTitle: String) {
-        currentChapterTitle = chapterTitle
-    }
-
-    fun setNextChapterTitle(nextChapterTitle: String?) {
-        currentNextChapterTitle = nextChapterTitle
-    }
-
-    fun setEndOfChapterLabel(endOfChapterLabel: String) {
-        currentEndOfChapterLabel = endOfChapterLabel
-    }
-
-    fun setNextChapterLabel(nextChapterLabel: String) {
-        currentNextChapterLabel = nextChapterLabel
+    // RN owns every navigation decision (which chapters are loaded, when to slide the trio
+    // forward/back) — this View never decides that itself, it only renders whatever list of
+    // chapter blocks it's handed. See ReaderPageListViewManager for the prop shape RN sends.
+    fun setBlocks(blocks: List<ChapterBlock>) {
+        currentBlocks = blocks
     }
 
     @androidx.compose.runtime.Composable
     override fun Content() {
-        ReaderPageList(
-            pageUrls = currentPageUrls,
-            chapterTitle = currentChapterTitle,
-            nextChapterTitle = currentNextChapterTitle,
-            endOfChapterLabel = currentEndOfChapterLabel,
-            nextChapterLabel = currentNextChapterLabel,
-            onVisiblePageChanged = ::emitVisiblePageChanged,
-        )
+        ReaderPageList(blocks = currentBlocks, onVisiblePageChanged = ::emitVisiblePageChanged)
     }
 
-    private fun emitVisiblePageChanged(pageIndex: Int) {
-        val payload = Arguments.createMap().apply { putInt("pageIndex", pageIndex) }
+    private fun emitVisiblePageChanged(chapterId: String, pageIndex: Int) {
+        val payload = Arguments.createMap().apply {
+            putString("chapterId", chapterId)
+            putInt("pageIndex", pageIndex)
+        }
         val reactContext = context as? ReactContext ?: return
         reactContext
             .getJSModule(RCTEventEmitter::class.java)

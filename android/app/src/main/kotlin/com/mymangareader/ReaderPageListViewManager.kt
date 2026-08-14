@@ -1,10 +1,12 @@
 package com.mymangareader
 
 import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.common.MapBuilder
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.annotations.ReactProp
+import com.mymangareader.features.kavita.reader.ui.ChapterBlock
 
 class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
 
@@ -13,30 +15,30 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
     override fun createViewInstance(reactContext: ThemedReactContext): ReaderPageListView =
         ReaderPageListView(reactContext)
 
-    @ReactProp(name = "pageUrls")
-    fun setPageUrls(view: ReaderPageListView, pageUrls: ReadableArray?) {
-        val urls = (0 until (pageUrls?.size() ?: 0)).mapNotNull { pageUrls?.getString(it) }
-        view.setPageUrls(urls)
+    // RN sends the full list of chapter blocks to render (currently loaded chapter plus
+    // whichever neighbors RN has decided to make visible) — this view manager never decides
+    // navigation, it only parses what RN sent.
+    @ReactProp(name = "blocks")
+    fun setBlocks(view: ReaderPageListView, blocks: ReadableArray?) {
+        val parsed = (0 until (blocks?.size() ?: 0)).mapNotNull { index ->
+            blocks?.getMap(index)?.let(::parseBlock)
+        }
+        view.setBlocks(parsed)
     }
 
-    @ReactProp(name = "chapterTitle")
-    fun setChapterTitle(view: ReaderPageListView, chapterTitle: String?) {
-        view.setChapterTitle(chapterTitle.orEmpty())
-    }
-
-    @ReactProp(name = "nextChapterTitle")
-    fun setNextChapterTitle(view: ReaderPageListView, nextChapterTitle: String?) {
-        view.setNextChapterTitle(nextChapterTitle)
-    }
-
-    @ReactProp(name = "endOfChapterLabel")
-    fun setEndOfChapterLabel(view: ReaderPageListView, endOfChapterLabel: String?) {
-        view.setEndOfChapterLabel(endOfChapterLabel.orEmpty())
-    }
-
-    @ReactProp(name = "nextChapterLabel")
-    fun setNextChapterLabel(view: ReaderPageListView, nextChapterLabel: String?) {
-        view.setNextChapterLabel(nextChapterLabel.orEmpty())
+    private fun parseBlock(map: ReadableMap): ChapterBlock? {
+        val chapterId = map.getString("chapterId") ?: return null
+        val chapterTitle = map.getString("chapterTitle") ?: return null
+        val pageUrlsArray = map.getArray("pageUrls") ?: return null
+        val pageUrls = (0 until pageUrlsArray.size()).mapNotNull { pageUrlsArray.getString(it) }
+        return ChapterBlock(
+            chapterId = chapterId,
+            chapterTitle = chapterTitle,
+            pageUrls = pageUrls,
+            nextChapterTitle = map.getString("nextChapterTitle"),
+            endOfChapterLabel = map.getString("endOfChapterLabel").orEmpty(),
+            nextChapterLabel = map.getString("nextChapterLabel").orEmpty(),
+        )
     }
 
     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> =
