@@ -164,6 +164,7 @@ export interface Strings {
   readerRetry: string;
   readerOffline: string;
   readerEndOfChapter: string;
+  readerNextChapterLabel: string;
   readerNoNextChapter: string;
   readerNoPrevChapter: string;
 
@@ -320,6 +321,7 @@ const ptBR: Strings = {
   readerRetry: 'Tentar novamente',
   readerOffline: 'Sem conexão',
   readerEndOfChapter: 'Fim do capítulo',
+  readerNextChapterLabel: 'Próximo:',
   readerNoNextChapter: 'Não há próximo capítulo',
   readerNoPrevChapter: 'Não há capítulo anterior',
 
@@ -475,6 +477,7 @@ const en: Strings = {
   readerRetry: 'Retry',
   readerOffline: 'No connection',
   readerEndOfChapter: 'End of chapter',
+  readerNextChapterLabel: 'Next:',
   readerNoNextChapter: 'No next chapter',
   readerNoPrevChapter: 'No previous chapter',
 
