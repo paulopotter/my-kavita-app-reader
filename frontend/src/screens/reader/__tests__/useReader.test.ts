@@ -733,4 +733,41 @@ describe('useReader — carregamento inicial do trio', () => {
 
     await waitFor(() => expect(mockGetCachedChapters).toHaveBeenCalledWith('s1'));
   });
+
+  it('resposta tardia de um capitulo antigo nao sobrescreve o capitulo mais recente', async () => {
+    // Reproduz o bug real: abrir o capitulo 41 e, antes da carga terminar, a navegacao
+    // trocar (ou uma carga anterior do 40 ainda estar em voo) — se o 40 responder DEPOIS
+    // do 41, sem guard o estado final ficaria mostrando o 40 mesmo tendo aberto o 41.
+    const chapters = [
+      makeCachedChapter({ id: 'c40', number: '40' }),
+      makeCachedChapter({ id: 'c41', number: '41' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+
+    let resolveC40PageUrls: (urls: string[]) => void = () => {};
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => {
+      if (chapterId === 'c40') {
+        return new Promise<string[]>(resolve => {
+          resolveC40PageUrls = resolve;
+        });
+      }
+      return [`${chapterId}-p0`];
+    });
+
+    const { result, rerender } = renderHook(({ chapterId }) => useReader('s1', chapterId), {
+      initialProps: { chapterId: 'c40' },
+    });
+
+    rerender({ chapterId: 'c41' });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c41'));
+
+    await act(async () => {
+      resolveC40PageUrls(['c40-p0']);
+      await Promise.resolve();
+    });
+
+    // A resposta tardia do c40 precisa ser descartada — o viewer deve continuar no c41.
+    expect(result.current.viewer?.curr.chapter.id).toBe('c41');
+  });
 });

@@ -290,8 +290,11 @@ export function useReader(seriesId: string, chapterId: string) {
     });
   }, []);
 
+  const latestRequestedChapterIdRef = useRef<string | null>(null);
+
   const loadInitialViewer = useCallback(
     async (targetChapterId: string) => {
+      latestRequestedChapterIdRef.current = targetChapterId;
       dispatch({ type: 'LOADING' });
       try {
         const unsortedChapters = await SeriesBridge.getCachedChapters(seriesId);
@@ -301,7 +304,9 @@ export function useReader(seriesId: string, chapterId: string) {
         const chapters = [...unsortedChapters].sort(chapterNumberComparator);
         const currIndex = chapters.findIndex(c => c.id === targetChapterId);
         if (currIndex === -1) {
-          dispatch({ type: 'ERROR', error: 'Chapter not found' });
+          if (latestRequestedChapterIdRef.current === targetChapterId) {
+            dispatch({ type: 'ERROR', error: 'Chapter not found' });
+          }
           return;
         }
         const curr = chapters[currIndex];
@@ -313,6 +318,10 @@ export function useReader(seriesId: string, chapterId: string) {
           fetchLocalProgress(curr.id),
           fetchServerReadProgress(curr.id),
         ]);
+        // Se outra navegação de capítulo começou enquanto isto carregava, esta resposta
+        // chegou tarde — aplicá-la sobrescreveria o capítulo certo com um antigo. Só o
+        // resultado da requisição mais recente pode virar o viewer.
+        if (latestRequestedChapterIdRef.current !== targetChapterId) {return;}
         const initialProgress = resolveInitialPage(curr, currLocal, currServer);
         const viewer: ViewerChapters = { prev: null, curr: { chapter: curr, pages: currPages }, next: null };
         dispatch({
@@ -324,6 +333,7 @@ export function useReader(seriesId: string, chapterId: string) {
         loadNeighbor('prev', prevChapter);
         loadNeighbor('next', nextChapter);
       } catch (e: unknown) {
+        if (latestRequestedChapterIdRef.current !== targetChapterId) {return;}
         const message = e instanceof Error ? e.message : 'Unknown error';
         dispatch({ type: 'ERROR', error: message });
       }
