@@ -1,5 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { Image } from 'react-native';
 import { getStrings } from '../../../../shared/i18n/strings';
 import { ReaderListItem } from '../../../../shared/transforms/page';
 import { ReaderListItemRenderer } from '../../components/ReaderListItemRenderer';
@@ -16,6 +17,16 @@ const baseProps = {
 };
 
 describe('ReaderListItemRenderer', () => {
+  beforeEach(() => {
+    jest.spyOn(Image, 'getSize').mockImplementation((_uri, success) => {
+      success(800, 1200);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('renderiza ChapterHeader para item HEADER', () => {
     const item: ReaderListItem = { key: 'c1:HEADER:', kind: 'HEADER', chapterId: 'c1' };
     const { getByText } = render(<ReaderListItemRenderer item={item} {...baseProps} />);
