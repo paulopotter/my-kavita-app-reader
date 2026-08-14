@@ -664,6 +664,27 @@ describe('useReader — carregamento inicial do trio', () => {
     await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c3'));
   });
 
+  it('calcula vizinhos por numero mesmo quando o cache retorna fora de ordem', async () => {
+    // getCachedChapters não garante ordem por número — reproduz o bug real onde abrir o
+    // capítulo 41 mostrava o 40 porque prev/next eram calculados sobre a ordem de inserção.
+    const chapters = [
+      makeCachedChapter({ id: 'c41', number: '41' }),
+      makeCachedChapter({ id: 'c39', number: '39' }),
+      makeCachedChapter({ id: 'c40', number: '40' }),
+      makeCachedChapter({ id: 'c42', number: '42' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+
+    const { result } = renderHook(() => useReader('s1', 'c41'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c41');
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c40'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c42'));
+  });
+
   it('abrir o primeiro capitulo da serie deixa prev nulo', async () => {
     const chapters = [makeCachedChapter({ id: 'c1', number: '1' }), makeCachedChapter({ id: 'c2', number: '2' })];
     mockGetCachedChapters.mockResolvedValue(chapters);

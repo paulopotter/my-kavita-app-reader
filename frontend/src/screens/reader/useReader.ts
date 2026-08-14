@@ -4,7 +4,12 @@ import NetInfo from '@react-native-community/netinfo';
 import { ActiveUrlChangedEmitter, ActiveUrlChangedEvent } from '../../shared/bridge/network';
 import { ReaderBridge } from '../../shared/bridge/page';
 import { Chapter, SeriesBridge } from '../../shared/bridge/series';
-import { isChapterEffectivelyRead, resolveInitialPage, shouldUnmarkOnReread } from '../../shared/transforms/chapter';
+import {
+  chapterNumberComparator,
+  isChapterEffectivelyRead,
+  resolveInitialPage,
+  shouldUnmarkOnReread,
+} from '../../shared/transforms/chapter';
 import { ChapterWithPages, currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../../shared/transforms/page';
 import { fetchPageUrls } from './PageService';
 import {
@@ -289,7 +294,11 @@ export function useReader(seriesId: string, chapterId: string) {
     async (targetChapterId: string) => {
       dispatch({ type: 'LOADING' });
       try {
-        const chapters = await SeriesBridge.getCachedChapters(seriesId);
+        const unsortedChapters = await SeriesBridge.getCachedChapters(seriesId);
+        // getCachedChapters não garante ordem por número — o cache local é ordenado por
+        // rowid/inserção, não pela sequência de leitura. Vizinhos prev/next só fazem sentido
+        // calculados sobre a lista ordenada por número de capítulo.
+        const chapters = [...unsortedChapters].sort(chapterNumberComparator);
         const currIndex = chapters.findIndex(c => c.id === targetChapterId);
         if (currIndex === -1) {
           dispatch({ type: 'ERROR', error: 'Chapter not found' });
