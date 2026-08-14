@@ -24,6 +24,10 @@ import com.mymangareader.features.kavita.reader.ui.ReaderPageList
 class ReaderPageListView(context: Context) : AbstractComposeView(context) {
 
     private var currentPageUrls by mutableStateOf<List<String>>(emptyList())
+    private var currentChapterTitle by mutableStateOf("")
+    private var currentNextChapterTitle by mutableStateOf<String?>(null)
+    private var currentEndOfChapterLabel by mutableStateOf("")
+    private var currentNextChapterLabel by mutableStateOf("")
 
     init {
         // RN can detach/reattach this View across re-renders of the host screen; the default
@@ -33,15 +37,35 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
     }
 
     fun setPageUrls(urls: List<String>) {
-        // TEMP DEBUG: isolating to the first 2 pages only, to validate the Compose rendering
-        // (WebP + PNG) before re-enabling the full chapter — see PageListAdapterTest history for
-        // why the classic-View slicing approach failed on the same 2-page sample.
-        currentPageUrls = urls.take(2)
+        currentPageUrls = urls
+    }
+
+    fun setChapterTitle(chapterTitle: String) {
+        currentChapterTitle = chapterTitle
+    }
+
+    fun setNextChapterTitle(nextChapterTitle: String?) {
+        currentNextChapterTitle = nextChapterTitle
+    }
+
+    fun setEndOfChapterLabel(endOfChapterLabel: String) {
+        currentEndOfChapterLabel = endOfChapterLabel
+    }
+
+    fun setNextChapterLabel(nextChapterLabel: String) {
+        currentNextChapterLabel = nextChapterLabel
     }
 
     @androidx.compose.runtime.Composable
     override fun Content() {
-        ReaderPageList(pageUrls = currentPageUrls, onVisiblePageChanged = ::emitVisiblePageChanged)
+        ReaderPageList(
+            pageUrls = currentPageUrls,
+            chapterTitle = currentChapterTitle,
+            nextChapterTitle = currentNextChapterTitle,
+            endOfChapterLabel = currentEndOfChapterLabel,
+            nextChapterLabel = currentNextChapterLabel,
+            onVisiblePageChanged = ::emitVisiblePageChanged,
+        )
     }
 
     private fun emitVisiblePageChanged(pageIndex: Int) {

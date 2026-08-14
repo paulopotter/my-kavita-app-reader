@@ -2,7 +2,9 @@ import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import type { NavOrigin } from '../../navigation/routes';
+import { useStrings } from '../../shared/i18n/useStrings';
 import { ReaderPageListView } from './components/ReaderPageListView';
+import { chapterHeaderTitle } from './ReaderTransform';
 import { useReader } from './useReader';
 
 type RouteParams = {
@@ -12,6 +14,7 @@ type RouteParams = {
 export function ReaderScreen() {
   const route = useRoute<RouteProp<RouteParams, 'Reader'>>();
   const { seriesId, chapterId } = route.params ?? {};
+  const t = useStrings();
 
   const reader = useReader(seriesId, chapterId);
 
@@ -26,7 +29,7 @@ export function ReaderScreen() {
     return <View style={styles.root} />;
   }
 
-  const { curr } = reader.viewer;
+  const { curr, next } = reader.viewer;
 
   // TEMP DEBUG: isolando a ReaderPageListView nativa sozinha, sem Pressable/overlay/progress
   // bar por cima, para descobrir se a "tripa fina" persistente vem do componente nativo em si
@@ -35,6 +38,10 @@ export function ReaderScreen() {
     <View style={styles.root}>
       <ReaderPageListView
         pageUrls={curr.pages}
+        chapterTitle={chapterHeaderTitle(curr.chapter, t)}
+        nextChapterTitle={next ? chapterHeaderTitle(next.chapter, t) : null}
+        endOfChapterLabel={t.readerEndOfChapter}
+        nextChapterLabel={t.readerNextChapterLabel}
         onVisiblePageChanged={pageIndex => reader.setCurrentPage(pageIndex, 0)}
       />
     </View>

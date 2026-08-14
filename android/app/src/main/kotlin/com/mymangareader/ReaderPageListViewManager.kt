@@ -19,6 +19,26 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         view.setPageUrls(urls)
     }
 
+    @ReactProp(name = "chapterTitle")
+    fun setChapterTitle(view: ReaderPageListView, chapterTitle: String?) {
+        view.setChapterTitle(chapterTitle.orEmpty())
+    }
+
+    @ReactProp(name = "nextChapterTitle")
+    fun setNextChapterTitle(view: ReaderPageListView, nextChapterTitle: String?) {
+        view.setNextChapterTitle(nextChapterTitle)
+    }
+
+    @ReactProp(name = "endOfChapterLabel")
+    fun setEndOfChapterLabel(view: ReaderPageListView, endOfChapterLabel: String?) {
+        view.setEndOfChapterLabel(endOfChapterLabel.orEmpty())
+    }
+
+    @ReactProp(name = "nextChapterLabel")
+    fun setNextChapterLabel(view: ReaderPageListView, nextChapterLabel: String?) {
+        view.setNextChapterLabel(nextChapterLabel.orEmpty())
+    }
+
     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> =
         MapBuilder.of("onVisiblePageChanged", MapBuilder.of("registrationName", "onVisiblePageChanged"))
 }

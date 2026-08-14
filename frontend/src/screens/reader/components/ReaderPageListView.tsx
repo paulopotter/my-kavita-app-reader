@@ -9,6 +9,10 @@ interface NativeProps {
   testID?: string;
   style?: ViewStyle | ViewStyle[];
   pageUrls: string[];
+  chapterTitle: string;
+  nextChapterTitle: string | null;
+  endOfChapterLabel: string;
+  nextChapterLabel: string;
   onVisiblePageChanged?: (event: NativeSyntheticEvent<VisiblePageChangedEvent>) => void;
 }
 
@@ -16,6 +20,10 @@ const RCTReaderPageListView = requireNativeComponent<NativeProps>('ReaderPageLis
 
 interface Props {
   pageUrls: string[];
+  chapterTitle: string;
+  nextChapterTitle: string | null;
+  endOfChapterLabel: string;
+  nextChapterLabel: string;
   onVisiblePageChanged?: (pageIndex: number) => void;
 }
 
@@ -24,12 +32,23 @@ interface Props {
 // explícitos elimina essa ambiguidade.
 const windowSize = Dimensions.get('window');
 
-export function ReaderPageListView({ pageUrls, onVisiblePageChanged }: Props) {
+export function ReaderPageListView({
+  pageUrls,
+  chapterTitle,
+  nextChapterTitle,
+  endOfChapterLabel,
+  nextChapterLabel,
+  onVisiblePageChanged,
+}: Props) {
   return (
     <RCTReaderPageListView
       testID="reader-page-list-view"
       style={[styles.root, { width: windowSize.width, height: windowSize.height }]}
       pageUrls={pageUrls}
+      chapterTitle={chapterTitle}
+      nextChapterTitle={nextChapterTitle}
+      endOfChapterLabel={endOfChapterLabel}
+      nextChapterLabel={nextChapterLabel}
       onVisiblePageChanged={
         onVisiblePageChanged ? event => onVisiblePageChanged(event.nativeEvent.pageIndex) : undefined
       }
