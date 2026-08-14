@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.kover)
@@ -41,14 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=48 — bump this value whenever coverage improves (never lower it).
-            // Was 44 as of 2026-08-13. Plano 007 (Reader Screen) added KavitaChapterFeature
-            // page/progress expansion, ActiveUrlWatcher, ReaderModule and Migration_5_6/PageCacheDao
-            // coverage, real measured value is ~48.69%.
+            // COVERAGE_FLOOR_KOTLIN=49 — bump this value whenever coverage improves (never lower it).
+            // Was 48 as of 2026-08-14. Reader page rendering migrated from classic View +
+            // manual bitmap slicing (PageListAdapter, removed) to Jetpack Compose
+            // (ReaderPageList, SubcomposeAsyncImage) — real measured value is ~49.85%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 48
+                        minValue = 49
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

@@ -13,6 +13,7 @@ interface Props {
   nextChapterTitle: string | null;
   hasNext: boolean;
   pageUrl: string | undefined;
+  decodeReal: boolean;
   gapHeight: number;
   onLayout: (key: string, height: number) => void;
   t: Strings;
@@ -25,6 +26,7 @@ export function ReaderListItemRenderer({
   nextChapterTitle,
   hasNext,
   pageUrl,
+  decodeReal,
   gapHeight,
   onLayout,
   t,
@@ -50,6 +52,8 @@ export function ReaderListItemRenderer({
     case 'GAP':
       return <ReaderGap height={gapHeight} />;
     case 'PAGE':
-      return pageUrl ? <PageImage url={pageUrl} onLayout={height => onLayout(item.key, height)} /> : null;
+      return pageUrl ? (
+        <PageImage url={pageUrl} decodeReal={decodeReal} onLayout={height => onLayout(item.key, height)} />
+      ) : null;
   }
 }

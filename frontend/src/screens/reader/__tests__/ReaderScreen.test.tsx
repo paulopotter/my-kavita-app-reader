@@ -1,24 +1,6 @@
 import React from 'react';
 import { act, render, waitFor } from '@testing-library/react-native';
-import { FlashList } from '@shopify/flash-list';
 import { Chapter } from '../../../shared/bridge/series';
-
-jest.mock('@shopify/flash-list', () => {
-  const ActualFlashList = jest.requireActual('@shopify/flash-list').FlashList;
-  class MockFlashList extends ActualFlashList {
-    componentDidMount() {
-      super.componentDidMount();
-      this.rlvRef?._scrollComponent?._scrollViewRef?.props.onLayout({
-        nativeEvent: { layout: { height: 900, width: 400 } },
-      });
-    }
-  }
-  return {
-    ...jest.requireActual('@shopify/flash-list'),
-    FlashList: MockFlashList,
-    AnimatedFlashList: MockFlashList,
-  };
-});
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -40,9 +22,6 @@ const mockToggleOverlay = jest.fn();
 const mockScrollToPage = jest.fn();
 const mockGoToPrevChapterManual = jest.fn();
 const mockGoToNextChapterManual = jest.fn();
-const mockHandleScroll = jest.fn();
-const mockHandleScrollEndDrag = jest.fn();
-const mockHandleScrollToPageHandled = jest.fn();
 const mockSetCurrentPage = jest.fn();
 
 function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
@@ -77,7 +56,6 @@ beforeEach(() => {
     viewer: null,
     overlayVisible: false,
     currentVisiblePage: 0,
-    scrollToPageRequest: null,
     scrollFraction: 0,
     offline: false,
     isAdvancing: false,
@@ -86,9 +64,6 @@ beforeEach(() => {
     scrollToPage: mockScrollToPage,
     goToPrevChapterManual: mockGoToPrevChapterManual,
     goToNextChapterManual: mockGoToNextChapterManual,
-    handleScroll: mockHandleScroll,
-    handleScrollEndDrag: mockHandleScrollEndDrag,
-    handleScrollToPageHandled: mockHandleScrollToPageHandled,
     setCurrentPage: mockSetCurrentPage,
   };
 });
@@ -106,7 +81,7 @@ describe('ReaderScreen', () => {
     expect(mockOnScreenExit).toHaveBeenCalledTimes(1);
   });
 
-  it('renderiza a lista de páginas quando o viewer está pronto', async () => {
+  it('renderiza a lista nativa de páginas do capítulo atual quando o viewer está pronto', async () => {
     const chapter = makeChapter();
     mockReaderState = {
       ...mockReaderState,
@@ -116,24 +91,11 @@ describe('ReaderScreen', () => {
 
     const { getByTestId } = render(<ReaderScreen />);
 
-    await waitFor(() => expect(getByTestId('chapter-header-root')).toBeTruthy());
+    await waitFor(() => expect(getByTestId('reader-page-list-view')).toBeTruthy());
+    expect(getByTestId('reader-page-list-view').props.pageUrls).toEqual(['url0', 'url1']);
   });
 
-  it('rola até a página solicitada e sinaliza o pedido como atendido', async () => {
-    const chapter = makeChapter();
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: { prev: null, curr: { chapter, pages: ['url0', 'url1'] }, next: null },
-      scrollToPageRequest: 1,
-    };
-
-    render(<ReaderScreen />);
-
-    await waitFor(() => expect(mockHandleScrollToPageHandled).toHaveBeenCalledTimes(1));
-  });
-
-  it('atualiza a posicao de leitura continuamente durante o scroll, nao so ao trocar de pagina', async () => {
+  it('atualiza a posicao de leitura quando a view nativa reporta a pagina visivel', async () => {
     const chapter = makeChapter({ pageCount: 1 });
     mockReaderState = {
       ...mockReaderState,
@@ -141,16 +103,13 @@ describe('ReaderScreen', () => {
       viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
     };
 
-    const { UNSAFE_getByType } = render(<ReaderScreen />);
-    const list = UNSAFE_getByType(FlashList as any);
+    const { getByTestId } = render(<ReaderScreen />);
+    const nativeList = getByTestId('reader-page-list-view');
 
     act(() => {
-      list.props.onLayout({ nativeEvent: { layout: { height: 200, width: 400 } } });
-    });
-    act(() => {
-      list.props.onScroll({ nativeEvent: { contentOffset: { y: 1000 } } });
+      nativeList.props.onVisiblePageChanged({ nativeEvent: { pageIndex: 0 } });
     });
 
-    await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalled());
+    await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalledWith(0, 0));
   });
 });

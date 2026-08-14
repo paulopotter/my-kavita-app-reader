@@ -11,6 +11,7 @@ const baseProps = {
   nextChapterTitle: '2. A Fuga',
   hasNext: true,
   pageUrl: 'https://example/p0.jpg',
+  decodeReal: true,
   gapHeight: 60,
   onLayout: jest.fn(),
   t: getStrings('pt-BR'),

@@ -64,5 +64,5 @@ class AppReactPackage(
     }
 
     override fun createViewManagers(context: ReactApplicationContext): List<ViewManager<*, *>> =
-        emptyList()
+        listOf(ReaderPageListViewManager())
 }
