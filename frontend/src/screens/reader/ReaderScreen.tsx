@@ -49,11 +49,15 @@ export function ReaderScreen() {
     if (reader.scrollToPageRequest == null || !reader.viewer) {return;}
     const currChapterId = reader.viewer.curr.chapter.id;
     const targetKey = `${currChapterId}:PAGE:${reader.scrollToPageRequest}`;
-    const index = buildReaderList(reader.viewer, measuredHeightsRef.current).findIndex(
-      item => item.key === targetKey,
+    const list = buildReaderList(reader.viewer, measuredHeightsRef.current);
+    const index = list.findIndex(item => item.key === targetKey);
+    console.log(
+      `[ReaderScreen] scrollToPageRequest=${reader.scrollToPageRequest} currChapterId=${currChapterId} targetKey=${targetKey} resolvedIndex=${index} listLength=${list.length} hasPrev=${reader.viewer.prev != null} hasNext=${reader.viewer.next != null}`,
     );
     if (index >= 0) {
       listRef.current?.scrollToIndex({ index, animated: false });
+    } else {
+      console.log('[ReaderScreen] scrollToIndex SKIPPED — targetKey not found in list');
     }
     reader.handleScrollToPageHandled();
     // eslint-disable-next-line react-hooks/exhaustive-deps

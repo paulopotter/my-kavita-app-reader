@@ -57,6 +57,7 @@ export type Action =
   | { type: 'VIEWER_READY'; viewer: ViewerChapters; initialPage: number; initialScrollFraction: number }
   | { type: 'SET_VIEWER'; viewer: ViewerChapters; page: number; scrollFraction: number }
   | { type: 'UPDATE_VIEWER'; viewer: ViewerChapters }
+  | { type: 'INSERT_PREV_NEIGHBOR'; viewer: ViewerChapters }
   | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number }
   | { type: 'SCROLL_TO_PAGE'; page: number }
   | { type: 'SCROLL_TO_PAGE_HANDLED' }
@@ -116,6 +117,16 @@ export function reducer(state: State, action: Action): State {
       };
     case 'UPDATE_VIEWER':
       return { ...state, viewer: action.viewer };
+    case 'INSERT_PREV_NEIGHBOR':
+      // Inserir o bloco do capítulo anterior desloca o índice absoluto de tudo que vem
+      // depois na FlashList — sem reemitir um pedido de scroll para a mesma página lógica
+      // (chapterId:PAGE:pageIndex, não índice absoluto), a lista mantém a posição de scroll
+      // ANTIGA, que fisicamente passa a apontar para dentro do capítulo recém-inserido.
+      return {
+        ...state,
+        viewer: action.viewer,
+        scrollToPageRequest: state.currentVisiblePage,
+      };
     case 'SET_CURRENT_PAGE':
       return { ...state, currentVisiblePage: action.page, scrollFraction: action.scrollFraction };
     case 'SCROLL_TO_PAGE':
@@ -280,20 +291,30 @@ export function useReader(seriesId: string, chapterId: string) {
 
   const loadNeighbor = useCallback(async (side: 'prev' | 'next', chapter: Chapter | null) => {
     if (!chapter) {return;}
+    console.log(`[Reader] loadNeighbor(${side}) start chapterId=${chapter.id} number=${chapter.number}`);
     const pages = await fetchPageUrls(chapter.id, chapter.pageCount);
     const entry: ChapterWithPages = { chapter, pages };
     const current = viewerRef.current;
-    if (!current) {return;}
-    dispatch({
-      type: 'UPDATE_VIEWER',
-      viewer: side === 'prev' ? { ...current, prev: entry } : { ...current, next: entry },
-    });
+    if (!current) {
+      console.log(`[Reader] loadNeighbor(${side}) aborted: viewerRef is null`);
+      return;
+    }
+    if (side === 'prev') {
+      console.log(
+        `[Reader] INSERT_PREV_NEIGHBOR chapterId=${chapter.id} pages=${pages.length} — reajustando scroll`,
+      );
+      dispatch({ type: 'INSERT_PREV_NEIGHBOR', viewer: { ...current, prev: entry } });
+    } else {
+      console.log(`[Reader] UPDATE_VIEWER(next) chapterId=${chapter.id} pages=${pages.length}`);
+      dispatch({ type: 'UPDATE_VIEWER', viewer: { ...current, next: entry } });
+    }
   }, []);
 
   const latestRequestedChapterIdRef = useRef<string | null>(null);
 
   const loadInitialViewer = useCallback(
     async (targetChapterId: string) => {
+      console.log(`[Reader] loadInitialViewer start targetChapterId=${targetChapterId} seriesId=${seriesId}`);
       latestRequestedChapterIdRef.current = targetChapterId;
       dispatch({ type: 'LOADING' });
       try {
@@ -304,6 +325,7 @@ export function useReader(seriesId: string, chapterId: string) {
         const chapters = [...unsortedChapters].sort(chapterNumberComparator);
         const currIndex = chapters.findIndex(c => c.id === targetChapterId);
         if (currIndex === -1) {
+          console.log(`[Reader] loadInitialViewer: chapter not found in cached list (len=${chapters.length})`);
           if (latestRequestedChapterIdRef.current === targetChapterId) {
             dispatch({ type: 'ERROR', error: 'Chapter not found' });
           }
@@ -312,6 +334,9 @@ export function useReader(seriesId: string, chapterId: string) {
         const curr = chapters[currIndex];
         const prevChapter = currIndex > 0 ? chapters[currIndex - 1] : null;
         const nextChapter = currIndex < chapters.length - 1 ? chapters[currIndex + 1] : null;
+        console.log(
+          `[Reader] resolved curr=${curr.id}(n=${curr.number}) prev=${prevChapter?.id ?? 'null'}(n=${prevChapter?.number ?? '-'}) next=${nextChapter?.id ?? 'null'}(n=${nextChapter?.number ?? '-'})`,
+        );
 
         const [currPages, currLocal, currServer] = await Promise.all([
           fetchPageUrls(curr.id, curr.pageCount),
@@ -321,8 +346,16 @@ export function useReader(seriesId: string, chapterId: string) {
         // Se outra navegação de capítulo começou enquanto isto carregava, esta resposta
         // chegou tarde — aplicá-la sobrescreveria o capítulo certo com um antigo. Só o
         // resultado da requisição mais recente pode virar o viewer.
-        if (latestRequestedChapterIdRef.current !== targetChapterId) {return;}
+        if (latestRequestedChapterIdRef.current !== targetChapterId) {
+          console.log(
+            `[Reader] loadInitialViewer stale, discarding: targetChapterId=${targetChapterId} latest=${latestRequestedChapterIdRef.current}`,
+          );
+          return;
+        }
         const initialProgress = resolveInitialPage(curr, currLocal, currServer);
+        console.log(
+          `[Reader] VIEWER_READY chapterId=${curr.id} pages=${currPages.length} initialPage=${initialProgress.page} scrollFraction=${initialProgress.scrollFraction}`,
+        );
         const viewer: ViewerChapters = { prev: null, curr: { chapter: curr, pages: currPages }, next: null };
         dispatch({
           type: 'VIEWER_READY',
@@ -335,6 +368,7 @@ export function useReader(seriesId: string, chapterId: string) {
       } catch (e: unknown) {
         if (latestRequestedChapterIdRef.current !== targetChapterId) {return;}
         const message = e instanceof Error ? e.message : 'Unknown error';
+        console.log(`[Reader] loadInitialViewer error: ${message}`);
         dispatch({ type: 'ERROR', error: message });
       }
     },

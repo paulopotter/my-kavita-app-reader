@@ -685,6 +685,48 @@ describe('useReader — carregamento inicial do trio', () => {
     await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c42'));
   });
 
+  it('inserir o vizinho prev reemite scrollToPageRequest para a mesma pagina logica', async () => {
+    // Inserir o bloco do capítulo anterior desloca o índice ABSOLUTO de tudo que vem depois
+    // na FlashList. Sem reemitir o pedido de scroll (que a ReaderScreen resolve por
+    // chapterId:PAGE:pageIndex, não por índice absoluto), a lista mantém a posição de
+    // scroll antiga, que passa a apontar fisicamente para dentro do capítulo recém-inserido —
+    // reproduz o bug real "abro o 41, aparece o header do 40 no topo".
+    const chapters = [
+      makeCachedChapter({ id: 'c40', number: '40' }),
+      makeCachedChapter({ id: 'c41', number: '41' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+
+    let resolveC40PageUrls: (urls: string[]) => void = () => {};
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => {
+      if (chapterId === 'c40') {
+        return new Promise<string[]>(resolve => {
+          resolveC40PageUrls = resolve;
+        });
+      }
+      return [`${chapterId}-p0`, `${chapterId}-p1`];
+    });
+
+    const { result } = renderHook(() => useReader('s1', 'c41'));
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c41'));
+
+    // Simula a ReaderScreen consumindo o pedido de scroll inicial (scrollToIndex + handled),
+    // antes da resposta assíncrona do vizinho prev (c40) chegar.
+    act(() => {
+      result.current.handleScrollToPageHandled();
+    });
+    expect(result.current.scrollToPageRequest).toBeNull();
+
+    await act(async () => {
+      resolveC40PageUrls(['c40-p0', 'c40-p1']);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c40'));
+    expect(result.current.scrollToPageRequest).toBe(result.current.currentVisiblePage);
+  });
+
   it('abrir o primeiro capitulo da serie deixa prev nulo', async () => {
     const chapters = [makeCachedChapter({ id: 'c1', number: '1' }), makeCachedChapter({ id: 'c2', number: '2' })];
     mockGetCachedChapters.mockResolvedValue(chapters);
