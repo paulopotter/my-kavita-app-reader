@@ -3,9 +3,9 @@ import { Image, PixelRatio, StatusBar } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { ActiveUrlChangedEmitter, ActiveUrlChangedEvent } from '../../shared/bridge/network';
 import { ReaderBridge } from '../../shared/bridge/page';
-import { Chapter } from '../../shared/bridge/series';
-import { isChapterEffectivelyRead, shouldUnmarkOnReread } from '../../shared/transforms/chapter';
-import { currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../../shared/transforms/page';
+import { Chapter, SeriesBridge } from '../../shared/bridge/series';
+import { isChapterEffectivelyRead, resolveInitialPage, shouldUnmarkOnReread } from '../../shared/transforms/chapter';
+import { ChapterWithPages, currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../../shared/transforms/page';
 import { fetchPageUrls } from './PageService';
 import {
   allowScreenOff,
@@ -146,7 +146,7 @@ export const initial: State = {
   isAdvancing: false,
 };
 
-export function useReader(_seriesId: string, _chapterId: string) {
+export function useReader(seriesId: string, chapterId: string) {
   const [state, dispatch] = useReducer(reducer, initial);
 
   const viewerRef = useRef<ViewerChapters | null>(null);
@@ -272,6 +272,60 @@ export function useReader(_seriesId: string, _chapterId: string) {
     ]);
     return { local, server };
   }, []);
+
+  const loadNeighbor = useCallback(async (side: 'prev' | 'next', chapter: Chapter | null) => {
+    if (!chapter) {return;}
+    const pages = await fetchPageUrls(chapter.id, chapter.pageCount);
+    const entry: ChapterWithPages = { chapter, pages };
+    const current = viewerRef.current;
+    if (!current) {return;}
+    dispatch({
+      type: 'UPDATE_VIEWER',
+      viewer: side === 'prev' ? { ...current, prev: entry } : { ...current, next: entry },
+    });
+  }, []);
+
+  const loadInitialViewer = useCallback(
+    async (targetChapterId: string) => {
+      dispatch({ type: 'LOADING' });
+      try {
+        const chapters = await SeriesBridge.getCachedChapters(seriesId);
+        const currIndex = chapters.findIndex(c => c.id === targetChapterId);
+        if (currIndex === -1) {
+          dispatch({ type: 'ERROR', error: 'Chapter not found' });
+          return;
+        }
+        const curr = chapters[currIndex];
+        const prevChapter = currIndex > 0 ? chapters[currIndex - 1] : null;
+        const nextChapter = currIndex < chapters.length - 1 ? chapters[currIndex + 1] : null;
+
+        const [currPages, currLocal, currServer] = await Promise.all([
+          fetchPageUrls(curr.id, curr.pageCount),
+          fetchLocalProgress(curr.id),
+          fetchServerReadProgress(curr.id),
+        ]);
+        const initialProgress = resolveInitialPage(curr, currLocal, currServer);
+        const viewer: ViewerChapters = { prev: null, curr: { chapter: curr, pages: currPages }, next: null };
+        dispatch({
+          type: 'VIEWER_READY',
+          viewer,
+          initialPage: initialProgress.page,
+          initialScrollFraction: initialProgress.scrollFraction,
+        });
+        loadNeighbor('prev', prevChapter);
+        loadNeighbor('next', nextChapter);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Unknown error';
+        dispatch({ type: 'ERROR', error: message });
+      }
+    },
+    [seriesId, loadNeighbor],
+  );
+
+  useEffect(() => {
+    loadInitialViewer(chapterId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterId]);
 
   const advanceToNextChapter = useCallback(async () => {
     const viewer = viewerRef.current;
@@ -463,5 +517,6 @@ export function useReader(_seriesId: string, _chapterId: string) {
     goToPrevChapterManual,
     handleScroll,
     handleScrollEndDrag,
+    loadInitialViewer,
   };
 }

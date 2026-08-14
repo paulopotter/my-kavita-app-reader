@@ -63,6 +63,13 @@ jest.mock('../../../shared/bridge/page', () => ({
   },
 }));
 
+const mockGetCachedChapters = jest.fn();
+jest.mock('../../../shared/bridge/series', () => ({
+  SeriesBridge: {
+    getCachedChapters: (...args: unknown[]) => mockGetCachedChapters(...args),
+  },
+}));
+
 import { useReader } from '../useReader';
 
 function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
@@ -91,6 +98,7 @@ beforeEach(() => {
   mockFetchServerReadProgress.mockResolvedValue(null);
   mockGetPageCacheUrls.mockResolvedValue([]);
   mockFetchKeepScreenOnPref.mockResolvedValue(false);
+  mockGetCachedChapters.mockResolvedValue([]);
   activeUrlChangedListener = null;
   netInfoListener = null;
   jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
@@ -630,5 +638,78 @@ describe('useReader — overlay, keepScreenOn, offline, overscroll', () => {
     // Rearma somente quando o dedo sai do topo (offset >= 0).
     act(() => result.current.handleScrollEndDrag(0));
     expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+  });
+});
+
+describe('useReader — carregamento inicial do trio', () => {
+  function makeCachedChapter(overrides: Partial<Chapter> = {}): Chapter {
+    return makeChapter(overrides);
+  }
+
+  it('abrir capitulo do meio popula prev, curr e next', async () => {
+    const chapters = [
+      makeCachedChapter({ id: 'c1', number: '1' }),
+      makeCachedChapter({ id: 'c2', number: '2' }),
+      makeCachedChapter({ id: 'c3', number: '3' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+
+    const { result } = renderHook(() => useReader('s1', 'c2'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c2');
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c3'));
+  });
+
+  it('abrir o primeiro capitulo da serie deixa prev nulo', async () => {
+    const chapters = [makeCachedChapter({ id: 'c1', number: '1' }), makeCachedChapter({ id: 'c2', number: '2' })];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.viewer?.prev).toBeNull();
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
+  });
+
+  it('abrir o ultimo capitulo da serie deixa next nulo', async () => {
+    const chapters = [makeCachedChapter({ id: 'c1', number: '1' }), makeCachedChapter({ id: 'c2', number: '2' })];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+
+    const { result } = renderHook(() => useReader('s1', 'c2'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.viewer?.next).toBeNull();
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c1'));
+  });
+
+  it('usa resolveInitialPage para definir a pagina inicial', async () => {
+    const chapters = [makeCachedChapter({ id: 'c1', number: '1', readStatus: 'UNREAD', pagesRead: 0 })];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockResolvedValue(['p0', 'p1', 'p2']);
+    mockFetchLocalProgress.mockResolvedValue({ page: 2, scrollFraction: 0.3 });
+
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.currentVisiblePage).toBe(2);
+    expect(result.current.scrollFraction).toBe(0.3);
+  });
+
+  it('busca a lista de capitulos via SeriesBridge, nao via outra screen', async () => {
+    mockGetCachedChapters.mockResolvedValue([makeCachedChapter({ id: 'c1' })]);
+    mockFetchPageUrls.mockResolvedValue(['p0']);
+
+    renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(mockGetCachedChapters).toHaveBeenCalledWith('s1'));
   });
 });
