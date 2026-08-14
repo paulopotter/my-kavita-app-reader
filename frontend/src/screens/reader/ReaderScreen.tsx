@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, Pressable, StyleSheet, View } from 'react-native';
+import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Pressable, StyleSheet, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
-import { buildReaderList, ChapterWithPages, computeGapHeight, ReaderListItem } from '../../shared/transforms/page';
+import {
+  buildReaderList,
+  ChapterWithPages,
+  computeGapHeight,
+  computeVisiblePageProgress,
+  ReaderListItem,
+} from '../../shared/transforms/page';
 import { ReaderListItemRenderer } from './components/ReaderListItemRenderer';
 import { ReaderOfflineBanner } from './components/ReaderOfflineBanner';
 import { ReaderSideProgressBar } from './components/ReaderSideProgressBar';
@@ -18,6 +24,8 @@ type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin };
 };
 
+const ESTIMATED_ITEM_SIZE = 800;
+
 export function ReaderScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<RouteParams, 'Reader'>>();
@@ -28,6 +36,7 @@ export function ReaderScreen() {
   const listRef = useRef<FlashList<ReaderListItem>>(null);
   const measuredHeightsRef = useRef<Map<string, number>>(new Map());
   const isFirstItemChapterHeaderRef = useRef(true);
+  const viewportHeightRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -62,9 +71,28 @@ export function ReaderScreen() {
     measuredHeightsRef.current.set(key, height);
   }, []);
 
+  const handleListLayout = useCallback((event: LayoutChangeEvent) => {
+    viewportHeightRef.current = event.nativeEvent.layout.height;
+  }, []);
+
   const handleScrollEvent = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      reader.handleScroll(event.nativeEvent.contentOffset.y, isFirstItemChapterHeaderRef.current);
+      const offsetY = event.nativeEvent.contentOffset.y;
+      reader.handleScroll(offsetY, isFirstItemChapterHeaderRef.current);
+
+      const viewer = reader.viewer;
+      if (!viewer || viewportHeightRef.current <= 0) {return;}
+      const progress = computeVisiblePageProgress(
+        buildReaderList(viewer, measuredHeightsRef.current),
+        measuredHeightsRef.current,
+        offsetY,
+        viewportHeightRef.current,
+        viewer.curr.chapter.id,
+        ESTIMATED_ITEM_SIZE,
+      );
+      if (progress) {
+        reader.setCurrentPage(progress.pageIndex, progress.scrollFraction);
+      }
     },
     [reader],
   );
@@ -100,7 +128,8 @@ export function ReaderScreen() {
           ref={listRef}
           data={listItems}
           keyExtractor={item => item.key}
-          estimatedItemSize={800}
+          estimatedItemSize={ESTIMATED_ITEM_SIZE}
+          onLayout={handleListLayout}
           onScroll={handleScrollEvent}
           onScrollEndDrag={handleScrollEndDragEvent}
           onMomentumScrollEnd={handleScrollEndDragEvent}

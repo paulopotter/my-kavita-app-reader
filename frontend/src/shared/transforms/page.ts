@@ -86,3 +86,44 @@ export function isNearChapterEdge(currentPage: number, totalPages: number, edgeT
 export function reindexAfterPrevInsert(oldIndex: number, prevBlockItemCount: number): number {
   return oldIndex + prevBlockItemCount;
 }
+
+export interface VisiblePageProgress {
+  pageIndex: number;
+  scrollFraction: number;
+}
+
+// Deriva a posição de leitura a partir do offset acumulado de scroll — não de qual item
+// "mudou de identidade" — porque uma única página de webtoon pode ocupar mais de uma tela
+// inteira: sem isso, a barra de progresso fica parada enquanto o usuário rola dentro dela.
+export function computeVisiblePageProgress(
+  items: ReaderListItem[],
+  measuredHeights: Map<string, number>,
+  scrollOffsetY: number,
+  viewportHeight: number,
+  currChapterId: string,
+  estimatedItemHeight: number,
+): VisiblePageProgress | null {
+  const viewportCenter = scrollOffsetY + viewportHeight / 2;
+  let cumulativeOffset = 0;
+  let bestMatch: VisiblePageProgress | null = null;
+
+  for (const item of items) {
+    const height = measuredHeights.get(item.key) ?? estimatedItemHeight;
+    const itemTop = cumulativeOffset;
+    const itemBottom = cumulativeOffset + height;
+    if (
+      item.kind === 'PAGE' &&
+      item.chapterId === currChapterId &&
+      item.pageIndex != null &&
+      viewportCenter >= itemTop &&
+      viewportCenter < itemBottom
+    ) {
+      const fraction = height > 0 ? (viewportCenter - itemTop) / height : 0;
+      bestMatch = { pageIndex: item.pageIndex, scrollFraction: Math.min(1, Math.max(0, fraction)) };
+      break;
+    }
+    cumulativeOffset = itemBottom;
+  }
+
+  return bestMatch;
+}

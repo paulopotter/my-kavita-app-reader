@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Chapter } from '../../../shared/bridge/series';
 
 jest.mock('@shopify/flash-list', () => {
@@ -42,6 +43,7 @@ const mockGoToNextChapterManual = jest.fn();
 const mockHandleScroll = jest.fn();
 const mockHandleScrollEndDrag = jest.fn();
 const mockHandleScrollToPageHandled = jest.fn();
+const mockSetCurrentPage = jest.fn();
 
 function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
   return {
@@ -87,6 +89,7 @@ beforeEach(() => {
     handleScroll: mockHandleScroll,
     handleScrollEndDrag: mockHandleScrollEndDrag,
     handleScrollToPageHandled: mockHandleScrollToPageHandled,
+    setCurrentPage: mockSetCurrentPage,
   };
 });
 
@@ -128,5 +131,26 @@ describe('ReaderScreen', () => {
     render(<ReaderScreen />);
 
     await waitFor(() => expect(mockHandleScrollToPageHandled).toHaveBeenCalledTimes(1));
+  });
+
+  it('atualiza a posicao de leitura continuamente durante o scroll, nao so ao trocar de pagina', async () => {
+    const chapter = makeChapter({ pageCount: 1 });
+    mockReaderState = {
+      ...mockReaderState,
+      loading: false,
+      viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
+    };
+
+    const { UNSAFE_getByType } = render(<ReaderScreen />);
+    const list = UNSAFE_getByType(FlashList as any);
+
+    act(() => {
+      list.props.onLayout({ nativeEvent: { layout: { height: 200, width: 400 } } });
+    });
+    act(() => {
+      list.props.onScroll({ nativeEvent: { contentOffset: { y: 1000 } } });
+    });
+
+    await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalled());
   });
 });
