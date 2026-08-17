@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.printToString
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -199,5 +200,31 @@ class ReaderPageListTest {
         composeRule.waitForIdle()
 
         assertTrue(handledCount == 1)
+    }
+
+    @Test
+    fun `retry button invokes its onClick callback`() {
+        var clicks = 0
+        composeRule.setContent {
+            RetryButton(onClick = { clicks++ })
+        }
+
+        composeRule.onNodeWithText("Tentar novamente").assertExists()
+        composeRule.onNodeWithText("Tentar novamente").performClick()
+
+        assertTrue(clicks == 1)
+    }
+
+    @Test
+    fun `page image shows a retry button when the url fails to load`() {
+        composeRule.setContent {
+            ReaderPageList(
+                blocks = listOf(block("c1", "Capítulo 1", listOf("not-a-valid-url"))),
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Falha ao carregar página").assertExists()
+        composeRule.onNodeWithText("Tentar novamente").assertExists()
     }
 }

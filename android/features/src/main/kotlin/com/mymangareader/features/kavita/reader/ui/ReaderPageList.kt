@@ -1,6 +1,7 @@
 package com.mymangareader.features.kavita.reader.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
@@ -10,14 +11,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import coil.request.CachePolicy
 import coil.request.ImageRequest
 
 /**
@@ -228,8 +233,23 @@ private val ReaderMutedText = Color(0xFFA0AEC0)
 
 @Composable
 internal fun ReaderPageImage(url: String) {
+    // Bumped by the retry button below. Included as a request parameter so Coil treats each
+    // retry as a distinct cache key — otherwise a request that failed (e.g. a transient WebP
+    // decode glitch) would just resolve the same failed entry from its error cache instead of
+    // actually re-fetching/re-decoding the bytes.
+    var retryCount by remember(url) { mutableIntStateOf(0) }
+
     SubcomposeAsyncImage(
-        model = ImageRequest.Builder(LocalContext.current).data(url).build(),
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(url)
+            .setParameter("retryCount", retryCount)
+            .apply {
+                if (retryCount > 0) {
+                    memoryCachePolicy(CachePolicy.WRITE_ONLY)
+                    diskCachePolicy(CachePolicy.WRITE_ONLY)
+                }
+            }
+            .build(),
         contentDescription = null,
         // Coil's default ContentScale.Fit keeps the image's own aspect ratio centered inside
         // the available width, which visually reads as black side bars whenever the decoded
@@ -242,9 +262,27 @@ internal fun ReaderPageImage(url: String) {
             is AsyncImagePainter.State.Loading, is AsyncImagePainter.State.Empty ->
                 ReaderPagePlaceholder { CircularProgressIndicator(color = Color.White) }
             is AsyncImagePainter.State.Error ->
-                ReaderPagePlaceholder { Text("Falha ao carregar página", color = Color.White) }
+                ReaderPagePlaceholder {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Falha ao carregar página", color = Color.White)
+                        RetryButton(onClick = { retryCount++ })
+                    }
+                }
             is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
         }
+    }
+}
+
+@Composable
+internal fun RetryButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .padding(top = 16.dp)
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Text("Tentar novamente", color = Color.Black, fontWeight = FontWeight.SemiBold)
     }
 }
 
