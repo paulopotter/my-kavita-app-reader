@@ -72,10 +72,10 @@ export function ReaderScreen() {
     ...(next ? [toBlock(next, null)] : []),
   ];
 
-  // scrollToPageRequest é um pedido one-shot ("continuar lendo" ao abrir a tela, ou reajuste de
-  // posição ao inserir o bloco prev na frente da lista) — só aponta pro capítulo atual porque é
-  // isso que o useReader sabe hoje; nunca deve disparar para o avanço/retrocesso natural de
-  // scroll entre blocos já visíveis, daí ser limpo assim que o nativo confirma o salto.
+  // scrollToPageRequest é um pedido one-shot só para "continuar lendo" ao abrir a tela (ou
+  // pular para uma página específica via progress bar) — nunca é reemitido pelo avanço/
+  // retrocesso natural de capítulo (advanceToNextChapter/retreatToPrevChapter/INSERT_PREV_
+  // NEIGHBOR), que a própria lista nativa já resolve por scroll contínuo sem ajuda daqui.
   const scrollToChapterId = reader.scrollToPageRequest != null ? curr.chapter.id : null;
   const scrollToPageIndex = reader.scrollToPageRequest ?? -1;
 

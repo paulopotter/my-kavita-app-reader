@@ -107,26 +107,25 @@ export function reducer(state: State, action: Action): State {
         scrollFraction: action.initialScrollFraction,
       };
     case 'SET_VIEWER':
+      // Usado por advanceToNextChapter/retreatToPrevChapter — troca de capítulo por scroll
+      // natural do usuário, nunca deve reemitir scrollToPageRequest: a lista nativa (Kotlin)
+      // já está posicionada onde o usuário rolou, identificando páginas por chapterId+pageIndex
+      // (não índice absoluto), então não há nada para "reajustar" aqui — forçar um scroll
+      // programático nesse momento é o que causava o salto pro topo do capítulo/página 0.
       return {
         ...state,
         viewer: action.viewer,
         currentVisiblePage: action.page,
-        scrollToPageRequest: action.page,
         scrollFraction: action.scrollFraction,
         isAdvancing: false,
       };
     case 'UPDATE_VIEWER':
       return { ...state, viewer: action.viewer };
     case 'INSERT_PREV_NEIGHBOR':
-      // Inserir o bloco do capítulo anterior desloca o índice absoluto de tudo que vem
-      // depois na FlashList — sem reemitir um pedido de scroll para a mesma página lógica
-      // (chapterId:PAGE:pageIndex, não índice absoluto), a lista mantém a posição de scroll
-      // ANTIGA, que fisicamente passa a apontar para dentro do capítulo recém-inserido.
-      return {
-        ...state,
-        viewer: action.viewer,
-        scrollToPageRequest: state.currentVisiblePage,
-      };
+      // Diferente da antiga FlashList por índice absoluto, a lista nativa (Kotlin) identifica
+      // páginas por chapterId+pageIndex — inserir o bloco anterior não desloca nem invalida a
+      // posição de leitura atual, então não há necessidade de reemitir scrollToPageRequest.
+      return { ...state, viewer: action.viewer };
     case 'SET_CURRENT_PAGE':
       return { ...state, currentVisiblePage: action.page, scrollFraction: action.scrollFraction };
     case 'SCROLL_TO_PAGE':
@@ -300,9 +299,7 @@ export function useReader(seriesId: string, chapterId: string) {
       return;
     }
     if (side === 'prev') {
-      console.log(
-        `[Reader] INSERT_PREV_NEIGHBOR chapterId=${chapter.id} pages=${pages.length} — reajustando scroll`,
-      );
+      console.log(`[Reader] INSERT_PREV_NEIGHBOR chapterId=${chapter.id} pages=${pages.length}`);
       dispatch({ type: 'INSERT_PREV_NEIGHBOR', viewer: { ...current, prev: entry } });
     } else {
       console.log(`[Reader] UPDATE_VIEWER(next) chapterId=${chapter.id} pages=${pages.length}`);

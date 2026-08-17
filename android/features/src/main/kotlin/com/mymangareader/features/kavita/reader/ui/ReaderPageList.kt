@@ -17,6 +17,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,9 +107,16 @@ fun ReaderPageList(
         onDispose { preloader.clear() }
     }
 
-    LaunchedEffect(entries, scrollToChapterId, scrollToPageIndex) {
+    // Deliberately NOT keyed on `entries`: RN re-renders (and hands down a new `blocks`
+    // reference) constantly as neighbor chapters finish prefetching, which would otherwise
+    // restart this effect and re-fire the scroll every time — fighting the user's own natural
+    // scrolling every few seconds. Only a genuinely new scroll request (different chapterId or
+    // pageIndex) should trigger a jump; `entries` is read fresh inside the effect body via a
+    // rememberUpdatedState-style capture so it still targets the current list.
+    val latestEntries by rememberUpdatedState(entries)
+    LaunchedEffect(scrollToChapterId, scrollToPageIndex) {
         if (scrollToChapterId == null) return@LaunchedEffect
-        val targetIndex = entries.indexOfFirst {
+        val targetIndex = latestEntries.indexOfFirst {
             it is ListEntry.Page && it.chapterId == scrollToChapterId && it.pageIndexInChapter == (scrollToPageIndex ?: 0)
         }
         if (targetIndex >= 0) {

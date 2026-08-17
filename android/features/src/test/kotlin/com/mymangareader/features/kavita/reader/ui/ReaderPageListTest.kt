@@ -1,5 +1,8 @@
 package com.mymangareader.features.kavita.reader.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -167,5 +170,34 @@ class ReaderPageListTest {
 
         composeRule.waitForIdle()
         assertTrue(handledCount == 0)
+    }
+
+    @Test
+    fun `a new blocks reference with the same pending scroll request does not re-trigger the scroll`() {
+        // Regression test: RN re-renders constantly as neighbor chapters finish prefetching,
+        // handing down a new `blocks` list reference each time even though scrollToChapterId
+        // hasn't changed. Before this fix, that alone restarted the scroll effect and fired
+        // onScrollToChapterHandled again — fighting the user's own scrolling every few seconds.
+        var handledCount = 0
+        var blocksVersion by mutableStateOf(0)
+        composeRule.setContent {
+            ReaderPageList(
+                // New List instance every recomposition (same content, different reference).
+                blocks = listOf(block("c1", "Capítulo 1", listOf("https://example.com/1.webp"))).toList(),
+                scrollToChapterId = "c1",
+                scrollToPageIndex = 0,
+                onScrollToChapterHandled = { handledCount++ },
+            )
+            @Suppress("UNUSED_EXPRESSION")
+            blocksVersion
+        }
+
+        composeRule.waitForIdle()
+        assertTrue(handledCount == 1)
+
+        blocksVersion++
+        composeRule.waitForIdle()
+
+        assertTrue(handledCount == 1)
     }
 }

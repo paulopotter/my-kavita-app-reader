@@ -323,6 +323,36 @@ describe('useReader — navegação entre capítulos', () => {
     expect(result.current.viewer?.curr.chapter.id).toBe('c2');
   });
 
+  it('avancar para o proximo capitulo nao reemite scrollToPageRequest', async () => {
+    // advanceToNextChapter é disparado pelo scroll natural do usuário (a lista nativa já está
+    // posicionada onde ele rolou) — reemitir scrollToPageRequest aqui forçava um salto
+    // programático de volta para a página 0 do novo capítulo, cancelando a continuidade visual
+    // do scroll (bug real: "a imagem pula pro topo" ao cruzar para o próximo capítulo).
+    const curr = makeChapter({ id: 'c1', pageCount: 1 });
+    const next = makeChapter({ id: 'c2' });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    const originalViewer: ViewerChapters = { prev: null, curr: { chapter: curr, pages: ['url0'] }, next: { chapter: next, pages: ['url0', 'url1'] } };
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: originalViewer,
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+    act(() => {
+      result.current.handleScrollToPageHandled();
+    });
+    expect(result.current.scrollToPageRequest).toBeNull();
+
+    await act(async () => {
+      await result.current.advanceToNextChapter();
+    });
+
+    expect(result.current.scrollToPageRequest).toBeNull();
+  });
+
   it('avancar marca o capitulo atual como lido mesmo sem rolar ate o fim', async () => {
     const curr = makeChapter({ id: 'c1', pageCount: 5 });
     const next = makeChapter({ id: 'c2' });
@@ -685,12 +715,12 @@ describe('useReader — carregamento inicial do trio', () => {
     await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c42'));
   });
 
-  it('inserir o vizinho prev reemite scrollToPageRequest para a mesma pagina logica', async () => {
-    // Inserir o bloco do capítulo anterior desloca o índice ABSOLUTO de tudo que vem depois
-    // na FlashList. Sem reemitir o pedido de scroll (que a ReaderScreen resolve por
-    // chapterId:PAGE:pageIndex, não por índice absoluto), a lista mantém a posição de
-    // scroll antiga, que passa a apontar fisicamente para dentro do capítulo recém-inserido —
-    // reproduz o bug real "abro o 41, aparece o header do 40 no topo".
+  it('inserir o vizinho prev nao reemite scrollToPageRequest', async () => {
+    // A lista nativa (Kotlin) identifica páginas por chapterId+pageIndex, não por índice
+    // absoluto — diferente da antiga FlashList, inserir o bloco do capítulo anterior não
+    // desloca nem invalida a posição de leitura atual. Reemitir scrollToPageRequest aqui
+    // causava um bug real: a lista pulava de volta para o topo do capítulo atual toda vez
+    // que o vizinho prev terminava de carregar, cancelando o scroll natural do usuário.
     const chapters = [
       makeCachedChapter({ id: 'c40', number: '40' }),
       makeCachedChapter({ id: 'c41', number: '41' }),
@@ -724,7 +754,7 @@ describe('useReader — carregamento inicial do trio', () => {
     });
 
     await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c40'));
-    expect(result.current.scrollToPageRequest).toBe(result.current.currentVisiblePage);
+    expect(result.current.scrollToPageRequest).toBeNull();
   });
 
   it('abrir o primeiro capitulo da serie deixa prev nulo', async () => {
