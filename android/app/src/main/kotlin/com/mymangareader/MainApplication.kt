@@ -1,6 +1,8 @@
 package com.mymangareader
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -20,6 +22,7 @@ import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.tools.bridge.ConfigStore
@@ -29,7 +32,7 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 @HiltAndroidApp
-class MainApplication : Application(), ReactApplication {
+class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
 
     @Inject lateinit var configStore: ConfigStore
     @Inject lateinit var dbStatus: DbStatusProvider
@@ -90,4 +93,12 @@ class MainApplication : Application(), ReactApplication {
         }
         crashGuard.install()
     }
+
+    // Registers SafeBitmapDecoder globally so every Coil request (reader pages included) reads
+    // bounds and downsamples via inSampleSize before decoding instead of asking BitmapFactory for
+    // the raw resolution — see SafeBitmapDecoder for why very tall images need this on-device.
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .components { add(SafeBitmapDecoder.Factory()) }
+            .build()
 }
