@@ -47,6 +47,13 @@ class SeriesModule @Inject constructor(
     init {
         scope.launch {
             followedSeriesDao.observeAllIds().collect { ids ->
+                // Room's Flow emits the current state immediately on collection, which can race
+                // ahead of the JS bridge finishing setup (this module is constructed by Hilt as
+                // soon as the DI graph is ready, not once React is actually up) — emit() before
+                // that point crashes with IllegalStateException. Silently dropping an emission
+                // here is safe: initial state reaches JS through explicit getters like
+                // getSeriesDetail once the bridge is ready, only live updates go through this path.
+                if (!reactApplicationContext.hasActiveReactInstance()) return@collect
                 val array = Arguments.createArray().also { arr -> ids.forEach { arr.pushString(it) } }
                 reactApplicationContext
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)

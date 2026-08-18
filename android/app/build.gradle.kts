@@ -71,7 +71,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount
-        versionName = "0.6.0-rc19"
+        versionName = "0.6.0-rc44"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")

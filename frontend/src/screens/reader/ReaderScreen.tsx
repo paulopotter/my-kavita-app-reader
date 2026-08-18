@@ -35,11 +35,15 @@ export function ReaderScreen() {
       if (!viewer) {return;}
       if (visibleChapterId === viewer.curr.chapter.id) {
         reader.setCurrentPage(pageIndex, 0);
-      } else if (viewer.next && visibleChapterId === viewer.next.chapter.id) {
-        reader.advanceToNextChapter();
-      } else if (viewer.prev && visibleChapterId === viewer.prev.chapter.id) {
-        reader.retreatToPrevChapter();
       }
+      // TEMP DEBUG: troca automática de capítulo por scroll desativada para isolar o bug de
+      // decode de WebP alto — não queremos avançar de capítulo enquanto investigamos falhas de
+      // carregamento de página nos logs. Reativar (descomentar) quando a investigação terminar.
+      // else if (viewer.next && visibleChapterId === viewer.next.chapter.id) {
+      //   reader.advanceToNextChapter();
+      // } else if (viewer.prev && visibleChapterId === viewer.prev.chapter.id) {
+      //   reader.retreatToPrevChapter();
+      // }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [reader.viewer, reader.setCurrentPage, reader.advanceToNextChapter, reader.retreatToPrevChapter],
@@ -49,6 +53,7 @@ export function ReaderScreen() {
     return <View style={styles.root} />;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- prev unused while blocks below is TEMP DEBUG-restricted to curr only
   const { prev, curr, next } = reader.viewer;
 
   const toBlock = (
@@ -66,10 +71,13 @@ export function ReaderScreen() {
   // Trio completo — prev/curr/next, cada um já carregado pelo useReader — dá scroll contínuo
   // nas duas direções. O Kotlin só desenha os blocos; ele nunca decide qual capítulo é "prev"
   // ou "next".
+  // TEMP DEBUG: só o capítulo atual é renderizado (prev/next comentados) para isolar, via logs,
+  // a falha de decode da 3ª página sem nenhum ruído de capítulos vizinhos carregando em paralelo.
+  // Restaurar a lista completa quando a investigação terminar.
   const blocks: ReaderChapterBlock[] = [
-    ...(prev ? [toBlock(prev, curr)] : []),
+    // ...(prev ? [toBlock(prev, curr)] : []),
     toBlock(curr, next),
-    ...(next ? [toBlock(next, null)] : []),
+    // ...(next ? [toBlock(next, null)] : []),
   ];
 
   // scrollToPageRequest é um pedido one-shot só para "continuar lendo" ao abrir a tela (ou

@@ -46,7 +46,9 @@ internal class PagePreloader(
         orderedUrls.forEach { url ->
             if (url !in activeJobs) {
                 activeJobs[url] = scope.launch {
-                    imageLoader.execute(ImageRequest.Builder(context).data(url).build())
+                    imageLoader.execute(
+                        ImageRequest.Builder(context).data(url).diskCacheKey(url).build(),
+                    )
                 }
             }
         }

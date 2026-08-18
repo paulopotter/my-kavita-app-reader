@@ -78,8 +78,10 @@ class OtaEventBridge(
         fun register(bridge: OtaEventBridge) { instance = bridge }
 
         fun notifyBundleReady() {
-            instance?.reactApplicationContext
-                ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+            val context = instance?.reactApplicationContext ?: return
+            if (!context.hasActiveReactInstance()) return
+            context
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                 ?.emit(EVENT_BUNDLE_READY, null)
         }
     }

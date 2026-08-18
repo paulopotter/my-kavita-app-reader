@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.okhttp.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil)
+    implementation(libs.avif)
     implementation(libs.androidx.recyclerview)
 
     implementation(platform(libs.androidx.compose.bom))

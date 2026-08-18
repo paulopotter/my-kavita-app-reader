@@ -86,6 +86,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        android.util.Log.d("CoilDiagnostic", "app version=${BuildConfig.KOTLIN_VERSION_NAME}")
         otaManager.discardStaleBundleIfNeeded()
         SoLoader.init(this, false)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
@@ -94,11 +95,23 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
         crashGuard.install()
     }
 
-    // Registers SafeBitmapDecoder globally so every Coil request (reader pages included) reads
-    // bounds and downsamples via inSampleSize before decoding instead of asking BitmapFactory for
-    // the raw resolution — see SafeBitmapDecoder for why very tall images need this on-device.
+    // Registers SafeBitmapDecoder globally so every Coil request (reader pages included) decodes
+    // very tall images in tiles via BitmapRegionDecoder instead of asking BitmapFactory to decode
+    // the raw resolution in one shot — see SafeBitmapDecoder for why that matters on-device.
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
             .components { add(SafeBitmapDecoder.Factory()) }
+            // Temporary diagnostic: confirms whether a failing request ever reached
+            // SafeBitmapDecoder.Factory.create() at all. Remove once the tiled decode is confirmed
+            // working.
+            .eventListener(object : coil.EventListener {
+                override fun onError(request: coil.request.ImageRequest, result: coil.request.ErrorResult) {
+                    android.util.Log.e(
+                        "CoilDiagnostic",
+                        "onError url=${request.data} throwable=${result.throwable}",
+                        result.throwable,
+                    )
+                }
+            })
             .build()
 }

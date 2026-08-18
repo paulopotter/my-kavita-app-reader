@@ -37,6 +37,7 @@ class ReaderModule @Inject constructor(
         scope.launch {
             activeUrlWatcher.activeUrl.collect { url ->
                 if (url == null) return@collect
+                if (!reactApplicationContext.hasActiveReactInstance()) return@collect
                 val map = Arguments.createMap().apply { putString("url", url) }
                 reactApplicationContext
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
