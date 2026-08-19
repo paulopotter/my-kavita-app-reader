@@ -405,6 +405,67 @@ describe('useReader — navegação entre capítulos', () => {
     expect(result.current.viewer?.curr.chapter.id).toBe('c0');
   });
 
+  it('retroceder via scroll natural reflete a posicao real reportada (nao trava em 0)', async () => {
+    // Bug real: ao rolar para cima e entrar no capitulo anterior, o usuario ja esta fisicamente
+    // na ultima pagina dele — retreatToPrevChapter hardcoded para page:0/scrollFraction:0
+    // ignorava a posicao real do evento onVisiblePageChanged que disparou a troca, deixando o
+    // overlay (nome do capitulo/bolinhas) e a barra de progresso presos mostrando o inicio do
+    // capitulo, já que nenhum novo evento de scroll chegaria (o usuario não se moveu mais).
+    const prev = makeChapter({ id: 'c0', pageCount: 5 });
+    const curr = makeChapter({ id: 'c1', pageCount: 5 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: {
+          prev: { chapter: prev, pages: ['a', 'b', 'c', 'd', 'e'] },
+          curr: { chapter: curr, pages: ['a', 'b', 'c', 'd', 'e'] },
+          next: null,
+        },
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+
+    await act(async () => {
+      await result.current.retreatToPrevChapter(4, 0.9, 0.95);
+    });
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+    expect(result.current.currentVisiblePage).toBe(4);
+    expect(result.current.scrollFraction).toBe(0.9);
+    expect(result.current.chapterFraction).toBe(0.95);
+  });
+
+  it('avancar via scroll natural reflete a posicao real reportada (nao trava em 0)', async () => {
+    const curr = makeChapter({ id: 'c1', pageCount: 5 });
+    const next = makeChapter({ id: 'c2', pageCount: 5 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: {
+          prev: null,
+          curr: { chapter: curr, pages: ['a', 'b', 'c', 'd', 'e'] },
+          next: { chapter: next, pages: ['a', 'b', 'c', 'd', 'e'] },
+        },
+        initialPage: 4,
+        initialScrollFraction: 1,
+      });
+    });
+
+    await act(async () => {
+      await result.current.advanceToNextChapter(1, 0.3, 0.25);
+    });
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c2');
+    expect(result.current.currentVisiblePage).toBe(1);
+    expect(result.current.scrollFraction).toBe(0.3);
+    expect(result.current.chapterFraction).toBe(0.25);
+  });
+
   it('avancar busca o novo next (nao deixa a seta seguinte presa em null)', async () => {
     // Bug real: avancar de c1 para c2 deixava o novo next como null (nunca buscava c3), o que
     // travava a seta de "proximo capitulo" mesmo havendo mais capitulos na serie — reportado ao

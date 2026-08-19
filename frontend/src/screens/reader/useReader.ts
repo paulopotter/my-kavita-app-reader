@@ -62,7 +62,7 @@ export type Action =
   | { type: 'LOADING' }
   | { type: 'ERROR'; error: string }
   | { type: 'VIEWER_READY'; viewer: ViewerChapters; initialPage: number; initialScrollFraction: number }
-  | { type: 'SET_VIEWER'; viewer: ViewerChapters; page: number; scrollFraction: number }
+  | { type: 'SET_VIEWER'; viewer: ViewerChapters; page: number; scrollFraction: number; chapterFraction: number }
   | { type: 'UPDATE_VIEWER'; viewer: ViewerChapters }
   | { type: 'INSERT_PREV_NEIGHBOR'; viewer: ViewerChapters }
   | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number; chapterFraction: number }
@@ -125,6 +125,7 @@ export function reducer(state: State, action: Action): State {
         viewer: action.viewer,
         currentVisiblePage: action.page,
         scrollFraction: action.scrollFraction,
+        chapterFraction: action.chapterFraction,
         isAdvancing: false,
       };
     case 'UPDATE_VIEWER':
@@ -437,28 +438,42 @@ export function useReader(seriesId: string, chapterId: string) {
     };
   }, [seriesId]);
 
-  const advanceToNextChapter = useCallback(async () => {
-    const viewer = viewerRef.current;
-    if (!viewer || !viewer.next || state.isAdvancing) {return;}
-    dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
-    const curr = currChapterOf(viewer);
-    saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
-      () => {},
-    );
-    await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
-    const nextViewer: ViewerChapters = { prev: viewer.curr, curr: viewer.next, next: null };
-    dispatch({ type: 'SET_VIEWER', viewer: nextViewer, page: 0, scrollFraction: 0 });
-    loadMissingNeighbor('next', nextViewer.curr.chapter.id);
-  }, [markAsReadIfNeeded, state.isAdvancing, loadMissingNeighbor]);
+  // page/scrollFraction/chapterFraction: posição real reportada pelo onVisiblePageChanged que
+  // disparou esta troca de trio (scroll natural do usuário, que já está fisicamente rolado até
+  // essa página do novo capítulo) — nunca reajustar para 0 nesse caso, ou o overlay/barra de
+  // progresso ficam presos mostrando a posição do capítulo anterior até o próximo evento de
+  // scroll chegar (o que pode nunca acontecer, já que o usuário não se moveu mais). Chamadas
+  // manuais (setas do ReaderSideProgressBar via goToNextChapterManual/goToPrevChapterManual) não
+  // passam esses argumentos — ali a semântica é "ir para o início/fim do vizinho", então o
+  // default 0 é o comportamento certo.
+  const advanceToNextChapter = useCallback(
+    async (page = 0, scrollFraction = 0, chapterFraction = 0) => {
+      const viewer = viewerRef.current;
+      if (!viewer || !viewer.next || state.isAdvancing) {return;}
+      dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
+      const curr = currChapterOf(viewer);
+      saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
+        () => {},
+      );
+      await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
+      const nextViewer: ViewerChapters = { prev: viewer.curr, curr: viewer.next, next: null };
+      dispatch({ type: 'SET_VIEWER', viewer: nextViewer, page, scrollFraction, chapterFraction });
+      loadMissingNeighbor('next', nextViewer.curr.chapter.id);
+    },
+    [markAsReadIfNeeded, state.isAdvancing, loadMissingNeighbor],
+  );
 
-  const retreatToPrevChapter = useCallback(async () => {
-    const viewer = viewerRef.current;
-    if (!viewer || !viewer.prev || state.isAdvancing) {return;}
-    dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
-    const prevViewer: ViewerChapters = { prev: null, curr: viewer.prev, next: viewer.curr };
-    dispatch({ type: 'SET_VIEWER', viewer: prevViewer, page: 0, scrollFraction: 0 });
-    loadMissingNeighbor('prev', prevViewer.curr.chapter.id);
-  }, [state.isAdvancing, loadMissingNeighbor]);
+  const retreatToPrevChapter = useCallback(
+    async (page = 0, scrollFraction = 0, chapterFraction = 0) => {
+      const viewer = viewerRef.current;
+      if (!viewer || !viewer.prev || state.isAdvancing) {return;}
+      dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
+      const prevViewer: ViewerChapters = { prev: null, curr: viewer.prev, next: viewer.curr };
+      dispatch({ type: 'SET_VIEWER', viewer: prevViewer, page, scrollFraction, chapterFraction });
+      loadMissingNeighbor('prev', prevViewer.curr.chapter.id);
+    },
+    [state.isAdvancing, loadMissingNeighbor],
+  );
 
   const goToNextChapterManual = useCallback(async () => {
     await advanceToNextChapter();

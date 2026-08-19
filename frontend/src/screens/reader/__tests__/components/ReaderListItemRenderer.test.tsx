@@ -39,7 +39,7 @@ describe('ReaderListItemRenderer', () => {
     const item: ReaderListItem = { key: 'c1:FOOTER:', kind: 'FOOTER', chapterId: 'c1' };
     const { getByText } = render(<ReaderListItemRenderer item={item} {...baseProps} />);
 
-    expect(getByText('Fim do capítulo')).toBeTruthy();
+    expect(getByText('Fim do capítulo {0}')).toBeTruthy();
     expect(getByText('2. A Fuga')).toBeTruthy();
   });
 

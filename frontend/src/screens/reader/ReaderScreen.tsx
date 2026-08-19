@@ -8,6 +8,7 @@ import { ReaderOverlayFooter } from './components/ReaderOverlayFooter';
 import { ReaderSideProgressBar } from './components/ReaderSideProgressBar';
 import { ReaderThinProgressBar } from './components/ReaderThinProgressBar';
 import { ReaderTopBar } from './components/ReaderTopBar';
+import { buildFirstNode, buildLastNode } from './ReaderSduNodes';
 import { chapterHeaderTitle, progressBarFraction } from './ReaderTransform';
 import { useReader } from './useReader';
 
@@ -34,25 +35,24 @@ export function ReaderScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Kotlin nunca decide navegação — só renderiza os blocos que recebe e reporta qual página
-  // está visível. Quando o chapterId reportado deixa de ser o capítulo atual, é este handler
-  // que decide avançar/retroceder o trio (advanceToNextChapter/retreatToPrevChapter), usando
-  // as funções que useReader já expõe.
+  // Única fonte de verdade para posição/capítulo: o Kotlin reporta continuamente qual página
+  // está mais visível (chapterId real dessa página, não necessariamente o curr atual) e a
+  // fração de leitura dela e do capítulo — a mesma lógica sempre, sem um segundo evento
+  // paralelo (onChapterBoundaryCrossed, removido) tentando decidir a mesma coisa de outro jeito
+  // e podendo discordar dele. Quando o chapterId reportado é o curr atual, só atualiza posição;
+  // quando é o vizinho (next/prev), decide a troca de trio usando os MESMOS valores que acabaram
+  // de chegar neste evento — nunca um cálculo separado que pode ficar dessincronizado.
   const handleVisiblePageChanged = useCallback(
     (visibleChapterId: string, pageIndex: number, pageFraction: number, chapterFraction: number) => {
       const viewer = reader.viewer;
       if (!viewer) {return;}
       if (visibleChapterId === viewer.curr.chapter.id) {
         reader.setCurrentPage(pageIndex, pageFraction, chapterFraction);
+      } else if (viewer.next && visibleChapterId === viewer.next.chapter.id) {
+        reader.advanceToNextChapter(pageIndex, pageFraction, chapterFraction);
+      } else if (viewer.prev && visibleChapterId === viewer.prev.chapter.id) {
+        reader.retreatToPrevChapter(pageIndex, pageFraction, chapterFraction);
       }
-      // TEMP DEBUG: troca automática de capítulo por scroll desativada para isolar o bug de
-      // decode de WebP alto — não queremos avançar de capítulo enquanto investigamos falhas de
-      // carregamento de página nos logs. Reativar (descomentar) quando a investigação terminar.
-      // else if (viewer.next && visibleChapterId === viewer.next.chapter.id) {
-      //   reader.advanceToNextChapter();
-      // } else if (viewer.prev && visibleChapterId === viewer.prev.chapter.id) {
-      //   reader.retreatToPrevChapter();
-      // }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [reader.viewer, reader.setCurrentPage, reader.advanceToNextChapter, reader.retreatToPrevChapter],
@@ -62,35 +62,42 @@ export function ReaderScreen() {
     return <View style={styles.root} />;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- prev unused while blocks below is TEMP DEBUG-restricted to curr only
   const { prev, curr, next } = reader.viewer;
 
+  // Server-Driven UI (see SduNode.ts doc): firstNode/lastNode carry the ENTIRE Header/Footer/Gap
+  // visual as data — Kotlin no longer hardcodes what they look like, it only interprets the tree
+  // (SduNodeView). hasGapAbove is false only for the very first block in the list (no chapter
+  // before it to draw a Gap against); lastNode's next-chapter preview is included whenever a
+  // next chapter is known, same condition the old nextChapterTitle prop used.
   const toBlock = (
     entry: NonNullable<typeof curr>,
     nextEntry: typeof next,
-  ): ReaderChapterBlock => ({
-    chapterId: entry.chapter.id,
-    chapterTitle: chapterHeaderTitle(entry.chapter, t),
-    pageUrls: entry.pages,
-    // null entries (dimension unavailable/Kavita unreachable) become 0 — the native side treats
-    // a non-positive aspect ratio the same as "not provided" and falls back to measuring that
-    // page once it's actually decoded on-device.
-    pageAspectRatios: entry.pageAspectRatios?.map(ratio => ratio ?? 0) ?? [],
-    nextChapterTitle: nextEntry ? chapterHeaderTitle(nextEntry.chapter, t) : null,
-    endOfChapterLabel: t.readerEndOfChapter,
-    nextChapterLabel: t.readerNextChapterLabel,
-  });
+    hasGapAbove: boolean,
+  ): ReaderChapterBlock => {
+    const title = chapterHeaderTitle(entry.chapter, t);
+    return {
+      chapterId: entry.chapter.id,
+      pageUrls: entry.pages,
+      // null entries (dimension unavailable/Kavita unreachable) become 0 — the native side treats
+      // a non-positive aspect ratio the same as "not provided" and falls back to measuring that
+      // page once it's actually decoded on-device.
+      pageAspectRatios: entry.pageAspectRatios?.map(ratio => ratio ?? 0) ?? [],
+      firstNode: buildFirstNode(title, hasGapAbove),
+      lastNode: buildLastNode(
+        t.readerEndOfChapter.replace('{0}', title),
+        t.readerNextChapterLabel,
+        nextEntry ? chapterHeaderTitle(nextEntry.chapter, t) : null,
+      ),
+    };
+  };
 
   // Trio completo — prev/curr/next, cada um já carregado pelo useReader — dá scroll contínuo
   // nas duas direções. O Kotlin só desenha os blocos; ele nunca decide qual capítulo é "prev"
   // ou "next".
-  // TEMP DEBUG: só o capítulo atual é renderizado (prev/next comentados) para isolar, via logs,
-  // a falha de decode da 3ª página sem nenhum ruído de capítulos vizinhos carregando em paralelo.
-  // Restaurar a lista completa quando a investigação terminar.
   const blocks: ReaderChapterBlock[] = [
-    // ...(prev ? [toBlock(prev, curr)] : []),
-    toBlock(curr, next),
-    // ...(next ? [toBlock(next, null)] : []),
+    ...(prev ? [toBlock(prev, curr, false)] : []),
+    toBlock(curr, next, prev != null),
+    ...(next ? [toBlock(next, null, true)] : []),
   ];
 
   // scrollToPageRequest é um pedido one-shot só para "continuar lendo" ao abrir a tela (ou

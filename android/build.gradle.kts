@@ -42,14 +42,13 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=57 — bump this value whenever coverage improves (never lower it).
-            // Was 49 as of 2026-08-14. Reader tap-to-toggle overlay work (detectTapGestures in
-            // ReaderPageList.kt, onTap plumbing in ReaderPageListView/ReaderPageListViewManager)
-            // — real measured value is ~58.37%.
+            // COVERAGE_FLOOR_KOTLIN=59 — bump this value whenever coverage improves (never lower it).
+            // Was 58 as of 2026-08-19 (reader tap-to-toggle overlay work). Server-Driven UI
+            // migration (SduNode.kt + SduNodeTest.kt) — real measured value is ~59.9%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 57
+                        minValue = 59
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

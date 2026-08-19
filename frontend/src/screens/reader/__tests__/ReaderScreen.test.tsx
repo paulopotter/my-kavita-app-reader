@@ -104,11 +104,7 @@ describe('ReaderScreen', () => {
     expect(blocks[0]).toMatchObject({ chapterId: 'c1', pageUrls: ['url0', 'url1'] });
   });
 
-  // TEMP DEBUG: ReaderScreen.tsx só renderiza o bloco curr (prev/next comentados) para isolar o
-  // bug de decode de imagem investigado nesta sessão — este teste reflete esse estado atual.
-  // Quando o TEMP DEBUG for revertido (blocks voltando a incluir prev/next), reverter também
-  // esta expectativa para toHaveLength(2)/toMatchObject com o bloco de next.
-  it('inclui apenas o bloco curr (prev/next em TEMP DEBUG) mesmo com o next ja carregado', async () => {
+  it('inclui um segundo bloco com as páginas do próximo capítulo quando ele já foi carregado', async () => {
     const chapter = makeChapter();
     const nextChapter = makeChapter({ id: 'c2', number: '2' });
     mockReaderState = {
@@ -124,13 +120,11 @@ describe('ReaderScreen', () => {
     const { getByTestId } = render(<ReaderScreen />);
 
     const blocks = getByTestId('reader-page-list-view').props.blocks;
-    expect(blocks).toHaveLength(1);
-    expect(blocks[0]).toMatchObject({ chapterId: 'c1', pageUrls: ['url0', 'url1'] });
+    expect(blocks).toHaveLength(2);
+    expect(blocks[1]).toMatchObject({ chapterId: 'c2', pageUrls: ['url2'] });
   });
 
-  // TEMP DEBUG: mesma restrição do teste acima — reverter para esperar os 3 blocos quando o
-  // trio completo (prev/curr/next) voltar a ser renderizado.
-  it('inclui apenas o bloco curr (prev/next em TEMP DEBUG) mesmo com o trio completo carregado', async () => {
+  it('inclui os tres blocos do trio (prev, curr, next) na ordem correta quando todos estao carregados', async () => {
     const prevChapter = makeChapter({ id: 'c0', number: '0' });
     const chapter = makeChapter();
     const nextChapter = makeChapter({ id: 'c2', number: '2' });
@@ -147,7 +141,7 @@ describe('ReaderScreen', () => {
     const { getByTestId } = render(<ReaderScreen />);
 
     const blocks = getByTestId('reader-page-list-view').props.blocks;
-    expect(blocks.map((b: { chapterId: string }) => b.chapterId)).toEqual(['c1']);
+    expect(blocks.map((b: { chapterId: string }) => b.chapterId)).toEqual(['c0', 'c1', 'c2']);
   });
 
   it('passa scrollToChapterId nulo quando nao ha pedido de scroll pendente', async () => {
@@ -219,12 +213,7 @@ describe('ReaderScreen', () => {
     await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalledWith(0, 0.4, 0.1));
   });
 
-  // TEMP DEBUG: a troca automática de capítulo por scroll (advanceToNextChapter/
-  // retreatToPrevChapter disparados a partir de onVisiblePageChanged) está comentada em
-  // ReaderScreen.tsx para isolar o bug de decode de imagem investigado nesta sessão — a única
-  // navegação de capítulo possível hoje é manual (setas do ReaderSideProgressBar) ou overscroll.
-  // Reverter estes dois testes para o comportamento original quando o TEMP DEBUG for revertido.
-  it('nao avanca automaticamente de capitulo via scroll (TEMP DEBUG ativo)', async () => {
+  it('avanca para o proximo capitulo quando a view nativa reporta uma pagina do capitulo seguinte', async () => {
     const chapter = makeChapter();
     const nextChapter = makeChapter({ id: 'c2', number: '2' });
     mockReaderState = {
@@ -241,14 +230,16 @@ describe('ReaderScreen', () => {
     const nativeList = getByTestId('reader-page-list-view');
 
     act(() => {
-      nativeList.props.onVisiblePageChanged({ nativeEvent: { chapterId: 'c2', pageIndex: 0 } });
+      nativeList.props.onVisiblePageChanged({
+        nativeEvent: { chapterId: 'c2', pageIndex: 3, pageFraction: 0.2, chapterFraction: 0.15 },
+      });
     });
 
-    expect(mockAdvanceToNextChapter).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockAdvanceToNextChapter).toHaveBeenCalledWith(3, 0.2, 0.15));
     expect(mockSetCurrentPage).not.toHaveBeenCalled();
   });
 
-  it('nao retrocede automaticamente de capitulo via scroll (TEMP DEBUG ativo)', async () => {
+  it('retrocede para o capitulo anterior quando a view nativa reporta uma pagina do capitulo anterior', async () => {
     const chapter = makeChapter();
     const prevChapter = makeChapter({ id: 'c0', number: '0' });
     mockReaderState = {
@@ -265,9 +256,89 @@ describe('ReaderScreen', () => {
     const nativeList = getByTestId('reader-page-list-view');
 
     act(() => {
-      nativeList.props.onVisiblePageChanged({ nativeEvent: { chapterId: 'c0', pageIndex: 0 } });
+      nativeList.props.onVisiblePageChanged({
+        nativeEvent: { chapterId: 'c0', pageIndex: 4, pageFraction: 0.9, chapterFraction: 0.95 },
+      });
     });
 
-    expect(mockRetreatToPrevChapter).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockRetreatToPrevChapter).toHaveBeenCalledWith(4, 0.9, 0.95));
+  });
+
+  describe('montagem SDU de firstNode/lastNode', () => {
+    it('inclui o titulo do capitulo dentro de firstNode', async () => {
+      const chapter = makeChapter({ title: 'A Chegada', number: '1' });
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
+      };
+
+      const { getByTestId } = render(<ReaderScreen />);
+      const block = getByTestId('reader-page-list-view').props.blocks[0];
+
+      expect(JSON.stringify(block.firstNode)).toContain('A Chegada');
+    });
+
+    it('nao inclui um Gap em firstNode quando e o primeiro bloco do trio (sem prev)', async () => {
+      const chapter = makeChapter();
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
+      };
+
+      const { getByTestId } = render(<ReaderScreen />);
+      const block = getByTestId('reader-page-list-view').props.blocks[0];
+
+      // Sem prev, firstNode é só o container do título (um único filho de texto), não um
+      // container aninhado [gap, header] — ver buildFirstNode/hasGapAbove em ReaderScreen.tsx.
+      expect(block.firstNode.children.every((child: { type: string }) => child.type !== 'container')).toBe(true);
+    });
+
+    it('inclui um Gap em firstNode quando ha um capitulo anterior no trio', async () => {
+      const prevChapter = makeChapter({ id: 'c0', number: '0' });
+      const chapter = makeChapter();
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        viewer: { prev: { chapter: prevChapter, pages: ['url_prev'] }, curr: { chapter, pages: ['url0'] }, next: null },
+      };
+
+      const { getByTestId } = render(<ReaderScreen />);
+      // blocks[1] é o bloco 'curr' — o que tem prev antes dele, logo hasGapAbove=true.
+      const block = getByTestId('reader-page-list-view').props.blocks[1];
+
+      expect(block.firstNode.children.some((child: { type: string }) => child.type === 'container')).toBe(true);
+    });
+
+    it('lastNode inclui a previa do proximo capitulo quando ha um next carregado', async () => {
+      const chapter = makeChapter();
+      const nextChapter = makeChapter({ id: 'c2', number: '2', title: 'A Jornada' });
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: { chapter: nextChapter, pages: ['url2'] } },
+      };
+
+      const { getByTestId } = render(<ReaderScreen />);
+      const block = getByTestId('reader-page-list-view').props.blocks[0];
+
+      expect(JSON.stringify(block.lastNode)).toContain('A Jornada');
+    });
+
+    it('lastNode nao inclui previa de proximo capitulo quando nao ha next carregado', async () => {
+      const chapter = makeChapter();
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
+      };
+
+      const { getByTestId } = render(<ReaderScreen />);
+      const block = getByTestId('reader-page-list-view').props.blocks[0];
+
+      // Sem next, lastNode só tem o texto de "fim do capítulo" — um único filho.
+      expect(block.lastNode.children).toHaveLength(1);
+    });
   });
 });

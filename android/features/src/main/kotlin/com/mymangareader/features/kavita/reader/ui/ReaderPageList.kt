@@ -48,10 +48,18 @@ import coil.request.ImageRequest
  * Kotlin/Compose side never decides chapter order or triggers navigation itself, it only draws
  * whatever list of blocks it's given and reports which page is visible via
  * [ReaderPageList]'s onVisiblePageChanged callback.
+ *
+ * [firstNode]/[lastNode] replace what used to be separate Header/Footer/Gap concepts — Server-
+ * Driven UI: RN sends the ENTIRE non-page visual (title text, colors, spacing, and whether a Gap
+ * exists at all) as an [SduNode] tree, and Kotlin only interprets it generically ([SduNodeView]).
+ * Kotlin never again hardcodes "what a header looks like" — see SduNode.kt doc for the rationale.
+ * [firstNode] renders before this chapter's pages (typically a Gap + title), [lastNode] after
+ * (typically an end-of-chapter label + next-chapter preview). Either can be null — e.g. the very
+ * first chapter of a trio has no Gap-above, the last loaded chapter has no Footer/next-preview if
+ * RN hasn't loaded a next neighbor. RN decides ALL of this; Kotlin just draws what's handed to it.
  */
 data class ChapterBlock(
     val chapterId: String,
-    val chapterTitle: String,
     val pageUrls: List<String>,
     // Height/width aspect ratio per page (aligned by index with pageUrls), from Kavita's
     // chapter-info?includeDimensions=true — lets ReaderPageList size a page's landmark before it's
@@ -59,13 +67,12 @@ data class ChapterBlock(
     // once it scrolls into view. 0 (or a short list) means "unavailable for this page" — falls
     // back to the onGloballyPositioned measurement, same as before this existed.
     val pageAspectRatios: List<Float>,
-    val nextChapterTitle: String?,
-    val endOfChapterLabel: String,
-    val nextChapterLabel: String,
+    val firstNode: SduNode?,
+    val lastNode: SduNode?,
 )
 
 private sealed interface ListEntry {
-    data class Header(val block: ChapterBlock) : ListEntry
+    data class Sdu(val entryKey: String, val chapterId: String, val node: SduNode) : ListEntry
     data class Page(
         val chapterId: String,
         val pageIndexInChapter: Int,
@@ -73,30 +80,28 @@ private sealed interface ListEntry {
         // 0 means unavailable — see ChapterBlock.pageAspectRatios.
         val aspectRatio: Float,
     ) : ListEntry
-    data class Footer(val block: ChapterBlock) : ListEntry
-    data class Gap(val afterChapterId: String, val beforeChapterId: String) : ListEntry
 }
 
 private fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = buildList {
-    blocks.forEachIndexed { index, block ->
-        if (index > 0) {
-            add(ListEntry.Gap(afterChapterId = blocks[index - 1].chapterId, beforeChapterId = block.chapterId))
-        }
-        add(ListEntry.Header(block))
+    blocks.forEach { block ->
+        block.firstNode?.let { add(ListEntry.Sdu(entryKey = "first:${block.chapterId}", chapterId = block.chapterId, node = it)) }
         block.pageUrls.forEachIndexed { pageIndex, url ->
             val aspectRatio = block.pageAspectRatios.getOrElse(pageIndex) { 0f }
             add(ListEntry.Page(block.chapterId, pageIndex, url, aspectRatio))
         }
-        add(ListEntry.Footer(block))
+        block.lastNode?.let { add(ListEntry.Sdu(entryKey = "last:${block.chapterId}", chapterId = block.chapterId, node = it)) }
     }
 }
 
 private fun ListEntry.key(): String = when (this) {
-    is ListEntry.Header -> "header:${block.chapterId}"
+    is ListEntry.Sdu -> entryKey
     is ListEntry.Page -> "page:$chapterId:$pageIndexInChapter"
-    is ListEntry.Footer -> "footer:${block.chapterId}"
-    is ListEntry.Gap -> "gap:$afterChapterId:$beforeChapterId"
 }
+
+// Rough estimate of a non-page (Sdu) entry's height in px before it's physically measured — see
+// the LaunchedEffect(entries, containerWidthPx) fallback doc for why this exists. Always
+// overwritten by the real onGloballyPositioned measurement the moment it composes for real.
+private const val SDU_ESTIMATED_HEIGHT_PX = 220
 
 private data class ScrollSnapshot(
     val firstVisibleItemIndex: Int,
@@ -106,15 +111,26 @@ private data class ScrollSnapshot(
 )
 
 /**
- * Which page's bottom edge is the furthest one to have reached the bottom of the viewport —
- * i.e. the last page the user has scrolled AT LEAST to the bottom of, not merely the one
+ * Which page's bottom edge is the furthest one to have reached the MIDDLE of the viewport —
+ * i.e. the last page the user has scrolled AT LEAST past the midline, not merely the one
  * touching the top. [firstVisibleItemIndex]/[firstVisibleItemScrollOffset] anchor the walk (same
- * landmarks as [computeVisiblePageAndFraction]), but the target line is the viewport's BOTTOM
- * (`absoluteScrollOffset + viewportEndOffset`), not its top. This is what BABY STEP 1 (page-only
- * progress bar) needs: opening a chapter with pages 1+2 both on screen should read as "0 pages
- * read yet", and reaching the very last page's bottom edge should read 100% — neither of which
- * "which page touches the top" can deliver, since the top-anchored index gets stuck one page
- * short whenever the tail of the chapter (short last page + footer) is shorter than the viewport.
+ * landmarks as [computeVisiblePageAndFraction]), but the target line is the viewport's MIDLINE
+ * (`absoluteScrollOffset + viewportEndOffset / 2`), not its top.
+ *
+ * DEPRECATED reasoning (kept for reference, no longer the active rule): this used to target the
+ * viewport's BOTTOM edge (`absoluteScrollOffset + viewportEndOffset`) instead — reasoning was
+ * that opening a chapter with pages 1+2 both on screen should read as "0 pages read yet", and
+ * reaching the very last page's bottom edge should read 100%. That's still true for the progress
+ * BAR's own fraction math (computeChapterFraction, unaffected by this change — it derives its
+ * own bottomLine straight from firstVisibleItemScrollOffset, not from this function's result).
+ * But using the bottom edge as the trigger for CHAPTER SWITCHING (this function's chapterId also
+ * drives useReader.advanceToNextChapter/retreatToPrevChapter in RN) meant the very first pixel of
+ * a neighboring chapter's page touching the bottom edge was enough to switch chapters — reported
+ * by the user as switching one page early, not matching the user-specified rule ("switch chapters
+ * only once the midline itself has been crossed"). Moving the target line to the midline fixes
+ * chapter-switch timing to match that rule; it also means "how many pages read" (baby step 1) now
+ * counts a page once its midpoint — not just a sliver of its bottom edge — has passed, which is
+ * an intentional side effect (accepted, see conversation) rather than an oversight.
  */
 private fun computeBottomVisiblePageIndex(
     entries: List<ListEntry>,
@@ -123,12 +139,11 @@ private fun computeBottomVisiblePageIndex(
     firstVisibleItemScrollOffset: Int,
     viewportEndOffset: Int,
 ): ListEntry.Page? {
+    // Base relativa ao próprio firstVisibleItemIndex, nunca a nenhum item anterior — ver o
+    // comentário equivalente (e mais detalhado) em computeVisiblePageAndFraction.
     var cumulativeTop = 0
-    for (index in 0 until firstVisibleItemIndex) {
-        val height = itemHeights[entries.getOrNull(index)?.key()] ?: return null
-        cumulativeTop += height
-    }
-    val bottomLine = cumulativeTop + firstVisibleItemScrollOffset + viewportEndOffset
+    // val bottomLine = cumulativeTop + firstVisibleItemScrollOffset + viewportEndOffset // DEPRECATED: bottom edge, see doc above
+    val bottomLine = cumulativeTop + firstVisibleItemScrollOffset + viewportEndOffset / 2
 
     // Walk forward accumulating heights until the running top edge passes the viewport's bottom
     // line — the last Page entry whose top edge is still above that line is the furthest one the
@@ -142,9 +157,12 @@ private fun computeBottomVisiblePageIndex(
         val height = itemHeights[entry.key()] ?: break
         if (entry is ListEntry.Page) {
             lastPageSeen = entry
-        } else if (entry is ListEntry.Footer && lastPageSeen?.chapterId == entry.block.chapterId) {
-            // Footer of the same chapter reached the bottom line — the chapter's last page counts
-            // as fully read even though it's a Footer, not a Page, that crossed the line.
+        } else if (entry is ListEntry.Sdu && lastPageSeen?.chapterId == entry.chapterId) {
+            // A non-page (Sdu) entry of the SAME chapter (i.e. its lastNode/Footer) reached the
+            // bottom line — the chapter's last page counts as fully read even though it was an
+            // Sdu entry, not a Page, that crossed the line. entry.chapterId here is purely
+            // structural (set by flattenBlocks from the ChapterBlock it came from) — Kotlin never
+            // needs to know this Sdu node "is" a Footer, only which chapter it closes out.
             break
         }
         runningTop += height
@@ -187,6 +205,15 @@ private fun computeChapterFraction(
     firstVisibleItemScrollOffset: Int,
     viewportEndOffset: Int,
 ): Float? {
+    // Only Pages ever count toward reading progress — Header/Footer/Gap are pure list-structure
+    // scaffolding (infinite-scroll plumbing), never part of "how much of the chapter's content
+    // has been read". An earlier version of this function used the chapter's Header as a
+    // measuring stick to locate the chapter's start relative to the viewport — but the Header
+    // has no image to derive a height from, so it depended on either being physically scrolled
+    // past (measured via onGloballyPositioned) or a rough guessed fallback height, neither of
+    // which is real reading data. That's backwards: the first PAGE already gives us everything
+    // needed to place the chapter's start, using the same real/estimated Page heights that
+    // chapterTotalHeight below already sums — no Header/Footer measurement ever required.
     val chapterPages = entries.filterIsInstance<ListEntry.Page>().filter { it.chapterId == chapterId }
     if (chapterPages.isEmpty()) return null
 
@@ -196,16 +223,39 @@ private fun computeChapterFraction(
     }
     if (chapterTotalHeight <= 0) return null
 
-    var cumulativeTop = 0
-    for (index in 0 until firstVisibleItemIndex) {
-        cumulativeTop += itemHeights[entries.getOrNull(index)?.key()] ?: 0
-    }
-    val bottomLine = cumulativeTop + firstVisibleItemScrollOffset + viewportEndOffset
+    // Tudo relativo ao topo de firstVisibleItemIndex (offset 0 ali) — nunca soma a partir de um
+    // item anterior a ele. Ver o comentário mais detalhado em computeVisiblePageAndFraction:
+    // mesmo dentro do MESMO capítulo, itens anteriores na lista podem nunca ter sido medidos se
+    // o usuário "pousou" numa página do meio rolando de volta por trás (ex: página 8 sem nunca
+    // ter passado fisicamente pelas páginas 0-7 ainda).
+    val bottomLine = firstVisibleItemScrollOffset + viewportEndOffset
 
-    val chapterStartTop = entries.indexOf(chapterPages.first()).let { startIndex ->
+    // chapterId aqui é bottomPage.chapterId (o capítulo cujo fundo o usuário já alcançou), que
+    // pode ser diferente do capítulo de firstVisibleItemIndex (topo da tela ainda no capítulo
+    // anterior, fundo já mostrando o próximo). chapterStartTop é a posição da PRIMEIRA PÁGINA
+    // deste capítulo relativa ao mesmo zero (topo de firstVisibleItemIndex) — soma só entre os
+    // dois pontos mais próximos um do outro na direção certa. Header/Footer/Gap no caminho
+    // contam como altura ZERO aqui (não itemHeights[...] ?: return null) — eles não fazem parte
+    // do que estamos medindo (só Pages contam para "quanto foi lido", ver o comentário no topo
+    // da função), então não faz sentido a função inteira falhar por causa de um item cuja altura
+    // é irrelevante para o resultado. Sem isso, avançar para um capítulo ainda dependia
+    // indiretamente do Header dele estar medido, mesmo com chapterTotalHeight já ignorando-o.
+    val firstPageIndex = entries.indexOfFirst { it is ListEntry.Page && it.chapterId == chapterId }
+    if (firstPageIndex == -1) return null
+    val chapterStartTop = if (firstPageIndex <= firstVisibleItemIndex) {
         var top = 0
-        for (index in 0 until startIndex) {
-            top += itemHeights[entries.getOrNull(index)?.key()] ?: 0
+        for (index in firstPageIndex until firstVisibleItemIndex) {
+            val entry = entries.getOrNull(index)
+            if (entry !is ListEntry.Page) continue
+            top -= itemHeights[entry.key()] ?: return null
+        }
+        top
+    } else {
+        var top = 0
+        for (index in firstVisibleItemIndex until firstPageIndex) {
+            val entry = entries.getOrNull(index)
+            if (entry !is ListEntry.Page) continue
+            top += itemHeights[entry.key()] ?: return null
         }
         top
     }
@@ -228,24 +278,35 @@ private fun computeVisiblePageAndFraction(
     firstVisibleItemIndex: Int,
     firstVisibleItemScrollOffset: Int,
 ): Pair<ListEntry.Page, Float>? {
+    // Nunca soma a altura de itens ANTERIORES a firstVisibleItemIndex — nem "desde o item 0",
+    // nem "desde o Header do capítulo atual" (uma tentativa anterior fazia isso, e ainda
+    // quebrava: ao rolar de VOLTA para dentro de um capítulo vizinho vindo de baixo — ex: pousar
+    // direto na página 8 de um capítulo sem ter "passado" fisicamente pelas páginas 0-7 dele
+    // ainda, porque a rolagem para cima está entrando por trás — essas páginas anteriores na
+    // lista nunca tinham sido compostas/medidas, mesmo sendo do MESMO capítulo). A única coisa
+    // sempre garantidamente medida é o próprio item que já está tocando o topo da tela agora —
+    // então a base (cumulativeTop) é 0 relativo a ELE MESMO, nunca relativo a nada anterior.
     var cumulativeTop = 0
-    for (index in 0 until firstVisibleItemIndex) {
-        val height = itemHeights[entries.getOrNull(index)?.key()] ?: return null
-        cumulativeTop += height
-    }
-    val absoluteScrollOffset = cumulativeTop + firstVisibleItemScrollOffset
+    val absoluteScrollOffset = firstVisibleItemScrollOffset
 
-    // Walk forward from firstVisibleItemIndex to find the Page (or Footer, treated as "last page
-    // fully read") that absoluteScrollOffset currently falls within — a Header/Footer/Gap barely
-    // clinging to the viewport edge by a pixel is skipped in favor of the Page actually filling
-    // the screen.
+    // Walk forward from firstVisibleItemIndex to find the Page (or a same-chapter Sdu entry that
+    // CLOSES that chapter out — i.e. its lastNode/Footer, only once at least one of its own Pages
+    // has already been walked past — treated as "last page fully read") that absoluteScrollOffset
+    // currently falls within. An Sdu entry that OPENS a chapter (firstNode/Header/Gap, no Page of
+    // its own chapterId seen yet) is not a valid stop here — unlike the old Header/Footer split,
+    // firstNode and lastNode are both plain Sdu now, so this loop tells them apart by whether a
+    // Page of the same chapter already passed, not by type. Skipped just like any other
+    // structural entry (Gap) barely clinging to the viewport edge by a pixel, in favor of the
+    // Page actually filling the screen.
     var runningTop = cumulativeTop
     var targetIndex = firstVisibleItemIndex
     var targetEntry: ListEntry? = null
     while (targetIndex < entries.size) {
         val entry = entries[targetIndex]
         val height = itemHeights[entry.key()] ?: break
-        if (entry is ListEntry.Page || entry is ListEntry.Footer) {
+        val closesAChapter = entry is ListEntry.Sdu &&
+            entries.take(targetIndex).any { it is ListEntry.Page && it.chapterId == entry.chapterId }
+        if (entry is ListEntry.Page || closesAChapter) {
             targetEntry = entry
             break
         }
@@ -254,9 +315,9 @@ private fun computeVisiblePageAndFraction(
     }
 
     return when (val entry = targetEntry) {
-        is ListEntry.Footer -> {
+        is ListEntry.Sdu -> {
             val lastPage = entries.take(targetIndex)
-                .lastOrNull { it is ListEntry.Page && it.chapterId == entry.block.chapterId }
+                .lastOrNull { it is ListEntry.Page && it.chapterId == entry.chapterId }
                 as? ListEntry.Page
                 ?: return null
             lastPage to 1f
@@ -341,14 +402,51 @@ fun ReaderPageList(
     // passed through onGloballyPositioned. Only fills in entries not already measured for real
     // (onGloballyPositioned's actual decoded size always wins over this estimate — see the put
     // guard below) and only overwrites its own prior estimate, never a real measurement.
+    //
+    // Kavita's dimension endpoint is best-effort — some pages in a chapter can legitimately come
+    // back without a known aspect ratio (entry.aspectRatio <= 0f). Leaving those entirely
+    // unestimated meant chapterTotalHeight in computeChapterFraction (which requires EVERY page
+    // of a chapter to have a known height) could never be computed until the user had physically
+    // scrolled past every single page at least once — permanently stuck for a chapter entered
+    // from the middle/end (e.g. scrolling backward into a chapter's last pages). Falls back to
+    // the AVERAGE aspect ratio of this same chapter's pages that DO have server data, since pages
+    // within one manga/webtoon chapter tend to share similar proportions; if the whole chapter has
+    // no server data at all, falls back to a generic 2:3 portrait ratio as a last resort.
     LaunchedEffect(entries, containerWidthPx) {
         if (containerWidthPx <= 0) return@LaunchedEffect
+        val averageAspectRatioByChapter = entries
+            .filterIsInstance<ListEntry.Page>()
+            .filter { it.aspectRatio > 0f }
+            .groupBy { it.chapterId }
+            .mapValues { (_, pages) -> pages.map { it.aspectRatio }.average().toFloat() }
+        android.util.Log.d("CoilDiagnostic", "fallback averageAspectRatioByChapter=$averageAspectRatioByChapter")
+        var filled = 0
         entries.forEach { entry ->
-            if (entry !is ListEntry.Page || entry.aspectRatio <= 0f) return@forEach
             val key = entry.key()
             if (key in itemHeights) return@forEach
-            itemHeights[key] = (containerWidthPx * entry.aspectRatio).toInt()
+            when (entry) {
+                is ListEntry.Page -> {
+                    val aspectRatio = entry.aspectRatio.takeIf { it > 0f }
+                        ?: averageAspectRatioByChapter[entry.chapterId]
+                        ?: (2f / 3f)
+                    itemHeights[key] = (containerWidthPx * aspectRatio).toInt()
+                    filled++
+                }
+                // Sdu entries (firstNode/lastNode — what used to be Header/Footer/Gap) have no
+                // image to derive an aspect ratio from — they're never covered by the Page
+                // fallback above, and never had ANY estimate path before onGloballyPositioned
+                // physically measured them. That meant computeChapterFraction's chapterStartTop
+                // walk could permanently fail for a chapter entered from the END (scrolling
+                // backward) — a firstNode, being the FIRST entry of that chapter, is the very last
+                // thing such a user would ever physically scroll past. SDU_ESTIMATED_HEIGHT_PX is
+                // a rough placeholder — always overwritten the moment the real node composes.
+                is ListEntry.Sdu -> {
+                    itemHeights[key] = SDU_ESTIMATED_HEIGHT_PX
+                    filled++
+                }
+            }
         }
+        android.util.Log.d("CoilDiagnostic", "fallback filled=$filled entriesCount=${entries.size} itemHeightsSize=${itemHeights.size}")
     }
 
     DisposableEffect(Unit) {
@@ -395,18 +493,30 @@ fun ReaderPageList(
         // of inferring it from timestamps.
         var lastAbsoluteScrollOffset: Int? = null
 
-        // Last chapterFraction that computeChapterFraction was actually able to compute (not the
-        // page-only scrollFraction fallback). computeChapterFraction returns null whenever an
-        // entry ahead of the viewport (commonly the chapter's own Footer, or a Page whose
-        // server-provided aspect ratio was unavailable and hasn't been measured on-device yet)
-        // hasn't reported a real height into itemHeights — which happens routinely right as the
-        // user crosses into a fresh page, since that's exactly when a new "ahead" entry comes
-        // into play. Falling back to scrollFraction (a single PAGE's own 0..1 fraction) on those
-        // null ticks made the bar visibly reset to ~0% every time a page boundary was crossed —
-        // reported by the user as "preenche e apaga a cada imagem". Holding the last good
-        // chapter-wide fraction instead means the bar just pauses growing for a tick or two
-        // rather than snapping backwards.
+        // DEPRECATED (kept for reference, no longer read): single shared "last good fraction"
+        // across ALL chapters. This was the root cause of a real bug — while crossing from
+        // chapter 40 back into 39, bottomPage's own fallback (see lastKnownBottomPage below) had
+        // already switched sources independently of this variable, so a tick could report
+        // chapterId=39 (from one fallback) alongside a chapterFraction still holding chapter 40's
+        // last value (from this shared variable) — two numbers from two different chapters
+        // stitched into one payload. Replaced by lastChapterFractionByChapterId below, keyed per
+        // chapterId, so a fallback value can never leak from one chapter into another's report.
         var lastChapterFraction = 0f
+
+        // Per-chapterId "last good chapterFraction" — see the DEPRECATED note above for why a
+        // single shared value was wrong. When computeChapterFraction can't compute a fresh value
+        // for the CURRENT bottomPage.chapterId this tick, we fall back to this chapter's own last
+        // known value (or 0f if it's never had one) — never another chapter's.
+        val lastChapterFractionByChapterId = HashMap<String, Float>()
+
+        // Per-tick "last good position" for bottomPage (chapterId+pageIndexInChapter as one
+        // atomic unit) — see the DEPRECATED note on the old `?: visibleEntry` fallback further
+        // down. computeBottomVisiblePageIndex failing on a given tick no longer means silently
+        // switching to a DIFFERENT calculation (visibleEntry, top-anchored) that can legitimately
+        // point at a different chapter during a trio-slide transition — it now just repeats the
+        // last successful bottomPage result, which is always internally consistent (chapterId and
+        // pageIndexInChapter always came from the same computeBottomVisiblePageIndex call).
+        var lastKnownBottomPage: ListEntry.Page? = null
 
         // Reading itemHeights.size inside the snapshotFlow block (not just inside collect) makes
         // this flow re-emit whenever a new item finishes measuring too — not only on scroll.
@@ -427,6 +537,7 @@ fun ReaderPageList(
             )
         }
             .collect { snapshot ->
+                android.util.Log.d("CoilDiagnostic", "collect tick firstVisibleIndex=${snapshot.firstVisibleItemIndex} offset=${snapshot.firstVisibleItemScrollOffset}")
                 val result = computeVisiblePageAndFraction(
                     entries = latestEntries,
                     itemHeights = itemHeights,
@@ -449,18 +560,33 @@ fun ReaderPageList(
                 // computed from the viewport's BOTTOM edge — not top-anchored visibleEntry above,
                 // which stays reserved for scrollFraction/CoilDiagnostic logging (untouched Kotlin
                 // landmarks logic, kept alive but unused by the bar per explicit instruction).
-                val bottomPage = computeBottomVisiblePageIndex(
+                //
+                // DEPRECATED fallback removed: `?: visibleEntry` used to substitute a DIFFERENT
+                // calculation (top-anchored, can legitimately point at a different chapter during
+                // a trio-slide transition) whenever this bottom-anchored one failed for a tick.
+                // Real bug traced to exactly this: mid-transition, bottomPage.chapterId could
+                // come from visibleEntry (chapter 40) while pageIndexInChapter still read like
+                // chapter 39's last page — two numbers from two different sources stitched into
+                // one payload no consumer could trust. Falling back to lastKnownBottomPage instead
+                // repeats the last internally-consistent result (chapterId + pageIndexInChapter
+                // always from the same computeBottomVisiblePageIndex call) rather than switching
+                // to a different, possibly-disagreeing source.
+                val computedBottomPage = computeBottomVisiblePageIndex(
                     entries = latestEntries,
                     itemHeights = itemHeights,
                     firstVisibleItemIndex = firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
                     viewportEndOffset = snapshot.viewportEndOffset,
-                ) ?: visibleEntry
+                )
+                val bottomPage = computedBottomPage ?: lastKnownBottomPage ?: visibleEntry
+                lastKnownBottomPage = bottomPage
 
                 // BABY STEP 2: continuous chapter-wide fraction (page-height-weighted), replacing
                 // baby step 1's coarse (pageIndex+1)/totalPages — see computeChapterFraction doc.
-                // Falls back to the page-only estimate while an entry ahead isn't measured yet
-                // (same "wait for landmarks" contract every compute* function here follows).
+                // Falls back to THIS CHAPTER's own last known good fraction (never another
+                // chapter's — see lastChapterFractionByChapterId doc above for the bug this fixes)
+                // while an entry ahead isn't measured yet (same "wait for landmarks" contract
+                // every compute* function here follows).
                 val chapterFraction = computeChapterFraction(
                     entries = latestEntries,
                     itemHeights = itemHeights,
@@ -468,7 +594,9 @@ fun ReaderPageList(
                     firstVisibleItemIndex = firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
                     viewportEndOffset = snapshot.viewportEndOffset,
-                )?.also { lastChapterFraction = it } ?: lastChapterFraction
+                )?.also { lastChapterFractionByChapterId[bottomPage.chapterId] = it }
+                    ?: lastChapterFractionByChapterId[bottomPage.chapterId]
+                    ?: 0f
 
                 android.util.Log.d(
                     "CoilDiagnostic",
@@ -517,14 +645,8 @@ fun ReaderPageList(
                     },
                 ) {
                     when (entry) {
-                        is ListEntry.Header -> ChapterHeaderItem(chapterTitle = entry.block.chapterTitle)
+                        is ListEntry.Sdu -> SduNodeView(entry.node)
                         is ListEntry.Page -> ReaderPageImage(url = entry.url, aspectRatio = entry.aspectRatio)
-                        is ListEntry.Footer -> ChapterFooterItem(
-                            endOfChapterLabel = entry.block.endOfChapterLabel,
-                            nextChapterLabel = entry.block.nextChapterLabel,
-                            nextChapterTitle = entry.block.nextChapterTitle,
-                        )
-                        is ListEntry.Gap -> ChapterGapItem()
                     }
                 }
             }
@@ -532,70 +654,73 @@ fun ReaderPageList(
     }
 }
 
-/** Spacer between consecutive chapter blocks — gives scroll a bit of dead zone before the next
- * chapter's Page items can become the most-visible item, avoiding accidental chapter switches
- * right as the Footer/Header boundary scrolls past. Mirrors the reference project's Gap. */
-@Composable
-internal fun ChapterGapItem() {
-    Box(modifier = Modifier.fillMaxWidth().height(48.dp).background(Color.Black))
-}
-
-/** Mirrors the RN dummy ChapterHeader.tsx visual contract — black background, no series name yet. */
-@Composable
-internal fun ChapterHeaderItem(chapterTitle: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            chapterTitle,
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-        )
-    }
-}
-
-/** Mirrors the RN dummy ChapterFooter.tsx visual contract — end-of-chapter label + next preview. */
-@Composable
-internal fun ChapterFooterItem(
-    endOfChapterLabel: String,
-    nextChapterLabel: String,
-    nextChapterTitle: String?,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(endOfChapterLabel, color = ReaderMutedText, fontSize = 14.sp)
-        if (nextChapterTitle != null) {
-            Text(
-                nextChapterLabel,
-                color = ReaderMutedText,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 16.dp),
-            )
-            Text(
-                nextChapterTitle,
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
-private val ReaderMutedText = Color(0xFFA0AEC0)
+// SUPERSEDED by the Server-Driven UI migration (see SduNode.kt): ChapterGapItem/
+// ChapterHeaderItem/ChapterFooterItem used to hardcode Header/Footer/Gap's visual shape in
+// Kotlin. RN now sends that same visual (colors, text, spacing) as an SduNode tree via
+// ChapterBlock.firstNode/lastNode, rendered generically by SduNodeView — Kotlin no longer has a
+// fixed idea of what a "header" looks like. Kept here, commented, as a reference for the visual
+// contract these used to encode (black background, white title, 32.dp padding, muted footer
+// text) in case the SDU tree needs to reproduce it exactly from the RN side.
+//
+// @Composable
+// internal fun ChapterGapItem() {
+//     Box(modifier = Modifier.fillMaxWidth().height(48.dp).background(Color.Black))
+// }
+//
+// @Composable
+// internal fun ChapterHeaderItem(chapterTitle: String) {
+//     Column(
+//         modifier = Modifier
+//             .fillMaxWidth()
+//             .background(Color.Black)
+//             .padding(horizontal = 24.dp, vertical = 32.dp),
+//         horizontalAlignment = Alignment.CenterHorizontally,
+//     ) {
+//         Text(
+//             chapterTitle,
+//             color = Color.White,
+//             fontSize = 20.sp,
+//             fontWeight = FontWeight.SemiBold,
+//             textAlign = TextAlign.Center,
+//             maxLines = 2,
+//         )
+//     }
+// }
+//
+// @Composable
+// internal fun ChapterFooterItem(
+//     endOfChapterLabel: String,
+//     nextChapterLabel: String,
+//     nextChapterTitle: String?,
+// ) {
+//     Column(
+//         modifier = Modifier
+//             .fillMaxWidth()
+//             .background(Color.Black)
+//             .padding(horizontal = 24.dp, vertical = 32.dp),
+//         horizontalAlignment = Alignment.CenterHorizontally,
+//     ) {
+//         Text(endOfChapterLabel, color = ReaderMutedText, fontSize = 14.sp)
+//         if (nextChapterTitle != null) {
+//             Text(
+//                 nextChapterLabel,
+//                 color = ReaderMutedText,
+//                 fontSize = 12.sp,
+//                 modifier = Modifier.padding(top = 16.dp),
+//             )
+//             Text(
+//                 nextChapterTitle,
+//                 color = Color.White,
+//                 fontSize = 16.sp,
+//                 fontWeight = FontWeight.SemiBold,
+//                 textAlign = TextAlign.Center,
+//                 maxLines = 1,
+//             )
+//         }
+//     }
+// }
+//
+// private val ReaderMutedText = Color(0xFFA0AEC0)
 
 @Composable
 internal fun ReaderPageImage(url: String, aspectRatio: Float = 0f) {

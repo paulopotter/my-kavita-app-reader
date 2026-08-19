@@ -1,16 +1,18 @@
 import React from 'react';
 import { Dimensions, NativeSyntheticEvent, requireNativeComponent, ViewStyle } from 'react-native';
+import type { SduNode } from '../SduNode';
 
 export interface ReaderChapterBlock {
   chapterId: string;
-  chapterTitle: string;
   pageUrls: string[];
   // Height/width aspect ratio per page (aligned by index with pageUrls) — 0 means "unavailable,
   // fall back to measuring this page once it's decoded on-device". See ChapterWithPages.pageAspectRatios.
   pageAspectRatios: number[];
-  nextChapterTitle: string | null;
-  endOfChapterLabel: string;
-  nextChapterLabel: string;
+  // Server-Driven UI (see SduNode.ts doc): everything rendered BEFORE this chapter's pages
+  // (typically a Gap + title) / AFTER them (typically an end-of-chapter label + next preview).
+  // Either can be null — RN decides, Kotlin just draws whatever tree it's handed.
+  firstNode: SduNode | null;
+  lastNode: SduNode | null;
 }
 
 interface VisiblePageChangedEvent {

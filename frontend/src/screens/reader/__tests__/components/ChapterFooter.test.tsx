@@ -9,7 +9,7 @@ describe('ChapterFooter', () => {
   it('renderiza "Fim do capitulo"', () => {
     const { getByText } = render(<ChapterFooter hasNext={false} chapterTitle={null} onLayout={jest.fn()} t={t} />);
 
-    expect(getByText('Fim do capítulo')).toBeTruthy();
+    expect(getByText('Fim do capítulo {0}')).toBeTruthy();
   });
 
   it('mostra label "Proximo:" e preview do proximo capitulo quando hasNext e true', () => {

@@ -22,6 +22,20 @@ class ReaderPageListTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private fun headerNode(chapterTitle: String): SduNode =
+        SduNode.Container(children = listOf(SduNode.TextNode(text = chapterTitle, bold = true, fontSizeSp = 20)))
+
+    private fun footerNode(endOfChapterLabel: String, nextChapterLabel: String, nextChapterTitle: String?): SduNode =
+        SduNode.Container(
+            children = buildList {
+                add(SduNode.TextNode(text = endOfChapterLabel, fontSizeSp = 14))
+                if (nextChapterTitle != null) {
+                    add(SduNode.TextNode(text = nextChapterLabel, fontSizeSp = 12))
+                    add(SduNode.TextNode(text = nextChapterTitle, bold = true, fontSizeSp = 16))
+                }
+            },
+        )
+
     private fun block(
         chapterId: String,
         chapterTitle: String,
@@ -30,12 +44,10 @@ class ReaderPageListTest {
         pageAspectRatios: List<Float> = emptyList(),
     ) = ChapterBlock(
         chapterId = chapterId,
-        chapterTitle = chapterTitle,
         pageUrls = pageUrls,
         pageAspectRatios = pageAspectRatios,
-        nextChapterTitle = nextChapterTitle,
-        endOfChapterLabel = "Fim do capítulo",
-        nextChapterLabel = "Próximo:",
+        firstNode = headerNode(chapterTitle),
+        lastNode = footerNode("Fim do capítulo", "Próximo:", nextChapterTitle),
     )
 
     @Test
@@ -112,13 +124,9 @@ class ReaderPageListTest {
     }
 
     @Test
-    fun `footer shows the next chapter preview when a next chapter exists`() {
+    fun `footer node shows the next chapter preview when a next chapter exists`() {
         composeRule.setContent {
-            ChapterFooterItem(
-                endOfChapterLabel = "Fim do capítulo",
-                nextChapterLabel = "Próximo:",
-                nextChapterTitle = "Capítulo 2. A Jornada",
-            )
+            SduNodeView(footerNode("Fim do capítulo", "Próximo:", "Capítulo 2. A Jornada"))
         }
 
         composeRule.waitForIdle()
@@ -127,13 +135,9 @@ class ReaderPageListTest {
     }
 
     @Test
-    fun `footer omits the next chapter preview when there is no next chapter`() {
+    fun `footer node omits the next chapter preview when there is no next chapter`() {
         composeRule.setContent {
-            ChapterFooterItem(
-                endOfChapterLabel = "Fim do capítulo",
-                nextChapterLabel = "Próximo:",
-                nextChapterTitle = null,
-            )
+            SduNodeView(footerNode("Fim do capítulo", "Próximo:", null))
         }
 
         composeRule.waitForIdle()
@@ -229,5 +233,33 @@ class ReaderPageListTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Falha ao carregar página").assertExists()
         composeRule.onNodeWithText("Tentar novamente").assertExists()
+    }
+
+    @Test
+    fun `a null firstNode and lastNode render no Sdu entry around the chapter's pages`() {
+        // Server-Driven UI: RN decides whether a Gap/Header/Footer exists at all by sending null
+        // — e.g. the first loaded chapter of a trio has no Gap-above (firstNode = null), and a
+        // chapter with no loaded next neighbor has no Footer/next-preview (lastNode = null).
+        // Kotlin must render just the pages in that case, not crash or insert a placeholder.
+        composeRule.setContent {
+            ReaderPageList(
+                blocks = listOf(
+                    ChapterBlock(
+                        chapterId = "c1",
+                        pageUrls = listOf("https://example.com/1.webp"),
+                        pageAspectRatios = emptyList(),
+                        firstNode = null,
+                        lastNode = null,
+                    ),
+                ),
+            )
+        }
+
+        composeRule.waitForIdle()
+        // No crash and no Header/Footer text present — the only content is what a bare Page
+        // itself renders (asserting absence, since there's no title text to check for existence).
+        composeRule.onRoot().printToString().let { tree ->
+            assertTrue(!tree.contains("Fim do capítulo"))
+        }
     }
 }
