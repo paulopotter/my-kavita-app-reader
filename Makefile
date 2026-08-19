@@ -1,7 +1,7 @@
 .PHONY: setup build-android build-bundle build-all deploy log server help \
         ota-none ota-required ota-highly-recommended ota-recommended \
         coverage coverage-kotlin coverage-js \
-        kill
+        kill redeploy-log
 
 APP_PACKAGE  := com.mymangareader
 APP_ACTIVITY := .SplashActivity
@@ -24,6 +24,7 @@ MSG_DEPLOY               := Instala o APK no dispositivo físico via USB
 MSG_LOG                  := Exibe logs do app em tempo real via adb logcat
 MSG_SERVER               := Levanta servidor OTA local na porta 8080 (adb reverse incluso)
 MSG_KILL                 := Force-stop do app no dispositivo (sem desinstalar)
+MSG_REDEPLOY_LOG         := Kill + build + deploy + log, salvando em /tmp/reader-log-vN.txt
 MSG_OTA_NONE             := OTA sem policy — só baixa e aplica o bundle
 MSG_OTA_REQUIRED         := OTA policy=required — tela de bloqueio, app não abre
 MSG_OTA_HIGH             := OTA policy=highly_recommended — popup bloqueante, app abre sem baixar
@@ -57,6 +58,7 @@ MSG_DEPLOY               := Install APK on physical device via USB
 MSG_LOG                  := Stream app logs via adb logcat
 MSG_SERVER               := Start local OTA server on port 8080 (adb reverse included)
 MSG_KILL                 := Force-stop the app on device (no uninstall)
+MSG_REDEPLOY_LOG         := Kill + build + deploy + log, saved to /tmp/reader-log-vN.txt
 MSG_OTA_NONE             := OTA no policy — download and apply bundle only
 MSG_OTA_REQUIRED         := OTA policy=required — blocking screen, app cannot open
 MSG_OTA_HIGH             := OTA policy=highly_recommended — blocking popup, app opens without downloading
@@ -89,6 +91,7 @@ help: ## help
 	@printf "  \033[36m%-26s\033[0m %s\n" "deploy"                  "$(MSG_DEPLOY)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "kill"                    "$(MSG_KILL)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "log"                     "$(MSG_LOG)"
+	@printf "  \033[36m%-26s\033[0m %s\n" "redeploy-log"            "$(MSG_REDEPLOY_LOG)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "server"                  "$(MSG_SERVER)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "ota-none"                "$(MSG_OTA_NONE)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "ota-required"            "$(MSG_OTA_REQUIRED)"
@@ -156,6 +159,19 @@ log: ## $(MSG_LOG)
 	  echo "Não foi possível obter o PID — exibindo logcat filtrado por pacote:"; \
 	  adb logcat | grep "$(APP_PACKAGE)"; \
 	fi
+
+redeploy-log: ## $(MSG_REDEPLOY_LOG)
+	@clear; \
+	adb_out=$$(adb devices); \
+	echo "$$adb_out"; \
+	extra_devices=$$(echo "$$adb_out" | grep -v "List of devices" | grep -v -e '^$$'); \
+	if [ $$(echo "$$extra_devices" | wc -l) -gt 1 ]; then \
+	  serial=$$(echo "$$extra_devices" | tail -n +2 | head -n1 | awk '{print $$1}'); \
+	  [ -n "$$serial" ] && adb disconnect "$$serial"; \
+	fi; \
+	X=$$(( $$(cat /tmp/counter.txt 2>/dev/null || echo 0) + 1 )); \
+	($(MAKE) kill && $(MAKE) build-all && $(MAKE) deploy && $(MAKE) log) 2>&1 | tee /tmp/reader-log-v$${X}.txt; \
+	echo $$X > /tmp/counter.txt
 
 server: ## $(MSG_SERVER)
 	@scripts/ota-local-server.sh
