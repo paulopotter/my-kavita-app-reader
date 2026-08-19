@@ -13,6 +13,7 @@ const mockFetchKeepScreenOnPref = jest.fn().mockResolvedValue(false);
 const mockKeepScreenOnBridge = jest.fn().mockResolvedValue(undefined);
 const mockAllowScreenOff = jest.fn().mockResolvedValue(undefined);
 const mockFetchPageAspectRatios = jest.fn().mockResolvedValue([]);
+const mockFetchSeriesName = jest.fn().mockResolvedValue('');
 
 jest.mock('../ReaderService', () => ({
   fetchLocalProgress: (...args: unknown[]) => mockFetchLocalProgress(...args),
@@ -25,6 +26,7 @@ jest.mock('../ReaderService', () => ({
   keepScreenOn: (...args: unknown[]) => mockKeepScreenOnBridge(...args),
   allowScreenOff: (...args: unknown[]) => mockAllowScreenOff(...args),
   fetchPageAspectRatios: (...args: unknown[]) => mockFetchPageAspectRatios(...args),
+  fetchSeriesName: (...args: unknown[]) => mockFetchSeriesName(...args),
 }));
 
 let netInfoListener: ((state: { isConnected: boolean | null }) => void) | null = null;
@@ -401,6 +403,49 @@ describe('useReader — navegação entre capítulos', () => {
 
     expect(mockMarkChapterRead).not.toHaveBeenCalled();
     expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+  });
+
+  it('avancar busca o novo next (nao deixa a seta seguinte presa em null)', async () => {
+    // Bug real: avancar de c1 para c2 deixava o novo next como null (nunca buscava c3), o que
+    // travava a seta de "proximo capitulo" mesmo havendo mais capitulos na serie — reportado ao
+    // navegar em cadeia (ex: cap 67 -> 66 -> deveria continuar ate 65, mas a seta ficava presa).
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+      makeChapter({ id: 'c3', number: '3' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
+
+    await act(async () => {
+      await result.current.advanceToNextChapter();
+    });
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c2');
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c3'));
+  });
+
+  it('retroceder busca o novo prev (nao deixa a seta anterior presa em null)', async () => {
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+      makeChapter({ id: 'c3', number: '3' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c2'));
+
+    await act(async () => {
+      await result.current.retreatToPrevChapter();
+    });
+
+    expect(result.current.viewer?.curr.chapter.id).toBe('c2');
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c1'));
   });
 });
 

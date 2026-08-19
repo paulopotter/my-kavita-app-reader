@@ -5,6 +5,7 @@ import {
   fetchKeepScreenOnPref,
   fetchLocalProgress,
   fetchServerReadProgress,
+  fetchSeriesName,
   keepScreenOn,
   markChapterRead,
   markChapterUnread,
@@ -28,6 +29,7 @@ jest.mock('../../../shared/bridge/series', () => ({
   SeriesBridge: {
     markChaptersRead: jest.fn(),
     markChaptersUnread: jest.fn(),
+    getSeriesDetail: jest.fn(),
   },
 }));
 
@@ -95,5 +97,18 @@ describe('ReaderService', () => {
     await markChapterUnread('s1', 'c1');
 
     expect(SeriesBridge.markChaptersUnread).toHaveBeenCalledWith('s1', ['c1']);
+  });
+
+  it('fetchSeriesName retorna o name resolvido por SeriesBridge.getSeriesDetail', async () => {
+    (SeriesBridge.getSeriesDetail as jest.Mock).mockResolvedValue({
+      id: 's1',
+      name: 'One Piece',
+      coverImageUrl: 'http://example.com/cover.jpg',
+    });
+
+    const result = await fetchSeriesName('s1');
+
+    expect(SeriesBridge.getSeriesDetail).toHaveBeenCalledWith('s1');
+    expect(result).toBe('One Piece');
   });
 });
