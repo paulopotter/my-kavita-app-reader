@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { ReaderChapterBlock, ReaderPageListView } from './components/ReaderPageListView';
+import { ReaderOverlayFooter } from './components/ReaderOverlayFooter';
+import { ReaderSideProgressBar } from './components/ReaderSideProgressBar';
 import { ReaderThinProgressBar } from './components/ReaderThinProgressBar';
+import { ReaderTopBar } from './components/ReaderTopBar';
 import { chapterHeaderTitle, progressBarFraction } from './ReaderTransform';
 import { useReader } from './useReader';
 
@@ -14,10 +17,15 @@ type RouteParams = {
 
 export function ReaderScreen() {
   const route = useRoute<RouteProp<RouteParams, 'Reader'>>();
+  const navigation = useNavigation();
   const { seriesId, chapterId } = route.params ?? {};
   const t = useStrings();
 
   const reader = useReader(seriesId, chapterId);
+
+  const handleBack = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
 
   useEffect(() => {
     return () => {
@@ -92,9 +100,6 @@ export function ReaderScreen() {
   const scrollToChapterId = reader.scrollToPageRequest != null ? curr.chapter.id : null;
   const scrollToPageIndex = reader.scrollToPageRequest ?? -1;
 
-  // TEMP DEBUG: isolando a ReaderPageListView nativa sem Pressable/overlay por cima ainda, para
-  // manter o isolamento usado na investigação do bug de decode — só a barra fina de progresso
-  // volta por enquanto.
   return (
     <View style={styles.root}>
       <ReaderPageListView
@@ -103,11 +108,31 @@ export function ReaderScreen() {
         scrollToPageIndex={scrollToPageIndex}
         onVisiblePageChanged={handleVisiblePageChanged}
         onScrollToChapterHandled={reader.handleScrollToPageHandled}
+        onTap={reader.toggleOverlay}
       />
-      <ReaderThinProgressBar
-        fraction={progressBarFraction(reader.chapterFraction)}
-        pageFraction={reader.scrollFraction}
+      {!reader.overlayVisible && (
+        <ReaderThinProgressBar
+          fraction={progressBarFraction(reader.chapterFraction)}
+          pageFraction={reader.scrollFraction}
+        />
+      )}
+      <ReaderTopBar
+        seriesName={reader.seriesName}
+        chapterTitle={chapterHeaderTitle(curr.chapter, t)}
+        onBack={handleBack}
+        visible={reader.overlayVisible}
       />
+      <ReaderSideProgressBar
+        totalPages={curr.pages.length}
+        currentPage={reader.currentVisiblePage}
+        onPageSelect={reader.scrollToPage}
+        onPrevChapter={reader.goToPrevChapterManual}
+        onNextChapter={reader.goToNextChapterManual}
+        hasPrev={reader.viewer.prev != null}
+        hasNext={reader.viewer.next != null}
+        visible={reader.overlayVisible}
+      />
+      <ReaderOverlayFooter visible={reader.overlayVisible} />
     </View>
   );
 }

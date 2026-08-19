@@ -28,6 +28,7 @@ interface NativeProps {
   scrollToPageIndex: number;
   onVisiblePageChanged?: (event: NativeSyntheticEvent<VisiblePageChangedEvent>) => void;
   onScrollToChapterHandled?: () => void;
+  onTap?: () => void;
 }
 
 const RCTReaderPageListView = requireNativeComponent<NativeProps>('ReaderPageListView');
@@ -41,6 +42,7 @@ interface Props {
   scrollToPageIndex: number;
   onVisiblePageChanged?: (chapterId: string, pageIndex: number, pageFraction: number, chapterFraction: number) => void;
   onScrollToChapterHandled?: () => void;
+  onTap?: () => void;
 }
 
 // flex:1 sozinho não é suficiente para Views nativas customizadas sem filhos JS — o Yoga não
@@ -57,6 +59,7 @@ export function ReaderPageListView({
   scrollToPageIndex,
   onVisiblePageChanged,
   onScrollToChapterHandled,
+  onTap,
 }: Props) {
   return (
     <RCTReaderPageListView
@@ -77,6 +80,7 @@ export function ReaderPageListView({
           : undefined
       }
       onScrollToChapterHandled={onScrollToChapterHandled}
+      onTap={onTap}
     />
   );
 }

@@ -65,3 +65,8 @@ export async function markChapterRead(seriesId: string, chapterId: string): Prom
 export async function markChapterUnread(seriesId: string, chapterId: string): Promise<void> {
   return SeriesBridge.markChaptersUnread(seriesId, [chapterId]);
 }
+
+export async function fetchSeriesName(seriesId: string): Promise<string> {
+  const detail = await SeriesBridge.getSeriesDetail(seriesId);
+  return detail.name;
+}

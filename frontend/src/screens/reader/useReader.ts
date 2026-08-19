@@ -18,6 +18,7 @@ import {
   fetchLocalProgress,
   fetchPageAspectRatios,
   fetchServerReadProgress,
+  fetchSeriesName,
   keepScreenOn as keepScreenOnBridge,
   markChapterRead,
   markChapterUnread,
@@ -44,6 +45,7 @@ export interface State {
   loading: boolean;
   error: string | null;
   viewer: ViewerChapters | null;
+  seriesName: string;
   overlayVisible: boolean;
   currentVisiblePage: number;
   scrollToPageRequest: number | null;
@@ -66,6 +68,7 @@ export type Action =
   | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number; chapterFraction: number }
   | { type: 'SCROLL_TO_PAGE'; page: number }
   | { type: 'SCROLL_TO_PAGE_HANDLED' }
+  | { type: 'SERIES_NAME_LOADED'; seriesName: string }
   | { type: 'TOGGLE_OVERLAY' }
   | { type: 'SET_OFFLINE'; offline: boolean }
   | { type: 'OPTIMISTIC_MARK_READ'; chapterId: string }
@@ -142,6 +145,8 @@ export function reducer(state: State, action: Action): State {
       return { ...state, currentVisiblePage: action.page, scrollToPageRequest: action.page };
     case 'SCROLL_TO_PAGE_HANDLED':
       return { ...state, scrollToPageRequest: null };
+    case 'SERIES_NAME_LOADED':
+      return { ...state, seriesName: action.seriesName };
     case 'TOGGLE_OVERLAY':
       return { ...state, overlayVisible: !state.overlayVisible };
     case 'SET_OFFLINE':
@@ -163,6 +168,7 @@ export const initial: State = {
   loading: true,
   error: null,
   viewer: null,
+  seriesName: '',
   overlayVisible: false,
   currentVisiblePage: 0,
   scrollToPageRequest: null,
@@ -181,6 +187,12 @@ export function useReader(seriesId: string, chapterId: string) {
   currentPageRef.current = state.currentVisiblePage;
   const scrollFractionRef = useRef(0);
   scrollFractionRef.current = state.scrollFraction;
+
+  // Lista de capítulos da série ordenada por número, preenchida em loadInitialViewer — permite
+  // que advanceToNextChapter/retreatToPrevChapter descubram o novo vizinho que ficou faltando
+  // após deslizar o trio (ex: ao retroceder do 67 pro 66, o novo prev é o 65, não null) sem
+  // precisar rebuscar a lista inteira a cada troca de capítulo.
+  const orderedChaptersRef = useRef<Chapter[]>([]);
 
   const lastSyncedPageRef = useRef<Map<string, number>>(new Map());
   const suppressServerSyncRef = useRef<Set<string>>(new Set());
@@ -321,6 +333,22 @@ export function useReader(seriesId: string, chapterId: string) {
     }
   }, []);
 
+  // Chamado logo após advanceToNextChapter/retreatToPrevChapter deslizarem o trio — o lado que
+  // ficou null (o novo next ao avançar, o novo prev ao retroceder) precisa ser buscado de novo
+  // usando orderedChaptersRef, senão a seta correspondente fica presa desabilitada mesmo
+  // havendo mais capítulos naquela direção (ex: sair do 67 pro 66 deixava prev=null, sem nunca
+  // buscar o 65, mesmo ele existindo).
+  const loadMissingNeighbor = useCallback(
+    (side: 'prev' | 'next', currentChapterId: string) => {
+      const chapters = orderedChaptersRef.current;
+      const currIndex = chapters.findIndex(c => c.id === currentChapterId);
+      if (currIndex === -1) {return;}
+      const neighbor = side === 'prev' ? chapters[currIndex - 1] : chapters[currIndex + 1];
+      loadNeighbor(side, neighbor ?? null);
+    },
+    [loadNeighbor],
+  );
+
   const latestRequestedChapterIdRef = useRef<string | null>(null);
 
   const loadInitialViewer = useCallback(
@@ -334,6 +362,7 @@ export function useReader(seriesId: string, chapterId: string) {
         // rowid/inserção, não pela sequência de leitura. Vizinhos prev/next só fazem sentido
         // calculados sobre a lista ordenada por número de capítulo.
         const chapters = [...unsortedChapters].sort(chapterNumberComparator);
+        orderedChaptersRef.current = chapters;
         const currIndex = chapters.findIndex(c => c.id === targetChapterId);
         if (currIndex === -1) {
           console.log(`[Reader] loadInitialViewer: chapter not found in cached list (len=${chapters.length})`);
@@ -396,6 +425,18 @@ export function useReader(seriesId: string, chapterId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchSeriesName(seriesId)
+      .then(name => {
+        if (!cancelled) {dispatch({ type: 'SERIES_NAME_LOADED', seriesName: name });}
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesId]);
+
   const advanceToNextChapter = useCallback(async () => {
     const viewer = viewerRef.current;
     if (!viewer || !viewer.next || state.isAdvancing) {return;}
@@ -407,7 +448,8 @@ export function useReader(seriesId: string, chapterId: string) {
     await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
     const nextViewer: ViewerChapters = { prev: viewer.curr, curr: viewer.next, next: null };
     dispatch({ type: 'SET_VIEWER', viewer: nextViewer, page: 0, scrollFraction: 0 });
-  }, [markAsReadIfNeeded, state.isAdvancing]);
+    loadMissingNeighbor('next', nextViewer.curr.chapter.id);
+  }, [markAsReadIfNeeded, state.isAdvancing, loadMissingNeighbor]);
 
   const retreatToPrevChapter = useCallback(async () => {
     const viewer = viewerRef.current;
@@ -415,7 +457,8 @@ export function useReader(seriesId: string, chapterId: string) {
     dispatch({ type: 'SET_ADVANCING', isAdvancing: true });
     const prevViewer: ViewerChapters = { prev: null, curr: viewer.prev, next: viewer.curr };
     dispatch({ type: 'SET_VIEWER', viewer: prevViewer, page: 0, scrollFraction: 0 });
-  }, [state.isAdvancing]);
+    loadMissingNeighbor('prev', prevViewer.curr.chapter.id);
+  }, [state.isAdvancing, loadMissingNeighbor]);
 
   const goToNextChapterManual = useCallback(async () => {
     await advanceToNextChapter();
