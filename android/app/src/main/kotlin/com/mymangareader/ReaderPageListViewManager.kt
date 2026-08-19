@@ -66,5 +66,6 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         MapBuilder.of(
             "onVisiblePageChanged", MapBuilder.of("registrationName", "onVisiblePageChanged"),
             "onScrollToChapterHandled", MapBuilder.of("registrationName", "onScrollToChapterHandled"),
+            "onTap", MapBuilder.of("registrationName", "onTap"),
         )
 }

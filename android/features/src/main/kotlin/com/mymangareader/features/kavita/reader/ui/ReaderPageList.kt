@@ -2,6 +2,7 @@ package com.mymangareader.features.kavita.reader.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
@@ -27,6 +28,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -310,6 +312,13 @@ fun ReaderPageList(
     // computeChapterFraction) driving the progress bar — the "Y%" for the chapter as a whole.
     onVisiblePageChanged: (chapterId: String, pageIndex: Int, pageFraction: Float, chapterFraction: Float) -> Unit = { _, _, _, _ -> },
     onScrollToChapterHandled: () -> Unit = {},
+    // Tap detected directly on the LazyColumn via pointerInput/detectTapGestures — mirrors the
+    // reference project's WebtoonColumn onTap. Doing this here (not via an RN Pressable overlay)
+    // is what lets Compose's own gesture recognizer stay in the same touch-arbitration tree as
+    // the LazyColumn's scroll gesture, so a tap never races with (and sometimes blocks) scroll —
+    // an RN-side PanResponder placed over this native view raced the Compose gesture detector for
+    // the touch stream and intermittently ate scroll gestures, confirmed on-device.
+    onTap: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -483,9 +492,13 @@ fun ReaderPageList(
 
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize().onGloballyPositioned { coordinates ->
-            containerWidthPx = coordinates.size.width
-        },
+        modifier = modifier.fillMaxSize()
+            .onGloballyPositioned { coordinates ->
+                containerWidthPx = coordinates.size.width
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { onTap() })
+            },
     ) {
         entries.forEach { entry ->
             item(key = entry.key()) {

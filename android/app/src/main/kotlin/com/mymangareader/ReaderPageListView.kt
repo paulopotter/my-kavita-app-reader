@@ -58,6 +58,7 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
             scrollToPageIndex = currentScrollToPageIndex,
             onVisiblePageChanged = ::emitVisiblePageChanged,
             onScrollToChapterHandled = ::emitScrollToChapterHandled,
+            onTap = ::emitTap,
         )
     }
 
@@ -79,5 +80,12 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
         reactContext
             .getJSModule(RCTEventEmitter::class.java)
             .receiveEvent(id, "onScrollToChapterHandled", Arguments.createMap())
+    }
+
+    private fun emitTap() {
+        val reactContext = context as? ReactContext ?: return
+        reactContext
+            .getJSModule(RCTEventEmitter::class.java)
+            .receiveEvent(id, "onTap", Arguments.createMap())
     }
 }

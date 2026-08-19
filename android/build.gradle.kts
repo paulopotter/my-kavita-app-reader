@@ -42,14 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=49 — bump this value whenever coverage improves (never lower it).
-            // Was 48 as of 2026-08-14. Reader page rendering migrated from classic View +
-            // manual bitmap slicing (PageListAdapter, removed) to Jetpack Compose
-            // (ReaderPageList, SubcomposeAsyncImage) — real measured value is ~49.85%.
+            // COVERAGE_FLOOR_KOTLIN=57 — bump this value whenever coverage improves (never lower it).
+            // Was 49 as of 2026-08-14. Reader tap-to-toggle overlay work (detectTapGestures in
+            // ReaderPageList.kt, onTap plumbing in ReaderPageListView/ReaderPageListViewManager)
+            // — real measured value is ~58.37%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 49
+                        minValue = 57
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
