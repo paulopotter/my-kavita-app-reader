@@ -27,10 +27,12 @@ class ReaderPageListTest {
         chapterTitle: String,
         pageUrls: List<String>,
         nextChapterTitle: String? = null,
+        pageAspectRatios: List<Float> = emptyList(),
     ) = ChapterBlock(
         chapterId = chapterId,
         chapterTitle = chapterTitle,
         pageUrls = pageUrls,
+        pageAspectRatios = pageAspectRatios,
         nextChapterTitle = nextChapterTitle,
         endOfChapterLabel = "Fim do capítulo",
         nextChapterLabel = "Próximo:",
@@ -69,7 +71,7 @@ class ReaderPageListTest {
                 blocks = listOf(
                     block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
                 ),
-                onVisiblePageChanged = { chapterId, pageIndex ->
+                onVisiblePageChanged = { chapterId, pageIndex, _, _ ->
                     lastChapterId = chapterId
                     lastPageIndex = pageIndex
                 },
@@ -77,6 +79,7 @@ class ReaderPageListTest {
         }
 
         composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000) { lastChapterId != null }
         assertTrue(lastChapterId == "c1")
         assertTrue(lastPageIndex >= 0)
     }

@@ -44,10 +44,18 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         val chapterTitle = map.getString("chapterTitle") ?: return null
         val pageUrlsArray = map.getArray("pageUrls") ?: return null
         val pageUrls = (0 until pageUrlsArray.size()).mapNotNull { pageUrlsArray.getString(it) }
+        // 0 (or a missing/short array) means "unavailable" for that page — ReaderPageList treats
+        // a non-positive ratio the same as never having received one, falling back to measuring
+        // that page once it's actually decoded on-device. See ChapterBlock.pageAspectRatios.
+        val pageAspectRatiosArray = map.getArray("pageAspectRatios")
+        val pageAspectRatios = pageUrls.indices.map { index ->
+            pageAspectRatiosArray?.takeIf { index < it.size() }?.getDouble(index)?.toFloat() ?: 0f
+        }
         return ChapterBlock(
             chapterId = chapterId,
             chapterTitle = chapterTitle,
             pageUrls = pageUrls,
+            pageAspectRatios = pageAspectRatios,
             nextChapterTitle = map.getString("nextChapterTitle"),
             endOfChapterLabel = map.getString("endOfChapterLabel").orEmpty(),
             nextChapterLabel = map.getString("nextChapterLabel").orEmpty(),

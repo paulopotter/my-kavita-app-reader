@@ -19,10 +19,13 @@ private const val MARK_MULTIPLE_READ_PATH = "/api/Reader/mark-multiple-read"
 private const val MARK_MULTIPLE_UNREAD_PATH = "/api/Reader/mark-multiple-unread"
 private const val GET_PROGRESS_PATH = "/api/Reader/get-progress"
 private const val PAGE_IMAGE_PATH = "/api/reader/image"
+private const val CHAPTER_INFO_PATH = "/api/Reader/chapter-info"
 
 private val chapterJson = Json { ignoreUnknownKeys = true }
 
 data class LocalProgress(val page: Int, val scrollFraction: Float)
+
+data class PageDimension(val pageNumber: Int, val width: Int, val height: Int)
 
 @Singleton
 class KavitaChapterFeature @Inject constructor(
@@ -53,6 +56,18 @@ class KavitaChapterFeature @Inject constructor(
     @Serializable
     private data class ProgressDto(
         val pageNum: Int = 0,
+    )
+
+    @Serializable
+    private data class PageDimensionDto(
+        val width: Int = 0,
+        val height: Int = 0,
+        val pageNumber: Int = 0,
+    )
+
+    @Serializable
+    private data class ChapterInfoDto(
+        val pageDimensions: List<PageDimensionDto> = emptyList(),
     )
 
     suspend fun listChaptersForSeries(seriesId: String): Result<List<ChapterCacheEntity>> {
@@ -131,6 +146,28 @@ class KavitaChapterFeature @Inject constructor(
 
     suspend fun getPageCacheUrls(chapterId: String): Result<List<Pair<Int, String>>> =
         runCatching { pageCacheDao.getByChapterId(chapterId).map { it.pageIndex to it.url } }
+
+    // Kavita already extracts/caches every page while indexing the library, so this returns page
+    // pixel dimensions as JSON without downloading any image bytes — used to size the reader's
+    // progress-bar landmarks (see ReaderPageList's itemHeights) before a page has actually been
+    // decoded on-device, instead of only finding out its height once it scrolls into view.
+    suspend fun getPageDimensions(chapterId: String): Result<List<PageDimension>> {
+        val auth = authConfigDao.get() ?: return Result.failure(IllegalStateException("Not authenticated"))
+        val jwt = auth.jwt ?: return Result.failure(IllegalStateException("Not authenticated"))
+        val baseUrl = urlSource.getActiveUrl().getOrElse { return Result.failure(it) }
+
+        return requestTool.request(
+            url = "$baseUrl$CHAPTER_INFO_PATH?chapterId=$chapterId&includeDimensions=true",
+            method = "GET",
+            headers = mapOf("Authorization" to "Bearer $jwt"),
+        ).mapCatching { http ->
+            if (http.status != 200) error("Chapter info fetch failed: HTTP ${http.status}")
+            val dto = chapterJson.decodeFromString<ChapterInfoDto>(http.body)
+            dto.pageDimensions
+                .sortedBy { it.pageNumber }
+                .map { PageDimension(pageNumber = it.pageNumber, width = it.width, height = it.height) }
+        }
+    }
 
     suspend fun getServerReadProgress(chapterId: String): Result<Int?> {
         val auth = authConfigDao.get() ?: return Result.failure(IllegalStateException("Not authenticated"))

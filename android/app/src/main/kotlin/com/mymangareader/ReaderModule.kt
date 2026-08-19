@@ -87,6 +87,26 @@ class ReaderModule @Inject constructor(
     }
 
     @ReactMethod
+    fun getPageDimensions(chapterId: String, promise: Promise) {
+        scope.launch {
+            kavitaChapterFeature.getPageDimensions(chapterId)
+                .onSuccess { dimensions ->
+                    val array = Arguments.createArray().also { arr ->
+                        dimensions.forEach { dimension ->
+                            Arguments.createMap().apply {
+                                putInt("pageNumber", dimension.pageNumber)
+                                putInt("width", dimension.width)
+                                putInt("height", dimension.height)
+                            }.also { arr.pushMap(it) }
+                        }
+                    }
+                    promise.resolve(array)
+                }
+                .onFailure { promise.reject("PAGE_DIMENSIONS_ERROR", it.message, it) }
+        }
+    }
+
+    @ReactMethod
     fun getServerReadProgress(chapterId: String, promise: Promise) {
         scope.launch {
             kavitaChapterFeature.getServerReadProgress(chapterId)

@@ -61,10 +61,12 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
         )
     }
 
-    private fun emitVisiblePageChanged(chapterId: String, pageIndex: Int) {
+    private fun emitVisiblePageChanged(chapterId: String, pageIndex: Int, pageFraction: Float, chapterFraction: Float) {
         val payload = Arguments.createMap().apply {
             putString("chapterId", chapterId)
             putInt("pageIndex", pageIndex)
+            putDouble("pageFraction", pageFraction.toDouble())
+            putDouble("chapterFraction", chapterFraction.toDouble())
         }
         val reactContext = context as? ReactContext ?: return
         reactContext
