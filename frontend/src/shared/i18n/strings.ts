@@ -164,6 +164,10 @@ export interface Strings {
   readerRetry: string;
   readerOffline: string;
   readerEndOfChapter: string;
+  // Same message as readerEndOfChapter, but WITHOUT the {0} placeholder — the footer now renders
+  // this prefix and the chapter number as two separate SduNode texts (so the number can be bold),
+  // instead of one interpolated string. See ReaderScreen.tsx toBlock.
+  readerEndOfChapterPrefix: string;
   readerNextChapterLabel: string;
   readerNoNextChapter: string;
   readerNoPrevChapter: string;
@@ -321,6 +325,7 @@ const ptBR: Strings = {
   readerRetry: 'Tentar novamente',
   readerOffline: 'Sem conexão',
   readerEndOfChapter: 'Fim do capítulo {0}',
+  readerEndOfChapterPrefix: 'Fim do capítulo',
   readerNextChapterLabel: 'Próximo:',
   readerNoNextChapter: 'Não há próximo capítulo',
   readerNoPrevChapter: 'Não há capítulo anterior',
@@ -477,6 +482,7 @@ const en: Strings = {
   readerRetry: 'Retry',
   readerOffline: 'No connection',
   readerEndOfChapter: 'End of chapter {0}',
+  readerEndOfChapterPrefix: 'End of chapter',
   readerNextChapterLabel: 'Next:',
   readerNoNextChapter: 'No next chapter',
   readerNoPrevChapter: 'No previous chapter',

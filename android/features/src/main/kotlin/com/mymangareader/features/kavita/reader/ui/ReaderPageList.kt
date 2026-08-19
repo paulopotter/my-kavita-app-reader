@@ -71,7 +71,8 @@ data class ChapterBlock(
     val lastNode: SduNode?,
 )
 
-private sealed interface ListEntry {
+// internal (not private) — see flattenBlocks' testability note above.
+internal sealed interface ListEntry {
     data class Sdu(val entryKey: String, val chapterId: String, val node: SduNode) : ListEntry
     data class Page(
         val chapterId: String,
@@ -82,7 +83,9 @@ private sealed interface ListEntry {
     ) : ListEntry
 }
 
-private fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = buildList {
+// internal (not private) so tests can build a real entries list from ChapterBlocks — see
+// computeChapterSwitchTarget's testability note above.
+internal fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = buildList {
     blocks.forEach { block ->
         block.firstNode?.let { add(ListEntry.Sdu(entryKey = "first:${block.chapterId}", chapterId = block.chapterId, node = it)) }
         block.pageUrls.forEachIndexed { pageIndex, url ->
@@ -93,7 +96,8 @@ private fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = buildLi
     }
 }
 
-private fun ListEntry.key(): String = when (this) {
+// internal (not private) — see flattenBlocks' testability note above.
+internal fun ListEntry.key(): String = when (this) {
     is ListEntry.Sdu -> entryKey
     is ListEntry.Page -> "page:$chapterId:$pageIndexInChapter"
 }
@@ -102,6 +106,16 @@ private fun ListEntry.key(): String = when (this) {
 // the LaunchedEffect(entries, containerWidthPx) fallback doc for why this exists. Always
 // overwritten by the real onGloballyPositioned measurement the moment it composes for real.
 private const val SDU_ESTIMATED_HEIGHT_PX = 220
+
+// REVERTED — a MAX_SANE_ASPECT_RATIO=8f clamp was tried here after on-device logs showed
+// aspectRatio values of ~16-19 for several pages of one chapter, suspected to be a degenerate
+// server value. Turned out those ARE real aspectRatios for that chapter (very long
+// webtoon/scan strips) — the clamp rejected legitimate data, forcing the generic 2:3 fallback
+// for those pages instead, which UNDER-estimated chapterTotalHeight and made the progress bar
+// fill too fast instead of too slow (confirmed on-device, see conversation). The original
+// "crawls then jumps" symptom needs a different root cause than a single outlier polluting the
+// chapter average — not yet diagnosed. Do not reintroduce a hard aspectRatio ceiling without
+// separating "genuinely tall page" from "bad server data" some other way.
 
 private data class ScrollSnapshot(
     val firstVisibleItemIndex: Int,
@@ -172,6 +186,95 @@ private fun computeBottomVisiblePageIndex(
 }
 
 /**
+ * Directional chapter-switch trigger: splits the viewport into 4 quarters (25%/50%/75% lines)
+ * and picks the switch target based on scroll DIRECTION, not a single shared midline —
+ * [computeBottomVisiblePageIndex]'s old approach used one midline for both directions, but its
+ * "midline" was measured relative to whichever item already touches the viewport TOP, which made
+ * the two directions cross at very different real screen positions (confirmed on-device:
+ * scrolling down, the switch fired late — needed the next chapter's Gap/Header almost fully past
+ * the midline; scrolling up, it fired early — barely needed the previous chapter's Gap/Header to
+ * touch the top). Anchoring to the first/last PAGE of the neighboring chapter (not its
+ * Header/Footer/Gap, which can be null or absent) fixes both: pages always exist, and the
+ * direction-specific target line makes the two directions symmetric by construction:
+ *   - Scrolling DOWN: switches to the NEXT chapter once its first page's TOP edge crosses into
+ *     the 25%-50% band of the viewport.
+ *   - Scrolling UP: switches to the PREVIOUS chapter once its last page's BOTTOM edge crosses
+ *     into the 50%-75% band of the viewport.
+ * Returns null when neither condition is met (stay on the current chapter) or a landmark ahead
+ * isn't measured yet (same "wait for landmarks" contract as the other compute* functions here).
+ */
+// internal (not private) so it's directly unit-testable — this specific trigger logic (4 quarter
+// zones, direction-dependent) is intricate enough to warrant tests that don't depend on
+// simulating real Compose scroll gestures in Robolectric, unlike the other compute* functions in
+// this file which stay private and are only exercised indirectly through ReaderPageList.
+internal fun computeChapterSwitchTarget(
+    entries: List<ListEntry>,
+    itemHeights: Map<String, Int>,
+    currentChapterId: String,
+    firstVisibleItemIndex: Int,
+    firstVisibleItemScrollOffset: Int,
+    viewportEndOffset: Int,
+    scrollingDown: Boolean,
+): String? {
+    // Position convention matches the rest of this file (see computeVisiblePageAndFraction's
+    // doc): ZERO is the TOP of firstVisibleItemIndex, not firstVisibleItemScrollOffset itself —
+    // firstVisibleItemScrollOffset is how far the viewport has scrolled INTO that item, used only
+    // as the comparison LINE (via targetLine below), never as a base to offset another item's
+    // position by. topOfIndex(targetIndex) returns that item's top relative to this same zero:
+    // negative if targetIndex is above firstVisibleItemIndex (earlier in the list), positive if
+    // below. BUG FIXED here: an earlier version seeded `top` with firstVisibleItemScrollOffset
+    // (double-counting the offset — once as the base, once again via targetLine below), which
+    // made a page hundreds of pixels away from crossing the 50%-75% band read as already inside
+    // it on-device (reader-log-v53.txt) — a chapter switch fired mid-chapter, nowhere near either
+    // boundary.
+    fun topOfIndex(targetIndex: Int): Int? {
+        return if (targetIndex >= firstVisibleItemIndex) {
+            var top = 0
+            for (index in firstVisibleItemIndex until targetIndex) {
+                top += itemHeights[entries[index].key()] ?: return null
+            }
+            top
+        } else {
+            var top = 0
+            for (index in targetIndex until firstVisibleItemIndex) {
+                top -= itemHeights[entries[index].key()] ?: return null
+            }
+            top
+        }
+    }
+
+    val quarterLine1 = viewportEndOffset / 4
+    val quarterLine2 = viewportEndOffset / 2
+    val quarterLine3 = (viewportEndOffset * 3) / 4
+
+    if (scrollingDown) {
+        val currentChapterLastPageIndex = entries.indexOfLast { it is ListEntry.Page && it.chapterId == currentChapterId }
+        if (currentChapterLastPageIndex == -1) return null
+        val nextChapterFirstPageIndex = (currentChapterLastPageIndex + 1 until entries.size)
+            .firstOrNull { entries[it] is ListEntry.Page }
+            ?: return null
+        val nextChapterFirstPage = entries[nextChapterFirstPageIndex] as ListEntry.Page
+        // targetLine below embeds firstVisibleItemScrollOffset (the only place it enters this
+        // computation) — mirrors computeChapterFraction's bottomLine.
+        val topRelative = topOfIndex(nextChapterFirstPageIndex) ?: return null
+        val topAbsolute = topRelative - firstVisibleItemScrollOffset
+        return if (topAbsolute in quarterLine1..quarterLine2) nextChapterFirstPage.chapterId else null
+    } else {
+        val currentChapterFirstPageIndex = entries.indexOfFirst { it is ListEntry.Page && it.chapterId == currentChapterId }
+        if (currentChapterFirstPageIndex == -1) return null
+        val prevChapterLastPageIndex = (currentChapterFirstPageIndex - 1 downTo 0)
+            .firstOrNull { entries[it] is ListEntry.Page }
+            ?: return null
+        val prevChapterLastPage = entries[prevChapterLastPageIndex] as ListEntry.Page
+        val prevChapterLastPageHeight = itemHeights[prevChapterLastPage.key()] ?: return null
+        val topRelative = topOfIndex(prevChapterLastPageIndex) ?: return null
+        val topAbsolute = topRelative - firstVisibleItemScrollOffset
+        val bottomAbsolute = topAbsolute + prevChapterLastPageHeight
+        return if (bottomAbsolute in quarterLine2..quarterLine3) prevChapterLastPage.chapterId else null
+    }
+}
+
+/**
  * BABY STEP 2: continuous progress fraction across the WHOLE chapter, weighted by each page's
  * real height — not "which page" (baby step 1) and not "fraction within one page" alone. Each
  * page's share of the chapter is proportional to its own height vs. the chapter's total height
@@ -222,6 +325,16 @@ private fun computeChapterFraction(
         chapterTotalHeight += itemHeights[page.key()] ?: return null
     }
     if (chapterTotalHeight <= 0) return null
+
+    // DEBUG — per-page height/aspectRatio breakdown for this chapter, to catch a single
+    // degenerate server-provided aspectRatio inflating chapterTotalHeight (and therefore making
+    // the progress bar crawl artificially slowly until the real onGloballyPositioned measurement
+    // overwrites the bad estimate). Remove once the root cause is fixed.
+    android.util.Log.d(
+        "CoilDiagnostic",
+        "chapterTotalHeight chapterId=$chapterId total=$chapterTotalHeight pages=" +
+            chapterPages.joinToString(", ") { "p${it.pageIndexInChapter}:h=${itemHeights[it.key()]},ar=${it.aspectRatio}" },
+    )
 
     // Tudo relativo ao topo de firstVisibleItemIndex (offset 0 ali) — nunca soma a partir de um
     // item anterior a ele. Ver o comentário mais detalhado em computeVisiblePageAndFraction:
@@ -412,6 +525,11 @@ fun ReaderPageList(
     // the AVERAGE aspect ratio of this same chapter's pages that DO have server data, since pages
     // within one manga/webtoon chapter tend to share similar proportions; if the whole chapter has
     // no server data at all, falls back to a generic 2:3 portrait ratio as a last resort.
+    //
+    // A MAX_SANE_ASPECT_RATIO clamp was tried and reverted here — see the doc at its old
+    // declaration site for why (aspectRatio values of ~16-19 turned out to be REAL data for very
+    // long webtoon strips, not a degenerate server value; clamping them under-estimated
+    // chapterTotalHeight and made the bar fill too fast instead of too slow).
     LaunchedEffect(entries, containerWidthPx) {
         if (containerWidthPx <= 0) return@LaunchedEffect
         val averageAspectRatioByChapter = entries
@@ -518,6 +636,13 @@ fun ReaderPageList(
         // pageIndexInChapter always came from the same computeBottomVisiblePageIndex call).
         var lastKnownBottomPage: ListEntry.Page? = null
 
+        // The chapterId last REPORTED to RN (via onVisiblePageChanged) — the anchor
+        // computeChapterSwitchTarget checks the neighbors of, and what's reported again whenever
+        // the directional trigger doesn't fire this tick (i.e. still inside the current chapter's
+        // "home" zone, not crossing into a neighbor's 25%-50%/50%-75% band). Seeded from the first
+        // successful bottomPage so it always starts as a real chapterId, never null.
+        var lastReportedChapterId: String? = null
+
         // Reading itemHeights.size inside the snapshotFlow block (not just inside collect) makes
         // this flow re-emit whenever a new item finishes measuring too — not only on scroll.
         // Needed because onGloballyPositioned for the initially-visible items and this flow's
@@ -581,21 +706,66 @@ fun ReaderPageList(
                 val bottomPage = computedBottomPage ?: lastKnownBottomPage ?: visibleEntry
                 lastKnownBottomPage = bottomPage
 
-                // BABY STEP 2: continuous chapter-wide fraction (page-height-weighted), replacing
-                // baby step 1's coarse (pageIndex+1)/totalPages — see computeChapterFraction doc.
-                // Falls back to THIS CHAPTER's own last known good fraction (never another
-                // chapter's — see lastChapterFractionByChapterId doc above for the bug this fixes)
-                // while an entry ahead isn't measured yet (same "wait for landmarks" contract
-                // every compute* function here follows).
-                val chapterFraction = computeChapterFraction(
+                // Directional chapter-switch trigger — see computeChapterSwitchTarget doc. Anchors
+                // on lastReportedChapterId (the chapter RN currently thinks it's in), not
+                // bottomPage.chapterId directly: bottomPage already looks ahead into a neighbor
+                // chapter once its pages start entering the viewport, which would make this
+                // trigger check the WRONG pair of neighbors (e.g. next-of-next instead of
+                // next-of-current) right as a switch is in flight. deltaPx == null (first tick,
+                // no prior offset yet) defaults to "not scrolling down" — the trigger simply
+                // won't fire that tick, which is fine since nothing has moved yet anyway.
+                val anchorChapterId = lastReportedChapterId ?: bottomPage.chapterId
+                val switchTarget = computeChapterSwitchTarget(
                     entries = latestEntries,
                     itemHeights = itemHeights,
-                    chapterId = bottomPage.chapterId,
+                    currentChapterId = anchorChapterId,
                     firstVisibleItemIndex = firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
                     viewportEndOffset = snapshot.viewportEndOffset,
-                )?.also { lastChapterFractionByChapterId[bottomPage.chapterId] = it }
-                    ?: lastChapterFractionByChapterId[bottomPage.chapterId]
+                    scrollingDown = (deltaPx ?: 0) > 0,
+                )
+                val reportedChapterId = switchTarget ?: anchorChapterId
+                lastReportedChapterId = reportedChapterId
+
+                // pageIndex reported alongside reportedChapterId must always be FROM that same
+                // chapter — never bottomPage.pageIndexInChapter directly, which can still belong
+                // to the OLD chapter for a tick or two right as switchTarget fires (bottomPage's
+                // own "which page is furthest read" walk lags behind the directional trigger by
+                // design — they're independent signals). When switchTarget just fired, 0 (just
+                // arrived at the top, scrolling down) or the target chapter's last page index
+                // (just arrived at the bottom, scrolling up) is the correct "position" to report;
+                // otherwise bottomPage already agrees with reportedChapterId, so its own
+                // pageIndexInChapter is correct as-is.
+                val reportedPageIndex = if (bottomPage.chapterId == reportedChapterId) {
+                    bottomPage.pageIndexInChapter
+                } else if (switchTarget != null && (deltaPx ?: 0) > 0) {
+                    0
+                } else {
+                    latestEntries.filterIsInstance<ListEntry.Page>()
+                        .lastOrNull { it.chapterId == reportedChapterId }
+                        ?.pageIndexInChapter
+                        ?: 0
+                }
+
+                // BABY STEP 2: continuous chapter-wide fraction (page-height-weighted), replacing
+                // baby step 1's coarse (pageIndex+1)/totalPages — see computeChapterFraction doc.
+                // Uses reportedChapterId (not bottomPage.chapterId) so the payload is always
+                // internally consistent — chapterId/pageIndex/chapterFraction must all describe
+                // the SAME chapter, or RN's advanceToNextChapter/retreatToPrevChapter (which
+                // trusts this payload as one atomic unit) can desync (the exact bug
+                // lastChapterFractionByChapterId below was introduced to fix — see its doc).
+                // Falls back to THIS CHAPTER's own last known good fraction (never another
+                // chapter's) while an entry ahead isn't measured yet (same "wait for landmarks"
+                // contract every compute* function here follows).
+                val chapterFraction = computeChapterFraction(
+                    entries = latestEntries,
+                    itemHeights = itemHeights,
+                    chapterId = reportedChapterId,
+                    firstVisibleItemIndex = firstVisibleItemIndex,
+                    firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
+                    viewportEndOffset = snapshot.viewportEndOffset,
+                )?.also { lastChapterFractionByChapterId[reportedChapterId] = it }
+                    ?: lastChapterFractionByChapterId[reportedChapterId]
                     ?: 0f
 
                 android.util.Log.d(
@@ -606,10 +776,11 @@ fun ReaderPageList(
                         "firstVisibleIndex=$firstVisibleItemIndex firstVisibleOffset=$firstVisibleItemScrollOffset " +
                         "viewportEndOffset=${snapshot.viewportEndOffset} " +
                         "itemHeight=${itemHeights[visibleEntry.key()]} " +
-                        "absoluteScrollOffset=$absoluteScrollOffset deltaPx=$deltaPx fraction=$scrollFraction",
+                        "absoluteScrollOffset=$absoluteScrollOffset deltaPx=$deltaPx fraction=$scrollFraction " +
+                        "switchTarget=$switchTarget reportedChapterId=$reportedChapterId reportedPageIndex=$reportedPageIndex",
                 )
 
-                onVisiblePageChanged(bottomPage.chapterId, bottomPage.pageIndexInChapter, scrollFraction, chapterFraction)
+                onVisiblePageChanged(reportedChapterId, reportedPageIndex, scrollFraction, chapterFraction)
 
                 val absoluteIndex = latestAllPageUrls.indexOf(visibleEntry.url)
                 if (absoluteIndex >= 0) {

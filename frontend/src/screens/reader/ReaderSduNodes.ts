@@ -1,29 +1,33 @@
 import { PixelRatio } from 'react-native';
 import type { SduNode } from './SduNode';
 
-// Reproduces, as SDU data, the exact visual the Kotlin side used to hardcode (see the SUPERSEDED
-// comment block in ReaderPageList.kt): black background, white bold 20sp title for the header;
-// muted 14sp end-of-chapter label + muted 12sp "next" label + white bold 16sp next title for the
-// footer; a plain 48dp black Gap between chapters. Kept visually identical on purpose — this
-// migration is about WHERE the styling lives (RN data vs. Kotlin code), not changing how it
-// looks. Heights/padding/gaps are in dp here and converted to px (what the native side expects)
-// at the call site via PixelRatio, matching the existing OVERSCROLL_TRIGGER_DP pattern in
-// useReader.ts.
-const GAP_HEIGHT_DP = 48;
-const HEADER_PADDING_DP = 32;
-const FOOTER_PADDING_DP = 32;
-const FOOTER_NEXT_LABEL_GAP_DP = 16;
+// Server-Driven UI styling for Header/Footer/Gap — white bold 20sp title for the header; muted
+// 14sp "Fim do capítulo" label + bold 13sp chapter number for the footer (see buildLastNode doc
+// for why the next-chapter preview is currently hidden); a transparent Gap between chapters (just
+// breathing room, no visible band). Padding values reduced from the original 32dp (which read as
+// oversized once DEBUG backgrounds made the element's real bounds visible — see conversation).
+// Heights/padding/gaps are in dp here and converted to px (what the native side expects) at the
+// call site via PixelRatio, matching the existing OVERSCROLL_TRIGGER_DP pattern in useReader.ts.
+const GAP_HEIGHT_DP = 24;
+const HEADER_PADDING_DP = 16;
+const FOOTER_PADDING_DP = 16;
+// Unused while the next-chapter preview is hidden (see buildLastNode doc) — kept for when it's
+// re-enabled: 16dp spacing between the end-of-chapter line and the "next" label.
+// const FOOTER_NEXT_LABEL_GAP_DP = 16;
 
 function dpToPx(dp: number): number {
   return PixelRatio.getPixelSizeForLayoutSize(dp);
 }
 
-const BLACK = '#000000';
 const WHITE = '#FFFFFF';
 const MUTED = '#A0AEC0';
 
+// Final dark-gray background for both Header and Footer, per explicit request. Gap stays
+// transparent (see gapNode) — no visible band, just breathing room.
+const HEADER_FOOTER_BG = '#1A1A1A';
+
 function gapNode(): SduNode {
-  return { type: 'container', backgroundColor: BLACK, heightPx: dpToPx(GAP_HEIGHT_DP), children: [] };
+  return { type: 'container', heightPx: dpToPx(GAP_HEIGHT_DP), children: [] };
 }
 
 /**
@@ -33,7 +37,7 @@ function gapNode(): SduNode {
 export function buildFirstNode(chapterTitle: string, hasGapAbove: boolean): SduNode {
   const header: SduNode = {
     type: 'container',
-    backgroundColor: BLACK,
+    backgroundColor: HEADER_FOOTER_BG,
     paddingPx: dpToPx(HEADER_PADDING_DP),
     children: [{ type: 'text', text: chapterTitle, color: WHITE, fontSize: 20, bold: true, maxLines: 2 }],
   };
@@ -42,23 +46,30 @@ export function buildFirstNode(chapterTitle: string, hasGapAbove: boolean): SduN
 }
 
 /**
- * [lastNode] for a chapter block — end-of-chapter label, plus a next-chapter preview when
- * [nextChapterTitle] is known. Returns null when the caller has no content for this slot at all
- * (e.g. RN chooses not to render a footer for a mid-trio chapter) — see call site.
+ * [lastNode] for a chapter block — "Fim do capítulo" label followed by the chapter's number in
+ * bold. Same padding as the header, matching size intentionally (see conversation).
+ *
+ * [nextChapterTitle]/[nextChapterLabel] are accepted but DELIBERATELY unused for now — the
+ * next-chapter preview is hidden as a test (the user already sees the next chapter's own Header
+ * right below, so this reduces "repetition" of information). Kept as params so re-enabling it
+ * later is a one-line change, not a signature change.
  */
-export function buildLastNode(endOfChapterLabel: string, nextChapterLabel: string, nextChapterTitle: string | null): SduNode {
-  const children: SduNode[] = [{ type: 'text', text: endOfChapterLabel, color: MUTED, fontSize: 14 }];
-  if (nextChapterTitle != null) {
-    // Spacer (not container-level gapPx) matches the original's exact spacing: 16dp only between
-    // the end-of-chapter label and the "next" label, none between "next" label and next title.
-    children.push({ type: 'spacer', sizePx: dpToPx(FOOTER_NEXT_LABEL_GAP_DP) });
-    children.push({ type: 'text', text: nextChapterLabel, color: MUTED, fontSize: 12 });
-    children.push({ type: 'text', text: nextChapterTitle, color: WHITE, fontSize: 16, bold: true, maxLines: 1 });
-  }
+export function buildLastNode(
+  endOfChapterLabel: string,
+  chapterNumber: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  nextChapterLabel: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  nextChapterTitle: string | null,
+): SduNode {
   return {
     type: 'container',
-    backgroundColor: BLACK,
+    direction: 'horizontal',
+    backgroundColor: HEADER_FOOTER_BG,
     paddingPx: dpToPx(FOOTER_PADDING_DP),
-    children,
+    children: [
+      { type: 'text', text: `${endOfChapterLabel} `, color: MUTED, fontSize: 14 },
+      { type: 'text', text: chapterNumber, color: WHITE, fontSize: 13, bold: true },
+    ],
   };
 }

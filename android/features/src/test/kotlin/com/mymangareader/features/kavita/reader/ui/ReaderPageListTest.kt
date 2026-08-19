@@ -262,4 +262,33 @@ class ReaderPageListTest {
             assertTrue(!tree.contains("Fim do capítulo"))
         }
     }
+
+    @Test
+    fun `a very tall server-provided aspectRatio is trusted, not clamped`() {
+        // A MAX_SANE_ASPECT_RATIO clamp was tried and reverted (see ReaderPageList.kt doc): an
+        // aspectRatio of ~16-19 turned out to be REAL data for very long webtoon strips, not a
+        // degenerate server value. This test locks in the correct behavior — a tall ratio must
+        // still be usable to compute a progress fraction, not silently replaced by the generic
+        // 2:3 fallback (which would under-estimate chapterTotalHeight and make the bar fill too
+        // fast).
+        var lastChapterFraction = -1f
+        composeRule.setContent {
+            ReaderPageList(
+                blocks = listOf(
+                    ChapterBlock(
+                        chapterId = "c1",
+                        pageUrls = listOf("https://example.com/1.webp"),
+                        pageAspectRatios = listOf(18f),
+                        firstNode = null,
+                        lastNode = null,
+                    ),
+                ),
+                onVisiblePageChanged = { _, _, _, chapterFraction -> lastChapterFraction = chapterFraction },
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000) { lastChapterFraction >= 0f }
+        assertTrue("expected a valid chapterFraction, got $lastChapterFraction", lastChapterFraction in 0f..1f)
+    }
 }

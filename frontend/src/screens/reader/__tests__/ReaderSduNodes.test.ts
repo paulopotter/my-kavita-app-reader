@@ -31,21 +31,27 @@ describe('buildFirstNode', () => {
 });
 
 describe('buildLastNode', () => {
-  it('sempre inclui o texto de fim de capitulo', () => {
-    const node = buildLastNode('Fim do capítulo', 'Próximo:', null);
-    expect(collectTexts(node)).toContain('Fim do capítulo');
-  });
-
-  it('sem proximo capitulo, tem apenas um filho (o texto de fim de capitulo)', () => {
-    const node = buildLastNode('Fim do capítulo', 'Próximo:', null);
-    if (node.type !== 'container') throw new Error('expected container');
-    expect(node.children).toHaveLength(1);
-  });
-
-  it('com proximo capitulo, inclui o label e o titulo do proximo', () => {
-    const node = buildLastNode('Fim do capítulo', 'Próximo:', 'Capítulo 42. O Retorno');
+  it('inclui o texto de fim de capitulo e o numero do capitulo', () => {
+    const node = buildLastNode('Fim do capítulo', '40', 'Próximo:', null);
     const texts = collectTexts(node);
-    expect(texts).toContain('Próximo:');
-    expect(texts).toContain('Capítulo 42. O Retorno');
+    expect(texts.join('')).toContain('Fim do capítulo');
+    expect(texts).toContain('40');
+  });
+
+  it('o numero do capitulo e um texto separado do prefixo (para poder ficar em negrito)', () => {
+    const node = buildLastNode('Fim do capítulo', '40', 'Próximo:', null);
+    if (node.type !== 'container') throw new Error('expected container');
+    expect(node.children).toHaveLength(2);
+    const numberNode = node.children.find(child => child.type === 'text' && child.text === '40');
+    expect(numberNode).toBeDefined();
+    if (numberNode?.type !== 'text') throw new Error('expected text');
+    expect(numberNode.bold).toBe(true);
+  });
+
+  it('nao inclui a previa do proximo capitulo mesmo quando ha um next carregado (oculto por enquanto)', () => {
+    const node = buildLastNode('Fim do capítulo', '40', 'Próximo:', 'Capítulo 42. O Retorno');
+    const texts = collectTexts(node);
+    expect(texts).not.toContain('Próximo:');
+    expect(texts).not.toContain('Capítulo 42. O Retorno');
   });
 });

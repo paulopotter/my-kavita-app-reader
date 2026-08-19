@@ -42,13 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=59 — bump this value whenever coverage improves (never lower it).
-            // Was 58 as of 2026-08-19 (reader tap-to-toggle overlay work). Server-Driven UI
-            // migration (SduNode.kt + SduNodeTest.kt) — real measured value is ~59.9%.
+            // COVERAGE_FLOOR_KOTLIN=61 — bump this value whenever coverage improves (never lower it).
+            // Was 60 (Server-Driven UI migration). Directional chapter-switch trigger
+            // (computeChapterSwitchTarget + ComputeChapterSwitchTargetTest, 10 new pure-function
+            // unit tests) — koverVerify's own measured value is ~61.0%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 59
+                        minValue = 61
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

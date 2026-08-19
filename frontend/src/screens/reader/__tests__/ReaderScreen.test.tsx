@@ -311,7 +311,7 @@ describe('ReaderScreen', () => {
       expect(block.firstNode.children.some((child: { type: string }) => child.type === 'container')).toBe(true);
     });
 
-    it('lastNode inclui a previa do proximo capitulo quando ha um next carregado', async () => {
+    it('lastNode nao inclui a previa do proximo capitulo mesmo quando ha um next carregado (oculto por enquanto)', async () => {
       const chapter = makeChapter();
       const nextChapter = makeChapter({ id: 'c2', number: '2', title: 'A Jornada' });
       mockReaderState = {
@@ -323,11 +323,11 @@ describe('ReaderScreen', () => {
       const { getByTestId } = render(<ReaderScreen />);
       const block = getByTestId('reader-page-list-view').props.blocks[0];
 
-      expect(JSON.stringify(block.lastNode)).toContain('A Jornada');
+      expect(JSON.stringify(block.lastNode)).not.toContain('A Jornada');
     });
 
-    it('lastNode nao inclui previa de proximo capitulo quando nao ha next carregado', async () => {
-      const chapter = makeChapter();
+    it('lastNode inclui o numero do capitulo atual como texto separado em negrito', async () => {
+      const chapter = makeChapter({ number: '1' });
       mockReaderState = {
         ...mockReaderState,
         loading: false,
@@ -337,8 +337,11 @@ describe('ReaderScreen', () => {
       const { getByTestId } = render(<ReaderScreen />);
       const block = getByTestId('reader-page-list-view').props.blocks[0];
 
-      // Sem next, lastNode só tem o texto de "fim do capítulo" — um único filho.
-      expect(block.lastNode.children).toHaveLength(1);
+      const numberNode = block.lastNode.children.find(
+        (child: { type: string; text?: string }) => child.type === 'text' && child.text === '1',
+      );
+      expect(numberNode).toBeDefined();
+      expect(numberNode.bold).toBe(true);
     });
   });
 });

@@ -72,9 +72,14 @@ fun SduNodeView(node: SduNode) {
                 .then(if (node.heightPx != null) Modifier.height(node.heightPx.dp) else Modifier)
                 .padding(PaddingValues(node.paddingPx.dp))
             if (node.direction == SduNode.Container.Direction.HORIZONTAL) {
+                // Centered on the main axis by default (spacedBy + Alignment.CenterHorizontally)
+                // — matches the Column branch below, where horizontalAlignment already centers
+                // children on ITS cross axis. Without this, a Row's children default to the
+                // start edge, which looked wrong for e.g. two texts meant to read as one
+                // centered line ("Fim do capítulo 40").
                 Row(
                     modifier = baseModifier,
-                    horizontalArrangement = Arrangement.spacedBy(node.gapPx.dp),
+                    horizontalArrangement = Arrangement.spacedBy(node.gapPx.dp, Alignment.CenterHorizontally),
                     verticalAlignment = node.align.toRowAlignment(),
                 ) {
                     node.children.forEach { SduNodeView(it) }

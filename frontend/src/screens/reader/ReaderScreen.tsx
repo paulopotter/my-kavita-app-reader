@@ -83,8 +83,13 @@ export function ReaderScreen() {
       // page once it's actually decoded on-device.
       pageAspectRatios: entry.pageAspectRatios?.map(ratio => ratio ?? 0) ?? [],
       firstNode: buildFirstNode(title, hasGapAbove),
+      // "Fim do capítulo" e o número ficam como dois textos separados (não interpolados numa só
+      // string) para que o número possa ser negrito — ver buildLastNode. Usa entry.chapter.number
+      // puro (não o title formatado por chapterHeaderTitle, que já pode conter a palavra
+      // "Capítulo" e duplicaria — ex: "Fim do capítulo Capítulo 40").
       lastNode: buildLastNode(
-        t.readerEndOfChapter.replace('{0}', title),
+        t.readerEndOfChapterPrefix,
+        entry.chapter.number,
         t.readerNextChapterLabel,
         nextEntry ? chapterHeaderTitle(nextEntry.chapter, t) : null,
       ),
