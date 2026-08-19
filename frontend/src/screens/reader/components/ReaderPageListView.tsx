@@ -5,6 +5,9 @@ export interface ReaderChapterBlock {
   chapterId: string;
   chapterTitle: string;
   pageUrls: string[];
+  // Height/width aspect ratio per page (aligned by index with pageUrls) — 0 means "unavailable,
+  // fall back to measuring this page once it's decoded on-device". See ChapterWithPages.pageAspectRatios.
+  pageAspectRatios: number[];
   nextChapterTitle: string | null;
   endOfChapterLabel: string;
   nextChapterLabel: string;
@@ -13,6 +16,8 @@ export interface ReaderChapterBlock {
 interface VisiblePageChangedEvent {
   chapterId: string;
   pageIndex: number;
+  pageFraction: number;
+  chapterFraction: number;
 }
 
 interface NativeProps {
@@ -34,7 +39,7 @@ interface Props {
   // native list already handles on its own. null chapterId means "no pending scroll request".
   scrollToChapterId: string | null;
   scrollToPageIndex: number;
-  onVisiblePageChanged?: (chapterId: string, pageIndex: number) => void;
+  onVisiblePageChanged?: (chapterId: string, pageIndex: number, pageFraction: number, chapterFraction: number) => void;
   onScrollToChapterHandled?: () => void;
 }
 
@@ -62,7 +67,13 @@ export function ReaderPageListView({
       scrollToPageIndex={scrollToPageIndex}
       onVisiblePageChanged={
         onVisiblePageChanged
-          ? event => onVisiblePageChanged(event.nativeEvent.chapterId, event.nativeEvent.pageIndex)
+          ? event =>
+              onVisiblePageChanged(
+                event.nativeEvent.chapterId,
+                event.nativeEvent.pageIndex,
+                event.nativeEvent.pageFraction,
+                event.nativeEvent.chapterFraction,
+              )
           : undefined
       }
       onScrollToChapterHandled={onScrollToChapterHandled}

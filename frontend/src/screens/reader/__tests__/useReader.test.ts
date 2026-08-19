@@ -12,6 +12,7 @@ const mockMarkChapterUnread = jest.fn().mockResolvedValue(undefined);
 const mockFetchKeepScreenOnPref = jest.fn().mockResolvedValue(false);
 const mockKeepScreenOnBridge = jest.fn().mockResolvedValue(undefined);
 const mockAllowScreenOff = jest.fn().mockResolvedValue(undefined);
+const mockFetchPageAspectRatios = jest.fn().mockResolvedValue([]);
 
 jest.mock('../ReaderService', () => ({
   fetchLocalProgress: (...args: unknown[]) => mockFetchLocalProgress(...args),
@@ -23,6 +24,7 @@ jest.mock('../ReaderService', () => ({
   fetchKeepScreenOnPref: (...args: unknown[]) => mockFetchKeepScreenOnPref(...args),
   keepScreenOn: (...args: unknown[]) => mockKeepScreenOnBridge(...args),
   allowScreenOff: (...args: unknown[]) => mockAllowScreenOff(...args),
+  fetchPageAspectRatios: (...args: unknown[]) => mockFetchPageAspectRatios(...args),
 }));
 
 let netInfoListener: ((state: { isConnected: boolean | null }) => void) | null = null;
@@ -213,7 +215,7 @@ describe('useReader — marcação como lido', () => {
     await waitFor(() => expect(mockMarkChapterRead).toHaveBeenCalledTimes(1));
 
     act(() => {
-      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1 });
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0 });
     });
 
     expect(mockMarkChapterRead).toHaveBeenCalledTimes(1);
@@ -459,7 +461,7 @@ describe('useReader — pré-carregamento de páginas', () => {
 
     expect(() => {
       act(() => {
-        result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 2, scrollFraction: 0 });
+        result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 2, scrollFraction: 0, chapterFraction: 0 });
       });
     }).not.toThrow();
   });
@@ -482,7 +484,7 @@ describe('useReader — pré-carregamento de páginas', () => {
     const callsBeforeEdge = (Image.prefetch as jest.Mock).mock.calls.length;
 
     await act(async () => {
-      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 4, scrollFraction: 0 });
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 4, scrollFraction: 0, chapterFraction: 0 });
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
@@ -492,7 +494,7 @@ describe('useReader — pré-carregamento de páginas', () => {
     expect((Image.prefetch as jest.Mock).mock.calls).toEqual(expect.arrayContaining([['next0']]));
 
     await act(async () => {
-      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 5, scrollFraction: 0 });
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 5, scrollFraction: 0, chapterFraction: 0 });
       await Promise.resolve();
       await Promise.resolve();
     });

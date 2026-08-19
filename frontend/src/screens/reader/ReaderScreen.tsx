@@ -4,7 +4,8 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { ReaderChapterBlock, ReaderPageListView } from './components/ReaderPageListView';
-import { chapterHeaderTitle } from './ReaderTransform';
+import { ReaderThinProgressBar } from './components/ReaderThinProgressBar';
+import { chapterHeaderTitle, progressBarFraction } from './ReaderTransform';
 import { useReader } from './useReader';
 
 type RouteParams = {
@@ -30,11 +31,11 @@ export function ReaderScreen() {
   // que decide avançar/retroceder o trio (advanceToNextChapter/retreatToPrevChapter), usando
   // as funções que useReader já expõe.
   const handleVisiblePageChanged = useCallback(
-    (visibleChapterId: string, pageIndex: number) => {
+    (visibleChapterId: string, pageIndex: number, pageFraction: number, chapterFraction: number) => {
       const viewer = reader.viewer;
       if (!viewer) {return;}
       if (visibleChapterId === viewer.curr.chapter.id) {
-        reader.setCurrentPage(pageIndex, 0);
+        reader.setCurrentPage(pageIndex, pageFraction, chapterFraction);
       }
       // TEMP DEBUG: troca automática de capítulo por scroll desativada para isolar o bug de
       // decode de WebP alto — não queremos avançar de capítulo enquanto investigamos falhas de
@@ -63,6 +64,10 @@ export function ReaderScreen() {
     chapterId: entry.chapter.id,
     chapterTitle: chapterHeaderTitle(entry.chapter, t),
     pageUrls: entry.pages,
+    // null entries (dimension unavailable/Kavita unreachable) become 0 — the native side treats
+    // a non-positive aspect ratio the same as "not provided" and falls back to measuring that
+    // page once it's actually decoded on-device.
+    pageAspectRatios: entry.pageAspectRatios?.map(ratio => ratio ?? 0) ?? [],
     nextChapterTitle: nextEntry ? chapterHeaderTitle(nextEntry.chapter, t) : null,
     endOfChapterLabel: t.readerEndOfChapter,
     nextChapterLabel: t.readerNextChapterLabel,
@@ -87,9 +92,9 @@ export function ReaderScreen() {
   const scrollToChapterId = reader.scrollToPageRequest != null ? curr.chapter.id : null;
   const scrollToPageIndex = reader.scrollToPageRequest ?? -1;
 
-  // TEMP DEBUG: isolando a ReaderPageListView nativa sozinha, sem Pressable/overlay/progress
-  // bar por cima, para descobrir se a "tripa fina" persistente vem do componente nativo em si
-  // ou de alguma interação com o resto da árvore RN desta tela.
+  // TEMP DEBUG: isolando a ReaderPageListView nativa sem Pressable/overlay por cima ainda, para
+  // manter o isolamento usado na investigação do bug de decode — só a barra fina de progresso
+  // volta por enquanto.
   return (
     <View style={styles.root}>
       <ReaderPageListView
@@ -98,6 +103,10 @@ export function ReaderScreen() {
         scrollToPageIndex={scrollToPageIndex}
         onVisiblePageChanged={handleVisiblePageChanged}
         onScrollToChapterHandled={reader.handleScrollToPageHandled}
+      />
+      <ReaderThinProgressBar
+        fraction={progressBarFraction(reader.chapterFraction)}
+        pageFraction={reader.scrollFraction}
       />
     </View>
   );

@@ -205,10 +205,12 @@ describe('ReaderScreen', () => {
     const nativeList = getByTestId('reader-page-list-view');
 
     act(() => {
-      nativeList.props.onVisiblePageChanged({ nativeEvent: { chapterId: 'c1', pageIndex: 0 } });
+      nativeList.props.onVisiblePageChanged({
+        nativeEvent: { chapterId: 'c1', pageIndex: 0, pageFraction: 0.4, chapterFraction: 0.1 },
+      });
     });
 
-    await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalledWith(0, 0));
+    await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalledWith(0, 0.4, 0.1));
   });
 
   it('avanca para o proximo capitulo quando a view nativa reporta uma pagina do capitulo seguinte', async () => {

@@ -16,6 +16,12 @@ export interface ReaderListItem {
 export interface ChapterWithPages {
   chapter: Chapter;
   pages: string[];
+  // Aspect ratio (height / width, from the original image dimensions) per page, aligned by
+  // index with `pages` — null entries mean the dimension wasn't available (Kavita unreachable,
+  // page not covered) and the native side falls back to measuring that page once it's actually
+  // decoded on-device. Undefined (the whole array missing) means dimensions were never fetched
+  // for this chapter at all — same fallback behavior.
+  pageAspectRatios?: (number | null)[];
 }
 
 export interface ViewerChapters {

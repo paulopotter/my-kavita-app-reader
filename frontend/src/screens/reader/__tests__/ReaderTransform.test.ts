@@ -20,24 +20,16 @@ function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
 }
 
 describe('progressBarFraction', () => {
-  it('calcula a fracao combinando pagina e scrollFraction', () => {
-    expect(progressBarFraction(2, 0.5, 10)).toBeCloseTo(0.25);
+  it('repassa a fracao continua calculada no Kotlin', () => {
+    expect(progressBarFraction(0.3)).toBeCloseTo(0.3);
   });
 
   it('clampa em 1 quando o resultado ultrapassa o total', () => {
-    expect(progressBarFraction(9, 0.9, 10)).toBeLessThanOrEqual(1);
-    expect(progressBarFraction(20, 0, 10)).toBe(1);
+    expect(progressBarFraction(1.5)).toBe(1);
   });
 
   it('clampa em 0 para valores negativos', () => {
-    expect(progressBarFraction(-1, 0, 10)).toBe(0);
-  });
-
-  it('nao gera NaN nem Infinity quando totalPages e 0', () => {
-    const result = progressBarFraction(0, 0, 0);
-    expect(Number.isNaN(result)).toBe(false);
-    expect(Number.isFinite(result)).toBe(true);
-    expect(result).toBe(0);
+    expect(progressBarFraction(-1)).toBe(0);
   });
 });
 

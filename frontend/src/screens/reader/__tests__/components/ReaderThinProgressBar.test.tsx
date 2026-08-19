@@ -23,4 +23,8 @@ describe('ReaderThinProgressBar', () => {
     const fill = getByTestId('reader-thin-progress-fill');
     expect(fill.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ height: '0%' })]));
   });
+
+  // O label numérico (testID="reader-thin-progress-label") e as marcas de 10% só existem com
+  // DEBUG_MODE=true dentro do componente — ligar essa constante manualmente para depurar reativa
+  // a cobertura dessa parte visual.
 });

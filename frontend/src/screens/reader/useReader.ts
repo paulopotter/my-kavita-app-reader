@@ -16,6 +16,7 @@ import {
   allowScreenOff,
   fetchKeepScreenOnPref,
   fetchLocalProgress,
+  fetchPageAspectRatios,
   fetchServerReadProgress,
   keepScreenOn as keepScreenOnBridge,
   markChapterRead,
@@ -47,6 +48,10 @@ export interface State {
   currentVisiblePage: number;
   scrollToPageRequest: number | null;
   scrollFraction: number;
+  // Fração contínua do capítulo inteiro (não só da página atual) — só para a barra de progresso
+  // visual, nunca persistida (saveLocalProgress/saveServerProgress continuam usando scrollFraction,
+  // a fração dentro da página, que é o que já era salvo antes deste campo existir).
+  chapterFraction: number;
   offline: boolean;
   isAdvancing: boolean;
 }
@@ -58,7 +63,7 @@ export type Action =
   | { type: 'SET_VIEWER'; viewer: ViewerChapters; page: number; scrollFraction: number }
   | { type: 'UPDATE_VIEWER'; viewer: ViewerChapters }
   | { type: 'INSERT_PREV_NEIGHBOR'; viewer: ViewerChapters }
-  | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number }
+  | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number; chapterFraction: number }
   | { type: 'SCROLL_TO_PAGE'; page: number }
   | { type: 'SCROLL_TO_PAGE_HANDLED' }
   | { type: 'TOGGLE_OVERLAY' }
@@ -127,7 +132,12 @@ export function reducer(state: State, action: Action): State {
       // posição de leitura atual, então não há necessidade de reemitir scrollToPageRequest.
       return { ...state, viewer: action.viewer };
     case 'SET_CURRENT_PAGE':
-      return { ...state, currentVisiblePage: action.page, scrollFraction: action.scrollFraction };
+      return {
+        ...state,
+        currentVisiblePage: action.page,
+        scrollFraction: action.scrollFraction,
+        chapterFraction: action.chapterFraction,
+      };
     case 'SCROLL_TO_PAGE':
       return { ...state, currentVisiblePage: action.page, scrollToPageRequest: action.page };
     case 'SCROLL_TO_PAGE_HANDLED':
@@ -157,6 +167,7 @@ export const initial: State = {
   currentVisiblePage: 0,
   scrollToPageRequest: null,
   scrollFraction: 0,
+  chapterFraction: 0,
   offline: false,
   isAdvancing: false,
 };
@@ -291,8 +302,11 @@ export function useReader(seriesId: string, chapterId: string) {
   const loadNeighbor = useCallback(async (side: 'prev' | 'next', chapter: Chapter | null) => {
     if (!chapter) {return;}
     console.log(`[Reader] loadNeighbor(${side}) start chapterId=${chapter.id} number=${chapter.number}`);
-    const pages = await fetchPageUrls(chapter.id, chapter.pageCount);
-    const entry: ChapterWithPages = { chapter, pages };
+    const [pages, pageAspectRatios] = await Promise.all([
+      fetchPageUrls(chapter.id, chapter.pageCount),
+      fetchPageAspectRatios(chapter.id, chapter.pageCount),
+    ]);
+    const entry: ChapterWithPages = { chapter, pages, pageAspectRatios };
     const current = viewerRef.current;
     if (!current) {
       console.log(`[Reader] loadNeighbor(${side}) aborted: viewerRef is null`);
@@ -335,8 +349,9 @@ export function useReader(seriesId: string, chapterId: string) {
           `[Reader] resolved curr=${curr.id}(n=${curr.number}) prev=${prevChapter?.id ?? 'null'}(n=${prevChapter?.number ?? '-'}) next=${nextChapter?.id ?? 'null'}(n=${nextChapter?.number ?? '-'})`,
         );
 
-        const [currPages, currLocal, currServer] = await Promise.all([
+        const [currPages, currAspectRatios, currLocal, currServer] = await Promise.all([
           fetchPageUrls(curr.id, curr.pageCount),
+          fetchPageAspectRatios(curr.id, curr.pageCount),
           fetchLocalProgress(curr.id),
           fetchServerReadProgress(curr.id),
         ]);
@@ -353,7 +368,11 @@ export function useReader(seriesId: string, chapterId: string) {
         console.log(
           `[Reader] VIEWER_READY chapterId=${curr.id} pages=${currPages.length} initialPage=${initialProgress.page} scrollFraction=${initialProgress.scrollFraction}`,
         );
-        const viewer: ViewerChapters = { prev: null, curr: { chapter: curr, pages: currPages }, next: null };
+        const viewer: ViewerChapters = {
+          prev: null,
+          curr: { chapter: curr, pages: currPages, pageAspectRatios: currAspectRatios },
+          next: null,
+        };
         dispatch({
           type: 'VIEWER_READY',
           viewer,
@@ -546,7 +565,8 @@ export function useReader(seriesId: string, chapterId: string) {
   const handleScrollToPageHandled = useCallback(() => dispatch({ type: 'SCROLL_TO_PAGE_HANDLED' }), []);
 
   const setCurrentPage = useCallback(
-    (page: number, scrollFraction: number) => dispatch({ type: 'SET_CURRENT_PAGE', page, scrollFraction }),
+    (page: number, scrollFraction: number, chapterFraction: number) =>
+      dispatch({ type: 'SET_CURRENT_PAGE', page, scrollFraction, chapterFraction }),
     [],
   );
 
