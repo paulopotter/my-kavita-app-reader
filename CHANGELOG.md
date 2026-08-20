@@ -12,45 +12,45 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [[2026.08.20.0248](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.20.0248)] - 2026-08-20
 
-Melhorias internas nesta versao. / Internal improvements in this version.
+Agora o app tem uma tela de leitura completa, com rolagem contínua entre páginas no estilo webtoon, navegação automática entre capítulos e acompanhamento de progresso. / The app now has a full reading screen, with continuous webtoon-style page scrolling, automatic chapter navigation, and progress tracking.
 
 ### **Backend** - `0.7.0`
 
 **[pt-BR]**
-- feat: a leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
-- feat: adicionado suporte a decodificação de imagens no formato AVIF.
-- refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
-- perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
-- chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
+- A leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
+- Adicionado suporte a decodificação de imagens no formato AVIF.
+- O módulo nativo do leitor foi reorganizado internamente para facilitar futuras trocas de fonte de dados.
+- Reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
+- Removida uma dependência não utilizada, reduzindo o tamanho do app.
 
 **[en]**
-- feat: a leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
-- feat: adicionado suporte a decodificação de imagens no formato AVIF.
-- refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
-- perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
-- chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
+- Chapter reading now uses a native scrolling engine, fixing very tall pages (webtoons) that used to freeze or render black on some devices.
+- Added support for decoding AVIF images.
+- The reader's native module was reorganized internally to make future data-source changes easier.
+- Reduced diagnostic logging during reading, improving scroll smoothness.
+- Removed an unused dependency, reducing app size.
 
 ### **Frontend** - `0.8.0`
 
 **[pt-BR]**
-- feat: nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
-- feat: a leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
-- feat: barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
-- feat: progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
-- feat: capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
-- feat: adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
-- feat: adicionado aviso de conexão perdida durante a leitura.
-- feat: adicionado botão de tentar novamente para páginas que falharem ao carregar.
+- Nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
+- A leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
+- Barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
+- Progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
+- Capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
+- Adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
+- Adicionado aviso de conexão perdida durante a leitura.
+- Adicionado botão de tentar novamente para páginas que falharem ao carregar.
 
 **[en]**
-- feat: nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
-- feat: a leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
-- feat: barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
-- feat: progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
-- feat: capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
-- feat: adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
-- feat: adicionado aviso de conexão perdida durante a leitura.
-- feat: adicionado botão de tentar novamente para páginas que falharem ao carregar.
+- New chapter reading screen with continuous page scrolling, in webtoon style.
+- Reading automatically advances to the next chapter when reaching the end, and goes back to the previous one when scrolling up at the start.
+- Continuous reading progress bar, reflecting how much of the chapter has been read.
+- Reading progress is saved automatically, both locally and on the server.
+- Chapters are automatically marked as read when reaching the end, and unmarked when re-read from the start.
+- Added a reading overlay with a top bar, side page navigation, and a discreet progress indicator, shown on tap.
+- Added a lost-connection warning during reading.
+- Added a retry button for pages that fail to load.
 
 ## [[2026.08.13.1211](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.13.1211)] - 2026-08-13
 
