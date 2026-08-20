@@ -344,4 +344,34 @@ describe('ReaderScreen', () => {
       expect(numberNode.bold).toBe(true);
     });
   });
+
+  describe('banner offline', () => {
+    it('mostra o banner quando reader.offline e verdadeiro', async () => {
+      const chapter = makeChapter();
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        offline: true,
+        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
+      };
+
+      const { getByText } = render(<ReaderScreen />);
+
+      expect(getByText('Sem conexão')).toBeTruthy();
+    });
+
+    it('nao mostra o banner quando reader.offline e falso', async () => {
+      const chapter = makeChapter();
+      mockReaderState = {
+        ...mockReaderState,
+        loading: false,
+        offline: false,
+        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
+      };
+
+      const { queryByText } = render(<ReaderScreen />);
+
+      expect(queryByText('Sem conexão')).toBeNull();
+    });
+  });
 });

@@ -4,6 +4,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { ReaderChapterBlock, ReaderPageListView } from './components/ReaderPageListView';
+import { ReaderOfflineBanner } from './components/ReaderOfflineBanner';
 import { ReaderOverlayFooter } from './components/ReaderOverlayFooter';
 import { ReaderSideProgressBar } from './components/ReaderSideProgressBar';
 import { ReaderThinProgressBar } from './components/ReaderThinProgressBar';
@@ -145,6 +146,7 @@ export function ReaderScreen() {
         visible={reader.overlayVisible}
       />
       <ReaderOverlayFooter visible={reader.overlayVisible} />
+      <ReaderOfflineBanner visible={reader.offline} t={t} />
     </View>
   );
 }

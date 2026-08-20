@@ -41,6 +41,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.CachePolicy
 import coil.request.ImageRequest
+import java.io.IOException
 
 /**
  * One chapter's worth of content in the reader list. RN owns all navigation decisions (which
@@ -927,16 +928,34 @@ internal fun ReaderPageImage(url: String, aspectRatio: Float = 0f) {
         when (painter.state) {
             is AsyncImagePainter.State.Loading, is AsyncImagePainter.State.Empty ->
                 ReaderPagePlaceholder(aspectRatio) { CircularProgressIndicator(color = Color.White) }
-            is AsyncImagePainter.State.Error ->
+            is AsyncImagePainter.State.Error -> {
+                val error = painter.state as AsyncImagePainter.State.Error
                 ReaderPagePlaceholder(aspectRatio) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Falha ao carregar página", color = Color.White)
+                        Text(pageErrorMessage(error.result.throwable), color = Color.White)
                         RetryButton(onClick = { retryCount++ })
                     }
                 }
+            }
             is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
         }
     }
+}
+
+// Error code appended to the retry message for a NON-network failure (decode error) — lets the
+// user report a specific code (e.g. in a bug report) instead of just "failed to load". -1 means
+// "unknown decode failure" — real codes (corrupted file, unsupported format, etc.) are deliberately
+// not assigned yet; add them here as they're identified, without changing callers.
+private fun decodeErrorCode(throwable: Throwable): Int = -1
+
+// A network/IO failure (timeout, connection reset, DNS, HTTP error) never gets a decode error
+// code — those are transient and retrying without any extra data is enough. Only a failure that
+// ISN'T network-related (e.g. Coil/SafeBitmapDecoder rejecting corrupted or unsupported image
+// bytes it already fully downloaded) gets a "(n)" suffix, since those are worth being able to
+// identify precisely if the user reports one.
+internal fun pageErrorMessage(throwable: Throwable): String {
+    if (throwable is IOException) return "Falha ao carregar página"
+    return "Falha ao carregar página (${decodeErrorCode(throwable)})"
 }
 
 @Composable

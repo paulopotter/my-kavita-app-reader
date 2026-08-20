@@ -223,7 +223,10 @@ class ReaderPageListTest {
     }
 
     @Test
-    fun `page image shows a retry button when the url fails to load`() {
+    fun `page image shows a retry button and a decode error code when the url is malformed`() {
+        // A malformed URL fails before any network request happens — Coil throws something other
+        // than IOException (can't even resolve it as a request), so this lands in the "not a
+        // network failure" branch and gets an error code suffix — see pageErrorMessage doc.
         composeRule.setContent {
             ReaderPageList(
                 blocks = listOf(block("c1", "Capítulo 1", listOf("not-a-valid-url"))),
@@ -231,7 +234,7 @@ class ReaderPageListTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Falha ao carregar página").assertExists()
+        composeRule.onNodeWithText("Falha ao carregar página (-1)").assertExists()
         composeRule.onNodeWithText("Tentar novamente").assertExists()
     }
 
@@ -290,5 +293,19 @@ class ReaderPageListTest {
         composeRule.waitForIdle()
         composeRule.waitUntil(timeoutMillis = 5_000) { lastChapterFraction >= 0f }
         assertTrue("expected a valid chapterFraction, got $lastChapterFraction", lastChapterFraction in 0f..1f)
+    }
+
+    @Test
+    fun `pageErrorMessage omits an error code for a network IOException`() {
+        assertTrue(
+            pageErrorMessage(java.io.IOException("timeout")) == "Falha ao carregar página",
+        )
+    }
+
+    @Test
+    fun `pageErrorMessage appends an unknown error code for a non-network failure`() {
+        assertTrue(
+            pageErrorMessage(IllegalArgumentException("bad bytes")) == "Falha ao carregar página (-1)",
+        )
     }
 }
