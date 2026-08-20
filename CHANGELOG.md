@@ -10,6 +10,12 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
+- perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
+- chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
+
 ## [[2026.08.13.1211](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.13.1211)] - 2026-08-13
 
 Agora o app permite que você organize melhor suas séries e capítulos, com novas opções de ordenação e marcação de leitura. / Now the app allows you to better organize your series and chapters, with new sorting options and reading marks.
