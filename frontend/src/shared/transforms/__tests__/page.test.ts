@@ -1,14 +1,4 @@
-import {
-  buildReaderList,
-  ChapterWithPages,
-  computeGapHeight,
-  computeVisiblePageProgress,
-  currChapterOf,
-  isNearChapterEdge,
-  pagePreloadOrder,
-  reindexAfterPrevInsert,
-  ViewerChapters,
-} from '../page';
+import { ChapterWithPages, computeGapHeight, currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../page';
 import { Chapter } from '../../bridge/series';
 
 function makeChapter(id: string, pageCount: number): ChapterWithPages {
@@ -34,46 +24,6 @@ describe('computeGapHeight', () => {
   it('nunca retorna valor negativo mesmo com entradas negativas', () => {
     expect(computeGapHeight(-10, -20)).toBe(0);
     expect(computeGapHeight(-10, 20)).toBe(20);
-  });
-});
-
-describe('buildReaderList', () => {
-  it('gera apenas Header, páginas e Footer quando só há capítulo atual', () => {
-    const viewer: ViewerChapters = { prev: null, curr: makeChapter('1', 2), next: null };
-
-    const items = buildReaderList(viewer, new Map());
-
-    expect(items.map(i => i.kind)).toEqual(['HEADER', 'PAGE', 'PAGE', 'FOOTER']);
-  });
-
-  it('insere Gap apenas entre dois blocos, nunca antes do primeiro nem depois do último', () => {
-    const viewer: ViewerChapters = {
-      prev: makeChapter('1', 1),
-      curr: makeChapter('2', 1),
-      next: makeChapter('3', 1),
-    };
-
-    const items = buildReaderList(viewer, new Map());
-    const kinds = items.map(i => i.kind);
-
-    expect(kinds[0]).toBe('HEADER');
-    expect(kinds[kinds.length - 1]).toBe('FOOTER');
-    expect(kinds.filter(k => k === 'GAP')).toHaveLength(2);
-    // Gap aparece exatamente entre FOOTER de um bloco e HEADER do próximo.
-    const gapIndexes = kinds.reduce<number[]>((acc, k, i) => (k === 'GAP' ? [...acc, i] : acc), []);
-    gapIndexes.forEach(i => {
-      expect(kinds[i - 1]).toBe('FOOTER');
-      expect(kinds[i + 1]).toBe('HEADER');
-    });
-  });
-
-  it('gera chaves estáveis por identidade lógica ao remontar o mesmo capítulo', () => {
-    const viewer: ViewerChapters = { prev: null, curr: makeChapter('1', 2), next: null };
-
-    const first = buildReaderList(viewer, new Map());
-    const second = buildReaderList(viewer, new Map());
-
-    expect(first.map(i => i.key)).toEqual(second.map(i => i.key));
   });
 });
 
@@ -110,12 +60,6 @@ describe('isNearChapterEdge', () => {
   });
 });
 
-describe('reindexAfterPrevInsert', () => {
-  it('desloca o índice pelo tamanho do bloco inserido', () => {
-    expect(reindexAfterPrevInsert(5, 12)).toBe(17);
-  });
-});
-
 describe('currChapterOf', () => {
   it('sempre retorna viewer.curr, nunca prev ou next', () => {
     const viewer: ViewerChapters = {
@@ -125,70 +69,5 @@ describe('currChapterOf', () => {
     };
 
     expect(currChapterOf(viewer)).toBe(viewer.curr);
-  });
-});
-
-describe('computeVisiblePageProgress', () => {
-  it('retorna fração 0 quando o centro do viewport está no topo do item', () => {
-    const viewer: ViewerChapters = { prev: null, curr: makeChapter('1', 3), next: null };
-    const items = buildReaderList(viewer, new Map());
-    const heights = new Map([
-      ['1:HEADER:', 100],
-      ['1:PAGE:0', 2000],
-    ]);
-
-    // header ocupa [0,100); página 0 ocupa [100,2100). Viewport de altura 200, offset 0
-    // -> centro do viewport = 100 -> exatamente o topo da página 0.
-    const result = computeVisiblePageProgress(items, heights, 0, 200, '1', 800);
-
-    expect(result).toEqual({ pageIndex: 0, scrollFraction: 0 });
-  });
-
-  it('calcula fração proporcional dentro de uma página alta (webtoon)', () => {
-    const viewer: ViewerChapters = { prev: null, curr: makeChapter('1', 1), next: null };
-    const items = buildReaderList(viewer, new Map());
-    const heights = new Map([
-      ['1:HEADER:', 0],
-      ['1:PAGE:0', 4000],
-    ]);
-
-    // página 0 ocupa [0,4000). offset 1000, viewport 200 -> centro = 1100 -> fração 1100/4000.
-    const result = computeVisiblePageProgress(items, heights, 1000, 200, '1', 800);
-
-    expect(result?.pageIndex).toBe(0);
-    expect(result?.scrollFraction).toBeCloseTo(1100 / 4000);
-  });
-
-  it('ignora páginas de outro capítulo (prev/next), só considera currChapterId', () => {
-    const viewer: ViewerChapters = {
-      prev: makeChapter('0', 1),
-      curr: makeChapter('1', 1),
-      next: null,
-    };
-    const items = buildReaderList(viewer, new Map());
-    const heights = new Map([
-      ['0:HEADER:', 0],
-      ['0:PAGE:0', 500],
-      ['0:FOOTER:', 0],
-      ['gap:0:1', 0],
-      ['1:HEADER:', 0],
-      ['1:PAGE:0', 500],
-    ]);
-
-    // centro do viewport cai dentro da página do capítulo prev (id '0') — deve ser ignorado.
-    const result = computeVisiblePageProgress(items, heights, 0, 200, '1', 800);
-
-    expect(result).toBeNull();
-  });
-
-  it('usa altura estimada para itens ainda não medidos', () => {
-    const viewer: ViewerChapters = { prev: null, curr: makeChapter('1', 2), next: null };
-    const items = buildReaderList(viewer, new Map());
-
-    // Nenhuma altura medida — tudo cai no estimatedItemHeight (800). Header e página 0
-    // ocupam [0,800) e [800,1600). offset 800, viewport 0 -> centro = 800 -> topo da página 0.
-    const result = computeVisiblePageProgress(items, new Map(), 800, 0, '1', 800);
-
-    expect(result).toEqual({ pageIndex: 0, scrollFraction: 0 });
   });
 });
