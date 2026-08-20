@@ -10,16 +10,39 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.08.20.0248](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.20.0248)] - 2026-08-20
 
+Melhorias internas nesta versao. / Internal improvements in this version.
+
+### **Backend** - `0.7.0`
+
+**[pt-BR]**
 - feat: a leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
 - feat: adicionado suporte a decodificação de imagens no formato AVIF.
 - refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
 - perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
 - chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
 
-### Frontend
+**[en]**
+- feat: a leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
+- feat: adicionado suporte a decodificação de imagens no formato AVIF.
+- refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
+- perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
+- chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
 
+### **Frontend** - `0.8.0`
+
+**[pt-BR]**
+- feat: nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
+- feat: a leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
+- feat: barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
+- feat: progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
+- feat: capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
+- feat: adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
+- feat: adicionado aviso de conexão perdida durante a leitura.
+- feat: adicionado botão de tentar novamente para páginas que falharem ao carregar.
+
+**[en]**
 - feat: nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
 - feat: a leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
 - feat: barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
