@@ -2,7 +2,9 @@
 
 ## Em andamento
 
-_Nenhum plano em andamento._
+| Plan | Prioridade | Task atual |
+|------|------------|------------|
+| [017 — Reestruturação de Domínio e Salvaguardas](active/017%20-%20Reestruturacao/README.md) | Máxima — bloqueia demais trabalho | [001 — Contrato único de troca de capítulo](active/017%20-%20Reestruturacao/001-contrato-navegacao-capitulo.md) (doing) |
 
 ## Concluídos
 
