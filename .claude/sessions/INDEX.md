@@ -8,6 +8,7 @@ _Nenhum plano em andamento._
 
 | Plan | Versão |
 |------|--------|
+| [007 — Reader Screen](../completions/archive/007%20-%20Reader%20Screen/README.md) | todas as 18 tasks concluídas — arquitetura real: `LazyColumn` nativo Kotlin/Compose + Server-Driven UI em vez de `FlashList`; ver também [doc de limpeza final](../completions/2026-08-19_007-reader-screen-limpeza-final.md) |
 | [006 — Series Detail Screen](../completions/archive/006%20-%20Series%20Detail%20Screen/README.md) | `0.6.0` — todas as 11 tasks concluídas |
 | [010 — OTA Infrastructure](../completions/archive/010%20-%20OTA%20Infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
 | [004 — Following Screen](../completions/2026-08-12_004-following-screen.md) | `0.6.0` — entregue como wrapper da Biblioteca com filtro e prefs independentes |
@@ -19,7 +20,6 @@ _Nenhum plano em andamento._
 | # | Item | Depends on |
 |---|------|------------|
 | [005](backlog/items/005-home-screen.md) | Home Screen | 001, 003 |
-| [007](backlog/items/007-reader-screen.md) | Reader Screen | 001, 006 |
 | [008](backlog/items/008-notifications-screen.md) | Notifications Screen | 001, 003 |
 | [009](backlog/items/009-search-screen.md) | Search Screen | 003 |
 | [011](backlog/items/011-bff-plugin.md) | BFF Plugin | 001, 012 |
