@@ -46,31 +46,23 @@ class StartupModule @Inject constructor(
     @ReactMethod
     fun hasServerConfigured(promise: Promise) {
         scope.launch {
-            runCatching { serverConfigDao.getAll().isNotEmpty() }
-                .onSuccess { promise.resolve(it) }
-                .onFailure { promise.reject("STARTUP_ERROR", it.message, it) }
+            runCatching { serverConfigDao.getAll().isNotEmpty() }.resolveOrReject(promise, "STARTUP_ERROR")
         }
     }
 
     @ReactMethod
     fun hasFollowedSeries(promise: Promise) {
         scope.launch {
-            runCatching { followedSeriesDao.getAllIds().isNotEmpty() }
-                .onSuccess { promise.resolve(it) }
-                .onFailure { promise.reject("STARTUP_ERROR", it.message, it) }
+            runCatching { followedSeriesDao.getAllIds().isNotEmpty() }.resolveOrReject(promise, "STARTUP_ERROR")
         }
     }
 
     @ReactMethod
     fun syncBlocking(promise: Promise) {
         scope.launch {
-            runCatching { splashSyncCoordinator.sync() }
-                .onSuccess { success ->
-                    Arguments.createMap().apply {
-                        putBoolean("success", success)
-                    }.let { promise.resolve(it) }
-                }
-                .onFailure { promise.reject("SYNC_ERROR", it.message, it) }
+            runCatching { splashSyncCoordinator.sync() }.resolveOrReject(promise, "SYNC_ERROR") { success ->
+                Arguments.createMap().apply { putBoolean("success", success) }
+            }
         }
     }
 
@@ -89,9 +81,7 @@ class StartupModule @Inject constructor(
     @ReactMethod
     fun isSeriesFollowed(seriesId: String, promise: Promise) {
         scope.launch {
-            runCatching { followedSeriesDao.isFollowed(seriesId) }
-                .onSuccess { promise.resolve(it) }
-                .onFailure { promise.reject("STARTUP_ERROR", it.message, it) }
+            runCatching { followedSeriesDao.isFollowed(seriesId) }.resolveOrReject(promise, "STARTUP_ERROR")
         }
     }
 

@@ -5,10 +5,10 @@ export interface PageCacheEntry {
   url: string;
 }
 
-interface ReaderModuleInterface {
+interface ReaderChapterModuleInterface {
   getPageUrls(chapterId: string, expectedPageCount: number): Promise<string[]>;
   invalidatePageCache(chapterId: string): Promise<void>;
   getPageCacheUrls(chapterId: string): Promise<PageCacheEntry[]>;
 }
 
-export const ReaderBridge: ReaderModuleInterface = NativeModules.ReaderModule;
+export const ReaderBridge: ReaderChapterModuleInterface = NativeModules.ReaderChapterModule;

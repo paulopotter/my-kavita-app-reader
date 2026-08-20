@@ -1,5 +1,5 @@
 import { SeriesBridge } from '../../../shared/bridge/series';
-import { ReaderChapterBridge } from '../../../shared/bridge/chapter';
+import { ReaderChapterBridge, ScreenControlBridge } from '../../../shared/bridge/chapter';
 import {
   allowScreenOff,
   fetchKeepScreenOnPref,
@@ -19,9 +19,11 @@ jest.mock('../../../shared/bridge/chapter', () => ({
     getLocalProgress: jest.fn(),
     saveLocalProgress: jest.fn(),
     saveReadingProgress: jest.fn(),
-    getKeepScreenOnDuringReading: jest.fn(),
+  },
+  ScreenControlBridge: {
     keepScreenOn: jest.fn(),
     allowScreenOff: jest.fn(),
+    getKeepScreenOnDuringReading: jest.fn(),
   },
 }));
 
@@ -67,24 +69,24 @@ describe('ReaderService', () => {
     expect(ReaderChapterBridge.saveReadingProgress).toHaveBeenCalledWith('c1', 's1', 4);
   });
 
-  it('fetchKeepScreenOnPref delega para getKeepScreenOnDuringReading', async () => {
-    (ReaderChapterBridge.getKeepScreenOnDuringReading as jest.Mock).mockResolvedValue(true);
+  it('fetchKeepScreenOnPref delega para ScreenControlBridge.getKeepScreenOnDuringReading', async () => {
+    (ScreenControlBridge.getKeepScreenOnDuringReading as jest.Mock).mockResolvedValue(true);
 
     const result = await fetchKeepScreenOnPref();
 
     expect(result).toBe(true);
   });
 
-  it('keepScreenOn delega para ReaderChapterBridge.keepScreenOn', async () => {
+  it('keepScreenOn delega para ScreenControlBridge.keepScreenOn', async () => {
     await keepScreenOn();
 
-    expect(ReaderChapterBridge.keepScreenOn).toHaveBeenCalledTimes(1);
+    expect(ScreenControlBridge.keepScreenOn).toHaveBeenCalledTimes(1);
   });
 
-  it('allowScreenOff delega para ReaderChapterBridge.allowScreenOff', async () => {
+  it('allowScreenOff delega para ScreenControlBridge.allowScreenOff', async () => {
     await allowScreenOff();
 
-    expect(ReaderChapterBridge.allowScreenOff).toHaveBeenCalledTimes(1);
+    expect(ScreenControlBridge.allowScreenOff).toHaveBeenCalledTimes(1);
   });
 
   it('markChapterRead delega para SeriesBridge.markChaptersRead com array de um item', async () => {

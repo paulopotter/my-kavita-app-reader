@@ -57,27 +57,21 @@ class LibraryModule @Inject constructor(
     @ReactMethod
     fun toggleFollow(seriesId: String, promise: Promise) {
         scope.launch {
-            runCatching { followedSeriesDao.toggle(seriesId) }
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("FOLLOW_ERROR", it.message, it) }
+            runCatching { followedSeriesDao.toggle(seriesId) }.resolveOrReject(promise, "FOLLOW_ERROR")
         }
     }
 
     @ReactMethod
     fun syncBff(promise: Promise) {
         scope.launch {
-            bffFeature.syncBff(lastSeries)
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("BFF_ERROR", it.message, it) }
+            bffFeature.syncBff(lastSeries).resolveOrReject(promise, "BFF_ERROR")
         }
     }
 
     @ReactMethod
     fun saveReadingProgress(chapterId: String, seriesId: String, page: Int, promise: Promise) {
         scope.launch {
-            kavitaChapterFeature.saveReadingProgress(chapterId, seriesId, page)
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("PROGRESS_ERROR", it.message, it) }
+            kavitaChapterFeature.saveReadingProgress(chapterId, seriesId, page).resolveOrReject(promise, "PROGRESS_ERROR")
         }
     }
 

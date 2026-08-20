@@ -30,44 +30,32 @@ class SetupModule @Inject constructor(
     @ReactMethod
     fun testKavitaConnection(promise: Promise) {
         scope.launch {
-            kavitaUrlSource.invalidateAndReselect()
-                .onSuccess { url ->
-                    Arguments.createMap().apply {
-                        putString("activeUrl", url)
-                    }.let { promise.resolve(it) }
-                }
-                .onFailure { promise.reject("CONNECTION_ERROR", it.message, it) }
+            kavitaUrlSource.invalidateAndReselect().resolveOrReject(promise, "CONNECTION_ERROR") { url ->
+                Arguments.createMap().apply { putString("activeUrl", url) }
+            }
         }
     }
 
     @ReactMethod
     fun forceReselectUrl(promise: Promise) {
         scope.launch {
-            kavitaUrlSource.invalidateAndReselect()
-                .onSuccess { url ->
-                    Arguments.createMap().apply {
-                        putString("activeUrl", url)
-                    }.let { promise.resolve(it) }
-                }
-                .onFailure { promise.reject("CONNECTION_ERROR", it.message, it) }
+            kavitaUrlSource.invalidateAndReselect().resolveOrReject(promise, "CONNECTION_ERROR") { url ->
+                Arguments.createMap().apply { putString("activeUrl", url) }
+            }
         }
     }
 
     @ReactMethod
     fun authenticate(apiKey: String, promise: Promise) {
         scope.launch {
-            kavitaAuthFeature.authenticate(apiKey)
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("AUTH_ERROR", it.message, it) }
+            kavitaAuthFeature.authenticate(apiKey).resolveOrReject(promise, "AUTH_ERROR")
         }
     }
 
     @ReactMethod
     fun isAuthenticated(promise: Promise) {
         scope.launch {
-            runCatching { kavitaAuthFeature.isAuthenticated() }
-                .onSuccess { promise.resolve(it) }
-                .onFailure { promise.reject("AUTH_STATUS_ERROR", it.message, it) }
+            runCatching { kavitaAuthFeature.isAuthenticated() }.resolveOrReject(promise, "AUTH_STATUS_ERROR")
         }
     }
 
@@ -82,13 +70,9 @@ class SetupModule @Inject constructor(
     @ReactMethod
     fun testBffConnection(promise: Promise) {
         scope.launch {
-            bffFeature.testConnection()
-                .onSuccess { url ->
-                    Arguments.createMap().apply {
-                        putString("activeUrl", url)
-                    }.let { promise.resolve(it) }
-                }
-                .onFailure { promise.reject("BFF_ERROR", it.message, it) }
+            bffFeature.testConnection().resolveOrReject(promise, "BFF_ERROR") { url ->
+                Arguments.createMap().apply { putString("activeUrl", url) }
+            }
         }
     }
 }

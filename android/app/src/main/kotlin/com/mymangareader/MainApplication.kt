@@ -21,7 +21,9 @@ import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
+import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
+import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
@@ -43,6 +45,9 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     @Inject lateinit var kavitaAuthFeature: KavitaAuthFeature
     @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
     @Inject lateinit var kavitaChapterFeature: KavitaChapterFeature
+    // Typed as the interface (not KavitaChapterFeature) so ReaderChapterModule's provider stays
+    // swappable without touching this wiring — see ChapterDataSource's doc for the rationale.
+    @Inject lateinit var chapterDataSource: ChapterDataSource
     @Inject lateinit var bffFeature: BffFeature
     @Inject lateinit var followedSeriesDao: FollowedSeriesDao
     @Inject lateinit var serverConfigDao: ServerConfigDao
@@ -63,6 +68,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
                     kavitaAuthFeature = kavitaAuthFeature,
                     kavitaSeriesFeature = kavitaSeriesFeature,
                     kavitaChapterFeature = kavitaChapterFeature,
+                    chapterDataSource = chapterDataSource,
                     bffFeature = bffFeature,
                     followedSeriesDao = followedSeriesDao,
                     serverConfigDao = serverConfigDao,
@@ -86,7 +92,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
-        android.util.Log.d("CoilDiagnostic", "app version=${BuildConfig.KOTLIN_VERSION_NAME}")
+        ReaderDebugFlags.d("CoilDiagnostic") { "app version=${BuildConfig.KOTLIN_VERSION_NAME}" }
         otaManager.discardStaleBundleIfNeeded()
         SoLoader.init(this, false)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {

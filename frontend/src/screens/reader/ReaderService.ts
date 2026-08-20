@@ -1,5 +1,5 @@
 import { SeriesBridge } from '../../shared/bridge/series';
-import { LocalProgress, PageDimension, ReaderChapterBridge } from '../../shared/bridge/chapter';
+import { LocalProgress, PageDimension, ReaderChapterBridge, ScreenControlBridge } from '../../shared/bridge/chapter';
 
 export async function fetchServerReadProgress(chapterId: string): Promise<number | null> {
   return ReaderChapterBridge.getServerReadProgress(chapterId);
@@ -47,15 +47,15 @@ export async function saveServerProgress(chapterId: string, seriesId: string, pa
 }
 
 export async function fetchKeepScreenOnPref(): Promise<boolean> {
-  return ReaderChapterBridge.getKeepScreenOnDuringReading();
+  return ScreenControlBridge.getKeepScreenOnDuringReading();
 }
 
 export async function keepScreenOn(): Promise<void> {
-  return ReaderChapterBridge.keepScreenOn();
+  return ScreenControlBridge.keepScreenOn();
 }
 
 export async function allowScreenOff(): Promise<void> {
-  return ReaderChapterBridge.allowScreenOff();
+  return ScreenControlBridge.allowScreenOff();
 }
 
 export async function markChapterRead(seriesId: string, chapterId: string): Promise<void> {

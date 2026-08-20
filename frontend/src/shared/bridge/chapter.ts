@@ -18,9 +18,6 @@ interface ReaderChapterBridgeInterface {
   getLocalProgress(chapterId: string): Promise<LocalProgress | null>;
   saveLocalProgress(chapterId: string, seriesId: string, page: number, scrollFraction: number): Promise<void>;
   saveReadingProgress(chapterId: string, seriesId: string, page: number): Promise<void>;
-  getKeepScreenOnDuringReading(): Promise<boolean>;
-  keepScreenOn(): Promise<void>;
-  allowScreenOff(): Promise<void>;
   // Kavita already extracted/cached every page while indexing the library, so this returns page
   // pixel dimensions as JSON without downloading any image bytes — lets the reader size its
   // progress-bar landmarks before a page has actually been decoded on-device. Server-side source
@@ -29,4 +26,11 @@ interface ReaderChapterBridgeInterface {
   getPageDimensions(chapterId: string): Promise<PageDimension[]>;
 }
 
-export const ReaderChapterBridge: ReaderChapterBridgeInterface = NativeModules.ReaderModule;
+interface ScreenControlBridgeInterface {
+  keepScreenOn(): Promise<void>;
+  allowScreenOff(): Promise<void>;
+  getKeepScreenOnDuringReading(): Promise<boolean>;
+}
+
+export const ReaderChapterBridge: ReaderChapterBridgeInterface = NativeModules.ReaderChapterModule;
+export const ScreenControlBridge: ScreenControlBridgeInterface = NativeModules.ScreenControlModule;

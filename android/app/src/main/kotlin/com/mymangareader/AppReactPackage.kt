@@ -14,6 +14,7 @@ import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
 import com.mymangareader.features.kavita.KavitaUrlSource
+import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
@@ -29,7 +30,11 @@ class AppReactPackage(
     private val kavitaUrlSource: KavitaUrlSource,
     private val kavitaAuthFeature: KavitaAuthFeature,
     private val kavitaSeriesFeature: KavitaSeriesFeature,
+    // Concrete type: LibraryModule/SeriesModule call methods outside ChapterDataSource's contract
+    // (listChaptersForSeries, markChaptersRead/Unread). ReaderChapterModule below uses the
+    // separate chapterDataSource param instead — see its own doc.
     private val kavitaChapterFeature: KavitaChapterFeature,
+    private val chapterDataSource: ChapterDataSource,
     private val bffFeature: BffFeature,
     private val followedSeriesDao: FollowedSeriesDao,
     private val serverConfigDao: ServerConfigDao,
@@ -59,7 +64,9 @@ class AppReactPackage(
                 seriesSortPrefsDao,
                 context,
             ),
-            ReaderModule(kavitaChapterFeature, activeUrlWatcher, uiPreferencesDao, context),
+            ReaderChapterModule(chapterDataSource, context),
+            ScreenControlModule(uiPreferencesDao, context),
+            NetworkStatusModule(activeUrlWatcher, context),
         )
     }
 

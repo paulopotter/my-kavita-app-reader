@@ -35,7 +35,7 @@ class KavitaChapterFeature @Inject constructor(
     private val chapterCacheDao: ChapterCacheDao,
     private val readingProgressDao: ReadingProgressDao,
     private val pageCacheDao: PageCacheDao,
-) {
+) : ChapterDataSource {
     @Serializable
     private data class ChapterDto(
         val id: Int,
@@ -107,7 +107,7 @@ class KavitaChapterFeature @Inject constructor(
         }
     }
 
-    suspend fun saveReadingProgress(chapterId: String, seriesId: String, page: Int): Result<Unit> =
+    override suspend fun saveReadingProgress(chapterId: String, seriesId: String, page: Int): Result<Unit> =
         runCatching {
             val now = System.currentTimeMillis()
             readingProgressDao.upsert(
@@ -126,7 +126,7 @@ class KavitaChapterFeature @Inject constructor(
             )
         }
 
-    suspend fun getPageUrls(chapterId: String, expectedPageCount: Int): Result<List<String>> {
+    override suspend fun getPageUrls(chapterId: String, expectedPageCount: Int): Result<List<String>> {
         val cached = pageCacheDao.getByChapterId(chapterId)
         if (cached.size == expectedPageCount && expectedPageCount > 0) {
             return Result.success(cached.map { it.url })
@@ -141,17 +141,17 @@ class KavitaChapterFeature @Inject constructor(
         return Result.success(urls)
     }
 
-    suspend fun invalidatePageCache(chapterId: String): Result<Unit> =
+    override suspend fun invalidatePageCache(chapterId: String): Result<Unit> =
         runCatching { pageCacheDao.deleteByChapterId(chapterId) }
 
-    suspend fun getPageCacheUrls(chapterId: String): Result<List<Pair<Int, String>>> =
+    override suspend fun getPageCacheUrls(chapterId: String): Result<List<Pair<Int, String>>> =
         runCatching { pageCacheDao.getByChapterId(chapterId).map { it.pageIndex to it.url } }
 
     // Kavita already extracts/caches every page while indexing the library, so this returns page
     // pixel dimensions as JSON without downloading any image bytes — used to size the reader's
     // progress-bar landmarks (see ReaderPageList's itemHeights) before a page has actually been
     // decoded on-device, instead of only finding out its height once it scrolls into view.
-    suspend fun getPageDimensions(chapterId: String): Result<List<PageDimension>> {
+    override suspend fun getPageDimensions(chapterId: String): Result<List<PageDimension>> {
         val auth = authConfigDao.get() ?: return Result.failure(IllegalStateException("Not authenticated"))
         val jwt = auth.jwt ?: return Result.failure(IllegalStateException("Not authenticated"))
         val baseUrl = urlSource.getActiveUrl().getOrElse { return Result.failure(it) }
@@ -169,7 +169,7 @@ class KavitaChapterFeature @Inject constructor(
         }
     }
 
-    suspend fun getServerReadProgress(chapterId: String): Result<Int?> {
+    override suspend fun getServerReadProgress(chapterId: String): Result<Int?> {
         val auth = authConfigDao.get() ?: return Result.failure(IllegalStateException("Not authenticated"))
         val jwt = auth.jwt ?: return Result.failure(IllegalStateException("Not authenticated"))
         val baseUrl = urlSource.getActiveUrl().getOrElse { return Result.failure(it) }
@@ -186,12 +186,12 @@ class KavitaChapterFeature @Inject constructor(
         }
     }
 
-    suspend fun getLocalProgress(chapterId: String): Result<LocalProgress?> =
+    override suspend fun getLocalProgress(chapterId: String): Result<LocalProgress?> =
         runCatching {
             readingProgressDao.get(chapterId)?.let { LocalProgress(it.page, it.scrollFraction) }
         }
 
-    suspend fun saveLocalProgress(chapterId: String, seriesId: String, page: Int, scrollFraction: Float): Result<Unit> =
+    override suspend fun saveLocalProgress(chapterId: String, seriesId: String, page: Int, scrollFraction: Float): Result<Unit> =
         runCatching {
             readingProgressDao.upsert(
                 ReadingProgressEntity(

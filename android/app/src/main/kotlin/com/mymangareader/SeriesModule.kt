@@ -8,7 +8,6 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableType
-import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
 import com.mymangareader.core.database.FollowedSeriesDao
@@ -53,11 +52,8 @@ class SeriesModule @Inject constructor(
                 // that point crashes with IllegalStateException. Silently dropping an emission
                 // here is safe: initial state reaches JS through explicit getters like
                 // getSeriesDetail once the bridge is ready, only live updates go through this path.
-                if (!reactApplicationContext.hasActiveReactInstance()) return@collect
                 val array = Arguments.createArray().also { arr -> ids.forEach { arr.pushString(it) } }
-                reactApplicationContext
-                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                    ?.emit(EVENT_FOLLOWED_IDS, array)
+                reactApplicationContext.emitEvent(EVENT_FOLLOWED_IDS, array)
             }
         }
     }
@@ -65,27 +61,21 @@ class SeriesModule @Inject constructor(
     @ReactMethod
     fun getSeriesDetail(seriesId: String, promise: Promise) {
         scope.launch {
-            kavitaSeriesFeature.getSeriesDetail(seriesId)
-                .onSuccess { promise.resolve(it.toWritableMap()) }
-                .onFailure { promise.reject("SERIES_DETAIL_ERROR", it.message, it) }
+            kavitaSeriesFeature.getSeriesDetail(seriesId).resolveOrReject(promise, "SERIES_DETAIL_ERROR") { it.toWritableMap() }
         }
     }
 
     @ReactMethod
     fun getSeriesMetadata(seriesId: String, promise: Promise) {
         scope.launch {
-            kavitaSeriesFeature.getSeriesMetadata(seriesId)
-                .onSuccess { promise.resolve(it.toWritableMap()) }
-                .onFailure { promise.reject("SERIES_METADATA_ERROR", it.message, it) }
+            kavitaSeriesFeature.getSeriesMetadata(seriesId).resolveOrReject(promise, "SERIES_METADATA_ERROR") { it.toWritableMap() }
         }
     }
 
     @ReactMethod
     fun getChapters(seriesId: String, promise: Promise) {
         scope.launch {
-            kavitaChapterFeature.listChaptersForSeries(seriesId)
-                .onSuccess { promise.resolve(it.toWritableArray()) }
-                .onFailure { promise.reject("CHAPTERS_ERROR", it.message, it) }
+            kavitaChapterFeature.listChaptersForSeries(seriesId).resolveOrReject(promise, "CHAPTERS_ERROR") { it.toWritableArray() }
         }
     }
 
@@ -93,8 +83,7 @@ class SeriesModule @Inject constructor(
     fun getCachedChapters(seriesId: String, promise: Promise) {
         scope.launch {
             runCatching { chapterCacheDao.getBySeriesId(seriesId) }
-                .onSuccess { promise.resolve(it.toWritableArray()) }
-                .onFailure { promise.reject("CACHED_CHAPTERS_ERROR", it.message, it) }
+                .resolveOrReject(promise, "CACHED_CHAPTERS_ERROR") { it.toWritableArray() }
         }
     }
 
@@ -121,9 +110,7 @@ class SeriesModule @Inject constructor(
                     )
                 }
                 chapterCacheDao.replaceForSeries(seriesId, entities)
-            }
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("REPLACE_CHAPTERS_ERROR", it.message, it) }
+            }.resolveOrReject(promise, "REPLACE_CHAPTERS_ERROR")
         }
     }
 
@@ -131,9 +118,7 @@ class SeriesModule @Inject constructor(
     fun markChaptersRead(seriesId: String, chapterIds: ReadableArray, promise: Promise) {
         scope.launch {
             val ids = (0 until chapterIds.size()).map { chapterIds.getString(it) }
-            kavitaChapterFeature.markChaptersRead(seriesId, ids)
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("MARK_READ_ERROR", it.message, it) }
+            kavitaChapterFeature.markChaptersRead(seriesId, ids).resolveOrReject(promise, "MARK_READ_ERROR")
         }
     }
 
@@ -141,27 +126,21 @@ class SeriesModule @Inject constructor(
     fun markChaptersUnread(seriesId: String, chapterIds: ReadableArray, promise: Promise) {
         scope.launch {
             val ids = (0 until chapterIds.size()).map { chapterIds.getString(it) }
-            kavitaChapterFeature.markChaptersUnread(seriesId, ids)
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("MARK_UNREAD_ERROR", it.message, it) }
+            kavitaChapterFeature.markChaptersUnread(seriesId, ids).resolveOrReject(promise, "MARK_UNREAD_ERROR")
         }
     }
 
     @ReactMethod
     fun toggleFollow(seriesId: String, promise: Promise) {
         scope.launch {
-            runCatching { followedSeriesDao.toggle(seriesId) }
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("FOLLOW_ERROR", it.message, it) }
+            runCatching { followedSeriesDao.toggle(seriesId) }.resolveOrReject(promise, "FOLLOW_ERROR")
         }
     }
 
     @ReactMethod
     fun isSeriesFollowed(seriesId: String, promise: Promise) {
         scope.launch {
-            runCatching { followedSeriesDao.isFollowed(seriesId) }
-                .onSuccess { promise.resolve(it) }
-                .onFailure { promise.reject("FOLLOW_ERROR", it.message, it) }
+            runCatching { followedSeriesDao.isFollowed(seriesId) }.resolveOrReject(promise, "FOLLOW_ERROR")
         }
     }
 
@@ -169,14 +148,13 @@ class SeriesModule @Inject constructor(
     fun getChapterSortPrefs(promise: Promise) {
         scope.launch {
             runCatching { uiPreferencesDao.get() ?: UiPreferencesEntity() }
-                .onSuccess { prefs ->
+                .resolveOrReject(promise, "SORT_PREFS_ERROR") { prefs ->
                     Arguments.createMap().apply {
                         putString("mode", prefs.chapterSortMode)
                         prefs.chapterSortFixedThreshold?.let { putDouble("fixedThreshold", it) }
                         putInt("progressPercent", prefs.chapterSortProgressPercent)
-                    }.let { promise.resolve(it) }
+                    }
                 }
-                .onFailure { promise.reject("SORT_PREFS_ERROR", it.message, it) }
         }
     }
 
@@ -194,9 +172,7 @@ class SeriesModule @Inject constructor(
                         chapterSortProgressPercent = progressPercent,
                     ),
                 )
-            }
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("SORT_PREFS_ERROR", it.message, it) }
+            }.resolveOrReject(promise, "SORT_PREFS_ERROR")
         }
     }
 
@@ -204,18 +180,15 @@ class SeriesModule @Inject constructor(
     fun getSeriesSortPrefs(seriesId: String, promise: Promise) {
         scope.launch {
             runCatching { seriesSortPrefsDao.get(seriesId) }
-                .onSuccess { prefs ->
-                    if (prefs == null) {
-                        promise.resolve(null)
-                    } else {
+                .resolveOrReject(promise, "SERIES_SORT_PREFS_ERROR") { prefs ->
+                    prefs?.let {
                         Arguments.createMap().apply {
-                            putString("mode", prefs.chapterSortMode)
-                            prefs.chapterSortFixedThreshold?.let { putDouble("fixedThreshold", it) }
-                            putInt("progressPercent", prefs.chapterSortProgressPercent)
-                        }.let { promise.resolve(it) }
+                            putString("mode", it.chapterSortMode)
+                            it.chapterSortFixedThreshold?.let { threshold -> putDouble("fixedThreshold", threshold) }
+                            putInt("progressPercent", it.chapterSortProgressPercent)
+                        }
                     }
                 }
-                .onFailure { promise.reject("SERIES_SORT_PREFS_ERROR", it.message, it) }
         }
     }
 
@@ -233,18 +206,14 @@ class SeriesModule @Inject constructor(
                         chapterSortProgressPercent = progressPercent,
                     ),
                 )
-            }
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("SERIES_SORT_PREFS_ERROR", it.message, it) }
+            }.resolveOrReject(promise, "SERIES_SORT_PREFS_ERROR")
         }
     }
 
     @ReactMethod
     fun resetSeriesSortPrefs(seriesId: String, promise: Promise) {
         scope.launch {
-            runCatching { seriesSortPrefsDao.delete(seriesId) }
-                .onSuccess { promise.resolve(null) }
-                .onFailure { promise.reject("SERIES_SORT_PREFS_ERROR", it.message, it) }
+            runCatching { seriesSortPrefsDao.delete(seriesId) }.resolveOrReject(promise, "SERIES_SORT_PREFS_ERROR")
         }
     }
 

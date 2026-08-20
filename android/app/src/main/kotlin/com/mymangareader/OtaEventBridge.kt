@@ -6,7 +6,6 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.mymangareader.tools.ota.OtaStore
 import javax.inject.Inject
 
@@ -79,10 +78,7 @@ class OtaEventBridge(
 
         fun notifyBundleReady() {
             val context = instance?.reactApplicationContext ?: return
-            if (!context.hasActiveReactInstance()) return
-            context
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                ?.emit(EVENT_BUNDLE_READY, null)
+            context.emitEvent(EVENT_BUNDLE_READY, null)
         }
     }
 }
