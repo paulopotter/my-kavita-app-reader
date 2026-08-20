@@ -67,32 +67,30 @@ class SafeBitmapDecoder(
 
     private suspend fun decodeNow(): DecodeResult? = runInterruptible {
         val bytes = source.source().use { it.readByteArray() }
-        android.util.Log.d("CoilDiagnostic", "decodeNow bytesRead=${bytes.size} cacheKey=$cacheKey")
+        ReaderDebugFlags.d("CoilDiagnostic") { "decodeNow bytesRead=${bytes.size} cacheKey=$cacheKey" }
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         val originalWidth = bounds.outWidth
         val originalHeight = bounds.outHeight
-        android.util.Log.d(
-            "CoilDiagnostic",
-            "decodeNow bounds=${originalWidth}x$originalHeight mimeType=${bounds.outMimeType} cacheKey=$cacheKey",
-        )
+        ReaderDebugFlags.d("CoilDiagnostic") {
+            "decodeNow bounds=${originalWidth}x$originalHeight mimeType=${bounds.outMimeType} cacheKey=$cacheKey"
+        }
         if (originalWidth <= 0 || originalHeight <= 0) {
             android.util.Log.e("CoilDiagnostic", "decodeNow BAD BOUNDS cacheKey=$cacheKey")
             return@runInterruptible null
         }
 
         if (originalHeight <= TILE_HEIGHT_PX) {
-            android.util.Log.d("CoilDiagnostic", "decodeNow SMALL PATH (no tiling needed) cacheKey=$cacheKey")
+            ReaderDebugFlags.d("CoilDiagnostic") { "decodeNow SMALL PATH (no tiling needed) cacheKey=$cacheKey" }
             val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options())
             if (bitmap == null) {
                 android.util.Log.e("CoilDiagnostic", "decodeNow SMALL PATH BITMAP NULL cacheKey=$cacheKey")
                 return@runInterruptible null
             }
-            android.util.Log.d(
-                "CoilDiagnostic",
-                "decodeNow SMALL PATH SUCCESS bitmap=${bitmap.width}x${bitmap.height} cacheKey=$cacheKey",
-            )
+            ReaderDebugFlags.d("CoilDiagnostic") {
+                "decodeNow SMALL PATH SUCCESS bitmap=${bitmap.width}x${bitmap.height} cacheKey=$cacheKey"
+            }
             return@runInterruptible DecodeResult(
                 drawable = android.graphics.drawable.BitmapDrawable(null, bitmap),
                 isSampled = false,
@@ -100,7 +98,7 @@ class SafeBitmapDecoder(
         }
 
         val realMimeType = bounds.outMimeType
-        android.util.Log.d("CoilDiagnostic", "decodeNow realMimeType=$realMimeType cacheKey=$cacheKey")
+        ReaderDebugFlags.d("CoilDiagnostic") { "decodeNow realMimeType=$realMimeType cacheKey=$cacheKey" }
 
         if (realMimeType == "image/avif") {
             decodeAvif(bytes, originalWidth, originalHeight)
@@ -117,10 +115,7 @@ class SafeBitmapDecoder(
     // Bitmap the caller pre-allocates — here, sized at the image's real dimensions, since this path
     // never triggers the hardware bug that made downsampling necessary elsewhere in this class.
     private fun decodeAvif(bytes: ByteArray, originalWidth: Int, originalHeight: Int): DecodeResult? {
-        android.util.Log.d(
-            "CoilDiagnostic",
-            "decodeAvif START ${originalWidth}x$originalHeight cacheKey=$cacheKey",
-        )
+        ReaderDebugFlags.d("CoilDiagnostic") { "decodeAvif START ${originalWidth}x$originalHeight cacheKey=$cacheKey" }
         return try {
             val buffer = ByteBuffer.allocateDirect(bytes.size).apply {
                 put(bytes)
@@ -132,10 +127,9 @@ class SafeBitmapDecoder(
                 android.util.Log.e("CoilDiagnostic", "decodeAvif decode() returned false cacheKey=$cacheKey")
                 return null
             }
-            android.util.Log.d(
-                "CoilDiagnostic",
-                "decodeAvif SUCCESS bitmap=${bitmap.width}x${bitmap.height} cacheKey=$cacheKey",
-            )
+            ReaderDebugFlags.d("CoilDiagnostic") {
+                "decodeAvif SUCCESS bitmap=${bitmap.width}x${bitmap.height} cacheKey=$cacheKey"
+            }
             DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, bitmap), isSampled = false)
         } catch (t: Throwable) {
             android.util.Log.e("CoilDiagnostic", "decodeAvif THREW cacheKey=$cacheKey", t)
@@ -144,10 +138,9 @@ class SafeBitmapDecoder(
     }
 
     private fun decodeTiled(bytes: ByteArray, originalWidth: Int, originalHeight: Int): DecodeResult? {
-        android.util.Log.d(
-            "CoilDiagnostic",
-            "decodeTiled START ${originalWidth}x$originalHeight tileHeight=$TILE_HEIGHT_PX cacheKey=$cacheKey",
-        )
+        ReaderDebugFlags.d("CoilDiagnostic") {
+            "decodeTiled START ${originalWidth}x$originalHeight tileHeight=$TILE_HEIGHT_PX cacheKey=$cacheKey"
+        }
 
         val regionDecoder = try {
             @Suppress("DEPRECATION")
@@ -179,10 +172,7 @@ class SafeBitmapDecoder(
             while (top < originalHeight) {
                 val bottom = minOf(top + TILE_HEIGHT_PX, originalHeight)
                 val rect = Rect(0, top, originalWidth, bottom)
-                android.util.Log.d(
-                    "CoilDiagnostic",
-                    "decodeTiled tile=$tileIndex rect=$rect cacheKey=$cacheKey",
-                )
+                ReaderDebugFlags.d("CoilDiagnostic") { "decodeTiled tile=$tileIndex rect=$rect cacheKey=$cacheKey" }
                 val tileBitmap = try {
                     regionDecoder.decodeRegion(rect, BitmapFactory.Options())
                 } catch (t: Throwable) {
@@ -202,19 +192,15 @@ class SafeBitmapDecoder(
                 }
                 canvas.drawBitmap(tileBitmap, 0f, top.toFloat(), null)
                 tileBitmap.recycle()
-                android.util.Log.d(
-                    "CoilDiagnostic",
-                    "decodeTiled tile=$tileIndex OK rect=$rect cacheKey=$cacheKey",
-                )
+                ReaderDebugFlags.d("CoilDiagnostic") { "decodeTiled tile=$tileIndex OK rect=$rect cacheKey=$cacheKey" }
 
                 top = bottom
                 tileIndex++
             }
 
-            android.util.Log.d(
-                "CoilDiagnostic",
-                "decodeTiled SUCCESS bitmap=${output.width}x${output.height} tiles=$tileIndex cacheKey=$cacheKey",
-            )
+            ReaderDebugFlags.d("CoilDiagnostic") {
+                "decodeTiled SUCCESS bitmap=${output.width}x${output.height} tiles=$tileIndex cacheKey=$cacheKey"
+            }
             return DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, output), isSampled = false)
         } finally {
             regionDecoder.recycle()
@@ -223,10 +209,9 @@ class SafeBitmapDecoder(
 
     class Factory : Decoder.Factory {
         override fun create(result: SourceResult, options: Options, imageLoader: ImageLoader): Decoder {
-            android.util.Log.d(
-                "CoilDiagnostic",
-                "SafeBitmapDecoder.Factory.create() cacheKey=${options.diskCacheKey} mimeType=${result.mimeType}",
-            )
+            ReaderDebugFlags.d("CoilDiagnostic") {
+                "SafeBitmapDecoder.Factory.create() cacheKey=${options.diskCacheKey} mimeType=${result.mimeType}"
+            }
             return SafeBitmapDecoder(result.source, options.diskCacheKey)
         }
     }

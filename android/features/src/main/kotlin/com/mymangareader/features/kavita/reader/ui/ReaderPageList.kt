@@ -330,12 +330,12 @@ private fun computeChapterFraction(
     // DEBUG — per-page height/aspectRatio breakdown for this chapter, to catch a single
     // degenerate server-provided aspectRatio inflating chapterTotalHeight (and therefore making
     // the progress bar crawl artificially slowly until the real onGloballyPositioned measurement
-    // overwrites the bad estimate). Remove once the root cause is fixed.
-    android.util.Log.d(
-        "CoilDiagnostic",
+    // overwrites the bad estimate). Gated by ReaderDebugFlags.verboseScrollLogging (off by
+    // default) — see its doc.
+    ReaderDebugFlags.d("CoilDiagnostic") {
         "chapterTotalHeight chapterId=$chapterId total=$chapterTotalHeight pages=" +
-            chapterPages.joinToString(", ") { "p${it.pageIndexInChapter}:h=${itemHeights[it.key()]},ar=${it.aspectRatio}" },
-    )
+            chapterPages.joinToString(", ") { "p${it.pageIndexInChapter}:h=${itemHeights[it.key()]},ar=${it.aspectRatio}" }
+    }
 
     // Tudo relativo ao topo de firstVisibleItemIndex (offset 0 ali) — nunca soma a partir de um
     // item anterior a ele. Ver o comentário mais detalhado em computeVisiblePageAndFraction:
@@ -538,7 +538,7 @@ fun ReaderPageList(
             .filter { it.aspectRatio > 0f }
             .groupBy { it.chapterId }
             .mapValues { (_, pages) -> pages.map { it.aspectRatio }.average().toFloat() }
-        android.util.Log.d("CoilDiagnostic", "fallback averageAspectRatioByChapter=$averageAspectRatioByChapter")
+        ReaderDebugFlags.d("CoilDiagnostic") { "fallback averageAspectRatioByChapter=$averageAspectRatioByChapter" }
         var filled = 0
         entries.forEach { entry ->
             val key = entry.key()
@@ -565,7 +565,7 @@ fun ReaderPageList(
                 }
             }
         }
-        android.util.Log.d("CoilDiagnostic", "fallback filled=$filled entriesCount=${entries.size} itemHeightsSize=${itemHeights.size}")
+        ReaderDebugFlags.d("CoilDiagnostic") { "fallback filled=$filled entriesCount=${entries.size} itemHeightsSize=${itemHeights.size}" }
     }
 
     DisposableEffect(Unit) {
@@ -663,7 +663,7 @@ fun ReaderPageList(
             )
         }
             .collect { snapshot ->
-                android.util.Log.d("CoilDiagnostic", "collect tick firstVisibleIndex=${snapshot.firstVisibleItemIndex} offset=${snapshot.firstVisibleItemScrollOffset}")
+                ReaderDebugFlags.d("CoilDiagnostic") { "collect tick firstVisibleIndex=${snapshot.firstVisibleItemIndex} offset=${snapshot.firstVisibleItemScrollOffset}" }
                 val result = computeVisiblePageAndFraction(
                     entries = latestEntries,
                     itemHeights = itemHeights,
@@ -769,8 +769,7 @@ fun ReaderPageList(
                     ?: lastChapterFractionByChapterId[reportedChapterId]
                     ?: 0f
 
-                android.util.Log.d(
-                    "CoilDiagnostic",
+                ReaderDebugFlags.d("CoilDiagnostic") {
                     "scrollFraction chapterId=${visibleEntry.chapterId} page=${visibleEntry.pageIndexInChapter} " +
                         "bottomPage=${bottomPage.pageIndexInChapter} chapterFraction=$chapterFraction " +
                         "screenPercent=${Math.round(scrollFraction * 100)}% " +
@@ -778,8 +777,8 @@ fun ReaderPageList(
                         "viewportEndOffset=${snapshot.viewportEndOffset} " +
                         "itemHeight=${itemHeights[visibleEntry.key()]} " +
                         "absoluteScrollOffset=$absoluteScrollOffset deltaPx=$deltaPx fraction=$scrollFraction " +
-                        "switchTarget=$switchTarget reportedChapterId=$reportedChapterId reportedPageIndex=$reportedPageIndex",
-                )
+                        "switchTarget=$switchTarget reportedChapterId=$reportedChapterId reportedPageIndex=$reportedPageIndex"
+                }
 
                 onVisiblePageChanged(reportedChapterId, reportedPageIndex, scrollFraction, chapterFraction)
 
@@ -808,10 +807,9 @@ fun ReaderPageList(
                         val newHeight = coordinates.size.height
                         val oldHeight = itemHeights[entryKey]
                         if (oldHeight != null && oldHeight != newHeight) {
-                            android.util.Log.w(
-                                "CoilDiagnostic",
-                                "itemHeights CHANGED key=$entryKey oldHeight=$oldHeight newHeight=$newHeight",
-                            )
+                            ReaderDebugFlags.w("CoilDiagnostic") {
+                                "itemHeights CHANGED key=$entryKey oldHeight=$oldHeight newHeight=$newHeight"
+                            }
                         }
                         itemHeights[entryKey] = newHeight
                     },
@@ -825,74 +823,6 @@ fun ReaderPageList(
         }
     }
 }
-
-// SUPERSEDED by the Server-Driven UI migration (see SduNode.kt): ChapterGapItem/
-// ChapterHeaderItem/ChapterFooterItem used to hardcode Header/Footer/Gap's visual shape in
-// Kotlin. RN now sends that same visual (colors, text, spacing) as an SduNode tree via
-// ChapterBlock.firstNode/lastNode, rendered generically by SduNodeView — Kotlin no longer has a
-// fixed idea of what a "header" looks like. Kept here, commented, as a reference for the visual
-// contract these used to encode (black background, white title, 32.dp padding, muted footer
-// text) in case the SDU tree needs to reproduce it exactly from the RN side.
-//
-// @Composable
-// internal fun ChapterGapItem() {
-//     Box(modifier = Modifier.fillMaxWidth().height(48.dp).background(Color.Black))
-// }
-//
-// @Composable
-// internal fun ChapterHeaderItem(chapterTitle: String) {
-//     Column(
-//         modifier = Modifier
-//             .fillMaxWidth()
-//             .background(Color.Black)
-//             .padding(horizontal = 24.dp, vertical = 32.dp),
-//         horizontalAlignment = Alignment.CenterHorizontally,
-//     ) {
-//         Text(
-//             chapterTitle,
-//             color = Color.White,
-//             fontSize = 20.sp,
-//             fontWeight = FontWeight.SemiBold,
-//             textAlign = TextAlign.Center,
-//             maxLines = 2,
-//         )
-//     }
-// }
-//
-// @Composable
-// internal fun ChapterFooterItem(
-//     endOfChapterLabel: String,
-//     nextChapterLabel: String,
-//     nextChapterTitle: String?,
-// ) {
-//     Column(
-//         modifier = Modifier
-//             .fillMaxWidth()
-//             .background(Color.Black)
-//             .padding(horizontal = 24.dp, vertical = 32.dp),
-//         horizontalAlignment = Alignment.CenterHorizontally,
-//     ) {
-//         Text(endOfChapterLabel, color = ReaderMutedText, fontSize = 14.sp)
-//         if (nextChapterTitle != null) {
-//             Text(
-//                 nextChapterLabel,
-//                 color = ReaderMutedText,
-//                 fontSize = 12.sp,
-//                 modifier = Modifier.padding(top = 16.dp),
-//             )
-//             Text(
-//                 nextChapterTitle,
-//                 color = Color.White,
-//                 fontSize = 16.sp,
-//                 fontWeight = FontWeight.SemiBold,
-//                 textAlign = TextAlign.Center,
-//                 maxLines = 1,
-//             )
-//         }
-//     }
-// }
-//
-// private val ReaderMutedText = Color(0xFFA0AEC0)
 
 @Composable
 internal fun ReaderPageImage(url: String, aspectRatio: Float = 0f) {
