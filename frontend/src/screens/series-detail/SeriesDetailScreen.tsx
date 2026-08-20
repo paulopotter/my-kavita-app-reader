@@ -173,7 +173,12 @@ export function SeriesDetailScreen() {
         data={chapters}
         keyExtractor={item => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#E94560" />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor="#E94560"
+            progressBackgroundColor="rgba(22,33,62,0.85)"
+          />
         }
         onScroll={handleScroll}
         scrollEventThrottle={100}

@@ -21,12 +21,12 @@ describe('computeContinueChapter', () => {
     expect(computeContinueChapter([])).toBeNull();
   });
 
-  it('retorna null quando nao ha nenhum progresso', () => {
+  it('retorna o primeiro capitulo quando nao ha nenhum progresso', () => {
     const chapters = [
       makeChapter({ id: '1', number: '1', readStatus: 'UNREAD', pagesRead: 0 }),
       makeChapter({ id: '2', number: '2', readStatus: 'UNREAD', pagesRead: 0 }),
     ];
-    expect(computeContinueChapter(chapters)).toBeNull();
+    expect(computeContinueChapter(chapters)?.id).toBe('1');
   });
 
   it('retorna o capitulo em progresso quando existe um', () => {
@@ -47,11 +47,11 @@ describe('computeContinueChapter', () => {
     expect(computeContinueChapter(chapters)?.id).toBe('3');
   });
 
-  it('retorna reler no primeiro capitulo quando tudo esta lido acima de 98%', () => {
+  it('retorna null (reler) quando tudo esta lido acima de 98%', () => {
     const chapters = [
       makeChapter({ id: '1', number: '1', readStatus: 'READ', pagesRead: 20, pageCount: 20 }),
       makeChapter({ id: '2', number: '2', readStatus: 'READ', pagesRead: 20, pageCount: 20 }),
     ];
-    expect(computeContinueChapter(chapters)?.id).toBe('1');
+    expect(computeContinueChapter(chapters)).toBeNull();
   });
 });

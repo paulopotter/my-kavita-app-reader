@@ -3,11 +3,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SeriesSummary } from '../../../shared/bridge/library';
 import { FollowStar } from '../../../shared/components/FollowStar';
 import { Strings } from '../../../shared/i18n/strings';
-import {
-  formatProgress,
-  publicationLabel,
-  statusLabel,
-} from '../LibraryTransform';
+import { formatProgress, publicationLabel } from '../LibraryTransform';
 
 interface Props {
   series: SeriesSummary;
@@ -19,7 +15,6 @@ interface Props {
 export function SeriesCard({ series, t, onToggleFollow, onPress }: Props) {
   const pubLabel = publicationLabel(series.publicationStatus, t);
   const progress = formatProgress(series.progressFraction);
-  const sLabel = statusLabel(series.readStatus, t);
 
   return (
     <TouchableOpacity
@@ -46,12 +41,14 @@ export function SeriesCard({ series, t, onToggleFollow, onPress }: Props) {
             style={[styles.progressFill, { width: `${Math.round(series.progressFraction * 100)}%` as any }]}
           />
         </View>
-        <Text style={styles.progressText}>{progress}</Text>
+        <View style={styles.progressLine}>
+          {series.readChapters != null && series.chapterCount != null ? (
+            <Text style={styles.progressText}>{series.readChapters}/{series.chapterCount} {t.chaptersFormat}</Text>
+          ) : <View />}
+          <Text style={styles.progressText}>{progress}</Text>
+        </View>
 
         <View style={styles.badges}>
-          <View style={[styles.badge, readStatusColor(series.readStatus)]}>
-            <Text style={styles.badgeText}>{sLabel}</Text>
-          </View>
           {pubLabel && (
             <View style={[styles.badge, styles.badgePub]}>
               <Text style={styles.badgeText}>{pubLabel}</Text>
@@ -72,14 +69,6 @@ export function SeriesCard({ series, t, onToggleFollow, onPress }: Props) {
       </View>
     </TouchableOpacity>
   );
-}
-
-function readStatusColor(status: SeriesSummary['readStatus']) {
-  switch (status) {
-    case 'READ': return styles.badgeRead;
-    case 'IN_PROGRESS': return styles.badgeReading;
-    case 'UNREAD': return styles.badgeUnread;
-  }
 }
 
 const styles = StyleSheet.create({
@@ -132,10 +121,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#E94560',
     borderRadius: 2,
   },
+  progressLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   progressText: {
     color: '#A0AEC0',
     fontSize: 10,
-    marginBottom: 4,
   },
   badges: {
     flexDirection: 'row',
@@ -153,9 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '600',
   },
-  badgeRead: { backgroundColor: '#38A169' },
-  badgeReading: { backgroundColor: '#D69E2E' },
-  badgeUnread: { backgroundColor: '#4A5568' },
   badgePub: { backgroundColor: '#553C9A' },
   badgeError: { backgroundColor: '#C53030' },
   chapters: {

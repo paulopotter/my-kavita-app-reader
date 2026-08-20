@@ -5,6 +5,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+private const val EVENT_PROGRESS_CHANGED = "seriesProgressChanged"
+
 // Reader chapter/page data bridge — a thin RPC layer over ChapterDataSource, never over
 // KavitaChapterFeature directly. Swapping the manga provider means adding a new
 // ChapterDataSource implementation and rebinding it in FeaturesModule; this module never
@@ -20,6 +23,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class ReaderChapterModule @Inject constructor(
     private val chapterDataSource: ChapterDataSource,
+    private val chapterCacheDao: ChapterCacheDao,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
@@ -108,7 +112,29 @@ class ReaderChapterModule @Inject constructor(
     @ReactMethod
     fun saveReadingProgress(chapterId: String, seriesId: String, page: Int, promise: Promise) {
         scope.launch {
-            chapterDataSource.saveReadingProgress(chapterId, seriesId, page).resolveOrReject(promise, "SAVE_READING_PROGRESS_ERROR")
+            chapterDataSource.saveReadingProgress(chapterId, seriesId, page)
+                .onSuccess { runCatching { emitProgressChanged(seriesId) } }
+                .resolveOrReject(promise, "SAVE_READING_PROGRESS_ERROR")
         }
+    }
+
+    // Notifica telas montadas (ex: Library) que o progresso de leitura mudou — mesmo evento e
+    // mesma lógica de derivação usados por SeriesModule.markChaptersRead/Unread, para que a
+    // Library confie no dado local (Room) sem esperar o TTL do cache em memória do LibraryModule
+    // nem depender de refetch de rede. Best-effort: uma falha aqui (ex: cache vazio nesse instante)
+    // nunca deve impedir a Promise de saveReadingProgress de resolver — ver o runCatching no
+    // call site acima.
+    private suspend fun emitProgressChanged(seriesId: String) {
+        val chapters = chapterCacheDao.getBySeriesId(seriesId)
+        if (chapters.isEmpty()) return
+        val readCount = chapters.count { it.readStatus == "READ" }
+        val progressFraction = readCount.toFloat() / chapters.size
+        val payload = Arguments.createMap().apply {
+            putString("seriesId", seriesId)
+            putDouble("progressFraction", progressFraction.toDouble())
+            putInt("readChapters", readCount)
+            putInt("chapterCount", chapters.size)
+        }
+        reactApplicationContext.emitEvent(EVENT_PROGRESS_CHANGED, payload)
     }
 }

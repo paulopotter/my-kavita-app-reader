@@ -53,5 +53,5 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 4,
   },
-  buttonText: { color: '#E94560', fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  buttonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600', textAlign: 'center' },
 });

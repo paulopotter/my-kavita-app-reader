@@ -15,6 +15,14 @@ export async function fetchSeriesMetadata(seriesId: string): Promise<SeriesMetad
   return SeriesBridge.getSeriesMetadata(seriesId);
 }
 
+export async function fetchCachedSeriesDetail(seriesId: string): Promise<SeriesDetail | null> {
+  return SeriesBridge.getCachedSeriesDetail(seriesId);
+}
+
+export async function fetchCachedSeriesMetadata(seriesId: string): Promise<SeriesMetadata | null> {
+  return SeriesBridge.getCachedSeriesMetadata(seriesId);
+}
+
 export async function fetchChapters(seriesId: string): Promise<Chapter[]> {
   return SeriesBridge.getChapters(seriesId);
 }

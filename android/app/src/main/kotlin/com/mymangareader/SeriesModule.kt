@@ -27,6 +27,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val EVENT_FOLLOWED_IDS = "seriesFollowedIds"
+private const val EVENT_PROGRESS_CHANGED = "seriesProgressChanged"
 
 @Singleton
 class SeriesModule @Inject constructor(
@@ -69,6 +70,22 @@ class SeriesModule @Inject constructor(
     fun getSeriesMetadata(seriesId: String, promise: Promise) {
         scope.launch {
             kavitaSeriesFeature.getSeriesMetadata(seriesId).resolveOrReject(promise, "SERIES_METADATA_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun getCachedSeriesDetail(seriesId: String, promise: Promise) {
+        scope.launch {
+            runCatching { kavitaSeriesFeature.getCachedSeriesDetail(seriesId) }
+                .resolveOrReject(promise, "CACHED_SERIES_DETAIL_ERROR") { it?.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun getCachedSeriesMetadata(seriesId: String, promise: Promise) {
+        scope.launch {
+            runCatching { kavitaSeriesFeature.getCachedSeriesMetadata(seriesId) }
+                .resolveOrReject(promise, "CACHED_SERIES_METADATA_ERROR") { it?.toWritableMap() }
         }
     }
 
@@ -118,7 +135,9 @@ class SeriesModule @Inject constructor(
     fun markChaptersRead(seriesId: String, chapterIds: ReadableArray, promise: Promise) {
         scope.launch {
             val ids = (0 until chapterIds.size()).map { chapterIds.getString(it) }
-            kavitaChapterFeature.markChaptersRead(seriesId, ids).resolveOrReject(promise, "MARK_READ_ERROR")
+            kavitaChapterFeature.markChaptersRead(seriesId, ids)
+                .onSuccess { runCatching { emitProgressChanged(seriesId) } }
+                .resolveOrReject(promise, "MARK_READ_ERROR")
         }
     }
 
@@ -126,8 +145,31 @@ class SeriesModule @Inject constructor(
     fun markChaptersUnread(seriesId: String, chapterIds: ReadableArray, promise: Promise) {
         scope.launch {
             val ids = (0 until chapterIds.size()).map { chapterIds.getString(it) }
-            kavitaChapterFeature.markChaptersUnread(seriesId, ids).resolveOrReject(promise, "MARK_UNREAD_ERROR")
+            kavitaChapterFeature.markChaptersUnread(seriesId, ids)
+                .onSuccess { runCatching { emitProgressChanged(seriesId) } }
+                .resolveOrReject(promise, "MARK_UNREAD_ERROR")
         }
+    }
+
+    // Notifica telas montadas (ex: Library, mantida viva na pilha de navegação) que o progresso de
+    // leitura de uma série mudou, sem elas precisarem esperar o TTL do cache em memória do
+    // LibraryModule expirar nem fazer um refetch completo — mesmo padrão do EVENT_FOLLOWED_IDS.
+    // readChapters/chapterCount usam a mesma lógica de KavitaSeriesFeature.resolveProgress (cache
+    // local como fonte de verdade de progresso), evitando duplicar o cálculo de readStatus aqui.
+    // Best-effort: uma falha aqui nunca deve impedir a Promise de markChaptersRead/Unread de
+    // resolver — ver os runCatching nos call sites acima.
+    private suspend fun emitProgressChanged(seriesId: String) {
+        val chapters = chapterCacheDao.getBySeriesId(seriesId)
+        if (chapters.isEmpty()) return
+        val readCount = chapters.count { it.readStatus == "READ" }
+        val progressFraction = readCount.toFloat() / chapters.size
+        val payload = Arguments.createMap().apply {
+            putString("seriesId", seriesId)
+            putDouble("progressFraction", progressFraction.toDouble())
+            putInt("readChapters", readCount)
+            putInt("chapterCount", chapters.size)
+        }
+        reactApplicationContext.emitEvent(EVENT_PROGRESS_CHANGED, payload)
     }
 
     @ReactMethod

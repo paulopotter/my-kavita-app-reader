@@ -16,6 +16,8 @@ import com.mymangareader.core.database.ReadingProgressDao
 import com.mymangareader.core.database.ReadingProgressEntity
 import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.ServerConfigEntity
+import com.mymangareader.core.database.SeriesDetailCacheDao
+import com.mymangareader.core.database.SeriesDetailCacheEntity
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.core.database.UiPreferencesEntity
 import com.mymangareader.features.bff.BffFeature
@@ -46,6 +48,7 @@ private class FakeUiPreferencesDao(
     override suspend fun upsert(e: UiPreferencesEntity) { upserted = e; entity = e }
     override fun observe(): Flow<UiPreferencesEntity?> = MutableStateFlow(entity)
     override suspend fun getKeepScreenOnDuringReading(): Boolean? = entity?.keepScreenOnDuringReading
+    override suspend fun getImmersiveModeDuringReading(): Boolean? = entity?.immersiveModeDuringReading
 }
 
 private class FakePageCacheDao : PageCacheDao {
@@ -95,6 +98,11 @@ private class FakeBffMatchDao : BffMatchDao {
     override suspend fun deleteAll() {}
 }
 
+private class FakeSeriesDetailCacheDao : SeriesDetailCacheDao {
+    override suspend fun get(seriesId: String): SeriesDetailCacheEntity? = null
+    override suspend fun upsert(entity: SeriesDetailCacheEntity) {}
+}
+
 private class FakeBffServerConfigDao : BffServerConfigDao {
     override suspend fun getAll() = emptyList<BffServerConfigEntity>()
     override suspend fun insert(entity: BffServerConfigEntity) {}
@@ -142,6 +150,7 @@ class SplashSyncCoordinatorTest {
             authConfigDao = FakeAuthConfigDao(),
             chapterCacheDao = FakeChapterCacheDao(),
             bffMatchDao = FakeBffMatchDao(),
+            seriesDetailCacheDao = FakeSeriesDetailCacheDao(),
         )
         val kavitaChapterFeature = KavitaChapterFeature(
             urlSource = FakeUrlSource(baseUrl),

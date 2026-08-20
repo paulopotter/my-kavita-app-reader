@@ -9,7 +9,7 @@ import androidx.room.Transaction
 @Dao
 interface ChapterCacheDao {
 
-    @Query("SELECT * FROM chapter_cache WHERE seriesId = :seriesId")
+    @Query("SELECT * FROM chapter_cache WHERE seriesId = :seriesId ORDER BY sortOrder ASC")
     suspend fun getBySeriesId(seriesId: String): List<ChapterCacheEntity>
 
     @Query(

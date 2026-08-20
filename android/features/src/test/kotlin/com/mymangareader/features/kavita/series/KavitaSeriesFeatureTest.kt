@@ -6,6 +6,8 @@ import com.mymangareader.core.database.BffMatchDao
 import com.mymangareader.core.database.BffMatchEntity
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
+import com.mymangareader.core.database.SeriesDetailCacheDao
+import com.mymangareader.core.database.SeriesDetailCacheEntity
 import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.coroutines.flow.Flow
@@ -53,12 +55,19 @@ private class FakeBffMatchDao : BffMatchDao {
     override suspend fun deleteAll() {}
 }
 
+private class FakeSeriesDetailCacheDao : SeriesDetailCacheDao {
+    private val store = mutableMapOf<String, SeriesDetailCacheEntity>()
+    override suspend fun get(seriesId: String): SeriesDetailCacheEntity? = store[seriesId]
+    override suspend fun upsert(entity: SeriesDetailCacheEntity) { store[entity.seriesId] = entity }
+}
+
 // ── Testes ────────────────────────────────────────────────────────────────────
 
 class KavitaSeriesFeatureTest {
 
     private lateinit var server: MockWebServer
     private lateinit var authDao: FakeAuthConfigDao
+    private lateinit var seriesDetailCacheDao: FakeSeriesDetailCacheDao
     private lateinit var feature: KavitaSeriesFeature
 
     @Before
@@ -66,6 +75,7 @@ class KavitaSeriesFeatureTest {
         server = MockWebServer()
         server.start()
         authDao = FakeAuthConfigDao(AuthConfigEntity(jwt = "jwt-token", apiKey = "api-key"))
+        seriesDetailCacheDao = FakeSeriesDetailCacheDao()
         val baseUrl = server.url("/").toString().trimEnd('/')
         feature = KavitaSeriesFeature(
             urlSource = FakeUrlSource(baseUrl),
@@ -73,6 +83,7 @@ class KavitaSeriesFeatureTest {
             authConfigDao = authDao,
             chapterCacheDao = FakeChapterCacheDao(),
             bffMatchDao = FakeBffMatchDao(),
+            seriesDetailCacheDao = seriesDetailCacheDao,
         )
     }
 
@@ -161,5 +172,66 @@ class KavitaSeriesFeatureTest {
         val result = feature.getSeriesMetadata("42")
 
         assertTrue(result.isFailure)
+    }
+
+    // ── Cache local (series_detail_cache) ────────────────────────────────────────
+
+    @Test
+    fun `getCachedSeriesDetail retorna nulo quando nada foi cacheado ainda`() = runTest {
+        assertEquals(null, feature.getCachedSeriesDetail("42"))
+    }
+
+    @Test
+    fun `getSeriesDetail bem sucedido persiste no cache local`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"id":42,"name":"One Piece"}"""))
+
+        feature.getSeriesDetail("42")
+
+        val cached = feature.getCachedSeriesDetail("42")
+        assertEquals("One Piece", cached?.name)
+        assertTrue(cached?.coverImageUrl?.contains("seriesId=42") == true)
+    }
+
+    @Test
+    fun `getSeriesDetail com falha nao sobrescreve cache existente`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"id":42,"name":"One Piece"}"""))
+        feature.getSeriesDetail("42")
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        feature.getSeriesDetail("42")
+
+        assertEquals("One Piece", feature.getCachedSeriesDetail("42")?.name)
+    }
+
+    @Test
+    fun `getSeriesMetadata bem sucedido persiste generos e tags no cache local`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"seriesId":42,"summary":"Piratas em busca de tesouro","genres":[{"id":1,"title":"Aventura"}],"tags":[{"id":3,"title":"Piratas"}]}""",
+            ),
+        )
+
+        feature.getSeriesMetadata("42")
+
+        val cached = feature.getCachedSeriesMetadata("42")
+        assertEquals("Piratas em busca de tesouro", cached?.summary)
+        assertEquals(listOf("Aventura"), cached?.genres)
+        assertEquals(listOf("Piratas"), cached?.tags)
+    }
+
+    @Test
+    fun `cache de detail e metadata sao mesclados na mesma entity sem se sobrescreverem`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"id":42,"name":"One Piece"}"""))
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"seriesId":42,"summary":"resumo","genres":[],"tags":[]}""",
+            ),
+        )
+
+        feature.getSeriesDetail("42")
+        feature.getSeriesMetadata("42")
+
+        assertEquals("One Piece", feature.getCachedSeriesDetail("42")?.name)
+        assertEquals("resumo", feature.getCachedSeriesMetadata("42")?.summary)
     }
 }

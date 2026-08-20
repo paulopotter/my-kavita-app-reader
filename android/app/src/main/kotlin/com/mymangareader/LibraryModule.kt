@@ -89,6 +89,8 @@ class LibraryModule @Inject constructor(
                     s.lastChapterAddedUtc?.let { putString("lastChapterAddedUtc", it) }
                     s.downloadedChapters?.let { putInt("downloadedChapters", it) }
                     s.totalChapters?.let { putInt("totalChapters", it) }
+                    s.readChapters?.let { putInt("readChapters", it) }
+                    s.chapterCount?.let { putInt("chapterCount", it) }
                     s.latestChapterLabel?.let { putString("latestChapterLabel", it) }
                     putString("publicationStatus", s.publicationStatus)
                     putBoolean("hasErrors", s.hasErrors)

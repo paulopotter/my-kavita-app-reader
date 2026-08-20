@@ -11,6 +11,7 @@ export interface Strings {
   configNoApiKey: string;
   configPreferences: string;
   configKeepScreenOn: string;
+  configImmersiveMode: string;
   configLanguage: string;
   configLanguagePtBr: string;
   configLanguageEn: string;
@@ -188,6 +189,7 @@ const ptBR: Strings = {
   configNoApiKey: 'Sem API Key',
   configPreferences: 'Preferências',
   configKeepScreenOn: 'Manter tela ligada durante leitura',
+  configImmersiveMode: 'Tela cheia imersiva ao ler',
   configLanguage: 'Idioma',
   configLanguagePtBr: 'Português',
   configLanguageEn: 'English',
@@ -345,6 +347,7 @@ const en: Strings = {
   configNoApiKey: 'No API Key',
   configPreferences: 'Preferences',
   configKeepScreenOn: 'Keep screen on while reading',
+  configImmersiveMode: 'Immersive fullscreen while reading',
   configLanguage: 'Language',
   configLanguagePtBr: 'Português',
   configLanguageEn: 'English',

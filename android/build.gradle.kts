@@ -42,15 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=60 — bump this value whenever coverage improves (never lower it).
-            // Was 61. Plan 007 closeout cleanup introduced ChapterDataSource (provider-agnostic
-            // interface, extracted so ReaderChapterModule never depends on KavitaChapterFeature
-            // directly) and ReaderDebugFlags (gated CoilDiagnostic logging) in `features` —
-            // koverVerify's own measured value is ~60.57%.
+            // COVERAGE_FLOOR_KOTLIN=62 — bump this value whenever coverage improves (never lower it).
+            // Was 60. Added tests for the immersive-mode/per-app-language/series-detail-cache
+            // work (ScreenControlModule, ConfigRepository, KavitaSeriesFeature) — koverVerify's
+            // own measured value is ~62.52%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 60
+                        minValue = 62
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageContext } from './shared/i18n/LanguageContext';
 import { getStrings } from './shared/i18n/strings';
 import { ConfigRepository } from './shared/bridge/config';
@@ -22,6 +23,14 @@ function detectSystemLanguage(): string {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [language, setLanguageState] = useState('pt-BR');
   const [showSplash, setShowSplash] = useState(true);
 
@@ -61,7 +70,12 @@ export default function App() {
     StartupBridge.notifyRouteChanged(name, isRoot, isRoot ? name : undefined).catch(() => {});
   }, []);
 
-  const statusBarHeight = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0;
+  // useSafeAreaInsets reage a mudanças reais de inset (rotação, cutout dinâmico, densidade) —
+  // diferente de StatusBar.currentHeight (lido uma única vez, síncrono, no primeiro render),
+  // que podia vir desatualizado/0 se o layout nativo ainda não tivesse se estabilizado quando o
+  // JS montou, deixando o conteúdo atrás da barra de notificação até o próximo reload do app.
+  const insets = useSafeAreaInsets();
+  const statusBarHeight = insets.top;
 
   return (
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>

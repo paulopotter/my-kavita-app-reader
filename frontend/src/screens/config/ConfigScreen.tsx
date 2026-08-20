@@ -116,9 +116,9 @@ function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
             onPress={() => language !== 'pt-BR' && handleLanguageToggle()}>
             <Text style={[styles.langOptionTxt, language === 'pt-BR' && styles.langOptionTxtActive]}>🇧🇷 PT</Text>
           </TouchableOpacity>
-          <View style={styles.langTrack}>
+          <TouchableOpacity style={styles.langTrack} onPress={handleLanguageToggle}>
             <View style={[styles.langThumb, language === 'en' && styles.langThumbRight]} />
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.langOption, language === 'en' && styles.langOptionActive]}
             onPress={() => language !== 'en' && handleLanguageToggle()}>
@@ -599,12 +599,26 @@ function ReadingPrefsScreen({ onBack }: { onBack: () => void }) {
       <View style={styles.prefContainer}>
         <View style={styles.prefRow}>
           <Text style={styles.prefLabel}>{t.configKeepScreenOn}</Text>
-          <Switch
-            value={prefs?.keepScreenOnDuringReading ?? false}
-            onValueChange={v => savePrefs({ keepScreenOnDuringReading: v })}
-            thumbColor={prefs?.keepScreenOnDuringReading ? RED : MUTED}
-            trackColor={{ false: DEEP, true: '#7F1D1D' }}
-          />
+          {prefs && (
+            <Switch
+              value={prefs.keepScreenOnDuringReading}
+              onValueChange={v => savePrefs({ keepScreenOnDuringReading: v })}
+              thumbColor={prefs.keepScreenOnDuringReading ? RED : MUTED}
+              trackColor={{ false: DEEP, true: '#7F1D1D' }}
+            />
+          )}
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.prefRow}>
+          <Text style={styles.prefLabel}>{t.configImmersiveMode}</Text>
+          {prefs && (
+            <Switch
+              value={prefs.immersiveModeDuringReading}
+              onValueChange={v => savePrefs({ immersiveModeDuringReading: v })}
+              thumbColor={prefs.immersiveModeDuringReading ? RED : MUTED}
+              trackColor={{ false: DEEP, true: '#7F1D1D' }}
+            />
+          )}
         </View>
         <View style={styles.divider} />
       </View>

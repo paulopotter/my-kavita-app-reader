@@ -58,6 +58,14 @@ export async function allowScreenOff(): Promise<void> {
   return ScreenControlBridge.allowScreenOff();
 }
 
+export async function fetchImmersiveModePref(): Promise<boolean> {
+  return ScreenControlBridge.getImmersiveModeDuringReading();
+}
+
+export async function setImmersiveMode(enabled: boolean): Promise<void> {
+  return ScreenControlBridge.setImmersiveMode(enabled);
+}
+
 export async function markChapterRead(seriesId: string, chapterId: string): Promise<void> {
   return SeriesBridge.markChaptersRead(seriesId, [chapterId]);
 }

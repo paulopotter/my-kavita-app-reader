@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { ConfigRepository } from '../../shared/bridge/config';
 import { LibrarySortMode, LibraryViewMode, SeriesSummary } from '../../shared/bridge/library';
-import { SeriesFollowedEmitter } from '../../shared/bridge/series';
+import { SeriesFollowedEmitter, SeriesProgressChangedEmitter, SeriesProgressChangedEvent } from '../../shared/bridge/series';
 import { useAppShellState } from '../../shared/components/AppShellState';
 import { fetchSeries, syncBff, toggleFollow as bridgeToggleFollow } from './LibraryService';
 
@@ -25,7 +25,8 @@ type Action =
   | { type: 'SET_VIEW_MODE'; mode: LibraryViewMode }
   | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
   | { type: 'TOGGLE_FOLLOW'; seriesId: number }
-  | { type: 'SET_FOLLOWED_IDS'; ids: string[] };
+  | { type: 'SET_FOLLOWED_IDS'; ids: string[] }
+  | { type: 'PROGRESS_CHANGED'; event: SeriesProgressChangedEvent };
 
 function sortSeries(data: SeriesSummary[], mode: LibrarySortMode): SeriesSummary[] {
   if (mode === 'ALPHABETICAL') {
@@ -64,6 +65,16 @@ export function reducer(state: State, action: Action): State {
       return {
         ...state,
         data: state.data.map(s => ({ ...s, isFollowed: followedIds.has(String(s.id)) })),
+      };
+    }
+    case 'PROGRESS_CHANGED': {
+      const { seriesId, progressFraction, readChapters, chapterCount } = action.event;
+      const readStatus = readChapters <= 0 ? 'UNREAD' : readChapters >= chapterCount ? 'READ' : 'IN_PROGRESS';
+      return {
+        ...state,
+        data: state.data.map(s =>
+          String(s.id) === seriesId ? { ...s, progressFraction, readChapters, chapterCount, readStatus } : s,
+        ),
       };
     }
   }
@@ -116,6 +127,19 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     const sub = SeriesFollowedEmitter.addListener('seriesFollowedIds', (ids: string[]) => {
       dispatch({ type: 'SET_FOLLOWED_IDS', ids });
     });
+    return () => sub.remove();
+  }, []);
+
+  // Mesma ideia do listener de follow acima: progresso de leitura muda em outra tela (Series
+  // Detail, Reader) enquanto esta continua montada — reage in-place ao invés de esperar o TTL do
+  // cache em memória do lado nativo expirar ou depender de um refetch completo.
+  useEffect(() => {
+    const sub = SeriesProgressChangedEmitter.addListener(
+      'seriesProgressChanged',
+      (event: SeriesProgressChangedEvent) => {
+        dispatch({ type: 'PROGRESS_CHANGED', event });
+      },
+    );
     return () => sub.remove();
   }, []);
 

@@ -64,7 +64,7 @@ class AppReactPackage(
                 seriesSortPrefsDao,
                 context,
             ),
-            ReaderChapterModule(chapterDataSource, context),
+            ReaderChapterModule(chapterDataSource, chapterCacheDao, context),
             ScreenControlModule(uiPreferencesDao, context),
             NetworkStatusModule(activeUrlWatcher, context),
         )

@@ -3,6 +3,7 @@ package com.mymangareader
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.disk.DiskCache
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -107,6 +108,16 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
             .components { add(SafeBitmapDecoder.Factory()) }
+            // Coil's default disk cache is 2% of free disk space, which on a nearly-full device
+            // can be too small to hold more than a couple of chapters — pages get evicted and
+            // re-downloaded on every reopen even though nothing on the server changed. A manga
+            // reader's pages are exactly the kind of content worth a generous, explicit floor.
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("coil_page_cache"))
+                    .maxSizeBytes(READER_DISK_CACHE_MAX_BYTES)
+                    .build()
+            }
             // Temporary diagnostic: confirms whether a failing request ever reached
             // SafeBitmapDecoder.Factory.create() at all. Remove once the tiled decode is confirmed
             // working.
@@ -120,4 +131,8 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
                 }
             })
             .build()
+
+    companion object {
+        private const val READER_DISK_CACHE_MAX_BYTES = 500L * 1024 * 1024
+    }
 }

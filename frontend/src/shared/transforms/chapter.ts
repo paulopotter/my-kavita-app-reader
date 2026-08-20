@@ -2,7 +2,7 @@ import { Chapter, ChapterSortMode } from '../bridge/series';
 import { LocalProgress } from '../bridge/chapter';
 import { Strings } from '../i18n/strings';
 
-const READ_THRESHOLD_FRACTION = 0.98;
+export const READ_THRESHOLD_FRACTION = 0.98;
 
 export function chapterDisplayTitle(chapter: Chapter, t: Strings): string {
   // O Kavita às vezes preenche `title` com o próprio número do capítulo —

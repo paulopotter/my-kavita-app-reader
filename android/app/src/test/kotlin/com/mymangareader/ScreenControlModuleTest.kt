@@ -46,7 +46,34 @@ class ScreenControlModuleTest {
         assertEquals(true, promise.resolvedValue)
     }
 
-    // keepScreenOn/allowScreenOff usam UiThreadUtil.runOnUiThread (com.facebook.react.bridge),
-    // que depende de android.os.Handler real — não executável neste teste JVM puro. Cobertos por
-    // ScreenControlModuleRobolectricTest, que roda sob Robolectric (Handler/Looper simulados).
+    @Test
+    fun `getImmersiveModeDuringReading delega para UiPreferencesDao`() = runTest {
+        val dao: UiPreferencesDao = mock()
+        whenever(dao.getImmersiveModeDuringReading()).thenReturn(true)
+        val module = makeModule(uiPreferencesDao = dao)
+        val promise = FakePromise()
+
+        module.getImmersiveModeDuringReading(promise)
+        promise.awaitResolved()
+
+        assertEquals(true, promise.resolvedValue)
+    }
+
+    @Test
+    fun `getImmersiveModeDuringReading usa false como padrao quando preferencia ausente`() = runTest {
+        val dao: UiPreferencesDao = mock()
+        whenever(dao.getImmersiveModeDuringReading()).thenReturn(null)
+        val module = makeModule(uiPreferencesDao = dao)
+        val promise = FakePromise()
+
+        module.getImmersiveModeDuringReading(promise)
+        promise.awaitResolved()
+
+        assertEquals(false, promise.resolvedValue)
+    }
+
+    // keepScreenOn/allowScreenOff/setImmersiveMode usam UiThreadUtil.runOnUiThread
+    // (com.facebook.react.bridge), que depende de android.os.Handler real — não executável neste
+    // teste JVM puro. Cobertos por ScreenControlModuleRobolectricTest, que roda sob Robolectric
+    // (Handler/Looper simulados).
 }

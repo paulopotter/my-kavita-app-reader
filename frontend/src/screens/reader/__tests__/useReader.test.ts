@@ -1,5 +1,4 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { Image } from 'react-native';
 import { Chapter } from '../../../shared/bridge/series';
 import { ViewerChapters } from '../../../shared/transforms/page';
 
@@ -12,6 +11,8 @@ const mockMarkChapterUnread = jest.fn().mockResolvedValue(undefined);
 const mockFetchKeepScreenOnPref = jest.fn().mockResolvedValue(false);
 const mockKeepScreenOnBridge = jest.fn().mockResolvedValue(undefined);
 const mockAllowScreenOff = jest.fn().mockResolvedValue(undefined);
+const mockFetchImmersiveModePref = jest.fn().mockResolvedValue(false);
+const mockSetImmersiveMode = jest.fn().mockResolvedValue(undefined);
 const mockFetchPageAspectRatios = jest.fn().mockResolvedValue([]);
 const mockFetchSeriesName = jest.fn().mockResolvedValue('');
 
@@ -25,6 +26,8 @@ jest.mock('../ReaderService', () => ({
   fetchKeepScreenOnPref: (...args: unknown[]) => mockFetchKeepScreenOnPref(...args),
   keepScreenOn: (...args: unknown[]) => mockKeepScreenOnBridge(...args),
   allowScreenOff: (...args: unknown[]) => mockAllowScreenOff(...args),
+  fetchImmersiveModePref: (...args: unknown[]) => mockFetchImmersiveModePref(...args),
+  setImmersiveMode: (...args: unknown[]) => mockSetImmersiveMode(...args),
   fetchPageAspectRatios: (...args: unknown[]) => mockFetchPageAspectRatios(...args),
   fetchSeriesName: (...args: unknown[]) => mockFetchSeriesName(...args),
 }));
@@ -102,10 +105,11 @@ beforeEach(() => {
   mockFetchServerReadProgress.mockResolvedValue(null);
   mockGetPageCacheUrls.mockResolvedValue([]);
   mockFetchKeepScreenOnPref.mockResolvedValue(false);
+  mockFetchImmersiveModePref.mockResolvedValue(false);
+  mockSetImmersiveMode.mockResolvedValue(undefined);
   mockGetCachedChapters.mockResolvedValue([]);
   activeUrlChangedListener = null;
   netInfoListener = null;
-  jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -174,6 +178,9 @@ describe('useReader — timers', () => {
         initialScrollFraction: 0,
       });
     });
+    act(() => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0.98 });
+    });
 
     await waitFor(() => expect(mockMarkChapterRead).toHaveBeenCalledWith('s1', 'c1'));
 
@@ -185,7 +192,10 @@ describe('useReader — timers', () => {
 });
 
 describe('useReader — marcação como lido', () => {
-  it('marca como lido ao atingir a ultima pagina automaticamente', async () => {
+  it('nao marca como lido so por abrir na ultima pagina, sem confirmacao real de scroll', async () => {
+    // A pagina inicial (resolveInitialPage) pode nascer na ultima pagina do array (ex: abrir
+    // via continue-reading), mas isso nao significa que o usuario de fato rolou ate o fim —
+    // so o chapterFraction (reportado pelo scroll real via onVisiblePageChanged) confirma isso.
     const chapter = makeChapter({ pageCount: 1 });
     const { result } = renderHook(() => useReader('s1', 'c1'));
 
@@ -198,8 +208,46 @@ describe('useReader — marcação como lido', () => {
       });
     });
 
+    expect(mockMarkChapterRead).not.toHaveBeenCalled();
+  });
+
+  it('marca como lido quando chapterFraction atinge o threshold de 98%', async () => {
+    const chapter = makeChapter({ pageCount: 1 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: makeViewer(chapter, ['url0']),
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0.98 });
+    });
+
     await waitFor(() => expect(mockMarkChapterRead).toHaveBeenCalledWith('s1', 'c1'));
     expect(mockMarkChapterRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('nao marca como lido abaixo do threshold de 98%', async () => {
+    const chapter = makeChapter({ pageCount: 1 });
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    act(() => {
+      result.current.dispatch({
+        type: 'VIEWER_READY',
+        viewer: makeViewer(chapter, ['url0']),
+        initialPage: 0,
+        initialScrollFraction: 0,
+      });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0.5 });
+    });
+
+    expect(mockMarkChapterRead).not.toHaveBeenCalled();
   });
 
   it('marcar como lido e idempotente por sessao', async () => {
@@ -214,10 +262,13 @@ describe('useReader — marcação como lido', () => {
         initialScrollFraction: 0,
       });
     });
+    act(() => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0.98 });
+    });
     await waitFor(() => expect(mockMarkChapterRead).toHaveBeenCalledTimes(1));
 
     act(() => {
-      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0 });
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 1 });
     });
 
     expect(mockMarkChapterRead).toHaveBeenCalledTimes(1);
@@ -235,6 +286,9 @@ describe('useReader — marcação como lido', () => {
         initialPage: 0,
         initialScrollFraction: 0,
       });
+    });
+    act(() => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0.98 });
     });
 
     await waitFor(() => expect(mockMarkChapterRead).toHaveBeenCalledTimes(1));
@@ -357,18 +411,155 @@ describe('useReader — navegação entre capítulos', () => {
     expect(result.current.scrollToPageRequest).toBeNull();
   });
 
-  it('avancar marca o capitulo atual como lido mesmo sem rolar ate o fim', async () => {
-    const curr = makeChapter({ id: 'c1', pageCount: 5 });
-    const next = makeChapter({ id: 'c2' });
+  it('avancar manualmente (seta do overlay) recarrega o proximo capitulo do zero e reemite scrollToPageRequest', async () => {
+    // Bug real: apertar a seta "próximo capítulo" no overlay trocava o estado (título, capítulo
+    // atual) mas a lista nativa nunca era instruída a rolar — a tela ficava fisicamente parada no
+    // capítulo anterior, e o overlay/scroll infinito quebravam. goToNextChapterManual agora
+    // recarrega o capítulo do zero via loadInitialViewer (mesmo caminho da abertura da tela),
+    // que reconstrói prev/curr/next atomicamente e reemite scrollToPageRequest corretamente.
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+      makeChapter({ id: 'c3', number: '3' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
     const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
 
+    await act(async () => {
+      await result.current.goToNextChapterManual();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c2'));
+    expect(result.current.scrollToPageRequest).toBe(0);
+  });
+
+  it('avancar manualmente ignora "continuar de onde parei" salvo no proximo capitulo — sempre vai para a primeira pagina', async () => {
+    // Bug real: a seta ia para a página salva de "continue lendo" daquele capítulo (via
+    // resolveInitialPage/fetchLocalProgress/fetchServerReadProgress) em vez de sempre ir para a
+    // primeira página — deixando o overlay/progress bar "avançados" mesmo o usuário nunca tendo
+    // rolado o novo capítulo.
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2', pageCount: 13 }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => Array.from({ length: 13 }, (_, i) => `${chapterId}-p${i}`));
+    mockFetchLocalProgress.mockImplementation(async (chapterId: string) =>
+      chapterId === 'c2' ? { page: 11, scrollFraction: 0 } : null,
+    );
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
+
+    await act(async () => {
+      await result.current.goToNextChapterManual();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c2'));
+    expect(result.current.currentVisiblePage).toBe(0);
+    expect(result.current.scrollToPageRequest).toBe(0);
+    expect(result.current.chapterFraction).toBe(0);
+  });
+
+  it('retroceder manualmente ignora "continuar de onde parei" salvo no capitulo anterior — sempre vai para a primeira pagina', async () => {
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1', pageCount: 5 }),
+      makeChapter({ id: 'c2', number: '2' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => Array.from({ length: 5 }, (_, i) => `${chapterId}-p${i}`));
+    mockFetchLocalProgress.mockImplementation(async (chapterId: string) =>
+      chapterId === 'c1' ? { page: 4, scrollFraction: 0 } : null,
+    );
+    const { result } = renderHook(() => useReader('s1', 'c2'));
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c1'));
+
+    await act(async () => {
+      await result.current.goToPrevChapterManual();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c1'));
+    expect(result.current.currentVisiblePage).toBe(0);
+    expect(result.current.scrollToPageRequest).toBe(0);
+  });
+
+  it('avancar manualmente reseta chapterFraction — nao fica preso no valor do capitulo anterior', async () => {
+    // Bug real relatado após o fix anterior: a seta trocava de capítulo corretamente, mas o
+    // overlay/progress bar continuavam mostrando o progresso do capítulo ANTERIOR (chapterFraction
+    // só é atualizado pelo Kotlin no próximo onVisiblePageChanged real, que pode demorar ou nunca
+    // chegar se o topo do novo capítulo já está visível sem novo scroll).
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`, `${chapterId}-p1`]);
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
     act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: { prev: null, curr: { chapter: curr, pages: ['a', 'b', 'c', 'd', 'e'] }, next: { chapter: next, pages: ['x'] } },
-        initialPage: 1,
-        initialScrollFraction: 0,
-      });
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 1, scrollFraction: 0.95, chapterFraction: 0.97 });
+    });
+    expect(result.current.chapterFraction).toBe(0.97);
+
+    await act(async () => {
+      await result.current.goToNextChapterManual();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c2'));
+    expect(result.current.chapterFraction).toBeLessThan(0.97);
+  });
+
+  it('retroceder manualmente (seta do overlay) recarrega o capitulo anterior do zero e reemite scrollToPageRequest', async () => {
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+      makeChapter({ id: 'c3', number: '3' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+    const { result } = renderHook(() => useReader('s1', 'c2'));
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c2'));
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c1'));
+
+    await act(async () => {
+      await result.current.goToPrevChapterManual();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c1'));
+    expect(result.current.scrollToPageRequest).toBe(0);
+  });
+
+  it('avancar manualmente nao marca o capitulo atual como lido se nao atingiu 98% do progresso', async () => {
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
+
+    await act(async () => {
+      await result.current.goToNextChapterManual();
+    });
+
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c2'));
+    expect(mockMarkChapterRead).not.toHaveBeenCalled();
+  });
+
+  it('avancar manualmente marca o capitulo atual como lido quando ja atingiu 98% do progresso', async () => {
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.next?.chapter.id).toBe('c2'));
+    act(() => {
+      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 0, scrollFraction: 1, chapterFraction: 0.99 });
     });
 
     await act(async () => {
@@ -376,33 +567,25 @@ describe('useReader — navegação entre capítulos', () => {
     });
 
     expect(mockMarkChapterRead).toHaveBeenCalledWith('s1', 'c1');
-    expect(result.current.viewer?.curr.chapter.id).toBe('c2');
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c2'));
   });
 
-  it('retroceder nao marca o capitulo atual como lido', async () => {
-    const prev = makeChapter({ id: 'c0', pageCount: 5 });
-    const curr = makeChapter({ id: 'c1', pageCount: 5 });
-    const { result } = renderHook(() => useReader('s1', 'c1'));
-
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: {
-          prev: { chapter: prev, pages: ['a', 'b', 'c', 'd', 'e'] },
-          curr: { chapter: curr, pages: ['a', 'b', 'c', 'd', 'e'] },
-          next: null,
-        },
-        initialPage: 1,
-        initialScrollFraction: 0,
-      });
-    });
+  it('retroceder manualmente nao marca o capitulo atual como lido', async () => {
+    const chapters = [
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
+    const { result } = renderHook(() => useReader('s1', 'c2'));
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c1'));
 
     await act(async () => {
       await result.current.goToPrevChapterManual();
     });
 
     expect(mockMarkChapterRead).not.toHaveBeenCalled();
-    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c1'));
   });
 
   it('retroceder via scroll natural reflete a posicao real reportada (nao trava em 0)', async () => {
@@ -510,106 +693,6 @@ describe('useReader — navegação entre capítulos', () => {
   });
 });
 
-describe('useReader — pré-carregamento de páginas', () => {
-  it('nunca mais de 3 Image.prefetch em voo simultaneamente', async () => {
-    let resolvers: Array<() => void> = [];
-    (Image.prefetch as jest.Mock).mockImplementation(
-      () =>
-        new Promise<boolean>(resolve => {
-          resolvers.push(() => resolve(true));
-        }),
-    );
-    const chapter = makeChapter({ pageCount: 10 });
-    const { result } = renderHook(() => useReader('s1', 'c1'));
-
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: makeViewer(chapter, Array.from({ length: 10 }, (_, i) => `url${i}`)),
-        initialPage: 5,
-        initialScrollFraction: 0,
-      });
-    });
-
-    // Janela de 7 candidatos (3+3+atual), mas só 3 podem estar em voo ao mesmo tempo.
-    expect((Image.prefetch as jest.Mock).mock.calls.length).toBe(3);
-
-    await act(async () => {
-      // Resolve em rounds, já que cada prefetch resolvido dispara o próximo da fila
-      // (pool nunca ultrapassa 3 em voo — por isso mais de uma rodada é necessária).
-      for (let round = 0; round < 3; round++) {
-        const toResolve = resolvers;
-        resolvers = [];
-        toResolve.forEach(r => r());
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-      }
-    });
-
-    // Janela completa (3+3+atual = 7) processada, nunca mais de 3 em voo por vez.
-    expect((Image.prefetch as jest.Mock).mock.calls.length).toBe(7);
-  });
-
-  it('inverter direcao descarta prefetches fora da nova janela sem erro', async () => {
-    const chapter = makeChapter({ pageCount: 20 });
-    const pages = Array.from({ length: 20 }, (_, i) => `url${i}`);
-    const { result } = renderHook(() => useReader('s1', 'c1'));
-
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: makeViewer(chapter, pages),
-        initialPage: 10,
-        initialScrollFraction: 0,
-      });
-    });
-
-    expect(() => {
-      act(() => {
-        result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 2, scrollFraction: 0, chapterFraction: 0 });
-      });
-    }).not.toThrow();
-  });
-
-  it('borda de 5 paginas do fim dispara pre-carregamento do vizinho exatamente uma vez', async () => {
-    const curr = makeChapter({ id: 'c1', pageCount: 10 });
-    const next = makeChapter({ id: 'c2', pageCount: 5 });
-    const pages = Array.from({ length: 10 }, (_, i) => `url${i}`);
-    const nextPages = Array.from({ length: 5 }, (_, i) => `next${i}`);
-    const { result } = renderHook(() => useReader('s1', 'c1'));
-
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: { prev: null, curr: { chapter: curr, pages }, next: { chapter: next, pages: nextPages } },
-        initialPage: 0,
-        initialScrollFraction: 0,
-      });
-    });
-    const callsBeforeEdge = (Image.prefetch as jest.Mock).mock.calls.length;
-
-    await act(async () => {
-      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 4, scrollFraction: 0, chapterFraction: 0 });
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    const callsAtEdge = (Image.prefetch as jest.Mock).mock.calls.length;
-    expect(callsAtEdge).toBeGreaterThan(callsBeforeEdge);
-    expect((Image.prefetch as jest.Mock).mock.calls).toEqual(expect.arrayContaining([['next0']]));
-
-    await act(async () => {
-      result.current.dispatch({ type: 'SET_CURRENT_PAGE', page: 5, scrollFraction: 0, chapterFraction: 0 });
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    // Trigger de vizinho já disparado nesta sessão para este capítulo — não repete.
-    const next0Calls = (Image.prefetch as jest.Mock).mock.calls.filter(c => c[0] === 'next0').length;
-    expect(next0Calls).toBe(1);
-  });
-});
-
 describe('useReader — reação a activeUrlChanged', () => {
   it('recarrega apenas o capitulo com host desatualizado', async () => {
     const curr = makeChapter({ id: 'c1', pageCount: 2 });
@@ -690,6 +773,33 @@ describe('useReader — overlay, keepScreenOn, offline, overscroll', () => {
     expect(mockAllowScreenOff).toHaveBeenCalledTimes(1);
   });
 
+  it('ativa modo imersivo ao montar quando a preferencia e true', async () => {
+    mockFetchImmersiveModePref.mockResolvedValue(true);
+
+    renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(mockSetImmersiveMode).toHaveBeenCalledWith(true));
+  });
+
+  it('nao ativa modo imersivo ao montar quando a preferencia e false', async () => {
+    mockFetchImmersiveModePref.mockResolvedValue(false);
+
+    renderHook(() => useReader('s1', 'c1'));
+
+    await waitFor(() => expect(mockFetchImmersiveModePref).toHaveBeenCalled());
+    expect(mockSetImmersiveMode).not.toHaveBeenCalledWith(true);
+  });
+
+  it('desativa modo imersivo ao desmontar independente da preferencia', async () => {
+    mockFetchImmersiveModePref.mockResolvedValue(true);
+    const { unmount } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(mockSetImmersiveMode).toHaveBeenCalledWith(true));
+
+    unmount();
+
+    expect(mockSetImmersiveMode).toHaveBeenCalledWith(false);
+  });
+
   it('offline reflete o estado emitido pelo NetInfo', () => {
     const { result } = renderHook(() => useReader('s1', 'c1'));
     expect(result.current.offline).toBe(false);
@@ -701,73 +811,53 @@ describe('useReader — overlay, keepScreenOn, offline, overscroll', () => {
     expect(result.current.offline).toBe(false);
   });
 
-  it('overscroll no topo do capitulo atual dispara retreatToPrevChapter', () => {
-    const prev = makeChapter({ id: 'c0', pageCount: 3 });
-    const curr = makeChapter({ id: 'c1', pageCount: 3 });
+  it('overscroll no topo do capitulo atual dispara retreatToPrevChapter (recarrega do zero)', async () => {
+    const chapters = [
+      makeChapter({ id: 'c0', number: '0' }),
+      makeChapter({ id: 'c1', number: '1' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
     const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c0'));
 
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: {
-          prev: { chapter: prev, pages: ['a', 'b', 'c'] },
-          curr: { chapter: curr, pages: ['a', 'b', 'c'] },
-          next: null,
-        },
-        initialPage: 0,
-        initialScrollFraction: 0,
-      });
+    await act(async () => {
+      result.current.handleScroll(-200, true);
     });
 
-    act(() => result.current.handleScroll(-200, true));
-
-    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c0'));
   });
 
-  it('overscroll nao dispara quando o primeiro item nao e o header do capitulo atual', () => {
-    const prev = makeChapter({ id: 'c0', pageCount: 3 });
-    const curr = makeChapter({ id: 'c1', pageCount: 3 });
+  it('overscroll nao dispara quando o primeiro item nao e o header do capitulo atual', async () => {
+    const chapters = [
+      makeChapter({ id: 'c0', number: '0' }),
+      makeChapter({ id: 'c1', number: '1' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
     const { result } = renderHook(() => useReader('s1', 'c1'));
-
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: {
-          prev: { chapter: prev, pages: ['a', 'b', 'c'] },
-          curr: { chapter: curr, pages: ['a', 'b', 'c'] },
-          next: null,
-        },
-        initialPage: 0,
-        initialScrollFraction: 0,
-      });
-    });
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c0'));
 
     act(() => result.current.handleScroll(-200, false));
 
     expect(result.current.viewer?.curr.chapter.id).toBe('c1');
   });
 
-  it('overscroll rearma somente apos handleScrollEndDrag com offset nao-negativo', () => {
-    const prev = makeChapter({ id: 'c0', pageCount: 3 });
-    const curr = makeChapter({ id: 'c1', pageCount: 3 });
-    const next = makeChapter({ id: 'c2', pageCount: 3 });
+  it('overscroll rearma somente apos handleScrollEndDrag com offset nao-negativo', async () => {
+    const chapters = [
+      makeChapter({ id: 'c0', number: '0' }),
+      makeChapter({ id: 'c1', number: '1' }),
+      makeChapter({ id: 'c2', number: '2' }),
+    ];
+    mockGetCachedChapters.mockResolvedValue(chapters);
+    mockFetchPageUrls.mockImplementation(async (chapterId: string) => [`${chapterId}-p0`]);
     const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.viewer?.prev?.chapter.id).toBe('c0'));
 
-    act(() => {
-      result.current.dispatch({
-        type: 'VIEWER_READY',
-        viewer: {
-          prev: { chapter: prev, pages: ['a', 'b', 'c'] },
-          curr: { chapter: curr, pages: ['a', 'b', 'c'] },
-          next: { chapter: next, pages: ['a', 'b', 'c'] },
-        },
-        initialPage: 0,
-        initialScrollFraction: 0,
-      });
+    await act(async () => {
+      result.current.handleScroll(-200, true);
     });
-
-    act(() => result.current.handleScroll(-200, true));
-    expect(result.current.viewer?.curr.chapter.id).toBe('c0');
+    await waitFor(() => expect(result.current.viewer?.curr.chapter.id).toBe('c0'));
 
     // Sem rearmar, um segundo overscroll não deve disparar de novo.
     act(() => result.current.handleScroll(-200, true));

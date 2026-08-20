@@ -19,7 +19,7 @@ import org.junit.Test
 
 // ── Fakes ──────────────────────────────────────────────────────────────────────
 
-private class FakeServerConfigDao : ServerConfigDao {
+internal class FakeServerConfigDao : ServerConfigDao {
     private val store = mutableMapOf<String, ServerConfigEntity>()
     private val _flow = MutableStateFlow<List<ServerConfigEntity>>(emptyList())
 
@@ -33,7 +33,7 @@ private class FakeServerConfigDao : ServerConfigDao {
     override suspend fun deleteById(id: String) { store.remove(id); _flow.value = store.values.toList() }
 }
 
-private class FakeAuthConfigDao : AuthConfigDao {
+internal class FakeAuthConfigDao : AuthConfigDao {
     private var stored: AuthConfigEntity? = null
     private val _flow = MutableStateFlow<AuthConfigEntity?>(null)
 
@@ -42,7 +42,7 @@ private class FakeAuthConfigDao : AuthConfigDao {
     override suspend fun get(): AuthConfigEntity? = stored
 }
 
-private class FakeUiPreferencesDao : UiPreferencesDao {
+internal class FakeUiPreferencesDao : UiPreferencesDao {
     private var stored: UiPreferencesEntity? = null
     private val _flow = MutableStateFlow<UiPreferencesEntity?>(null)
 
@@ -50,9 +50,10 @@ private class FakeUiPreferencesDao : UiPreferencesDao {
     override fun observe(): Flow<UiPreferencesEntity?> = _flow.asStateFlow()
     override suspend fun get(): UiPreferencesEntity? = stored
     override suspend fun getKeepScreenOnDuringReading(): Boolean? = stored?.keepScreenOnDuringReading
+    override suspend fun getImmersiveModeDuringReading(): Boolean? = stored?.immersiveModeDuringReading
 }
 
-private class FakeBffServerConfigDao : BffServerConfigDao {
+internal class FakeBffServerConfigDao : BffServerConfigDao {
     private val store = mutableMapOf<String, BffServerConfigEntity>()
     override suspend fun getAll() = store.values.toList()
     override suspend fun insert(entity: BffServerConfigEntity) { store[entity.id] = entity }

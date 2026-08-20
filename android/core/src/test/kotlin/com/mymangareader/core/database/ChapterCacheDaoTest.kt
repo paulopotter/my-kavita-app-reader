@@ -71,4 +71,19 @@ class ChapterCacheDaoTest {
 
         assertTrue(dao.getBySeriesId("10").isEmpty())
     }
+
+    @Test
+    fun `getBySeriesId retorna capitulos ordenados por sortOrder, independente da ordem de insercao`() = runTest {
+        dao.insertAll(
+            listOf(
+                chapter("3", "10", "3"),
+                chapter("1", "10", "1"),
+                chapter("2", "10", "2"),
+            ),
+        )
+
+        val result = dao.getBySeriesId("10")
+
+        assertEquals(listOf("1", "2", "3"), result.map { it.id })
+    }
 }

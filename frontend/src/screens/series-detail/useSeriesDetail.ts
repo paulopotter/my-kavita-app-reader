@@ -12,6 +12,8 @@ import { sortChapters } from '../../shared/transforms/chapter';
 import { computeContinueChapter } from '../../shared/transforms/series';
 import {
   fetchCachedChapters,
+  fetchCachedSeriesDetail,
+  fetchCachedSeriesMetadata,
   fetchChapters,
   fetchIsSeriesFollowed,
   fetchSeriesDetail,
@@ -68,6 +70,14 @@ export type Action =
 
 function applySort(chapters: Chapter[], mode: ChapterSortMode, fixedThreshold: number | undefined, progressPercent: number): Chapter[] {
   return sortChapters(chapters, mode, fixedThreshold, progressPercent);
+}
+
+// Grava a posição de exibição atual em `sortOrder`, para que a leitura seguinte
+// do cache (Room, ORDER BY sortOrder) já chegue na ordem certa sem precisar
+// reordenar de novo no lado RN — evita o "pulo" visual entre a pintura do
+// cache e a pintura pós-sync quando o modo de ordenação é automático.
+function withPersistedSortOrder(chapters: Chapter[]): Chapter[] {
+  return chapters.map((c, index) => (c.sortOrder === index ? c : { ...c, sortOrder: index }));
 }
 
 export function reducer(state: State, action: Action): State {
@@ -170,6 +180,16 @@ export function useSeriesDetail(seriesId: string) {
   sortPrefsRef.current = { mode: state.sortMode, fixedThreshold: state.sortFixedThreshold, progressPercent: state.sortProgressPercent };
 
   const loadStatic = useCallback(async (): Promise<ChapterSortPrefs | null> => {
+    // Cache-first: pinta nome/capa/sinopse/gêneros/tags do cache local (Room) instantaneamente,
+    // se já visitados antes — nunca bloqueia nem substitui o Promise.all abaixo, que continua
+    // sempre indo à rede e é quem persiste/atualiza esse mesmo cache (ver KavitaSeriesFeature).
+    const [cachedDetail, cachedMetadata] = await Promise.all([
+      fetchCachedSeriesDetail(seriesId).catch(() => null),
+      fetchCachedSeriesMetadata(seriesId).catch(() => null),
+    ]);
+    if (cachedDetail) dispatch({ type: 'DETAIL_LOADED', detail: cachedDetail });
+    if (cachedMetadata) dispatch({ type: 'METADATA_LOADED', metadata: cachedMetadata });
+
     try {
       const [detail, metadata, globalPrefs, seriesOverride, isFollowed] = await Promise.all([
         fetchSeriesDetail(seriesId),
@@ -209,11 +229,12 @@ export function useSeriesDetail(seriesId: string) {
         }
         return r;
       });
-      await replaceCachedChapters(seriesId, merged);
+      const sorted = applySort(merged, prefs.mode, prefs.fixedThreshold, prefs.progressPercent);
+      await replaceCachedChapters(seriesId, withPersistedSortOrder(sorted));
       lastFetchMsRef.current = now;
       dispatch({
         type: 'CHAPTERS_LOADED',
-        chapters: merged,
+        chapters: sorted,
         sortMode: prefs.mode,
         fixedThreshold: prefs.fixedThreshold,
         progressPercent: prefs.progressPercent,
@@ -244,7 +265,10 @@ export function useSeriesDetail(seriesId: string) {
       const withinWindow = !forceRefresh && now - lastFetchMsRef.current < REFRESH_WINDOW_MS;
       if (!withinWindow) {
         await syncChapters(prefs);
-      } else if (cached.length === 0) {
+      } else if (cached.length === 0 && chaptersRef.current.length === 0) {
+        // Só dispacha lista vazia se ninguém mais (ex: syncChapters disparado em paralelo pelo
+        // useFocusEffect) já populou o estado nesse meio-tempo — evita que este load() mais
+        // lento sobrescreva com [] um resultado correto que chegou primeiro.
         dispatch({ type: 'CHAPTERS_LOADED', chapters: [], sortMode: prefs.mode, fixedThreshold: prefs.fixedThreshold, progressPercent: prefs.progressPercent });
       }
     } catch (e: unknown) {
@@ -284,23 +308,36 @@ export function useSeriesDetail(seriesId: string) {
     await syncChapters(sortPrefsRef.current);
   }, [syncChapters]);
 
+  const applyOptimisticReadStatus = useCallback((chapterIds: string[], readStatus: Chapter['readStatus'], nowMs: number): Chapter[] => {
+    const idSet = new Set(chapterIds);
+    const updated = chaptersRef.current.map(c => {
+      if (!idSet.has(c.id)) return c;
+      return { ...c, readStatus, pagesRead: readStatus === 'READ' ? c.pageCount : 0, updatedAtLocalMs: nowMs };
+    });
+    return applySort(updated, sortPrefsRef.current.mode, sortPrefsRef.current.fixedThreshold, sortPrefsRef.current.progressPercent);
+  }, []);
+
   const markRead = useCallback(async (chapterIds: string[]) => {
     const now = Date.now();
+    const sorted = applyOptimisticReadStatus(chapterIds, 'READ', now);
     dispatch({ type: 'UPDATE_CHAPTERS_READ_STATUS', ids: chapterIds, readStatus: 'READ', nowMs: now });
-    replaceCachedChapters(seriesId, chaptersRef.current).catch(() => {});
+    dispatch({ type: 'EXIT_SELECTION' });
+    replaceCachedChapters(seriesId, withPersistedSortOrder(sorted)).catch(() => {});
     markChaptersRead(seriesId, chapterIds).catch(() => {
       // Optimistic update stands; network failure will retry via sync queue
     });
-  }, [seriesId]);
+  }, [seriesId, applyOptimisticReadStatus]);
 
   const markUnread = useCallback(async (chapterIds: string[]) => {
     const now = Date.now();
+    const sorted = applyOptimisticReadStatus(chapterIds, 'UNREAD', now);
     dispatch({ type: 'UPDATE_CHAPTERS_READ_STATUS', ids: chapterIds, readStatus: 'UNREAD', nowMs: now });
-    replaceCachedChapters(seriesId, chaptersRef.current).catch(() => {});
+    dispatch({ type: 'EXIT_SELECTION' });
+    replaceCachedChapters(seriesId, withPersistedSortOrder(sorted)).catch(() => {});
     markChaptersUnread(seriesId, chapterIds).catch(() => {
       // Optimistic update stands; network failure will retry via sync queue
     });
-  }, [seriesId]);
+  }, [seriesId, applyOptimisticReadStatus]);
 
   const toggleFollow = useCallback(async () => {
     dispatch({ type: 'SET_FOLLOWED', isFollowed: !state.isFollowed });

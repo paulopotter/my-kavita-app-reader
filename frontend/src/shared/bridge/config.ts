@@ -15,6 +15,7 @@ export interface AuthConfig {
 
 export interface UiPreferences {
   keepScreenOnDuringReading: boolean;
+  immersiveModeDuringReading: boolean;
   chapterSortMode: 'ASCENDING' | 'DESCENDING' | 'NONE';
   chapterSortFixedThreshold?: number;
   chapterSortProgressPercent: number;

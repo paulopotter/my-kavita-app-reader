@@ -1,11 +1,15 @@
 package com.mymangareader.tools.bridge
 
+import android.app.LocaleManager
+import android.os.Build
+import android.os.LocaleList
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.UiThreadUtil
 import com.mymangareader.core.database.AuthConfigEntity
 import com.mymangareader.core.database.BffServerConfigEntity
 import com.mymangareader.core.database.ServerConfigEntity
@@ -13,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,12 +25,28 @@ import javax.inject.Singleton
 @Singleton
 class ConfigRepository @Inject constructor(
     private val store: ConfigStore,
-    context: ReactApplicationContext,
-) : ReactContextBaseJavaModule(context) {
+    private val appContext: ReactApplicationContext,
+) : ReactContextBaseJavaModule(appContext) {
 
     override fun getName(): String = "ConfigRepository"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Applies the app-wide per-app language via the platform's LocaleManager (API 33+), the same
+    // mechanism that makes the app show up under Settings > System > Languages > App languages.
+    // Below API 33 there's no system-level per-app language, so this falls back to updating the
+    // JVM default Locale directly — enough for any Kotlin-side string formatting, though RN's own
+    // UI language is already driven independently by the JS-side i18n context.
+    private fun applyAppLocale(languageTag: String) {
+        UiThreadUtil.runOnUiThread {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val localeManager = appContext.getSystemService(LocaleManager::class.java)
+                localeManager?.applicationLocales = LocaleList.forLanguageTags(languageTag)
+            } else {
+                Locale.setDefault(Locale.forLanguageTag(languageTag))
+            }
+        }
+    }
 
     // ── Server config ──────────────────────────────────────────────────────────
 
@@ -119,6 +140,7 @@ class ConfigRepository @Inject constructor(
                 val prefs = store.getUiPreferences()
                 Arguments.createMap().apply {
                     putBoolean("keepScreenOnDuringReading", prefs.keepScreenOnDuringReading)
+                    putBoolean("immersiveModeDuringReading", prefs.immersiveModeDuringReading)
                     putString("chapterSortMode", prefs.chapterSortMode)
                     prefs.chapterSortFixedThreshold?.let { putDouble("chapterSortFixedThreshold", it) }
                     putInt("chapterSortProgressPercent", prefs.chapterSortProgressPercent)
@@ -134,10 +156,13 @@ class ConfigRepository @Inject constructor(
     fun upsertUiPreferences(data: ReadableMap, promise: Promise) {
         scope.launch {
             runCatching {
+                data.getString("language")?.let { applyAppLocale(it) }
                 store.upsertUiPreferences {
                     copy(
                         keepScreenOnDuringReading = if (data.hasKey("keepScreenOnDuringReading"))
                             data.getBoolean("keepScreenOnDuringReading") else keepScreenOnDuringReading,
+                        immersiveModeDuringReading = if (data.hasKey("immersiveModeDuringReading"))
+                            data.getBoolean("immersiveModeDuringReading") else immersiveModeDuringReading,
                         chapterSortMode = data.getString("chapterSortMode") ?: chapterSortMode,
                         chapterSortFixedThreshold = if (data.hasKey("chapterSortFixedThreshold"))
                             data.getDouble("chapterSortFixedThreshold") else chapterSortFixedThreshold,

@@ -129,7 +129,12 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
           numColumns={viewMode === 'GRID' ? 2 : 1}
           key={viewMode} // force re-mount on mode change to reset numColumns
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={() => refresh(true)} tintColor="#E94560" />
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => refresh(true)}
+              tintColor="#E94560"
+              progressBackgroundColor="rgba(22,33,62,0.85)"
+            />
           }
           renderItem={viewMode === 'GRID' ? renderGridItem : renderListItem as any}
           contentContainerStyle={

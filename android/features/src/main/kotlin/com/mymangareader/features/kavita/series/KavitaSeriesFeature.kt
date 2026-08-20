@@ -4,9 +4,12 @@ import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.BffMatchDao
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
+import com.mymangareader.core.database.SeriesDetailCacheDao
+import com.mymangareader.core.database.SeriesDetailCacheEntity
 import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,6 +31,8 @@ data class SeriesSummary(
     val lastChapterAddedUtc: String?,
     val downloadedChapters: Int?,
     val totalChapters: Int?,
+    val readChapters: Int?,
+    val chapterCount: Int?,
     val latestChapterLabel: String?,
     val publicationStatus: String,
     val hasErrors: Boolean,
@@ -52,6 +57,7 @@ class KavitaSeriesFeature @Inject constructor(
     private val authConfigDao: AuthConfigDao,
     private val chapterCacheDao: ChapterCacheDao,
     private val bffMatchDao: BffMatchDao,
+    private val seriesDetailCacheDao: SeriesDetailCacheDao,
 ) {
     @Serializable
     private data class SeriesDto(
@@ -116,6 +122,8 @@ class KavitaSeriesFeature @Inject constructor(
                     lastChapterAddedUtc = dto.lastChapterAddedUtc,
                     downloadedChapters = bffMatch?.downloadedChapters,
                     totalChapters = bffMatch?.totalChapters,
+                    readChapters = if (localChapters.isNotEmpty()) localChapters.count { it.readStatus == "READ" } else null,
+                    chapterCount = if (localChapters.isNotEmpty()) localChapters.size else null,
                     latestChapterLabel = bffMatch?.latestChapterLabel,
                     publicationStatus = bffMatch?.status?.toPublicationStatus() ?: "NONE",
                     hasErrors = bffMatch?.hasErrors ?: false,
@@ -145,7 +153,7 @@ class KavitaSeriesFeature @Inject constructor(
                 name = dto.name,
                 coverImageUrl = buildCoverUrl(baseUrl, apiKey, dto.id),
             )
-        }
+        }.onSuccess { detail -> cacheSeriesDetail(seriesId, detail) }
     }
 
     suspend fun getSeriesMetadata(seriesId: String): Result<SeriesMetadata> {
@@ -168,7 +176,57 @@ class KavitaSeriesFeature @Inject constructor(
                 genres = dto.genres.map { it.title },
                 tags = dto.tags.map { it.title },
             )
-        }
+        }.onSuccess { metadata -> cacheSeriesMetadata(seriesId, metadata) }
+    }
+
+    // Cache local para pintura instantânea da tela de detalhe (nome/capa/sinopse/gêneros/tags
+    // raramente mudam) — getSeriesDetail/getSeriesMetadata continuam sempre indo à rede (são a
+    // fonte de verdade que mantém o cache atualizado); getCachedSeriesDetail/getCachedSeriesMetadata
+    // abaixo são a leitura pura e imediata que o RN usa para não esperar a rede na primeira pintura,
+    // mesmo padrão cache-then-network já usado por getCachedChapters/replaceCachedChapters.
+    private suspend fun cacheSeriesDetail(seriesId: String, detail: SeriesDetail) {
+        val existing = seriesDetailCacheDao.get(seriesId)
+        seriesDetailCacheDao.upsert(
+            SeriesDetailCacheEntity(
+                seriesId = seriesId,
+                name = detail.name,
+                coverImageUrl = detail.coverImageUrl,
+                summary = existing?.summary,
+                genresJson = existing?.genresJson ?: "[]",
+                tagsJson = existing?.tagsJson ?: "[]",
+                updatedAtLocalMs = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    private suspend fun cacheSeriesMetadata(seriesId: String, metadata: SeriesMetadata) {
+        val existing = seriesDetailCacheDao.get(seriesId)
+        seriesDetailCacheDao.upsert(
+            SeriesDetailCacheEntity(
+                seriesId = seriesId,
+                name = existing?.name ?: "",
+                coverImageUrl = existing?.coverImageUrl ?: "",
+                summary = metadata.summary,
+                genresJson = seriesJson.encodeToString(metadata.genres),
+                tagsJson = seriesJson.encodeToString(metadata.tags),
+                updatedAtLocalMs = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    suspend fun getCachedSeriesDetail(seriesId: String): SeriesDetail? {
+        val cached = seriesDetailCacheDao.get(seriesId) ?: return null
+        if (cached.name.isEmpty()) return null
+        return SeriesDetail(id = seriesId, name = cached.name, coverImageUrl = cached.coverImageUrl)
+    }
+
+    suspend fun getCachedSeriesMetadata(seriesId: String): SeriesMetadata? {
+        val cached = seriesDetailCacheDao.get(seriesId) ?: return null
+        return SeriesMetadata(
+            summary = cached.summary,
+            genres = seriesJson.decodeFromString(cached.genresJson),
+            tags = seriesJson.decodeFromString(cached.tagsJson),
+        )
     }
 
     private fun buildCoverUrl(baseUrl: String, apiKey: String, seriesId: Int): String =

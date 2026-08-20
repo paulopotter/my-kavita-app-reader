@@ -37,6 +37,8 @@ export interface ChapterSortPrefs {
 interface SeriesModuleInterface {
   getSeriesDetail(seriesId: string): Promise<SeriesDetail>;
   getSeriesMetadata(seriesId: string): Promise<SeriesMetadata>;
+  getCachedSeriesDetail(seriesId: string): Promise<SeriesDetail | null>;
+  getCachedSeriesMetadata(seriesId: string): Promise<SeriesMetadata | null>;
   getChapters(seriesId: string): Promise<Chapter[]>;
   getCachedChapters(seriesId: string): Promise<Chapter[]>;
   replaceCachedChapters(seriesId: string, chapters: Chapter[]): Promise<void>;
@@ -63,3 +65,16 @@ interface SeriesModuleInterface {
 export const SeriesBridge: SeriesModuleInterface = NativeModules.SeriesModule;
 
 export const SeriesFollowedEmitter = new NativeEventEmitter(NativeModules.SeriesModule);
+
+export interface SeriesProgressChangedEvent {
+  seriesId: string;
+  progressFraction: number;
+  readChapters: number;
+  chapterCount: number;
+}
+
+// Emitido pelo lado nativo sempre que o progresso de leitura de uma série muda localmente
+// (markChaptersRead/Unread no Series Detail, saveReadingProgress no Reader) — permite que a
+// Library confie no dado local mais recente sem esperar o TTL do seu cache em memória expirar,
+// mesmo padrão de SeriesFollowedEmitter para follow/unfollow.
+export const SeriesProgressChangedEmitter = new NativeEventEmitter(NativeModules.SeriesModule);

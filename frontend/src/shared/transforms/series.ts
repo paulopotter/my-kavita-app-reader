@@ -8,9 +8,6 @@ export function computeContinueChapter(chapters: Chapter[]): Chapter | null {
 
   const ascending = [...chapters].sort(chapterNumberComparator);
 
-  const hasAnyProgress = ascending.some(c => c.readStatus !== 'UNREAD' || c.pagesRead > 0);
-  if (!hasAnyProgress) return null;
-
   const inProgress = ascending.find(c => c.readStatus === 'IN_PROGRESS');
   if (inProgress) return inProgress;
 
@@ -24,5 +21,6 @@ export function computeContinueChapter(chapters: Chapter[]): Chapter | null {
   });
   if (firstUnfinished) return firstUnfinished;
 
-  return ascending[0] ?? null;
+  // Todos os capítulos estão lidos (acima do threshold de releitura) — null sinaliza "Reler".
+  return null;
 }

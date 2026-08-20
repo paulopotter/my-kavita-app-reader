@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import { Image, PixelRatio, StatusBar } from 'react-native';
+import { PixelRatio } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { ActiveUrlChangedEmitter, ActiveUrlChangedEvent } from '../../shared/bridge/network';
 import { ReaderBridge } from '../../shared/bridge/page';
@@ -7,13 +7,15 @@ import { Chapter, SeriesBridge } from '../../shared/bridge/series';
 import {
   chapterNumberComparator,
   isChapterEffectivelyRead,
+  READ_THRESHOLD_FRACTION,
   resolveInitialPage,
   shouldUnmarkOnReread,
 } from '../../shared/transforms/chapter';
-import { ChapterWithPages, currChapterOf, isNearChapterEdge, pagePreloadOrder, ViewerChapters } from '../../shared/transforms/page';
+import { ChapterWithPages, currChapterOf, ViewerChapters } from '../../shared/transforms/page';
 import { fetchPageUrls } from './PageService';
 import {
   allowScreenOff,
+  fetchImmersiveModePref,
   fetchKeepScreenOnPref,
   fetchLocalProgress,
   fetchPageAspectRatios,
@@ -24,13 +26,11 @@ import {
   markChapterUnread,
   saveLocalProgress,
   saveServerProgress,
+  setImmersiveMode,
 } from './ReaderService';
 
 const LOCAL_SAVE_INTERVAL_MS = 2_000;
 const SERVER_SYNC_INTERVAL_MS = 20_000;
-const PRELOAD_WINDOW_RADIUS = 3;
-const MAX_CONCURRENT_PREFETCH = 3;
-const CHAPTER_EDGE_THRESHOLD = 5;
 const OVERSCROLL_TRIGGER_DP = 72;
 
 function urlHost(url: string): string {
@@ -61,7 +61,7 @@ export interface State {
 export type Action =
   | { type: 'LOADING' }
   | { type: 'ERROR'; error: string }
-  | { type: 'VIEWER_READY'; viewer: ViewerChapters; initialPage: number; initialScrollFraction: number }
+  | { type: 'VIEWER_READY'; viewer: ViewerChapters; initialPage: number; initialScrollFraction: number; initialChapterFraction?: number }
   | { type: 'SET_VIEWER'; viewer: ViewerChapters; page: number; scrollFraction: number; chapterFraction: number }
   | { type: 'UPDATE_VIEWER'; viewer: ViewerChapters }
   | { type: 'INSERT_PREV_NEIGHBOR'; viewer: ViewerChapters }
@@ -113,13 +113,21 @@ export function reducer(state: State, action: Action): State {
         currentVisiblePage: action.initialPage,
         scrollToPageRequest: action.initialPage,
         scrollFraction: action.initialScrollFraction,
+        // Aproximação por página/pageCount (o Kotlin ainda não mediu a altura real das páginas
+        // deste capítulo) — evita que o overlay/progress bar fiquem presos mostrando o valor do
+        // capítulo anterior até o primeiro onVisiblePageChanged real chegar; é corrigida no
+        // primeiro evento de scroll assim que a lista nativa mede o layout.
+        chapterFraction: action.initialChapterFraction ?? 0,
       };
     case 'SET_VIEWER':
-      // Usado por advanceToNextChapter/retreatToPrevChapter — troca de capítulo por scroll
-      // natural do usuário, nunca deve reemitir scrollToPageRequest: a lista nativa (Kotlin)
-      // já está posicionada onde o usuário rolou, identificando páginas por chapterId+pageIndex
-      // (não índice absoluto), então não há nada para "reajustar" aqui — forçar um scroll
-      // programático nesse momento é o que causava o salto pro topo do capítulo/página 0.
+      // Usado só por advanceToNextChapter/retreatToPrevChapter reagindo a scroll NATURAL do
+      // usuário (via onVisiblePageChanged) — nunca reemite scrollToPageRequest: a lista nativa
+      // (Kotlin) já está posicionada onde o usuário rolou, identificando páginas por
+      // chapterId+pageIndex (não índice absoluto), então não há nada para "reajustar" — forçar um
+      // scroll programático nesse momento é o que causava o salto pro topo do capítulo/página 0.
+      // Navegação MANUAL (setas do overlay) não passa mais por aqui — ver goToNextChapterManual/
+      // goToPrevChapterManual, que recarregam o capítulo do zero via loadInitialViewer (mesmo
+      // caminho testado da abertura inicial da tela), evitando as races deste reducer incremental.
       return {
         ...state,
         viewer: action.viewer,
@@ -285,10 +293,10 @@ export function useReader(seriesId: string, chapterId: string) {
     if (!isFirstRenderOfChapter) {
       unmarkIfRereading(curr.chapter, curr.chapter.seriesId, state.currentVisiblePage, curr.pages.length);
     }
-    if (state.currentVisiblePage >= curr.pages.length - 1 && curr.pages.length > 0) {
+    if (curr.pages.length > 0 && state.chapterFraction >= READ_THRESHOLD_FRACTION) {
       markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
     }
-  }, [state.viewer, state.currentVisiblePage, markAsReadIfNeeded, unmarkIfRereading]);
+  }, [state.viewer, state.currentVisiblePage, state.chapterFraction, markAsReadIfNeeded, unmarkIfRereading]);
 
   const onScreenExit = useCallback(async () => {
     if (localTimerRef.current) {clearInterval(localTimerRef.current);}
@@ -353,8 +361,8 @@ export function useReader(seriesId: string, chapterId: string) {
   const latestRequestedChapterIdRef = useRef<string | null>(null);
 
   const loadInitialViewer = useCallback(
-    async (targetChapterId: string) => {
-      console.log(`[Reader] loadInitialViewer start targetChapterId=${targetChapterId} seriesId=${seriesId}`);
+    async (targetChapterId: string, startAtBeginning = false) => {
+      console.log(`[Reader] loadInitialViewer start targetChapterId=${targetChapterId} seriesId=${seriesId} startAtBeginning=${startAtBeginning}`);
       latestRequestedChapterIdRef.current = targetChapterId;
       dispatch({ type: 'LOADING' });
       try {
@@ -379,11 +387,15 @@ export function useReader(seriesId: string, chapterId: string) {
           `[Reader] resolved curr=${curr.id}(n=${curr.number}) prev=${prevChapter?.id ?? 'null'}(n=${prevChapter?.number ?? '-'}) next=${nextChapter?.id ?? 'null'}(n=${nextChapter?.number ?? '-'})`,
         );
 
+        // Navegação manual (setas do overlay/overscroll) sempre vai para a primeira página do
+        // capítulo, ignorando "continuar de onde parei" — só a abertura inicial da tela (vinda da
+        // listagem de capítulos) deve respeitar progresso salvo. Pular fetchLocalProgress/
+        // fetchServerReadProgress nesse caso também evita uma leitura desnecessária.
         const [currPages, currAspectRatios, currLocal, currServer] = await Promise.all([
           fetchPageUrls(curr.id, curr.pageCount),
           fetchPageAspectRatios(curr.id, curr.pageCount),
-          fetchLocalProgress(curr.id),
-          fetchServerReadProgress(curr.id),
+          startAtBeginning ? Promise.resolve(null) : fetchLocalProgress(curr.id),
+          startAtBeginning ? Promise.resolve(null) : fetchServerReadProgress(curr.id),
         ]);
         // Se outra navegação de capítulo começou enquanto isto carregava, esta resposta
         // chegou tarde — aplicá-la sobrescreveria o capítulo certo com um antigo. Só o
@@ -394,7 +406,7 @@ export function useReader(seriesId: string, chapterId: string) {
           );
           return;
         }
-        const initialProgress = resolveInitialPage(curr, currLocal, currServer);
+        const initialProgress = startAtBeginning ? { page: 0, scrollFraction: 0 } : resolveInitialPage(curr, currLocal, currServer);
         console.log(
           `[Reader] VIEWER_READY chapterId=${curr.id} pages=${currPages.length} initialPage=${initialProgress.page} scrollFraction=${initialProgress.scrollFraction}`,
         );
@@ -403,11 +415,19 @@ export function useReader(seriesId: string, chapterId: string) {
           curr: { chapter: curr, pages: currPages, pageAspectRatios: currAspectRatios },
           next: null,
         };
+        // Aproximação só para não mostrar o valor do capítulo ANTERIOR no overlay/progress bar
+        // até o Kotlin medir o layout real e reportar o primeiro onVisiblePageChanged — nunca
+        // deve por si só cruzar READ_THRESHOLD_FRACTION (98%), ou reabrir um capítulo de poucas
+        // páginas dispararia mark-read antes do usuário ter de fato lido nada dele.
+        const initialChapterFraction = currPages.length > 1
+          ? Math.min(0.9, (initialProgress.page + initialProgress.scrollFraction) / (currPages.length - 1))
+          : 0;
         dispatch({
           type: 'VIEWER_READY',
           viewer,
           initialPage: initialProgress.page,
           initialScrollFraction: initialProgress.scrollFraction,
+          initialChapterFraction,
         });
         loadNeighbor('prev', prevChapter);
         loadNeighbor('next', nextChapter);
@@ -442,10 +462,10 @@ export function useReader(seriesId: string, chapterId: string) {
   // disparou esta troca de trio (scroll natural do usuário, que já está fisicamente rolado até
   // essa página do novo capítulo) — nunca reajustar para 0 nesse caso, ou o overlay/barra de
   // progresso ficam presos mostrando a posição do capítulo anterior até o próximo evento de
-  // scroll chegar (o que pode nunca acontecer, já que o usuário não se moveu mais). Chamadas
-  // manuais (setas do ReaderSideProgressBar via goToNextChapterManual/goToPrevChapterManual) não
-  // passam esses argumentos — ali a semântica é "ir para o início/fim do vizinho", então o
-  // default 0 é o comportamento certo.
+  // scroll chegar (o que pode nunca acontecer, já que o usuário não se moveu mais). Este caminho
+  // só é usado por scroll NATURAL (onVisiblePageChanged/overscroll) — navegação manual pelas
+  // setas do overlay usa goToNextChapterManual/goToPrevChapterManual (abaixo), que recarrega o
+  // capítulo do zero via loadInitialViewer, não este reducer incremental.
   const advanceToNextChapter = useCallback(
     async (page = 0, scrollFraction = 0, chapterFraction = 0) => {
       const viewer = viewerRef.current;
@@ -455,12 +475,14 @@ export function useReader(seriesId: string, chapterId: string) {
       saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
         () => {},
       );
-      await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
+      if (state.chapterFraction >= READ_THRESHOLD_FRACTION) {
+        await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
+      }
       const nextViewer: ViewerChapters = { prev: viewer.curr, curr: viewer.next, next: null };
       dispatch({ type: 'SET_VIEWER', viewer: nextViewer, page, scrollFraction, chapterFraction });
       loadMissingNeighbor('next', nextViewer.curr.chapter.id);
     },
-    [markAsReadIfNeeded, state.isAdvancing, loadMissingNeighbor],
+    [markAsReadIfNeeded, state.isAdvancing, state.chapterFraction, loadMissingNeighbor],
   );
 
   const retreatToPrevChapter = useCallback(
@@ -475,65 +497,39 @@ export function useReader(seriesId: string, chapterId: string) {
     [state.isAdvancing, loadMissingNeighbor],
   );
 
+  // Navegação manual (setas do overlay): recarrega o capítulo vizinho do zero pelo mesmo caminho
+  // usado para abrir a tela (loadInitialViewer) — reconstrói prev/curr/next atomicamente a partir
+  // de orderedChaptersRef e dispatcha VIEWER_READY, que já seta scrollToPageRequest corretamente.
+  // Evita a classe de bugs do reducer incremental (SET_VIEWER): overlay/progress bar presos no
+  // capítulo antigo, scroll físico nunca disparado, cliques perdidos por causa de
+  // loadMissingNeighbor ainda em voo.
   const goToNextChapterManual = useCallback(async () => {
-    await advanceToNextChapter();
-  }, [advanceToNextChapter]);
+    const viewer = viewerRef.current;
+    if (!viewer?.next) {return;}
+    const curr = currChapterOf(viewer);
+    saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
+      () => {},
+    );
+    if (state.chapterFraction >= READ_THRESHOLD_FRACTION) {
+      await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
+    }
+    // startAtBeginning=true: seta sempre vai para a primeira página do capítulo, ignorando
+    // "continuar de onde parei" daquele capítulo (só a abertura inicial da tela respeita isso).
+    await loadInitialViewer(viewer.next.chapter.id, true);
+  }, [loadInitialViewer, markAsReadIfNeeded, state.chapterFraction]);
 
   const goToPrevChapterManual = useCallback(async () => {
-    await retreatToPrevChapter();
-  }, [retreatToPrevChapter]);
-
-  // ── Pré-carregamento de páginas ──────────────────────────────────────────
-  const desiredPrefetchUrlsRef = useRef<Set<string>>(new Set());
-  const inFlightPrefetchCountRef = useRef(0);
-  const prefetchQueueRef = useRef<string[]>([]);
-
-  const pumpPrefetchQueue = useCallback(() => {
-    while (inFlightPrefetchCountRef.current < MAX_CONCURRENT_PREFETCH && prefetchQueueRef.current.length > 0) {
-      const url = prefetchQueueRef.current.shift();
-      if (!url) {break;}
-      if (!desiredPrefetchUrlsRef.current.has(url)) {continue;}
-      inFlightPrefetchCountRef.current++;
-      Image.prefetch(url)
-        .catch(() => {})
-        .then(() => {
-          inFlightPrefetchCountRef.current--;
-          pumpPrefetchQueue();
-        });
+    const viewer = viewerRef.current;
+    if (!viewer?.prev) {return;}
+    const curr = currChapterOf(viewer);
+    saveLocalProgress(curr.chapter.id, curr.chapter.seriesId, currentPageRef.current, scrollFractionRef.current).catch(
+      () => {},
+    );
+    if (state.chapterFraction >= READ_THRESHOLD_FRACTION) {
+      await markAsReadIfNeeded(curr.chapter, curr.chapter.seriesId);
     }
-  }, []);
-
-  const preloadPages = useCallback(
-    (pages: string[], currentIndex: number) => {
-      const order = pagePreloadOrder(currentIndex, PRELOAD_WINDOW_RADIUS, pages.length);
-      const desiredUrls = order.map(i => pages[i]);
-      desiredPrefetchUrlsRef.current = new Set(desiredUrls);
-      prefetchQueueRef.current = desiredUrls;
-      pumpPrefetchQueue();
-    },
-    [pumpPrefetchQueue],
-  );
-
-  useEffect(() => {
-    const viewer = state.viewer;
-    if (!viewer) {return;}
-    const curr = currChapterOf(viewer);
-    preloadPages(curr.pages, state.currentVisiblePage);
-  }, [state.viewer, state.currentVisiblePage, preloadPages]);
-
-  const neighborPreloadTriggeredRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const viewer = state.viewer;
-    if (!viewer) {return;}
-    const curr = currChapterOf(viewer);
-    const nearEdge = isNearChapterEdge(state.currentVisiblePage, curr.pages.length, CHAPTER_EDGE_THRESHOLD);
-    if (!nearEdge) {return;}
-    const neighbor = viewer.next;
-    if (!neighbor || neighborPreloadTriggeredRef.current.has(neighbor.chapter.id)) {return;}
-    neighborPreloadTriggeredRef.current.add(neighbor.chapter.id);
-    preloadPages(neighbor.pages, 0);
-  }, [state.viewer, state.currentVisiblePage, preloadPages]);
+    await loadInitialViewer(viewer.prev.chapter.id, true);
+  }, [loadInitialViewer, markAsReadIfNeeded, state.chapterFraction]);
 
   // ── Reação a activeUrlChanged ────────────────────────────────────────────
   useEffect(() => {
@@ -567,12 +563,6 @@ export function useReader(seriesId: string, chapterId: string) {
     return () => sub.remove();
   }, []);
 
-  // ── Tela cheia (status bar) ──────────────────────────────────────────────
-  useEffect(() => {
-    StatusBar.setHidden(true, 'fade');
-    return () => StatusBar.setHidden(false, 'fade');
-  }, []);
-
   // ── Keep screen on ────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -584,6 +574,20 @@ export function useReader(seriesId: string, chapterId: string) {
     return () => {
       cancelled = true;
       allowScreenOff().catch(() => {});
+    };
+  }, []);
+
+  // ── Modo imersivo (esconde status bar + nav bar, sticky) ─────────────────
+  useEffect(() => {
+    let cancelled = false;
+    fetchImmersiveModePref()
+      .then(enabled => {
+        if (!cancelled && enabled) {setImmersiveMode(true).catch(() => {});}
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      setImmersiveMode(false).catch(() => {});
     };
   }, []);
 
@@ -603,11 +607,15 @@ export function useReader(seriesId: string, chapterId: string) {
     (contentOffsetY: number, isFirstItemChapterHeader: boolean) => {
       if (contentOffsetY < -overscrollTriggerPx && isFirstItemChapterHeader && overscrollArmedRef.current) {
         overscrollArmedRef.current = false;
-        retreatToPrevChapter();
+        // Overscroll é o usuário puxando além do topo do capítulo atual — ele nunca chegou a
+        // rolar fisicamente para dentro do capítulo anterior (diferente do scroll natural
+        // cruzando a fronteira), então precisa do mesmo caminho "recarrega do zero" que a
+        // navegação manual usa (ver goToPrevChapterManual).
+        goToPrevChapterManual();
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [overscrollTriggerPx],
+    [overscrollTriggerPx, goToPrevChapterManual],
   );
 
   const handleScrollEndDrag = useCallback((contentOffsetY: number) => {

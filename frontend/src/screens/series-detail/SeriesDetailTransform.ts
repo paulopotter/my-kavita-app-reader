@@ -11,7 +11,7 @@ export function actionButtonLabel(
   t: Strings,
 ): string {
   if (totalCount === 0) return t.seriesDetailStartReading;
-  if (continueChapter === null) return t.seriesDetailRereadFromStart;
   if (readCount === 0) return t.seriesDetailStartReading;
+  if (continueChapter === null) return t.seriesDetailRereadFromStart;
   return t.seriesDetailContinueReading.replace('{0}', continueChapter.number);
 }

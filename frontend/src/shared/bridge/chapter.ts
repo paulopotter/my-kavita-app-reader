@@ -30,6 +30,8 @@ interface ScreenControlBridgeInterface {
   keepScreenOn(): Promise<void>;
   allowScreenOff(): Promise<void>;
   getKeepScreenOnDuringReading(): Promise<boolean>;
+  setImmersiveMode(enabled: boolean): Promise<void>;
+  getImmersiveModeDuringReading(): Promise<boolean>;
 }
 
 export const ReaderChapterBridge: ReaderChapterBridgeInterface = NativeModules.ReaderChapterModule;

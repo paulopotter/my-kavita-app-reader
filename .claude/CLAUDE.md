@@ -35,4 +35,4 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
   - JS: `coverageThreshold` in `frontend/package.json`
 - Cannot commit Kotlin/TS source without passing `make coverage` first (pre-commit hook enforces this).
 - Cannot close a task without passing coverage.
-- Floors: Kotlin LINE ≥ 40% · JS statements ≥ 20% lines ≥ 20% functions ≥ 36% branches ≥ 70%
+- Floors live in code, not here (avoids drift): Kotlin → `COVERAGE_FLOOR_KOTLIN` comment in `android/build.gradle.kts`; JS → `coverageThreshold` in `frontend/package.json`.

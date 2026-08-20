@@ -1,6 +1,7 @@
 package com.mymangareader
 
 import com.facebook.react.bridge.ReactApplicationContext
+import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -12,9 +13,12 @@ import org.mockito.kotlin.whenever
 
 class ReaderChapterModuleTest {
 
-    private fun makeModule(dataSource: ChapterDataSource = mock()): ReaderChapterModule {
+    private fun makeModule(
+        dataSource: ChapterDataSource = mock(),
+        chapterCacheDao: ChapterCacheDao = mock(),
+    ): ReaderChapterModule {
         val context = mock<ReactApplicationContext>()
-        return ReaderChapterModule(dataSource, context)
+        return ReaderChapterModule(dataSource, chapterCacheDao, context)
     }
 
     @Test
@@ -48,6 +52,35 @@ class ReaderChapterModuleTest {
 
         verify(dataSource).saveReadingProgress("c1", "s1", 5)
         assertNull(promise.rejectedCode)
+    }
+
+    @Test
+    fun `saveReadingProgress bem sucedido consulta o cache de capitulos para notificar progresso`() = runTest {
+        val dataSource: ChapterDataSource = mock()
+        whenever(dataSource.saveReadingProgress("c1", "s1", 5)).thenReturn(Result.success(Unit))
+        val chapterCacheDao: ChapterCacheDao = mock()
+        whenever(chapterCacheDao.getBySeriesId("s1")).thenReturn(emptyList())
+        val module = makeModule(dataSource = dataSource, chapterCacheDao = chapterCacheDao)
+        val promise = FakePromise()
+
+        module.saveReadingProgress("c1", "s1", 5, promise)
+        promise.awaitResolved()
+
+        verify(chapterCacheDao).getBySeriesId("s1")
+    }
+
+    @Test
+    fun `saveReadingProgress com falha nao consulta o cache de capitulos`() = runTest {
+        val dataSource: ChapterDataSource = mock()
+        whenever(dataSource.saveReadingProgress("c1", "s1", 5)).thenReturn(Result.failure(IllegalStateException("boom")))
+        val chapterCacheDao: ChapterCacheDao = mock()
+        val module = makeModule(dataSource = dataSource, chapterCacheDao = chapterCacheDao)
+        val promise = FakePromise()
+
+        module.saveReadingProgress("c1", "s1", 5, promise)
+        promise.awaitResolved()
+
+        verify(chapterCacheDao, org.mockito.kotlin.never()).getBySeriesId(org.mockito.kotlin.any())
     }
 
     @Test

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 
 interface Props {
   totalPages: number;
@@ -13,16 +14,13 @@ interface Props {
 }
 
 const ARROW_BUTTON_SIZE = 32;
-
-// Espaçamento confortável entre bolinhas (centro a centro) — mesma ideia do MIN_DOT_SPACING da
-// referência: a trilha cresce proporcionalmente ao número de páginas até um teto (senão um
-// capítulo de 300 páginas ocuparia a tela toda), com um piso mínimo pra poucas páginas não
-// ficarem espremidas em uma trilha minúscula.
-const DOT_SPACING = 16;
-const MIN_TRACK_HEIGHT = 120;
-const screenHeight = Dimensions.get('window').height;
-// A trilha nunca deve dominar a tela nem encostar nos botões de seta/status bar.
-const MAX_TRACK_HEIGHT = screenHeight * 0.6;
+const DOT_SIZE = 6;
+// Gap mínimo entre bolinhas = metade do tamanho da bolinha (bolinha 6px -> gap mínimo 3px entre
+// vizinhas). A "div" das bolinhas (`dots`) sempre vai de uma seta a outra (flex:1, preenche todo
+// o espaço disponível no root) — as bolinhas se distribuem dentro dela via space-evenly; se
+// houver muitas páginas, o conteúdo cresce e o próprio ScrollView (ver abaixo) permite rolar
+// mantendo o gap mínimo, ao invés de espremer as bolinhas além do legível.
+const DOT_GAP = DOT_SIZE / 2;
 
 export function ReaderSideProgressBar({
   totalPages,
@@ -36,8 +34,6 @@ export function ReaderSideProgressBar({
 }: Props) {
   if (!visible) {return null;}
 
-  const trackHeight = Math.min(Math.max(totalPages * DOT_SPACING, MIN_TRACK_HEIGHT), MAX_TRACK_HEIGHT);
-
   return (
     <View style={styles.root}>
       <TouchableOpacity
@@ -47,11 +43,15 @@ export function ReaderSideProgressBar({
         onPress={() => {
           if (hasPrev) {onPrevChapter();}
         }}>
-        <Text style={[styles.arrow, !hasPrev && styles.arrowDisabled]}>{'▲'}</Text>
+        <ChevronUp size={18} color={hasPrev ? '#FFFFFF' : '#4A5568'} />
       </TouchableOpacity>
-      <View style={[styles.dots, { height: trackHeight }]}>
+      <View style={styles.dots}>
         {Array.from({ length: totalPages }, (_, index) => (
-          <TouchableOpacity key={index} onPress={() => onPageSelect(index)} hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
+          <TouchableOpacity
+            key={index}
+            style={styles.dotTouchable}
+            onPress={() => onPageSelect(index)}
+            hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}>
             <View
               style={[
                 styles.dot,
@@ -69,7 +69,7 @@ export function ReaderSideProgressBar({
         onPress={() => {
           if (hasNext) {onNextChapter();}
         }}>
-        <Text style={[styles.arrow, !hasNext && styles.arrowDisabled]}>{'▼'}</Text>
+        <ChevronDown size={18} color={hasNext ? '#FFFFFF' : '#4A5568'} />
       </TouchableOpacity>
     </View>
   );
@@ -79,8 +79,9 @@ const styles = StyleSheet.create({
   root: {
     position: 'absolute',
     right: 8,
-    top: '20%',
-    bottom: '20%',
+    // Seta de cima logo abaixo do header (gap mínimo); seta de baixo perto do footer (~92%).
+    top: 92,
+    bottom: '8%',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -88,21 +89,22 @@ const styles = StyleSheet.create({
     width: ARROW_BUTTON_SIZE,
     height: ARROW_BUTTON_SIZE,
     borderRadius: ARROW_BUTTON_SIZE / 2,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  arrow: { color: '#FFFFFF', fontSize: 18 },
-  arrowDisabled: { color: '#4A5568' },
   dots: {
+    flex: 1,
     justifyContent: 'space-evenly',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: DOT_GAP,
+    marginVertical: 4,
     width: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
   },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#A0AEC0' },
+  dotTouchable: { alignItems: 'center', justifyContent: 'center' },
+  dot: { width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2, backgroundColor: '#A0AEC0' },
   // Página já lida: mesmo dourado da barra fina de progresso (#FFC107), com opacidade reduzida
   // para diferenciar visualmente da página atual sem competir com o destaque dela.
   dotRead: { backgroundColor: 'rgba(255, 193, 7, 0.5)' },

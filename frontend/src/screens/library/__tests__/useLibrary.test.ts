@@ -20,6 +20,8 @@ function makeSeries(id: number, isFollowed: boolean): SeriesSummary {
     lastChapterAddedUtc: null,
     downloadedChapters: null,
     totalChapters: null,
+    readChapters: null,
+    chapterCount: null,
     latestChapterLabel: null,
     publicationStatus: 'NONE',
     hasErrors: false,

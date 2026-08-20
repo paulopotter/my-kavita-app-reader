@@ -18,4 +18,7 @@ interface UiPreferencesDao {
 
     @Query("SELECT keepScreenOnDuringReading FROM ui_preferences WHERE id = 'prefs' LIMIT 1")
     suspend fun getKeepScreenOnDuringReading(): Boolean?
+
+    @Query("SELECT immersiveModeDuringReading FROM ui_preferences WHERE id = 'prefs' LIMIT 1")
+    suspend fun getImmersiveModeDuringReading(): Boolean?
 }

@@ -14,6 +14,8 @@ export interface SeriesSummary {
   lastChapterAddedUtc: string | null;
   downloadedChapters: number | null;
   totalChapters: number | null;
+  readChapters: number | null;
+  chapterCount: number | null;
   latestChapterLabel: string | null;
   publicationStatus: 'NONE' | 'ONGOING' | 'COMPLETED' | 'CANCELLED' | 'ON_HIATUS' | 'ABANDONED';
   hasErrors: boolean;

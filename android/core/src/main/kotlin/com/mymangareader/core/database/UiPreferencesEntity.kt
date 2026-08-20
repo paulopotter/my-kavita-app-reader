@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class UiPreferencesEntity(
     @PrimaryKey val id: String = "prefs",
     val keepScreenOnDuringReading: Boolean = true,
+    val immersiveModeDuringReading: Boolean = false,
     val chapterSortMode: String = "ASCENDING",
     val chapterSortFixedThreshold: Double? = null,
     val chapterSortProgressPercent: Int = 50,
