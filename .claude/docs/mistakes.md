@@ -279,4 +279,96 @@ screens.
 
 ---
 
-**Last Updated**: 2026-08-12
+### 15. Scroll-position math anchored to the wrong zero point
+
+**Symptom**: a reader progress bar or chapter-switch trigger fires early,
+late, or reads a value from the wrong chapter — deterministic, but the
+error scales with how far the user has scrolled into a long list.
+
+**Root cause**: every `compute*` function that turns
+`firstVisibleItemIndex`/`firstVisibleItemScrollOffset` into a pixel
+position (`ReaderPageList.kt`'s `computeVisiblePageAndFraction`,
+`computeBottomVisiblePageIndex`, `computeChapterFraction`,
+`computeChapterSwitchTarget`) must treat **the top of
+`firstVisibleItemIndex` as pixel zero**, never sum from item 0 or from a
+fixed landmark like the chapter's header. A tempting-looking earlier
+version seeded a running total with `firstVisibleItemScrollOffset` itself
+as the base (double-counting it once as the base and again via the
+comparison line), which made a page hundreds of pixels from a boundary
+read as already past it. The same class of bug: using the *previous*
+chapter's header as a reference point stops working the moment a user
+scrolls backward into a chapter's last pages without ever having
+physically passed its earlier pages — those items were never measured,
+so anything anchored to them silently breaks.
+
+**Rule**: before touching scroll-math code, write out on paper what pixel
+position is "zero" for this specific computation, and confirm every
+summed term is relative to that same zero — never relative to an item
+that might not have been measured yet.
+
+**Reference**: fixed on-device via `reader-log-v53.txt`
+(`computeChapterSwitchTarget`) after a chapter switch fired mid-chapter,
+nowhere near either boundary.
+
+---
+
+### 16. Single shared "last known good value" leaking across independent entities
+
+**Symptom**: a payload sent to RN has fields that individually look
+plausible but describe two different chapters at once — e.g. `chapterId`
+from chapter 39 alongside a `pageIndex`/`fraction` still holding chapter
+40's last computed value.
+
+**Root cause**: a fallback variable (`var lastGoodValue`) shared across
+all entities being tracked, instead of keyed per entity
+(`Map<EntityId, Value>`). When the "real" computation fails for one tick
+(a landmark isn't measured yet), falling back to the single shared
+variable can return a value that was actually computed for a *different*
+entity on a previous tick — two independently-failing/succeeding signals
+get stitched into one inconsistent payload.
+
+**Rule**: any "last known good" fallback for a value that's naturally
+scoped per-entity (per chapter, per page, per session) must be keyed by
+that entity's id, never a single shared variable — even if it "usually"
+tracks the same entity across ticks.
+
+**Fix reference**: `ReaderPageList.kt`'s `lastChapterFractionByChapterId:
+HashMap<String, Float>` replacing a single `var lastChapterFraction`.
+
+---
+
+### 17. Generic helper's default parameter silently passes `kotlin.Unit` across a native bridge
+
+**Symptom**: the app crashes with `RuntimeException: Cannot convert
+argument of type class kotlin.Unit` from `Arguments.fromJavaArgs`, deep in
+a coroutine worker thread — no compile error, no test failure, only
+visible on-device.
+
+**Root cause**: a shared helper extracted to remove repeated
+`result.onSuccess{ promise.resolve(x) }.onFailure{ promise.reject(...) }`
+boilerplate (`resolveOrReject(promise, errorCode, transform: (T) -> Any?
+= { it })`) used an identity default for `transform`. For every call site
+built on `Result<Unit>` (the common "fire an action, then
+`promise.resolve(null)`" shape — most `@ReactMethod`s that don't return a
+value), the identity default returned the `kotlin.Unit` object itself,
+not `null`. React Native's bridge (`Arguments.fromJavaArgs`) has no
+conversion for `Unit` and crashes immediately the first time any such
+method runs. Every hand-written `onSuccess { promise.resolve(null) }`
+this helper replaced had gotten the `null` right explicitly — the
+extraction lost that behavior silently because `Result<Unit>` type-checks
+fine with an identity transform.
+
+**Rule**: when writing a generic default for a transform/mapper over a
+`Result<T>`/`Promise` boundary, `Unit` is not equivalent to `null` on the
+other side of that boundary — map it explicitly. More generally: JVM-only
+unit tests that only assert "the promise resolved without rejecting"
+don't catch this class of bug — assert the *actual value* passed to
+`resolve()`, not just that it was called.
+
+**Fix**: `transform: (T) -> Any? = { if (it == Unit) null else it }` in
+`ReactBridgeSupport.kt`. Caught by `ReactBridgeSupportTest`'s explicit
+`assertNull(promise.resolvedValue)` assertion (not just "no rejection").
+
+---
+
+**Last Updated**: 2026-08-19
