@@ -19,7 +19,7 @@ changelog entry by hand.
 | [004](004-survey-chapter-domain.md) | 1 — Survey | Survey — Chapter domain | done |
 | [005](005-survey-series-domain.md) | 1 — Survey | Survey — Series domain | done |
 | [006](006-survey-library-domain.md) | 1 — Survey | Survey — Library domain | done |
-| [007](007-survey-kavita-coupling-points.md) | 1 — Survey | Survey — direct Kavita coupling points outside the 3 core domains | todo (blocked by 001) |
+| [007](007-survey-kavita-coupling-points.md) | 1 — Survey | Survey — direct Kavita coupling points outside the 3 core domains | done |
 | [008](008-contract-chapter.md) | 2 — Contracts | Contract — Chapter (pilot, defines the template) | done (base contract, `architecture.md` update deferred) |
 | [009](009-contract-page.md) | 2 — Contracts | Contract — Page | done (base contract, `architecture.md` update deferred) |
 | [010](010-contract-series.md) | 2 — Contracts | Contract — Series | done (base contract, `architecture.md` update deferred) |
