@@ -1,6 +1,6 @@
 # Task 001 — Fix the 3-mechanisms diagnosis (Phase 0 — Foundations)
 
-**Status:** doing
+**Status:** done
 
 ## Objective
 
@@ -44,3 +44,11 @@ the 3 mechanisms) starts from an accurate map.
 - README.md and Task 021 both reflect the corrected diagnosis (RN→RN is new, not existing;
   "one-shot state" is a known-fragile RN→Kotlin variant whose fate is decided in Task 013).
 - User confirms the corrected diagnosis before Phase 1 survey tasks begin.
+
+## Result
+
+`README.md`'s "3 communication mechanisms" section and Task 021's framing note both reflect
+the corrected diagnosis. A residual stale reference ("Task 5.1" from the pre-expansion
+numbering) was found and fixed to "Task 021" in `README.md` during this review. User confirmed
+the corrected diagnosis is accurate, and separately confirmed that RN→Kotlin ("one-shot state"
+fate) is explicitly in scope of Task 013, not silently dropped.

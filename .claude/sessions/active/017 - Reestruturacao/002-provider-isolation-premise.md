@@ -1,6 +1,6 @@
 # Task 002 — Formalize the provider isolation premise (Phase 0 — Foundations)
 
-**Status:** todo
+**Status:** done
 
 ## Objective
 
@@ -55,3 +55,12 @@ premise text and gets user sign-off on the concept before design work starts.
   correct target design.
 - Premise text is stable enough for Task 014 to design against and Task 024 to formalize into
   `CLAUDE.md`.
+
+## Result
+
+User explicitly confirmed the "manager module" framing in this task's draft text is correct —
+a single module per provider category (server, notification) that knows every concrete
+implementation, can manage more than one simultaneously, and is the app's only point of
+contact (with an explicit "use provider X" operation as part of its own contract, not a
+bypass). Premise text is stable and ready for Task 014 (design) and Task 024 (CLAUDE.md
+wording) to build on.

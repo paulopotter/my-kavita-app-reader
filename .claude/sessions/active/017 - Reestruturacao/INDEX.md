@@ -13,8 +13,8 @@ changelog entry by hand.
 
 | # | Phase | Task | Status |
 |---|-------|------|--------|
-| [001](001-fix-three-mechanisms-diagnosis.md) | 0 — Foundations | Fix the 3-mechanisms diagnosis (RN→RN is new, not existing) | doing |
-| [002](002-provider-isolation-premise.md) | 0 — Foundations | Formalize the provider isolation premise in text, for review | todo |
+| [001](001-fix-three-mechanisms-diagnosis.md) | 0 — Foundations | Fix the 3-mechanisms diagnosis (RN→RN is new, not existing) | done |
+| [002](002-provider-isolation-premise.md) | 0 — Foundations | Formalize the provider isolation premise in text, for review | done |
 | [003](003-survey-page-domain.md) | 1 — Survey | Survey — Page domain | todo (blocked by 001) |
 | [004](004-survey-chapter-domain.md) | 1 — Survey | Survey — Chapter domain | todo (blocked by 001) |
 | [005](005-survey-series-domain.md) | 1 — Survey | Survey — Series domain | todo (blocked by 001) |

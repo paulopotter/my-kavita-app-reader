@@ -108,7 +108,7 @@ this plan — they continue to hold as-is (explicit user decision); the new cont
    (`LaunchedEffect`), performs the action, and reports back (`onScrollToChapterHandled`) so RN
    can **manually zero** the field — otherwise the next read re-triggers the same action. It
    works, but it is fragile: it is the identified root cause of the race bug documented in
-   Task 5.1 (delayed/concurrent zeroing racing another in-flight action). Task 5.1 already
+   Task 021 (delayed/concurrent zeroing racing another in-flight action). Task 021 already
    considers replacing it with an imperative `ref` call; this plan formalizes that decision
    inside the event contract template (Phase 2.5), covering both existing mechanisms (not just
    the new RN→RN one).
