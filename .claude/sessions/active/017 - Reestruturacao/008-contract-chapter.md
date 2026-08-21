@@ -1,6 +1,6 @@
 # Task 008 — Contract: Chapter (pilot) (Phase 2 — Contract modeling)
 
-**Status:** todo (blocked by Task 004)
+**Status:** done
 
 ## Objective
 
@@ -48,3 +48,34 @@ it done early unblocks Phase 5.
 - `architecture.md` updated.
 - If code was written as part of the session: tested on a real device, `make coverage` shows no
   drop, explicit approval before `finalizar-task`.
+
+## Result
+
+Chapter contract modeled through an extended co-creation mini-iteration with the user —
+conversation-first, field-by-field, real Kavita API schemas confirmed via the `kavita-api`
+skill where relevant (e.g. `Range`/`SortOrder`/`MinNumber`/`IsSpecial`/cover image/
+`LastReadingProgressUtc`). Final shape (`ChapterContract`, `ChapterResult`,
+`ChapterNeighborContract`) lives in
+`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`, alongside the general
+rules (R1-R10) established during this and the Page/Series sessions — this file is the reusable
+template Tasks 009/010 (and future 011) draw from, fulfilling this task's "contract template"
+deliverable.
+
+**Explicit caveats, per user decision:**
+- This is a **base contract**, approved as a starting point — not final. It is expected to be
+  enriched/revised in future sessions (e.g. when Library is modeled, when `ErrorContract`/
+  `ServerDescriptor`/`CacheDescriptor` get their own detailed design, when method signatures
+  are eventually defined per R9).
+- `architecture.md` was **not** updated as part of closing this task — the user explicitly
+  deferred that to a later point (likely after Library is also modeled, to update
+  `architecture.md` once with a more complete contract set instead of piecemeal). This is a
+  recorded pending item, not an oversight.
+- No production code was written in this session — only planning/design artifacts
+  (`_contract-design-notes.md`). The "tested on real device / `make coverage`" criterion does
+  not apply; there is no code to test yet.
+
+`ViewerChapters`/`SeriesBridge`'s fate: not explicitly resolved as a migration decision in this
+session — the new `ChapterContract` was modeled from first principles (real API + domain
+reasoning), not as a reconciliation of the two existing divergent shapes found in Task 004's
+survey. That reconciliation is implementation work, not contract-shape work — flagged for
+whichever task actually migrates the Reader/Series screens onto the new contract.

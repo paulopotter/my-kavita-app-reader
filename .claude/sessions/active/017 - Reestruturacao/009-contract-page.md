@@ -1,6 +1,6 @@
 # Task 009 — Contract: Page (Phase 2 — Contract modeling)
 
-**Status:** todo (blocked by Task 003, Task 008)
+**Status:** done
 
 ## Objective
 
@@ -34,3 +34,22 @@ receives and uses page data today).
 - `architecture.md` updated.
 - If code was written: tested on a real device, `make coverage` shows no drop, explicit
   approval before `finalizar-task`.
+
+## Result
+
+Page contract modeled first, as the actual pilot of the co-creation process (before Chapter's
+own template got formalized retroactively). Final shape: `PageContract extends ImageDescriptor`
+(Page's core identity *is* an image, so it inherits the descriptor's fields flattened rather
+than nesting them), plus `PageResult`, and the new shared `ImageDescriptor`/`ServerDescriptor`
+types this session produced along the way. Composition under Chapter confirmed:
+`ChapterContract.pages.list: PageResult[]`, built by Chapter calling the Page domain module
+directly (same-layer composition, R1). Final shapes live in
+`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`.
+
+**Explicit caveats, per user decision (same as Task 008):**
+- **Base contract**, not final — expected to evolve (e.g. `bookScrollId`, a real field found on
+  Kavita's `ProgressDto` via the `kavita-api` skill, was deliberately left unreviewed and not
+  incorporated — flagged in the design notes' Open/rejected section for explicit follow-up).
+- `architecture.md` update deferred, not done — recorded pending item, likely bundled with
+  Library's contract task.
+- No production code written this session — coverage/device-testing criterion does not apply.

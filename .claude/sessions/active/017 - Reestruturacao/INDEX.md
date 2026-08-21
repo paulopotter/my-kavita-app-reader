@@ -15,14 +15,14 @@ changelog entry by hand.
 |---|-------|------|--------|
 | [001](001-fix-three-mechanisms-diagnosis.md) | 0 — Foundations | Fix the 3-mechanisms diagnosis (RN→RN is new, not existing) | done |
 | [002](002-provider-isolation-premise.md) | 0 — Foundations | Formalize the provider isolation premise in text, for review | done |
-| [003](003-survey-page-domain.md) | 1 — Survey | Survey — Page domain | todo (blocked by 001) |
-| [004](004-survey-chapter-domain.md) | 1 — Survey | Survey — Chapter domain | todo (blocked by 001) |
-| [005](005-survey-series-domain.md) | 1 — Survey | Survey — Series domain | todo (blocked by 001) |
+| [003](003-survey-page-domain.md) | 1 — Survey | Survey — Page domain | done |
+| [004](004-survey-chapter-domain.md) | 1 — Survey | Survey — Chapter domain | done |
+| [005](005-survey-series-domain.md) | 1 — Survey | Survey — Series domain | done |
 | [006](006-survey-library-domain.md) | 1 — Survey | Survey — Library domain | todo (blocked by 001) |
 | [007](007-survey-kavita-coupling-points.md) | 1 — Survey | Survey — direct Kavita coupling points outside the 3 core domains | todo (blocked by 001) |
-| [008](008-contract-chapter.md) | 2 — Contracts | Contract — Chapter (pilot, defines the template) | todo (blocked by 004) |
-| [009](009-contract-page.md) | 2 — Contracts | Contract — Page | todo (blocked by 003, 008) |
-| [010](010-contract-series.md) | 2 — Contracts | Contract — Series | todo (blocked by 005, 008) |
+| [008](008-contract-chapter.md) | 2 — Contracts | Contract — Chapter (pilot, defines the template) | done (base contract, `architecture.md` update deferred) |
+| [009](009-contract-page.md) | 2 — Contracts | Contract — Page | done (base contract, `architecture.md` update deferred) |
+| [010](010-contract-series.md) | 2 — Contracts | Contract — Series | done (base contract, `architecture.md` update deferred) |
 | [011](011-contract-library.md) | 2 — Contracts | Contract — Library | todo (blocked by 006, 008) |
 | [012](012-contract-additional-datasources.md) | 2 — Contracts | Contract — additional DataSources (conditional on Task 007 findings) | todo (blocked by 007, 008) |
 | [013](013-formalize-communication-mechanisms.md) | 2 — Contracts | Formalize the 3 communication mechanisms (Kotlin→RN, RN→Kotlin, RN→RN) | todo (blocked by 001, 008) |

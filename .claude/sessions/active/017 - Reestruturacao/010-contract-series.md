@@ -1,6 +1,6 @@
 # Task 010 — Contract: Series (Phase 2 — Contract modeling)
 
-**Status:** todo (blocked by Task 005, Task 008)
+**Status:** done
 
 ## Objective
 
@@ -36,3 +36,28 @@ template shape from Task 008, anchored in real TypeScript data examples.
 - `architecture.md` updated.
 - If code was written: tested on a real device, `make coverage` shows no drop, explicit
   approval before `finalizar-task`.
+
+## Result
+
+Series contract modeled via the same co-creation mini-iteration process, confirmed against
+Kavita's real `SeriesDto`/`SeriesMetadataDto` schemas via the `kavita-api` skill. Canonical
+progress-aggregate decision: `SeriesContract.chapters.readCount`/`total` are **derived** from
+`chapters.list` (never a separately-fetched/duplicated number) — resolves Task 005's finding of
+5 independent formulas computing the same thing. Delegation decision: Series (Layer 3) calls the
+Chapter domain module (Layer 3) **directly** to build `chapters.list: ChapterResult[]` —
+same-layer composition, not routed through RN — this directly informs Task 017's fix (stop
+reading `chapterCacheDao` from `KavitaSeriesFeature` directly, delegate to the Chapter module
+instead). Also produced, during this session: the 6-layer reference architecture (Layer
+0-5, formalized in the design notes' R1) that clarifies where `Server`/`Cache`/`Image` modules,
+domain contracts, RN Services, and screens each live and how they're allowed to call each other.
+Final shape lives in
+`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`.
+
+**Explicit caveats, per user decision (same as Tasks 008/009):**
+- **Base contract**, not final — several fields deliberately excluded pending further review
+  (e.g. `MangaFormat`/file format at the series level — user judged unnecessary at this level,
+  unlike Chapter, where it was kept; the richer `SeriesMetadataDto` fields not yet modeled,
+  like `writers`/`characters`/other `PersonDto`-based roles).
+- `architecture.md` update deferred, not done — recorded pending item, likely bundled once
+  Library's contract is also modeled.
+- No production code written this session — coverage/device-testing criterion does not apply.
