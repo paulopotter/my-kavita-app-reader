@@ -446,6 +446,123 @@ is ever needed, it becomes a **parameter** on the Series listing operation (e.g.
 exist, not just planned) is evidence this pattern already works: it's 100% the same Series
 listing pipeline with a client-side filter on top, no separate contract.
 
+## Provider name becomes data, not hardcoded UI copy (connects Task 007's finding to `ServerDescriptor`)
+
+**Date:** 2026-08-21 (Task 007 findings review)
+
+**Finding this responds to (Task 007):** `ConfigScreen.tsx`/`SetupScreen.tsx` hardcode "Kavita"
+throughout — state names, UI copy, `i18n/strings.ts` translation keys (`configKavitaServers`,
+`setupApiKeyLabel: 'Kavita API Key'`, etc.). Judged **not** a violation worth fixing by renaming
+(that's a product/copy decision, the screens genuinely manage Kavita servers today) — but the
+user identified a better fix: don't rename the copy, make the *name itself* data instead of
+code.
+
+**Decision:** the Layer 2 provider-abstraction module (the plugin manager — Task 002/014) is the
+one place that knows every installed provider's real name. Screens (Layer 5) stop hardcoding
+"Kavita" as a literal string in code — the name is supplied *as data* from that same Layer 2
+abstraction, the same source that already feeds `ServerDescriptor.type` inside every Layer 3
+domain contract (`PageContract`/`ChapterContract`/`SeriesContract`). Today, with only one
+provider installed, the UI still reads "Kavita" — nothing changes visually. The difference is
+structural: swapping or adding a provider in the future means changing what the Layer 2 module
+returns, never touching `ConfigScreen.tsx`/`SetupScreen.tsx`/`strings.ts` — "as transparent as
+swapping the plugin," in the user's words.
+
+**Connects two things that were modeled separately without this link being explicit before:**
+`ServerDescriptor` (used inside Page/Chapter/Series contracts to say "which server answered
+this") and the config/setup screens (which need to say "which server is the user managing") are
+the same underlying data, sourced from the same Layer 2 module — not two separate naming
+problems.
+
+**Not designed here — implementation detail for Task 012/014:** the exact shape of "provider
+display name" as exposed by the manager module (e.g. part of `ServerDescriptor` itself, or a
+separate lookup), and how `ConfigScreen`/`SetupScreen` consume it. This entry only fixes the
+principle (name is data from Layer 2, not code in Layer 5), not the exact interface.
+
+**Applies to:** Task 012 (additional DataSources — `AuthDataSource`/`UrlSource` candidates from
+Task 007) and Task 014 (plugin manager module design) — both should account for "expose the
+provider's display name" as a requirement, not just data-fetching operations.
+
+## Implementation order: bottom-up (Layer 0 → 5), never top-down
+
+**Date:** 2026-08-21
+
+**Decision:** confirmed by the provider-name-as-data finding above (a concrete case where Layer
+5 literally cannot work correctly without Layer 2 already existing and supplying real data) —
+implementation must proceed **Layer 0 → 1 → 2 → 3 → 4 → 5**, never starting from a higher layer
+and mocking what's below. This isn't a new rule, it's the practical consequence of R1's access
+rule (a layer needs the one below it to be real, not stubbed, for its own behavior to be
+correct) — recorded here explicitly as guidance for whoever picks up implementation work later
+(a different session from this planning one), with two amendments from the user:
+
+**Amendment 1 — incremental migration, always backward-compatible until cutover.** Never
+replace an existing function/method in place. Two sub-cases, depending on what's actually wrong:
+
+- **Wrong name** (the function/module itself needs a different identity, e.g. `KavitaAuthFeature`
+  → `AuthDataSource`): add the new, correctly-named version **alongside** the old one — callers
+  migrate to it gradually — and delete the old one only once nothing calls it anymore. Never a
+  big-bang swap that could break the app mid-migration.
+- **Right name, wrong/incomplete shape** (the function's identity is already correct, but its
+  return shape needs to grow to match a newly-modeled contract): do **not** duplicate the
+  function's *public* name just to change its shape. Either (a) add a parameter that opts into
+  the new shape (old callers keep calling without it, unaffected), or (b) extend the current
+  shape with the new fields alongside the old ones — existing callers simply ignore fields they
+  don't read yet, nothing breaks — then migrate callers to the new fields over time, and only
+  remove the stale/old fields once nothing reads them anymore. **Concrete pattern for this
+  sub-case**: split the implementation into private `_old`/`_new` helper functions, with the
+  original public function reduced to a thin dispatcher (an `if`/parameter check routing to
+  whichever helper applies) — the public name and signature stay stable the whole time, no
+  caller outside the module needs to know a migration is happening. Cutover is then just:
+  delete `_old`, rename `_new` to take over as the dispatcher's only body (or the public name
+  directly, if the dispatcher itself becomes unnecessary).
+
+**Amendment 2 — Layer 3 contracts modeled in this plan are "base" shapes, not turnkey.** During
+implementation, expect to build a number of auxiliary functions/methods that each populate or
+expose only *part* of a modeled contract (`PageContract`/`ChapterContract`/`SeriesContract`) —
+not the whole contract assembled in one shot. Layer 3's actual job during implementation is to
+"assemble the pieces" these auxiliary methods produce into the final contract shape already
+agreed on in this design-notes file — the contract shapes here are the target, not a
+prescription for how the supporting code underneath gets built.
+
+**Applies to:** all future implementation work stemming from this plan (Tasks 012 onward,
+Phase 4 corrections, and beyond) — not a modeling-phase decision, a standing implementation
+guideline.
+
+## Task 012 — Task 007's 3 findings resolved: none get their own `DataSource`; 2 absorbed by the Server manager module, 1 becomes its own module
+
+**Date:** 2026-08-21 (Task 012 mini-iteration)
+
+**1. `KavitaAuthFeature`/`UserDto`** — stay as an internal implementation detail of the Kavita
+plugin (Layer 1). No `AuthDataSource` is modeled. The Server manager module (Layer 2, designed
+in Task 014) uses them internally and exposes a generic surface outward (e.g. "is
+authenticated?") — nothing outside Layer 1/2 needs to know Kavita's specific auth endpoint/flow.
+
+**2. `KavitaUrlSelector` — corrected, does not stay Kavita-specific at all.** Verified against
+real code (`KavitaUrlSelector.kt:1-51`): it reads **every** `ServerConfigDao` entry (multiple
+registered URLs that can point at the *same* logical server — e.g. a LAN IP and an external
+domain) and delegates to an already-generic, already-reusable tool
+(`com.mymangareader.tools.network.UrlSelector`) to pick the active/healthy one. This is about
+multiple network paths to one server, **not** merging multiple distinct data sources (a
+different idea the user explicitly ruled out). **Decision: `KavitaUrlSelector` as a class is
+removed entirely** — URL selection moves up directly into the Server manager module (Layer 2),
+which reads `ServerConfigDao` (already provider-agnostic — it stores a URL plus which
+provider/server that row belongs to, e.g. Kavita, BFF, etc.) and calls the generic `UrlSelector`
+tool itself. No provider-named class remains in this path at all.
+
+**3. `BffFeature`** — becomes its **own separate module**, not folded into the Server manager
+module. Rationale (user's own framing): BFF serves a conceptually different purpose (external
+metadata/enrichment correlated by the content server's id, not reading content itself) —
+distinct enough from the Server module's job (serving readable content: pages/chapters/series)
+to warrant its own module identity, even though it can reuse the same underlying patterns
+(`DataSource`-style abstraction, `ServerConfigDao`). Exact name not decided here (candidates
+mentioned in conversation: "External Metadata module" or similar) — left for Task 014 or
+whichever task actually designs it, since it depends on the Server manager module's shape
+being settled first.
+
+**Applies to:** Task 012 (closes with these 3 decisions — no new contract/DataSource is
+designed in this task itself) and Task 014 (Server manager module design — absorbs findings 1
+and 2 directly into its own scope; finding 3 is flagged as a sibling module to design, not part
+of Task 014's own module).
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing

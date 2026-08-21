@@ -1,6 +1,6 @@
 # Task 012 — Contract: additional DataSources (Phase 2 — Contract modeling)
 
-**Status:** todo (blocked by Task 007, Task 008) — **conditional task**
+**Status:** done — resolved without spawning any new `DataSource` contract (see Result)
 
 ## Objective
 
@@ -35,3 +35,34 @@ applicable" with that decision recorded, rather than being forced to produce a c
 - `architecture.md` updated for anything formalized here.
 - If code was written: tested on a real device, `make coverage` shows no drop, explicit
   approval before `finalizar-task`.
+
+## Result
+
+All 3 of Task 007's strongest findings resolved with explicit decisions — none needed their own
+`DataSource` contract designed in this task:
+
+1. **`KavitaAuthFeature`/`UserDto`** — stay internal to the Kavita plugin (Layer 1), used by the
+   Server manager module (Layer 2, Task 014) internally.
+2. **`KavitaUrlSelector`** — corrected finding: it's about multiple network paths to the *same*
+   logical server (confirmed reading real code — `ServerConfigDao.getAll()` + an already-generic
+   `UrlSelector` tool), not merging distinct data sources. Decision: the class is **removed
+   entirely** — URL selection moves directly into the Server manager module (Layer 2), no
+   provider-named class remains in this path.
+3. **`BffFeature`** — becomes its own separate module (distinct purpose: external
+   metadata/enrichment, not readable content) — not folded into the Server manager module.
+
+Full reasoning in `_contract-design-notes.md` § "Task 012 — Task 007's 3 findings resolved."
+
+## Aprovação
+
+Usuário decidiu cada um dos 3 pontos explicitamente em conversa, corrigindo uma suposição
+errada da IA sobre o propósito de `KavitaUrlSelector` antes de fechar a decisão.
+
+## Notas
+
+- Nenhum código de produção escrito — decisão de design, não implementação.
+- `architecture.md` não atualizado — mesma decisão já registrada nas demais tasks de contrato
+  (só atualiza quando o código real for implementado).
+- Estas decisões alimentam diretamente o escopo da Task 014 (módulo de Servidor absorve 2 dos 3
+  achados) e apontam a necessidade de um módulo próprio para BFF/metadado externo, ainda sem
+  task numerada dedicada — a nomear quando chegar a vez de desenhá-lo.
