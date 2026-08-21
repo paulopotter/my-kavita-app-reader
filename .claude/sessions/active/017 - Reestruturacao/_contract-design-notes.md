@@ -419,6 +419,33 @@ source (DeepWiki analysis); `bookScrollId` (a possible finer-than-page reading p
 on the real schema but was **not** incorporated here — flagged as an open question, see
 Open/rejected.
 
+## Library — no Layer 3 contract exists; it's a Series listing operation + Layer 4 Service
+
+**Date:** 2026-08-21 (Library survey/mini-iteration)
+
+**Finding (Task 006 survey):** today "Library" in the app is entirely `KavitaSeriesFeature.
+listSeries()` (a batch fetch of *all* series) plus in-memory-only caching in `LibraryModule.kt`
+(2-minute TTL, no Room table, doesn't survive process restart) — there is no distinct Library
+domain logic being applied anywhere; it's `Series[]`, full stop. Confirmed the real Kavita API
+does have a genuine multi-library concept (23 endpoints, rich `LibraryDto` with
+`type: LibraryType` — 6 real values: `Manga`/`Comic`/`Book`/`Image`/`LightNovel`/`ComicVine`),
+used server-side to apply the right parsing rules/reading defaults/metadata provider per
+content type — but **none of that exists in the app today**: no `libraryId` anywhere, no
+library selector, `listSeries()` queries across all libraries indistinctly.
+
+**Decision (per R1 — Layer 3 is optional per domain):** no `LibraryContract` is modeled.
+"Library" is a **listing operation on the Series module itself** (Layer 3, e.g.
+`Series.listAll()` returning `SeriesResult[]`), consumed by a Library **Service** (Layer 4) that
+applies sort/filter/aggregation client-side for the screen — this mirrors exactly what the app
+already does today, rather than inventing a Layer 3 domain that doesn't structurally exist.
+
+**Future extensibility, deliberately deferred, not designed now:** if multi-library filtering
+is ever needed, it becomes a **parameter** on the Series listing operation (e.g.
+`Series.listAll(libraryId?)`), not a new contract shape to retrofit — because there's no
+`LibraryContract` to redesign in the first place. `FollowingScreen.tsx` (confirmed to already
+exist, not just planned) is evidence this pattern already works: it's 100% the same Series
+listing pipeline with a client-side filter on top, no separate contract.
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing

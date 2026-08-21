@@ -18,12 +18,12 @@ changelog entry by hand.
 | [003](003-survey-page-domain.md) | 1 — Survey | Survey — Page domain | done |
 | [004](004-survey-chapter-domain.md) | 1 — Survey | Survey — Chapter domain | done |
 | [005](005-survey-series-domain.md) | 1 — Survey | Survey — Series domain | done |
-| [006](006-survey-library-domain.md) | 1 — Survey | Survey — Library domain | todo (blocked by 001) |
+| [006](006-survey-library-domain.md) | 1 — Survey | Survey — Library domain | done |
 | [007](007-survey-kavita-coupling-points.md) | 1 — Survey | Survey — direct Kavita coupling points outside the 3 core domains | todo (blocked by 001) |
 | [008](008-contract-chapter.md) | 2 — Contracts | Contract — Chapter (pilot, defines the template) | done (base contract, `architecture.md` update deferred) |
 | [009](009-contract-page.md) | 2 — Contracts | Contract — Page | done (base contract, `architecture.md` update deferred) |
 | [010](010-contract-series.md) | 2 — Contracts | Contract — Series | done (base contract, `architecture.md` update deferred) |
-| [011](011-contract-library.md) | 2 — Contracts | Contract — Library | todo (blocked by 006, 008) |
+| [011](011-contract-library.md) | 2 — Contracts | Contract — Library | done (decision: no Layer 3 Library contract; see task file) |
 | [012](012-contract-additional-datasources.md) | 2 — Contracts | Contract — additional DataSources (conditional on Task 007 findings) | todo (blocked by 007, 008) |
 | [013](013-formalize-communication-mechanisms.md) | 2 — Contracts | Formalize the 3 communication mechanisms (Kotlin→RN, RN→Kotlin, RN→RN) | todo (blocked by 001, 008) |
 | [014](014-plugin-manager-module.md) | 2 — Contracts | Plugin manager module design | todo (blocked by 002, 007, 008) |
