@@ -563,6 +563,108 @@ designed in this task itself) and Task 014 (Server manager module design — abs
 and 2 directly into its own scope; finding 3 is flagged as a sibling module to design, not part
 of Task 014's own module).
 
+## Task 013 — The 3 communication mechanisms, formalized
+
+**Date:** 2026-08-21 (Task 013 mini-iteration)
+
+**Revised model (supersedes the original "Kotlin can broadcast to RN" framing for
+*requested* actions):** Kotlin never broadcasts as a response to something RN asked for.
+Whichever RN code initiated an action (RPC call or an imperative `ref` call) receives the
+result/confirmation **directly** — never "whoever happens to be listening." If other parts of
+the app need to know, propagating that is the **RN caller's own job**, via the RN→RN mechanism
+(the `EventBus`, see below) — not something Kotlin decides or does. This fixes the real
+ambiguity that caused the documented race bug (Task 021): today's mixed channel (Kotlin
+broadcasting both "spontaneous observation" and "confirmation of a requested action" on the
+same `NativeEventEmitter`) makes it hard to tell whether an incoming event is a response to an
+in-flight request or an unrelated spontaneous one. There is no Kotlin-to-Kotlin broadcast
+either — broadcast/multi-listener capability only exists on the RN side (JS `addListener`
+semantics), so Kotlin genuinely has no "broadcast" primitive of its own to begin with.
+
+**Mechanism 1 — RN→Kotlin, always request → execution → response, one single shape, no
+exceptions.** User's explicit correction: every RN→Kotlin interaction — including what
+replaces the "one-shot state" fix for the Reader's scroll — is `@ReactMethod` + `Promise`.
+There is no separate "imperative `ref` call" shape.
+
+**Why the earlier "ref call" framing was wrong, technically:** React Native has two real ways
+for RN to command a native *view* (as opposed to a module): (a) `UIManager.
+dispatchViewManagerCommand` / a raw `ref` command — fire-and-forget by platform design, no
+native Promise available on that path; or (b) a normal module method (`@ReactMethod`) that
+internally commands the view and only resolves its `Promise` once the view actually confirms
+completion. Decision: always (b). The Reader's scroll-to-page fix is not "call the view via
+ref" — it's `readerModule.scrollToPage(chapterId, pageIndex): Promise<void>`, a regular module
+method that happens to command a native view internally, resolving only when the view reports
+the scroll actually completed. This is what eliminates the race bug (Task 021) — not because a
+`ref` is imperative, but because the state field is gone and the caller gets a real, scoped
+response instead of guessing from a shared `NativeEventEmitter` channel.
+
+- Example: `readerModule.scrollToPage("20506", 27)` → returns a `Promise<void>` that resolves
+  once the native view confirms the scroll landed. RN asks, Kotlin executes and confirms
+  directly back to the caller. Nothing else in the app is told automatically.
+
+**Mechanism 2 — Kotlin→RN (`NativeEventEmitter`, multi-listener) — reserved for events Kotlin
+observes on its own, never requested by RN.** This is the one case where "broadcast" genuinely
+applies, because it's not a response to anything — it's Kotlin reporting something that
+happened independently of any RN request (e.g. the user physically scrolling with their
+finger). Any number of RN listeners may subscribe directly via `addListener` — no intermediary
+needed, this already works today (e.g. `onVisiblePageChanged` during natural scroll).
+- Example: user drags the reader with their finger (no RN request behind it) →
+  `onVisiblePageChanged(chapterId, pageIndex, pageFraction)` fires → the Reader screen and any
+  other screen/service that independently subscribed all receive it directly.
+
+**Mechanism 3 — RN→RN (`EventBus`) — new, built from scratch, for events with no native
+origin at all.** A generic, reusable **tool** (Layer 3, not domain-specific), not tied to
+Reader/Series/any single domain. Publish/subscribe with no central event registry file — each
+event is declared as a typed **token** wherever makes sense in the codebase (near whichever
+domain first needs to emit it), carrying its own payload type; anyone who wants type safety on
+the listening side imports that same token's type. Event-naming convention deliberately
+deferred to whenever each real event is created, not fixed in the abstract now.
+
+```typescript
+// event-bus/contract.ts — the generic tool itself, knows nothing about any domain
+interface EventToken<TPayload> {
+  readonly name: string;
+}
+
+function createEvent<TPayload>(name: string): EventToken<TPayload> {
+  return { name };
+}
+
+interface EventBus {
+  emit<TPayload>(event: EventToken<TPayload>, payload: TPayload): void;
+  on<TPayload>(event: EventToken<TPayload>, handler: (payload: TPayload) => void): () => void; // returns unsubscribe
+}
+```
+
+```typescript
+// Example: declared near whoever first needs it (e.g. inside the module that
+// syncs reading progress to the server), not in a central app-wide event file.
+interface ProgressCheckpointSavedPayload {
+  chapterId: string;
+  pageIndex: number;
+}
+export const ProgressCheckpointSaved = createEvent<ProgressCheckpointSavedPayload>(
+  "progressCheckpointSaved"
+);
+
+// Usage — the server-sync module, after successfully sending a checkpoint to the
+// server (an RN→Kotlin RPC call it made and got a direct response to), decides on
+// its own to tell the rest of the app:
+eventBus.emit(ProgressCheckpointSaved, { chapterId: "20506", pageIndex: 27 });
+
+// Any unrelated part of the app can subscribe without knowing who emits it:
+eventBus.on(ProgressCheckpointSaved, (payload) => {
+  updateContinueReadingBadge(payload.chapterId, payload.pageIndex);
+});
+```
+
+**`EventToken` deliberately kept minimal (`{ name: string }`) for now** — no auto-generated
+unique id, no central registry. User's explicit call: don't over-design a contract with no real
+use case behind it yet; the token's exact shape gets revisited once a real event actually needs
+to be built, informed by that concrete case rather than decided in the abstract.
+
+**Applies to:** Task 013 (all 3 mechanisms formalized here) and Task 021 (Reader — consumes
+Mechanism 1's `ref`-based fix directly, resolving the documented race bug).
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing

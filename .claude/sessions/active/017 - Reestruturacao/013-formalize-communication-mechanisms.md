@@ -1,6 +1,6 @@
 # Task 013 — Formalize the 3 communication mechanisms (Phase 2 — Contract modeling)
 
-**Status:** todo (blocked by Task 001, Task 008)
+**Status:** done
 
 ## Objective
 
@@ -44,3 +44,46 @@ that does not exist yet (RN→RN).
 - `architecture.md` updated.
 - If code was written: tested on a real device, `make coverage` shows no drop, explicit
   approval before `finalizar-task`.
+
+## Result
+
+All 3 mechanisms formalized via co-creation mini-iteration, with one architectural correction
+along the way (the user caught that Kotlin never truly broadcasts — only RN has real
+multi-listener capability):
+
+1. **RN→Kotlin** — single shape, no exceptions: `@ReactMethod` + `Promise`, always
+   request→execution→response. The "one-shot state" ad-hoc pattern (`scrollToChapterId`/
+   `scrollToPageRequest`, the Task 021 race-bug root cause) is replaced by a normal module
+   method (e.g. `readerModule.scrollToPage(chapterId, pageIndex): Promise<void>`) that commands
+   the native view internally and only resolves once the view confirms completion — not a
+   `ref`/`dispatchViewManagerCommand` call, which is fire-and-forget by platform design and was
+   ruled out explicitly.
+2. **Kotlin→RN** (`NativeEventEmitter`) — reserved exclusively for events Kotlin observes
+   spontaneously, never as a response to something RN requested. Kotlin never broadcasts a
+   confirmation; whoever made the request gets it directly via mechanism 1's `Promise`.
+3. **RN→RN** (`EventBus`, new) — a generic Layer-3 tool, no central event registry. Each event
+   is a typed `EventToken<TPayload>` declared wherever makes sense, carrying its own payload
+   type. Naming convention deliberately deferred to real use cases, not decided in the
+   abstract. `EventToken` kept minimal (`{name: string}`) — no auto-id, revisit only when a
+   real event needs more.
+
+Full shapes, code examples, and reasoning in `_contract-design-notes.md` § "Task 013 — The 3
+communication mechanisms, formalized."
+
+## Aprovação
+
+Usuário guiou a modelagem inteira em conversa, corrigindo duas suposições da IA ao longo do
+processo: (1) que a chamada via `ref` seria um shape válido para RN→Kotlin — rejeitado em favor
+de sempre usar `@ReactMethod`+`Promise`; (2) confirmou que não há broadcast Kotlin→Kotlin, o que
+motivou o modelo final onde Kotlin nunca decide propagar, só responde a quem pediu.
+
+## Notas
+
+- Nenhum código de produção escrito — apenas design/contrato. `architecture.md` não atualizado,
+  mesma decisão já registrada nas demais tasks de contrato (só na implementação real).
+- `EventBus` (RN→RN) ainda não tem implementação mínima funcional — a task pedia isso como
+  critério de conclusão, mas ficou definido como design/contrato apenas, sem caso de uso real
+  para implementar agora (decisão explícita do usuário de não superdesenhar sem necessidade
+  concreta).
+- Task 021 (Reader) é a consumidora direta da correção do Mecanismo 1 — resolve o bug de
+  corrida documentado ali.
