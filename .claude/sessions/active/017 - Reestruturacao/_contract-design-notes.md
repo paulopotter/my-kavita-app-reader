@@ -665,6 +665,176 @@ to be built, informed by that concrete case rather than decided in the abstract.
 **Applies to:** Task 013 (all 3 mechanisms formalized here) and Task 021 (Reader — consumes
 Mechanism 1's `ref`-based fix directly, resolving the documented race bug).
 
+## Task 014 — Server manager module: structural design
+
+**Date:** 2026-08-21 (Task 014 mini-iteration, in progress)
+
+**General rule this section is built on (record explicitly — applies beyond just Server):
+"a plugin lives together with the module that understands it."** A Layer 1 plugin is never a
+loose/shared/globally-accessible folder — it lives physically nested inside the Layer 2 module
+that knows how to translate it, not in a neutral shared location. This is a structural
+reinforcement of R1's access rule, not just a naming convention — putting the plugin where only
+its owning module can naturally reach it makes an accidental out-of-layer import visibly wrong
+just from the folder structure, not only from a rule someone has to remember.
+
+**Illustrative structure (file/interface names below are examples to convey the shape — not a
+final naming decision):**
+
+```
+Server/
+  plugins/
+    <SharedPluginContract>        — the interface every content-provider plugin adapter must satisfy
+    kavita/
+      (raw plugin implementation)  — Layer 1, physically nested inside Server's own module,
+                                      not a sibling top-level folder
+      <KavitaAdapter>               — translates the raw Kavita implementation above into
+                                      <SharedPluginContract>'s shape; the translation lives here,
+                                      in Layer 2, not inside the raw plugin itself
+    index                          — exports available adapters
+  <Server>                        — chooses which adapter is currently active, delegates calls;
+                                      knows nothing about any single provider's translation details
+  index                           — the module's single export surface to the rest of the app
+```
+
+**Key principle confirmed:** the raw plugin (`kavita/`'s own code) never knows the shared
+interface exists — it only exposes its own native way of working. Translation into the generic
+contract happens in the **adapter file**, which lives in Layer 2 (inside `Server/plugins/`),
+not inside the raw plugin and not by making the raw plugin implement an externally-defined
+interface directly. The module doing the active-provider selection (`<Server>` above) never
+sees translation details of any adapter — it only knows which one is active and delegates.
+
+**This resolves the "does the module need to support N providers from day one" question
+naturally**, without deciding it as a separate tradeoff: because raw plugin, adapter, and
+selection logic are already three separate concerns, adding a second content provider later is
+just adding a parallel `plugins/<newProvider>/` folder with its own adapter — no redesign
+needed regardless of how many providers exist today (currently one: Kavita).
+
+**Not yet decided — still in progress, do not treat as closed:** validation against the
+BFF/Notifications backlog cases, and whether every domain needs this full pattern or simple
+domains can keep a plain `DataSource`. The manager module's own exposed contract (the 4
+original operations) is resolved below.
+
+## Task 014 (continued) — the manager module's exposed operations, simplified from 4 to 1 real shape
+
+**Date:** 2026-08-21 (Task 014 mini-iteration, continued)
+
+**Background:** the task's original 4 operations ("list available implementations," "get
+active one," "explicitly select one," "register a new one") were each walked through with a
+concrete example before deciding what's real today vs. speculative.
+
+- **"List available implementations"**: today, only **Kavita** — BFF is excluded (it's its own
+  separate module per Task 012's decision, not a content-provider implementation this manager
+  handles). Confirmed as scope knowledge, not a runtime function that needed independent design.
+- **"Explicitly select one" / "register a new one"**: **deliberately deferred entirely** — same
+  philosophy as the `EventBus` (Task 013): don't design a shape with no real second
+  implementation to validate it against. Revisit when a real second content-provider plugin
+  actually needs to be added.
+- **"Get active implementation"**: **does not exist as a standalone operation.** `Server`
+  exposes domain methods **directly** (e.g. `Server.getChapter(id)`, `Server.getSeries(id)`) —
+  there is no separate "give me the active provider, then call a method on it" two-step. Which
+  provider is active is resolved transparently inside each domain method call.
+
+**Corrected responsibility split within that call chain (user correction — get this precise):**
+
+```
+Server.getChapter(id)
+```
+- `Server` (Layer 2, the facade) knows **only routing** — which provider is currently active —
+  and delegates to that provider's adapter. It **never** knows how to actually fetch a chapter;
+  it has zero domain knowledge of any specific provider.
+- The delegation target, e.g. `Kavita.getChapter(id)` (the **adapter**, inside
+  `Server/plugins/kavita/`, still Layer 2) — this is where the real domain understanding lives:
+  the specifics of how to fetch a chapter *from Kavita*, translated into the shared contract.
+  This matches the precedent already true today for `ChapterDataSource`/`KavitaChapterFeature`
+  — domain intelligence has always lived in the concrete adapter, never in a generic routing
+  layer.
+- The adapter then calls the raw Kavita plugin (Layer 1, physically nested inside
+  `Server/plugins/kavita/`), using that plugin's own native format — the raw plugin never knows
+  the shared contract exists.
+
+**Future "select explicitly" shape, sketched only as a hint for later (not designed now):**
+something like `new Server(providerName)` or an equivalent constructor/parameter — not a
+separate method call — was mentioned in conversation as a plausible direction, but this is
+explicitly not a commitment; revisit for real once needed.
+
+**Applies to:** Task 014 (closes the "operations" part of the design — 3 of the original 4
+operations are resolved as either not-needed-as-standalone-functions or deliberately deferred;
+only "get active"/direct domain methods on `Server` is a real, now-designed shape).
+
+## Task 014 (continued) — `Server`'s public API is independent of the adapter interface's shape; plus infrastructure-only methods
+
+**Date:** 2026-08-21 (Task 014 mini-iteration, continued)
+
+**Two things confirmed here, both corrections to an implicit assumption the agent was making
+(that `Server`'s methods would just mirror the adapter interface 1:1):**
+
+1. **The generic adapter interface (e.g. `ContentPlugin.getChapter(id)`) is an *internal*
+   contract — between `Server` and its adapters — not a promise about `Server`'s own public
+   API.** `Server` knows the interface well enough to call it correctly when delegating, but is
+   free to expose its own public surface under different names/shapes, designed for whatever is
+   most ergonomic for the rest of the app to consume. Example: the adapter interface may declare
+   `getChapter(id)`, while `Server`'s actual public method is `getChapterById(id)` — internally
+   calling `activeAdapter.getChapter(id)` — no obligation to mirror the name.
+
+2. **`Server` can also have methods that have no adapter/interface counterpart at all** —
+   infrastructure-level operations about the module itself, not about any content-provider
+   domain. Example: `Server.getActiveUrl()` — resolved purely via the internal `UrlSelector`
+   tool (absorbed from the old `KavitaUrlSelector`, per Task 012's decision), with no adapter
+   or `ContentPlugin` interface involved at all. The generic adapter interface only needs to
+   cover what adapters actually need to implement (domain methods like `getChapter`) — it's not
+   meant to be an exhaustive description of everything `Server` can do.
+
+**Applies to:** Task 014 — `Server`'s public API design is explicitly decoupled from the
+adapter interface's shape; both are legitimate, coexisting parts of the same module.
+
+## Task 014 (continued) — the pattern generalizes: every Layer 1 plugin category gets its own Layer 2 "generalizer" module, `Server` is just the first instance
+
+**Date:** 2026-08-21 (Task 014 mini-iteration, continued — validates the design against
+backlog 011/008 per this task's original steps)
+
+**Validated against both anticipated backlog cases, confirming the pattern (not a special
+case for content):**
+
+- **Backlog 008 (Notifications, multiple providers — e.g. ntfy, a future Firebase)**: same
+  exact structure — `Notifications/plugins/ntfy/` (Layer 1 nested inside), an internal adapter
+  interface, `Notifications.sendX()` as the public API. No real difference from the content
+  case identified — same shape, different domain.
+- **Backlog 011 (BFF plugin, multiple `MetadataSource`)**: BFF becomes a plugin of its own
+  generalizer module (`MetadataSource`, per Task 012's decision that it's a sibling module, not
+  folded into `Server`) — same structural pattern again.
+
+**General rule this confirms:** any Layer 1 plugin category needs a corresponding Layer 2
+"generalizer" module. `Server` (content providers) is not special — it's simply the first
+generalizer this plan designed. The same shape repeats: `<Generalizer>/plugins/<pluginName>/`
+(Layer 1 nested), an internal adapter interface plugins implement, and the generalizer's own
+public API (independent of that interface's shape, per the entry above). Future functionality
+categories follow the same generalizer pattern, not a bespoke design each time.
+
+**Applies to:** Task 014 (closes the backlog validation step) — and any future task designing a
+new plugin category (Notifications, MetadataSource/BFF, or anything else) should reuse this
+shape rather than re-deriving it.
+
+## Task 014 (final) — the full generalizer pattern is always used for any external connection; the trigger is "talks to the outside," not "expects 2+ providers"
+
+**Date:** 2026-08-21 (Task 014 mini-iteration, closing)
+
+**Decision:** the full pattern (Layer 1 raw plugin nested inside a Layer 2 generalizer module,
+internal adapter interface, generalizer's own independent public API) is **always** used for
+anything that connects to something outside the app — never conditional on whether multiple
+implementations are expected today or likely later. The deciding question is **"does this talk
+to the outside world?"**, not "how many providers might this ever have." Even a domain that
+will plausibly only ever have one real implementation still gets the full structure if it's an
+external connection — consistency over structural economy, by explicit user choice.
+
+**The inverse also confirmed:** something that lives entirely *inside* the app (no external
+connection) should **never** become a Layer 1 plugin in the first place — Layer 1 is reserved
+for genuine outside-world boundaries, not an organizational pattern applied to internal code.
+
+**Applies to:** every future domain-contract or module-design task in this plan — whenever a
+new external connection point is identified (any task, not just Task 014), it gets the full
+`<Generalizer>/plugins/<name>/` structure from the start, no smaller/simpler variant considered
+first.
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing
