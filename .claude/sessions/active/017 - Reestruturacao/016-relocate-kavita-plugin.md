@@ -1,6 +1,6 @@
 # Task 016 — Relocate the raw Kavita plugin to `Server/plugins/kavita/` (Phase 4 — Implementation)
 
-**Status:** todo
+**Status:** done
 
 ## Objective
 
@@ -49,3 +49,37 @@ instead of being mixed with a large, hard-to-review file move.
 - `make coverage` shows no drop relative to the current floor.
 - Explicit user approval before `finalizar-task`.
 - Blocks Task 017 (building the real `Server` module around this relocated plugin).
+
+## Result
+
+**Diverged from the original plan on purpose, with the user's explicit sign-off at each step**
+(mini-iteration process, `_contract-design-notes.md` conventions): this ended up being new code,
+not a pure mechanical move, and the old code was left in place rather than deleted.
+
+- **New Gradle module `:server`** (`android/server/`), depending only on `:core` and `:tools` —
+  not nested inside `:features`, contrary to the task's original framing of "relocation into
+  `features/kavita/`'s eventual generalizer." The user's call: `core` (base) ← `tools` (toolbox) ←
+  `Server`, with `features/`'s fate deferred to a later decision.
+- **`server/plugins/kavita/{auth,chapter,series}.kt`** — rewritten from scratch (not moved), per
+  the user's explicit correction ("you're not moving, you're creating"): no Room/cache access at
+  all (removed entirely — cache is a different layer's job), `baseUrl`/`jwt`/`apiKey` received in
+  the constructor instead of resolved internally via `KavitaUrlSource`/`ServerConfigDao`. DTOs
+  expose only the fields the Task 014 contracts (`SeriesContract`/`ChapterContract`) actually use,
+  not the full Kavita schema — cross-checked against the `kavita-api` skill.
+- **`KavitaUrlSelector`/`KavitaUrlSource`** — left untouched in `features/kavita/`, per explicit
+  decision (Task 017 absorbs this). **`ActiveUrlWatcher`** — also left out of scope (generic,
+  not Kavita-specific, not one of the four named classes).
+- **Old code in `features/kavita/` was not touched or deleted** — nothing in the app points at
+  the new module yet; `KavitaSeriesFeature`/`KavitaChapterFeature`/`KavitaAuthFeature` remain the
+  live implementation Task 017 will cut over from.
+- Later in the same working session (documented in the Task 017 doc, not repeated here): the
+  `ServerPlugin` interface and `KavitaServerPlugin` adapter were also built directly on top of
+  this — see Task 017 for that scope.
+
+**Testing:** automated only — 81 tests across `KavitaAuthTest`/`KavitaSeriesTest`/
+`KavitaChapterTest` (MockWebServer), `koverVerify` passing with no floor drop. No real-device test
+— nothing built here is wired into the running app yet (by design; that's Task 017's job).
+
+**Approval:** explicit, in conversation — user confirmed closing Task 016 as done while Task 017
+continues (`"A task 16 pode colocar como concluida... a 17 ainda está em doing, pq vamos fazer
+ainda o server"`).
