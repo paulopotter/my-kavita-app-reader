@@ -48,13 +48,16 @@ data class KavitaSeriesMetadataDto(
     val language: String? = null,
 )
 
+class KavitaSeriesException(message: String) : Exception(message)
+
+/** Throws on failure instead of returning [Result] — see [KavitaAuthException]'s class doc for the rationale. */
 class KavitaSeries(
     private val baseUrl: String,
     private val jwt: String,
     private val requestTool: RequestTool,
 ) {
-    suspend fun listSeries(): Result<List<KavitaSeriesDto>> =
-        requestTool.request(
+    suspend fun listSeries(): List<KavitaSeriesDto> {
+        val http = requestTool.request(
             url = "$baseUrl$SERIES_ALL_PATH",
             method = "POST",
             headers = mapOf(
@@ -62,28 +65,28 @@ class KavitaSeries(
                 "Authorization" to "Bearer $jwt",
             ),
             body = SERIES_ALL_BODY,
-        ).mapCatching { http ->
-            if (http.status != 200) error("Series list failed: HTTP ${http.status}")
-            seriesJson.decodeFromString<List<KavitaSeriesDto>>(http.body)
-        }
+        ).getOrThrow()
+        if (http.status != 200) throw KavitaSeriesException("Series list failed: HTTP ${http.status}")
+        return seriesJson.decodeFromString(http.body)
+    }
 
-    suspend fun getSeries(seriesId: String): Result<KavitaSeriesDto> =
-        requestTool.request(
+    suspend fun getSeries(seriesId: String): KavitaSeriesDto {
+        val http = requestTool.request(
             url = "$baseUrl/api/Series/$seriesId",
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
-        ).mapCatching { http ->
-            if (http.status != 200) error("Series detail failed: HTTP ${http.status}")
-            seriesJson.decodeFromString<KavitaSeriesDto>(http.body)
-        }
+        ).getOrThrow()
+        if (http.status != 200) throw KavitaSeriesException("Series detail failed: HTTP ${http.status}")
+        return seriesJson.decodeFromString(http.body)
+    }
 
-    suspend fun getSeriesMetadata(seriesId: String): Result<KavitaSeriesMetadataDto> =
-        requestTool.request(
+    suspend fun getSeriesMetadata(seriesId: String): KavitaSeriesMetadataDto {
+        val http = requestTool.request(
             url = "$baseUrl/api/Series/metadata?seriesId=$seriesId",
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
-        ).mapCatching { http ->
-            if (http.status != 200) error("Series metadata failed: HTTP ${http.status}")
-            seriesJson.decodeFromString<KavitaSeriesMetadataDto>(http.body)
-        }
+        ).getOrThrow()
+        if (http.status != 200) throw KavitaSeriesException("Series metadata failed: HTTP ${http.status}")
+        return seriesJson.decodeFromString(http.body)
+    }
 }

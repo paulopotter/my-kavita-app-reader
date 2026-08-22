@@ -7,7 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import kotlin.test.assertFailsWith
 import org.junit.Before
 import org.junit.Test
 
@@ -37,10 +37,8 @@ class KavitaSeriesTest {
             ),
         )
 
-        val result = series.listSeries()
+        val dto = series.listSeries().single()
 
-        assertTrue(result.isSuccess)
-        val dto = result.getOrThrow().single()
         assertEquals(1, dto.id)
         assertEquals("Series A", dto.name)
         assertEquals(100, dto.pages)
@@ -52,12 +50,10 @@ class KavitaSeriesTest {
     }
 
     @Test
-    fun `listSeries returns failure on non-200`() = runTest {
+    fun `listSeries throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = series.listSeries()
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaSeriesException> { series.listSeries() }
     }
 
     @Test
@@ -67,21 +63,18 @@ class KavitaSeriesTest {
                 .setBody("""{"id":7,"name":"Series B","sortName":"series b","originalName":"シリーズB"}"""),
         )
 
-        val result = series.getSeries("7")
+        val dto = series.getSeries("7")
 
-        assertTrue(result.isSuccess)
-        assertEquals("Series B", result.getOrThrow().name)
-        assertEquals("series b", result.getOrThrow().sortName)
-        assertEquals("シリーズB", result.getOrThrow().originalName)
+        assertEquals("Series B", dto.name)
+        assertEquals("series b", dto.sortName)
+        assertEquals("シリーズB", dto.originalName)
     }
 
     @Test
-    fun `getSeries returns failure on non-200`() = runTest {
+    fun `getSeries throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(404))
 
-        val result = series.getSeries("missing")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaSeriesException> { series.getSeries("missing") }
     }
 
     @Test
@@ -92,10 +85,8 @@ class KavitaSeriesTest {
             ),
         )
 
-        val result = series.getSeriesMetadata("7")
+        val dto = series.getSeriesMetadata("7")
 
-        assertTrue(result.isSuccess)
-        val dto = result.getOrThrow()
         assertEquals("A great story", dto.summary)
         assertEquals(1, dto.genres.single().id)
         assertEquals("Action", dto.genres.single().title)
@@ -105,11 +96,9 @@ class KavitaSeriesTest {
     }
 
     @Test
-    fun `getSeriesMetadata returns failure on non-200`() = runTest {
+    fun `getSeriesMetadata throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = series.getSeriesMetadata("7")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaSeriesException> { series.getSeriesMetadata("7") }
     }
 }

@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import kotlin.test.assertFailsWith
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -39,8 +40,7 @@ class KavitaAuthTest {
 
         val result = auth.authenticate("my-api-key")
 
-        assertTrue(result.isSuccess)
-        assertEquals("jwt-token-abc", result.getOrThrow().token)
+        assertEquals("jwt-token-abc", result.token)
     }
 
     @Test
@@ -52,27 +52,24 @@ class KavitaAuthTest {
         )
 
         val result = auth.authenticate("key")
-        assertEquals("tok", result.getOrThrow().token)
-        assertEquals("r", result.getOrThrow().refreshToken)
+        assertEquals("tok", result.token)
+        assertEquals("r", result.refreshToken)
     }
 
     @Test
-    fun `authenticate returns failure on 401`() = runTest {
+    fun `authenticate throws on 401`() = runTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
-        val result = auth.authenticate("bad-key")
+        val exception = assertFailsWith<KavitaAuthException> { auth.authenticate("bad-key") }
 
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull()?.message?.contains("401") == true)
+        assertTrue(exception.message?.contains("401") == true)
     }
 
     @Test
-    fun `authenticate returns failure on unexpected status`() = runTest {
+    fun `authenticate throws on unexpected status`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = auth.authenticate("key")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaAuthException> { auth.authenticate("key") }
     }
 
     @Test
@@ -84,8 +81,7 @@ class KavitaAuthTest {
 
         val result = auth.checkApiKeyExpiry("jwt")
 
-        assertTrue(result.isSuccess)
-        assertEquals("2027-01-01T00:00:00Z", result.getOrThrow().expiresAt)
+        assertEquals("2027-01-01T00:00:00Z", result.expiresAt)
     }
 
     @Test
@@ -94,16 +90,14 @@ class KavitaAuthTest {
 
         val result = auth.checkApiKeyExpiry("jwt")
 
-        assertNull(result.getOrThrow().expiresAt)
+        assertNull(result.expiresAt)
     }
 
     @Test
-    fun `checkApiKeyExpiry returns failure on non-200`() = runTest {
+    fun `checkApiKeyExpiry throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
-        val result = auth.checkApiKeyExpiry("expired-jwt")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaAuthException> { auth.checkApiKeyExpiry("expired-jwt") }
     }
 
     @Test
@@ -115,18 +109,15 @@ class KavitaAuthTest {
 
         val result = auth.reauthenticate("old-jwt", "old-refresh")
 
-        assertTrue(result.isSuccess)
-        assertEquals("new-jwt", result.getOrThrow().token)
-        assertEquals("new-refresh", result.getOrThrow().refreshToken)
+        assertEquals("new-jwt", result.token)
+        assertEquals("new-refresh", result.refreshToken)
     }
 
     @Test
-    fun `reauthenticate returns failure on non-200`() = runTest {
+    fun `reauthenticate throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
-        val result = auth.reauthenticate("old-jwt", "old-refresh")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaAuthException> { auth.reauthenticate("old-jwt", "old-refresh") }
     }
 
     @Test

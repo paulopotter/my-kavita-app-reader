@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import kotlin.test.assertFailsWith
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -39,10 +40,8 @@ class KavitaChapterTest {
             ),
         )
 
-        val result = chapter.listVolumesForSeries("7")
+        val volume = chapter.listVolumesForSeries("7").single()
 
-        assertTrue(result.isSuccess)
-        val volume = result.getOrThrow().single()
         assertEquals(10, volume.id)
         assertEquals(7, volume.seriesId)
         val ch = volume.chapters.single()
@@ -55,12 +54,10 @@ class KavitaChapterTest {
     }
 
     @Test
-    fun `listVolumesForSeries returns failure on non-200`() = runTest {
+    fun `listVolumesForSeries throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = chapter.listVolumesForSeries("7")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaChapterException> { chapter.listVolumesForSeries("7") }
     }
 
     @Test
@@ -79,6 +76,13 @@ class KavitaChapterTest {
     }
 
     @Test
+    fun `buildPageUrl builds a single page url`() {
+        val url = chapter.buildPageUrl("100", 2)
+
+        assertEquals("$baseUrl/api/reader/image?chapterId=100&page=2&apiKey=api-key-123", url)
+    }
+
+    @Test
     fun `getPageDimensions returns dimensions sorted by pageNumber`() = runTest {
         server.enqueue(
             MockResponse().setResponseCode(200).setBody(
@@ -86,21 +90,17 @@ class KavitaChapterTest {
             ),
         )
 
-        val result = chapter.getPageDimensions("100")
+        val dims = chapter.getPageDimensions("100")
 
-        assertTrue(result.isSuccess)
-        val dims = result.getOrThrow()
         assertEquals(0, dims[0].pageNumber)
         assertEquals(1, dims[1].pageNumber)
     }
 
     @Test
-    fun `getPageDimensions returns failure on non-200`() = runTest {
+    fun `getPageDimensions throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = chapter.getPageDimensions("100")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaChapterException> { chapter.getPageDimensions("100") }
     }
 
     @Test
@@ -111,10 +111,8 @@ class KavitaChapterTest {
             ),
         )
 
-        val result = chapter.getProgress("100")
+        val dto = chapter.getProgress("100")
 
-        assertTrue(result.isSuccess)
-        val dto = result.getOrThrow()
         assertEquals(5, dto?.pageNum)
         assertEquals("para-42", dto?.bookScrollId)
     }
@@ -123,50 +121,88 @@ class KavitaChapterTest {
     fun `getProgress returns null on 404`() = runTest {
         server.enqueue(MockResponse().setResponseCode(404))
 
-        val result = chapter.getProgress("100")
-
-        assertTrue(result.isSuccess)
-        assertNull(result.getOrThrow())
+        assertNull(chapter.getProgress("100"))
     }
 
     @Test
-    fun `getProgress returns failure on unexpected status`() = runTest {
+    fun `getProgress throws on unexpected status`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = chapter.getProgress("100")
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaChapterException> { chapter.getProgress("100") }
     }
 
     @Test
-    fun `markChaptersRead returns success on 200`() = runTest {
+    fun `saveProgress looks up volumeId then posts progress`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]""",
+            ),
+        )
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val result = chapter.markChaptersRead("7", listOf("100", "101"))
+        chapter.saveProgress("7", "100", pageIndex = 5)
 
-        assertTrue(result.isSuccess)
+        server.takeRequest() // the volumes lookup
+        val recorded = server.takeRequest()
+        assertTrue(recorded.path?.endsWith("/api/Reader/progress") == true)
+        val body = recorded.body.readUtf8()
+        assertTrue(body.contains("\"volumeId\":10"))
+        assertTrue(body.contains("\"chapterId\":100"))
+        assertTrue(body.contains("\"pageNum\":5"))
+        assertTrue(body.contains("\"seriesId\":7"))
+    }
+
+    @Test
+    fun `saveProgress throws when chapter not found in series`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
+
+        assertFailsWith<KavitaChapterException> { chapter.saveProgress("7", "999", pageIndex = 0) }
+    }
+
+    @Test
+    fun `saveProgress throws when volumes lookup fails`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        assertFailsWith<KavitaChapterException> { chapter.saveProgress("7", "100", pageIndex = 0) }
+    }
+
+    @Test
+    fun `saveProgress throws on non-200 from progress endpoint`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]""",
+            ),
+        )
+        server.enqueue(MockResponse().setResponseCode(500))
+
+        assertFailsWith<KavitaChapterException> { chapter.saveProgress("7", "100", pageIndex = 5) }
+    }
+
+    @Test
+    fun `markChaptersRead posts to mark-multiple-read`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        chapter.markChaptersRead("7", listOf("100", "101"))
+
         val recorded = server.takeRequest()
         assertTrue(recorded.path?.endsWith("/api/Reader/mark-multiple-read") == true)
         assertTrue(recorded.body.readUtf8().contains("\"chapterIds\":[100,101]"))
     }
 
     @Test
-    fun `markChaptersUnread returns success on 200`() = runTest {
+    fun `markChaptersUnread posts to mark-multiple-unread`() = runTest {
         server.enqueue(MockResponse().setResponseCode(200))
 
-        val result = chapter.markChaptersUnread("7", listOf("100"))
+        chapter.markChaptersUnread("7", listOf("100"))
 
-        assertTrue(result.isSuccess)
         val recorded = server.takeRequest()
         assertTrue(recorded.path?.endsWith("/api/Reader/mark-multiple-unread") == true)
     }
 
     @Test
-    fun `markChaptersRead returns failure on non-200`() = runTest {
+    fun `markChaptersRead throws on non-200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
-        val result = chapter.markChaptersRead("7", listOf("100"))
-
-        assertTrue(result.isFailure)
+        assertFailsWith<KavitaChapterException> { chapter.markChaptersRead("7", listOf("100")) }
     }
 }
