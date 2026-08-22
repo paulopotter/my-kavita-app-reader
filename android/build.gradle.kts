@@ -13,7 +13,7 @@ plugins {
 kover {
     merge {
         subprojects {
-            it.name in listOf("core", "tools", "features")
+            it.name in listOf("core", "tools", "features", "server")
         }
     }
     reports {
