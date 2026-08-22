@@ -6,7 +6,7 @@
 
 Write out, in text, the "provider isolation" premise the user raised during this planning
 session, and review it with the user before it becomes part of `CLAUDE.md`/`architecture.md`
-(the final wording is written as part of Task 024, but the *content* is decided here because it
+(the final wording is written as part of Task 032, but the *content* is decided here because it
 guides every later phase — surveys, contract modeling, and corrections all reference it).
 
 ## The premise (draft, from the planning conversation)
@@ -47,13 +47,13 @@ premise text and gets user sign-off on the concept before design work starts.
 3. Note the two concrete first use cases that will exercise this design once built: backlog 011
    (BFF plugin — multiple `MetadataSource`) and backlog 008 (Notifications — multiple
    providers). Neither is implemented yet; this task does not touch that code.
-4. Hand off the reviewed premise text to Task 024 (CLAUDE.md wording) and Task 014 (design).
+4. Hand off the reviewed premise text to Task 032 (CLAUDE.md wording) and Task 014 (design).
 
 ## Completion criteria
 
 - User confirms the "manager module" framing (not a 1:1 `ChapterDataSource` replication) is the
   correct target design.
-- Premise text is stable enough for Task 014 to design against and Task 024 to formalize into
+- Premise text is stable enough for Task 014 to design against and Task 032 to formalize into
   `CLAUDE.md`.
 
 ## Result
@@ -62,5 +62,5 @@ User explicitly confirmed the "manager module" framing in this task's draft text
 a single module per provider category (server, notification) that knows every concrete
 implementation, can manage more than one simultaneously, and is the app's only point of
 contact (with an explicit "use provider X" operation as part of its own contract, not a
-bypass). Premise text is stable and ready for Task 014 (design) and Task 024 (CLAUDE.md
+bypass). Premise text is stable and ready for Task 014 (design) and Task 032 (CLAUDE.md
 wording) to build on.

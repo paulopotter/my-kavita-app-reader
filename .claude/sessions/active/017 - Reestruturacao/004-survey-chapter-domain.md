@@ -20,7 +20,7 @@ Reader's `ChapterDataSource`/`ViewerChapters`), which is why the contract-modeli
    modeling via `SeriesBridge`, unrelated to `ViewerChapters` — flag this divergence explicitly,
    it is a known "no single contract" finding from the original audit).
 4. Note the duplicated `emitProgressChanged` implementations (`SeriesModule.kt` vs.
-   `ReaderChapterModule.kt`) as a data point for this survey (the actual fix is Task 018) —
+   `ReaderChapterModule.kt`) as a data point for this survey (the actual fix is Task 025) —
    record where each one lives and what triggers it.
 5. Write findings as a plain inventory — no proposed contract shape.
 

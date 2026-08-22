@@ -1,9 +1,12 @@
-# Task 021 — Reader: chapter-switch contract + 3-mechanism consumption (Phase 5 — Reader)
+# Task 029 — Reader: chapter-switch contract + 3-mechanism consumption (Phase 6 — Reader)
 
-**Status:** todo (blocked by 008, 013 — was `doing` while scoped as standalone; now waits on the Chapter contract and the formalized communication mechanisms)
+**Status:** todo (blocked by 008, 013, and Tasks 016-023 — this task consumes the real Chapter
+Service (Task 021) and the real `Server`/`CacheManager` (Tasks 017/023), not just their design —
+was `doing` while scoped as standalone; now waits on the Chapter contract and the formalized
+communication mechanisms)
 
 > This task is the original plan 017 "Task 001 — Contrato único de troca de capítulo +
-> modelagem dos 3 mecanismos de comunicação", reslotted into Phase 5 and updated per Task 001
+> modelagem dos 3 mecanismos de comunicação", reslotted into Phase 6 and updated per Task 001
 > (Phase 0)'s corrected diagnosis. It no longer models the 3 mechanisms from scratch — it
 > **consumes** the Chapter contract from Task 008 and the RN→RN mechanism from Task 013. All
 > previously-confirmed content (the arrow bug fix, the `loadNeighbor`/`loadMissingNeighbor`

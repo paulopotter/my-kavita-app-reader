@@ -26,7 +26,7 @@ survey needs to be precise about exactly what stands in for the missing pieces t
 
 - Inventory of fields, operations, and consumers for the Library domain is complete, including
   exact confirmation that `KavitaLibraryFeature.kt` and `LibrarySummaryCacheDao` do not exist.
-- No contract shape proposed (that is Task 011), no fix applied (that is Task 016).
+- No contract shape proposed (that is Task 011), no fix applied (that is Task 028).
 
 ## Findings
 

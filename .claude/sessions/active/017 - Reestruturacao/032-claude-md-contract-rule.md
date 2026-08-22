@@ -1,9 +1,9 @@
-# Task 024 — CLAUDE.md contract-change rule with concrete examples (Phase 6 — Safeguards)
+# Task 032 — CLAUDE.md contract-change rule with concrete examples (Phase 7 — Safeguards)
 
 **Status:** todo
 
 > This task is the original plan 017 "Task 004 — Salvaguardas de processo contra desvio de
-> arquitetura", reslotted into Phase 6, expanded with the concrete examples and additional
+> arquitetura", reslotted into Phase 7, expanded with the concrete examples and additional
 > premises agreed during this plan's expansion (provider isolation, internationalization,
 > device-test-delivery flow).
 
@@ -51,7 +51,7 @@ from "contract/architecture change that needs prior conversation".
    the file exists exactly for this.
 8. Do not propose automated enforcement (hook/lint) for the contract-change distinction — it is
    a matter of judgment (what counts as "contract"), not a mechanically checkable rule. (A
-   separate, complementary mechanical check is Task 025 — it does not replace this judgment
+   separate, complementary mechanical check is Task 033 — it does not replace this judgment
    call, it supplements it.)
 
 ## Completion criteria

@@ -1,6 +1,7 @@
-# Task 019 — Correction: dumb components (Library/SeriesDetail) (Phase 4 — Corrections)
+# Task 026 — Correction: dumb components (Library/SeriesDetail) (Phase 5 — Corrections)
 
-**Status:** todo (blocked by Task 011, Task 010)
+**Status:** todo (blocked by Task 011, Task 010, and Tasks 016-023 — the hooks this task cleans
+up now consume the real Series Service (Task 021) instead of the ad-hoc bridge calls)
 
 ## Objective
 

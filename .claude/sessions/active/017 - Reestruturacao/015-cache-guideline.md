@@ -30,14 +30,15 @@ cases.
 4. Decide whether this guideline becomes a formal `CLAUDE.md` invariant or stays a lighter
    guideline document (`architecture.md`) — user's call.
 5. Write the guideline document. If it becomes a `CLAUDE.md` invariant, hand the wording to
-   Task 024 rather than editing `CLAUDE.md` directly in this task.
+   Task 032 rather than editing `CLAUDE.md` directly in this task.
 
 ## Completion criteria
 
 - Cache guideline written and approved by the user, including the orchestration-ownership
   decision.
 - Explicit decision recorded on `CLAUDE.md` invariant vs. `architecture.md` guideline.
-- Guideline referenced by Task 016 (Library correction) before that task starts implementation.
+- Guideline referenced by Task 023 (`Cache`/`CacheManager` implementation) and Task 028 (Library
+  correction) before those tasks start implementation.
 
 ## Result
 

@@ -286,9 +286,9 @@ scroll back.
     meant to sync to the server. **Notable gap found**: `KavitaChapterFeature.saveReadingProgress`
     (`KavitaChapterFeature.kt:110-127`) only writes to Room/`chapter_cache` — it makes **no
     network call at all**. "Saving progress to the server" today, on the RN→Kotlin path that
-    exists, does not actually reach Kavita. This is direct evidence for Task 022 (progress sync
+    exists, does not actually reach Kavita. This is direct evidence for Task 030 (progress sync
     audit) — flagging it here since it surfaced during this survey, not asserting it as that
-    task's finding (Task 022 should independently verify and report on it).
+    task's finding (Task 030 should independently verify and report on it).
 
 #### 5.3 Where each piece of data actually lives
 

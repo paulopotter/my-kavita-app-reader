@@ -1,9 +1,9 @@
-# Task 022 — Reader: progress sync audit local↔server (Phase 5 — Reader)
+# Task 030 — Reader: progress sync audit local↔server (Phase 6 — Reader)
 
 **Status:** todo
 
 > This task is the original plan 017 "Task 002 — Auditoria de sincronização de progresso
-> local↔servidor", reslotted into Phase 5 unchanged.
+> local↔servidor", reslotted into Phase 6 unchanged.
 
 ## Objective
 

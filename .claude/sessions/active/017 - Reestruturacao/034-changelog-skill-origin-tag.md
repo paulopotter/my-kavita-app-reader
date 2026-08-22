@@ -1,4 +1,4 @@
-# Task 026 — `atualizar-changelog` skill: use `<origin-tag>..HEAD` diff as cross-check (Phase 6 — Safeguards)
+# Task 034 — `atualizar-changelog` skill: use `<origin-tag>..HEAD` diff as cross-check (Phase 7 — Safeguards)
 
 **Status:** todo
 

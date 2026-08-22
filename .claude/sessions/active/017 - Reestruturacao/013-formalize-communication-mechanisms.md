@@ -53,7 +53,7 @@ multi-listener capability):
 
 1. **RN→Kotlin** — single shape, no exceptions: `@ReactMethod` + `Promise`, always
    request→execution→response. The "one-shot state" ad-hoc pattern (`scrollToChapterId`/
-   `scrollToPageRequest`, the Task 021 race-bug root cause) is replaced by a normal module
+   `scrollToPageRequest`, the Task 029 race-bug root cause) is replaced by a normal module
    method (e.g. `readerModule.scrollToPage(chapterId, pageIndex): Promise<void>`) that commands
    the native view internally and only resolves once the view confirms completion — not a
    `ref`/`dispatchViewManagerCommand` call, which is fire-and-forget by platform design and was
@@ -85,5 +85,5 @@ motivou o modelo final onde Kotlin nunca decide propagar, só responde a quem pe
   critério de conclusão, mas ficou definido como design/contrato apenas, sem caso de uso real
   para implementar agora (decisão explícita do usuário de não superdesenhar sem necessidade
   concreta).
-- Task 021 (Reader) é a consumidora direta da correção do Mecanismo 1 — resolve o bug de
+- Task 029 (Reader) é a consumidora direta da correção do Mecanismo 1 — resolve o bug de
   corrida documentado ali.

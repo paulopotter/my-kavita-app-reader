@@ -1,6 +1,7 @@
-# Task 017 — Correction: Series (Phase 4 — Corrections)
+# Task 024 — Correction: Series (Phase 5 — Corrections)
 
-**Status:** todo (blocked by Task 010, Task 008)
+**Status:** todo (blocked by Task 010, Task 008, and Tasks 016-023 — the Chapter layer this task
+delegates to is now the real implementation from Task 019/021, not just its design)
 
 ## Objective
 

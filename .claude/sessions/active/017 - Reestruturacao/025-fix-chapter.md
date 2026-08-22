@@ -1,6 +1,7 @@
-# Task 018 — Correction: Chapter (Phase 4 — Corrections)
+# Task 025 — Correction: Chapter (Phase 5 — Corrections)
 
-**Status:** todo (blocked by Task 008)
+**Status:** todo (blocked by Task 008, and Tasks 016-023 — lands after the real Chapter contract
+(Task 019) and Chapter Service (Task 021) implementations exist)
 
 ## Objective
 

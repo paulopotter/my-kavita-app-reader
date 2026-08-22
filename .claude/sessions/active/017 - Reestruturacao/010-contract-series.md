@@ -20,9 +20,9 @@ template shape from Task 008, anchored in real TypeScript data examples.
    `readCount`/`progressFraction` are currently recomputed differently.
 2. Model the Series contract using the Task 008 template.
 3. Decide the single canonical way to compute the series progress aggregate (`readCount`/
-   `progressFraction`) — this becomes the one source of truth Task 017 implements.
+   `progressFraction`) — this becomes the one source of truth Task 024 implements.
 4. Decide how Series should obtain chapter data going forward (must delegate to the Chapter
-   contract/layer, not read `chapterCacheDao` directly — the actual code fix is Task 017, this
+   contract/layer, not read `chapterCacheDao` directly — the actual code fix is Task 024, this
    task only decides the contract shape that fix will follow).
 5. Write the contract + any supporting code together with the user, validating feasibility
    before considering it done.
@@ -32,7 +32,7 @@ template shape from Task 008, anchored in real TypeScript data examples.
 
 - Series contract modeled, reviewed, and approved by the user, including the single canonical
   progress-aggregate formula.
-- Decision recorded on how Series delegates to Chapter (informs Task 017).
+- Decision recorded on how Series delegates to Chapter (informs Task 024).
 - `architecture.md` updated.
 - If code was written: tested on a real device, `make coverage` shows no drop, explicit
   approval before `finalizar-task`.
@@ -45,7 +45,7 @@ progress-aggregate decision: `SeriesContract.chapters.readCount`/`total` are **d
 `chapters.list` (never a separately-fetched/duplicated number) — resolves Task 005's finding of
 5 independent formulas computing the same thing. Delegation decision: Series (Layer 3) calls the
 Chapter domain module (Layer 3) **directly** to build `chapters.list: ChapterResult[]` —
-same-layer composition, not routed through RN — this directly informs Task 017's fix (stop
+same-layer composition, not routed through RN — this directly informs Task 024's fix (stop
 reading `chapterCacheDao` from `KavitaSeriesFeature` directly, delegate to the Chapter module
 instead). Also produced, during this session: the 6-layer reference architecture (Layer
 0-5, formalized in the design notes' R1) that clarifies where `Server`/`Cache`/`Image` modules,

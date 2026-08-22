@@ -6,7 +6,7 @@
 
 **Co-creation session with the user.** Model the formal Library domain contract, reusing the
 template shape from Task 008, anchored in real TypeScript data examples. This contract is the
-basis for creating `KavitaLibraryFeature.kt` and `LibrarySummaryCacheDao` in Task 016.
+basis for creating `KavitaLibraryFeature.kt` and `LibrarySummaryCacheDao` in Task 028.
 
 ## Inputs
 
@@ -24,7 +24,7 @@ basis for creating `KavitaLibraryFeature.kt` and `LibrarySummaryCacheDao` in Tas
    (existing) — which methods move, which stay, based on the domain composition
    (`Page → Chapter → Series → Library`).
 4. Decide the shape of `LibrarySummaryCacheDao` (Room) at a contract level (what it stores, not
-   the full migration/DAO code — that is Task 016).
+   the full migration/DAO code — that is Task 028).
 5. Write the contract + any supporting code together with the user, validating feasibility
    before considering it done.
 6. Update `.claude/docs/architecture.md` with the formalized contract once approved.
@@ -63,14 +63,14 @@ Full reasoning recorded in
 3 contract exists."
 
 **Consequence for downstream tasks (flag, not resolved here):**
-- Task 016 ("Correction — Library: `KavitaLibraryFeature.kt`, `LibrarySummaryCacheDao`") was
+- Task 028 ("Correction — Library: `KavitaLibraryFeature.kt`, `LibrarySummaryCacheDao`") was
   written assuming a `KavitaLibraryFeature.kt` would be created — that assumption is now
   **stale**. The real fix is moving `listSeries()`/its supporting private methods from
   `KavitaSeriesFeature.kt` into a dedicated **listing method on the Series module** (still
-  Series' own domain, not a new Library domain) — Task 016 needs its description revisited
+  Series' own domain, not a new Library domain) — Task 028 needs its description revisited
   before implementation, not before this task closes.
 - `LibrarySummaryCacheDao`'s fate (in-memory-only cache found in Task 006) is unresolved — it
   still needs *a* cache-layer fix (the in-memory TTL not surviving restart is a real gap
   regardless of the "no Library domain" decision), but whether that's a Room table under
-  Series' own cache module or something else is Task 015/016's call, informed by the cache
+  Series' own cache module or something else is Task 015/028's call, informed by the cache
   guideline (Task 015), not decided here.

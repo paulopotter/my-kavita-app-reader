@@ -22,7 +22,7 @@ the 3 mechanisms) starts from an accurate map.
    (e.g. `scrollToChapterId: "123"`), Kotlin observes it via `LaunchedEffect`, performs the
    action, and reports back (`onScrollToChapterHandled`) so RN can manually zero the field —
    otherwise the next read re-triggers the same action. This ad-hoc form is the identified root
-   cause of the race bug documented in Task 021 (delayed/concurrent zeroing racing another
+   cause of the race bug documented in Task 029 (delayed/concurrent zeroing racing another
    in-flight action). Deciding its fate (replace with imperative `ref` call vs. formalize with
    a race guard) is explicitly part of Phase 2 (Task 013), not implicit or assumed here.
 3. **RN→RN** (React dispatches, React itself listens — e.g. an operation finishes, an event
@@ -34,21 +34,21 @@ the 3 mechanisms) starts from an accurate map.
 
 1. Update this plan's `README.md` "3 communication mechanisms" section (already done as part
    of this expansion — this task formalizes that the correction is final and no longer a draft).
-2. Update Task 021 (the reslotted original "chapter navigation contract" task) to reference this
-   corrected diagnosis instead of the original wrong one — done as part of writing Task 021.
+2. Update Task 029 (the reslotted original "chapter navigation contract" task) to reference this
+   corrected diagnosis instead of the original wrong one — done as part of writing Task 029.
 3. Confirm with the user that the corrected diagnosis is accurate before Phase 1/2 tasks start
    consuming it (Tasks 004, 008, 013 all depend on this being right).
 
 ## Completion criteria
 
-- README.md and Task 021 both reflect the corrected diagnosis (RN→RN is new, not existing;
+- README.md and Task 029 both reflect the corrected diagnosis (RN→RN is new, not existing;
   "one-shot state" is a known-fragile RN→Kotlin variant whose fate is decided in Task 013).
 - User confirms the corrected diagnosis before Phase 1 survey tasks begin.
 
 ## Result
 
-`README.md`'s "3 communication mechanisms" section and Task 021's framing note both reflect
+`README.md`'s "3 communication mechanisms" section and Task 029's framing note both reflect
 the corrected diagnosis. A residual stale reference ("Task 5.1" from the pre-expansion
-numbering) was found and fixed to "Task 021" in `README.md` during this review. User confirmed
+numbering) was found and fixed to "Task 029" in `README.md` during this review. User confirmed
 the corrected diagnosis is accurate, and separately confirmed that RN→Kotlin ("one-shot state"
 fate) is explicitly in scope of Task 013, not silently dropped.

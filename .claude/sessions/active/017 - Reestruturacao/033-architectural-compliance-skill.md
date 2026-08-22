@@ -1,10 +1,10 @@
-# Task 025 — Architectural compliance skill/agent (Phase 6 — Safeguards)
+# Task 033 — Architectural compliance skill/agent (Phase 7 — Safeguards)
 
-**Status:** todo (blocked by Task 024)
+**Status:** todo (blocked by Task 032)
 
 ## Objective
 
-New task, additive to Task 024 (does not replace it). Create a skill or agent that runs at the
+New task, additive to Task 032 (does not replace it). Create a skill or agent that runs at the
 end of every task in this plan (and future plans) mechanically checking the premises in the
 audit inventory (the 5 originally audited — dumb components, scope-bound responsibility,
 events, single contract, local cache — plus internationalization and provider isolation/plugin
@@ -24,12 +24,12 @@ additional check.
 2. Decide the invocation point — end of each task (`finalizar-task`) is the natural hook,
    confirm with the user.
 3. Decide the failure mode — does it block `finalizar-task`, or just report findings for the
-   user to review? (user decides — Task 024 explicitly ruled out automated *enforcement* for the
+   user to review? (user decides — Task 032 explicitly ruled out automated *enforcement* for the
    contract-vs-point-fix judgment; this task's checks are narrower and more mechanical, so the
    answer may differ, but must be confirmed, not assumed).
 4. Implement the skill/agent.
 5. Validate it against at least one already-known violation (e.g. run it against the current
-   `KavitaSeriesFeature.listSeries()` reading `chapterCacheDao` directly, before Task 017 fixes
+   `KavitaSeriesFeature.listSeries()` reading `chapterCacheDao` directly, before Task 024 fixes
    it) to confirm it actually catches real cases.
 
 ## Completion criteria
