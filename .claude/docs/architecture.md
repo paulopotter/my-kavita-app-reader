@@ -142,6 +142,51 @@ reuse it without crossing screen boundaries.
   this pattern for any future setting that needs the same "quick session
   tweak vs. sticky per-item vs. app default" shape.
 
+## Cache Guideline — `Cache` (Kotlin) + `CacheManager` (RN)
+
+Every domain that needs local cache reuses two generic modules instead of
+inventing its own ad-hoc mechanism (as `LibraryModule.kt`'s `@Volatile var`
+fields, or per-domain Room tables like `series_detail_cache`/`chapter_cache`,
+did historically):
+
+- **`Cache` (Kotlin, Layer 2)** — generic, dumb get/put/invalidate by key.
+  Knows nothing about any domain. Only implements the `PERSISTENT` mode.
+  The real storage underneath (one generic Room table vs. domain-specific
+  tables) is not fixed here — each case is judged when that data is actually
+  implemented.
+- **`CacheManager` (RN)** — the single orchestrator every domain
+  Service/hook calls to resolve cache-then-network, replacing the old
+  pattern of a hook calling two separate native methods (`getX`/`getCachedX`)
+  and deciding the sequence itself. Resolves *any* cache mode:
+  - `PERSISTENT` → delegates to the Kotlin `Cache` module via the bridge.
+  - `VOLATILE` → resolved entirely in RN memory, never touches the bridge.
+
+  The caller never needs to know which backend a given cache uses.
+
+**`CacheDescriptor` is the shared contract carrying this decision** —
+created at Layer 2, embedded inside a domain contract's `cache` field
+(`PageContract.cache`, `ChapterContract.cache`, `SeriesContract.cache`), and
+handed back to `CacheManager` unchanged when the RN side needs to
+resolve/refresh that same value:
+
+```typescript
+export interface CacheDescriptor {
+  key: string;
+  mode: "PERSISTENT" | "VOLATILE";
+  cachedAtEpochMs: number | null;
+}
+```
+
+**Deliberately deferred — not decided now, same philosophy as `EventToken`
+(Task 013):**
+- Whether a given field/domain is `PERSISTENT` or `VOLATILE` — decided per
+  case, only when that data is actually implemented.
+- `CacheManager`'s exact API (function names, signatures, who dispatches
+  the `EventBus` event, how to invalidate an entry, what happens on a
+  cache miss, how errors are represented) — none of this is designed yet;
+  it will be defined during the implementation of each real case, not in
+  the abstract now.
+
 ## Reader Screen — the one native-rendering exception
 
 The reader (`screens/reader/`) is the **only** screen in this codebase where

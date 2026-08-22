@@ -27,7 +27,7 @@ changelog entry by hand.
 | [012](012-contract-additional-datasources.md) | 2 — Contracts | Contract — additional DataSources (conditional on Task 007 findings) | done (no new DataSource — see task file) |
 | [013](013-formalize-communication-mechanisms.md) | 2 — Contracts | Formalize the 3 communication mechanisms (Kotlin→RN, RN→Kotlin, RN→RN) | done (design only, no EventBus implementation yet) |
 | [014](014-plugin-manager-module.md) | 2 — Contracts | Plugin manager module design | done (design only, no reference implementation yet) |
-| [015](015-cache-guideline.md) | 3 — Cache guideline | Local cache guideline (Room vs. memory, who orchestrates cache→network) | todo |
+| [015](015-cache-guideline.md) | 3 — Cache guideline | Local cache guideline (Room vs. memory, who orchestrates cache→network) | done |
 | [016](016-fix-library.md) | 4 — Corrections | Correction — Library (`KavitaLibraryFeature.kt`, `LibrarySummaryCacheDao`) | todo (blocked by 011, 015, 002) |
 | [017](017-fix-series.md) | 4 — Corrections | Correction — Series (stop reading `chapterCacheDao` directly, unify `SeriesSummary`) | todo (blocked by 010, 008) |
 | [018](018-fix-chapter.md) | 4 — Corrections | Correction — Chapter (unify duplicated `emitProgressChanged`) | todo (blocked by 008) |

@@ -835,6 +835,76 @@ new external connection point is identified (any task, not just Task 014), it ge
 `<Generalizer>/plugins/<name>/` structure from the start, no smaller/simpler variant considered
 first.
 
+## Task 015 — Cache guideline: `Cache` (Kotlin) + `CacheManager` (RN), orchestration moves to RN
+
+**Date:** 2026-08-21 (Task 015 mini-iteration)
+
+**Findings that motivated this (Task 015 audit):** `LibraryModule.kt` caches the series list in
+`@Volatile var` fields (2-min TTL, does not survive process restart) — the only real gap; every
+other domain expected to survive offline/restart already uses Room (`series_detail_cache`,
+`chapter_cache`, `page_cache`, plus `reading_progress`/`followed_series`/`ui_preferences`/
+`series_sort_prefs`/`bff_match`/`server_config`/`auth_config`). Orchestration (cache-first, then
+network) is decided today by the RN hook (`useSeriesDetail.ts`), calling two independent native
+methods per domain (`getX`/`getCachedX`) — except one exception, `KavitaChapterFeature.
+getPageUrls`, which already arbitrates cache-vs-network internally in Kotlin as a single method.
+No `Repository` layer exists on either side today.
+
+**Decision — two new generic modules, one per side, replacing every domain's ad-hoc cache code:**
+
+- **`Cache` (Kotlin, Layer 2)** — dumb, generic get/put/invalidate by key. Knows nothing about
+  any domain (Series/Chapter/Library). Two backends selected by `mode`:
+  - `PERSISTENT` → a single generic Room table (not one table per domain).
+  - `VOLATILE` — lives on the RN side instead (see `CacheManager` below), never touches Kotlin at
+    all. `Cache` (Kotlin) only ever implements the `PERSISTENT` backend.
+- **`CacheManager` (RN)** — the single, generic orchestrator every domain Service/hook calls,
+  replacing the per-domain "hook decides cache-then-network" pattern. Knows how to resolve *any*
+  cache — `PERSISTENT` (delegates to the Kotlin `Cache` module via the bridge) or `VOLATILE`
+  (resolved entirely in RN memory, no bridge call). The caller never needs to know which backend
+  a given descriptor uses.
+
+**`CacheDescriptor` is the single shared contract, not two parallel types.** It's created at
+Layer 2 (Kotlin), travels up already embedded inside a domain contract's `cache` field
+(`PageContract.cache`, `ChapterContract.cache`, `SeriesContract.cache` — R2), and is the same
+object the RN Service/hook later hands to `CacheManager` when it needs to resolve/refresh that
+same cached value — never a separate descriptor invented in RN. Current shape (extends the
+placeholder already in `cache/contract.ts`):
+```typescript
+export interface CacheDescriptor {
+  key: string;
+  mode: "PERSISTENT" | "VOLATILE";
+  cachedAtEpochMs: number | null;
+}
+```
+
+**`CacheManager`'s two operations** — two separate functions, not one function with an optional
+event flag (deliberate, mirrors R8's "no optional-shape params" spirit):
+```typescript
+interface CacheManager {
+  resolve<T>(descriptor: CacheDescriptor, fetchFn: () => Promise<T>): Promise<T>;
+  resolveAndDispatch<T>(descriptor: CacheDescriptor, fetchFn: () => Promise<T>, event: EventToken<T>): Promise<T>;
+}
+```
+Both: return the cached value immediately if present, trigger `fetchFn()` in the background, and
+write the result back into the cache (via `Cache` if `PERSISTENT`, in-memory if `VOLATILE`) once
+it resolves. `resolveAndDispatch` additionally emits `event` (Mechanism 3, Task 013's `EventBus`)
+once the fresh value lands, for callers elsewhere in the app that need to react without polling.
+`resolve` never emits anything — for callers where only the original requester needs the result.
+
+**Deliberately deferred, same philosophy as `EventToken` (Task 013) — do not over-decide now:**
+- **Whether a given field/domain is `PERSISTENT` or `VOLATILE`** is not classified in the
+  abstract here. That call is made per-field only when someone actually implements/manages that
+  specific data — not a table drawn up now for every existing contract.
+- **`CacheDescriptor`'s exact final shape** — the 3 fields above are a good working base, not
+  necessarily final; expect it to grow once a real implementation case demands a new field.
+
+**Registered as `architecture.md` guideline, not a `CLAUDE.md` invariant** (user's explicit
+call) — this is a structural design decision with enough nuance/examples to need prose, not a
+short hard rule.
+
+**Applies to:** Task 016 (Library correction — the motivating gap, migrates off `@Volatile var`
+onto this pattern) and any future domain needing cache, which should reuse `Cache`/`CacheManager`
+rather than inventing its own ad-hoc mechanism.
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing
