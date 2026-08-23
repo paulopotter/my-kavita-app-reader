@@ -3,8 +3,10 @@ package com.mymangareader.server.plugins.kavita
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
+import com.mymangareader.server.plugins.CredentialField
 import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.ServerPlugin
+import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.server.plugins.kavita.auth.KavitaAuth
 import com.mymangareader.server.plugins.kavita.chapter.KavitaChapter
 import com.mymangareader.server.plugins.kavita.chapter.KavitaChapterDto
@@ -17,8 +19,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 class KavitaServerPluginException(message: String) : Exception(message)
+
+private val authFormat = Json { ignoreUnknownKeys = true }
 
 /**
  * Translates the raw Kavita plugin (`plugins/kavita/{auth,series,chapter}`) into [ServerPlugin]'s
@@ -27,11 +33,13 @@ class KavitaServerPluginException(message: String) : Exception(message)
  * detail + metadata in parallel and merging them, since Kavita exposes those as two endpoints
  * but [ServerPlugin.Serial.get] is one call).
  *
- * [apiKey] is required — without it, no Kavita operation is possible at all. [jwt] is optional
- * and mutable: if not supplied (or once it goes stale), any operation that needs it authenticates
- * lazily on its own via [ensureToken] and remembers the result — the only piece of state this
- * class holds. Whoever created the plugin can read the current value back via [auth]'s
- * `getToken()`, e.g. to persist it, without needing a network round trip of its own.
+ * [apiKey] is required — without it, no Kavita operation is possible at all. [initialJwt] is
+ * optional and mutable via [jwt]: if not supplied (or once it goes stale), any operation that
+ * needs it authenticates lazily on its own via [ensureToken] and remembers the result — the only
+ * piece of state this class holds. Whoever created the plugin can read the current value back
+ * via [auth]'s `getToken()`, e.g. to persist it, without needing a network round trip of its own.
+ * Both values arrive already decoded from [Info.factory]'s `authJson` — this class itself never
+ * touches JSON.
  *
  * Throws on failure instead of returning [Result], per [ServerPlugin]'s convention for this
  * module.
@@ -42,6 +50,44 @@ class KavitaServerPlugin(
     private val apiKey: String,
     private val requestTool: RequestTool,
 ) : ServerPlugin {
+
+    override val id: String = Info.id
+    override val displayName: String = Info.displayName
+    override val version: String = Info.version
+
+    // authJson's shape: {"credentials": {"apiKey": "..."}, "session": {"jwt": "..."}} — "session"
+    // is entirely absent until Server has one to pass along (see Server.resolvePlugin's authJson
+    // assembly / mergeAuthJson). Nested under its own key rather than flattened alongside
+    // credentials, so a session field can never collide with (and silently overwrite) a
+    // credential field of the same name.
+    @Serializable
+    private data class Credentials(val apiKey: String = "")
+
+    @Serializable
+    private data class Session(val jwt: String)
+
+    @Serializable
+    private data class AuthPayload(val credentials: Credentials = Credentials(), val session: Session? = null)
+
+    companion object Info : ServerPluginRegistration {
+        override val id: String = "kavita"
+        override val displayName: String = "Kavita"
+        override val version: String = "1.0.0"
+
+        override val credentialFields = listOf(
+            CredentialField(
+                name = "apiKey",
+                label = "Kavita API Key",
+                type = "string",
+                validate = { value -> if (value.isBlank()) "API key must not be blank" else null },
+            ),
+        )
+
+        override val factory = { requestTool: RequestTool, baseUrl: String, authJson: String ->
+            val payload = authFormat.decodeFromString<AuthPayload>(authJson)
+            KavitaServerPlugin(baseUrl, payload.session?.jwt, payload.credentials.apiKey, requestTool) as ServerPlugin
+        }
+    }
 
     private var jwt: String? = initialJwt
     private var refreshToken: String? = null
@@ -58,7 +104,7 @@ class KavitaServerPlugin(
     }
 
     override val auth: ServerPlugin.Auth = object : ServerPlugin.Auth {
-        override suspend fun authenticate(apiKey: String) {
+        override suspend fun authenticate() {
             val user = kavitaAuth.authenticate(apiKey)
             jwt = user.token
             refreshToken = user.refreshToken
@@ -83,7 +129,11 @@ class KavitaServerPlugin(
             refreshToken = null
         }
 
-        override fun getToken(): String? = jwt
+        // Kavita's session blob is {"jwt": "..."} — Server stores this opaquely and merges it
+        // back under authJson's "session" key the next time it builds this plugin (see
+        // Server.mergeAuthJson), never touching "credentials" — so a session value can never
+        // clobber the stored apiKey.
+        override fun getSession(): String? = jwt?.let { authFormat.encodeToString(Session.serializer(), Session(it)) }
     }
 
     override val serials: ServerPlugin.Serials = object : ServerPlugin.Serials {

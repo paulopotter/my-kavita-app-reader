@@ -34,13 +34,22 @@ class KavitaServerPluginTest {
         server.shutdown()
     }
 
+    // ── identity ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `exposes stable identity fields`() {
+        assertEquals("kavita", plugin.id)
+        assertEquals("Kavita", plugin.displayName)
+        assertEquals("1.0.0", plugin.version)
+    }
+
     // ── auth ──────────────────────────────────────────────────────────────
 
     @Test
     fun `auth authenticate succeeds on 200`() = runTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"t"}"""))
 
-        plugin.auth.authenticate("key")
+        plugin.auth.authenticate()
     }
 
     @Test
@@ -58,31 +67,31 @@ class KavitaServerPluginTest {
     }
 
     @Test
-    fun `getToken returns null before any authentication`() {
+    fun `getSession returns null before any authentication`() {
         val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "api-key-123", RequestTool(OkHttpClient()))
 
-        assertNull(fresh.auth.getToken())
+        assertNull(fresh.auth.getSession())
     }
 
     @Test
-    fun `getToken returns the initial jwt when one was supplied`() {
-        assertEquals("jwt-token", plugin.auth.getToken())
+    fun `getSession returns the initial jwt when one was supplied`() {
+        assertEquals("""{"jwt":"jwt-token"}""", plugin.auth.getSession())
     }
 
     @Test
-    fun `authenticate updates the token returned by getToken`() = runTest {
+    fun `authenticate updates the session returned by getSession`() = runTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"fresh-jwt"}"""))
 
-        plugin.auth.authenticate("key")
+        plugin.auth.authenticate()
 
-        assertEquals("fresh-jwt", plugin.auth.getToken())
+        assertEquals("""{"jwt":"fresh-jwt"}""", plugin.auth.getSession())
     }
 
     @Test
-    fun `logout clears the held token`() = runTest {
+    fun `logout clears the held session`() = runTest {
         plugin.auth.logout()
 
-        assertNull(plugin.auth.getToken())
+        assertNull(plugin.auth.getSession())
     }
 
     @Test
@@ -93,7 +102,7 @@ class KavitaServerPluginTest {
 
         fresh.serials.list()
 
-        assertEquals("lazy-jwt", fresh.auth.getToken())
+        assertEquals("""{"jwt":"lazy-jwt"}""", fresh.auth.getSession())
         val authRequest = server.takeRequest()
         assertTrue(authRequest.path?.contains("/api/Plugin/authenticate") == true)
     }
@@ -104,7 +113,7 @@ class KavitaServerPluginTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
         assertFailsWith<Throwable> { fresh.serials.list() }
-        assertNull(fresh.auth.getToken())
+        assertNull(fresh.auth.getSession())
     }
 
     @Test
@@ -137,10 +146,10 @@ class KavitaServerPluginTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"first-jwt","refreshToken":"first-refresh"}"""))
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"renewed-jwt","refreshToken":"renewed-refresh"}"""))
 
-        plugin.auth.authenticate("key")
+        plugin.auth.authenticate()
         plugin.auth.reauthenticate()
 
-        assertEquals("renewed-jwt", plugin.auth.getToken())
+        assertEquals("""{"jwt":"renewed-jwt"}""", plugin.auth.getSession())
         val recorded = server.takeRequest() // authenticate
         server.takeRequest() // reauthenticate
         assertTrue(recorded.path?.contains("/api/Plugin/authenticate") == true)
@@ -151,7 +160,7 @@ class KavitaServerPluginTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"first-jwt","refreshToken":"first-refresh"}"""))
         server.enqueue(MockResponse().setResponseCode(401))
 
-        plugin.auth.authenticate("key")
+        plugin.auth.authenticate()
 
         assertFailsWith<Throwable> { plugin.auth.reauthenticate() }
     }

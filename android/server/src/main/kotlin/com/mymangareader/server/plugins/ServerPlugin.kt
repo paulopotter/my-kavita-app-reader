@@ -1,5 +1,7 @@
 package com.mymangareader.server.plugins
 
+import com.mymangareader.tools.network.RequestTool
+
 // Provider-agnostic shapes ServerPlugin speaks in — not the final app-wide contract (that's a
 // separate, later layer), just enough structure for Server (not yet built) to work with any
 // provider without knowing its provider-specific DTOs. Each adapter (e.g. KavitaServerPlugin) is
@@ -37,6 +39,50 @@ data class PluginPageDimension(
 )
 
 /**
+ * Describes one credential field a [ServerPluginRegistration] needs from the user — e.g. Kavita's
+ * single required `apiKey`. [name] is the key this value is stored under inside a group's
+ * `credentialsJson` blob (plain JSON, format decided per-provider — Server never parses it
+ * itself, and never persists anything beyond what the user entered — session state like a JWT is
+ * never part of `credentialsJson`, see [ServerPluginRegistration.factory]). [label]/[type] let
+ * the RN side build a form dynamically from `Server.providers.list()`, without hardcoding any
+ * provider's field names. [validate] runs against the raw string the user entered for this field
+ * and returns an error message, or null if valid — never persisted anywhere, purely a function
+ * called at validation time (same shape as [ServerPluginRegistration.factory]).
+ */
+data class CredentialField(
+    val name: String,
+    val label: String,
+    val type: String,
+    val validate: (value: String) -> String?,
+)
+
+/**
+ * Everything Server needs to know about one [ServerPlugin] implementation, without constructing
+ * an instance: its static identity (readable from `Server.providers.list()` without touching the
+ * network — same values a live instance's [ServerPlugin.id]/[displayName]/[version] expose),
+ * [credentialFields] (what this provider needs the user to fill in — not every provider
+ * necessarily uses an "apiKey", and not every provider necessarily uses session tokens either),
+ * plus [factory].
+ *
+ * [factory]'s `authJson` is assembled by Server at call time, never persisted as-is: it merges
+ * the group's stored `credentialsJson` (from the database) with whatever session state Server is
+ * holding in memory for that group (e.g. a JWT once one exists) into a single blob, so a provider
+ * with no session concept at all simply never sees/uses a session field — nothing here assumes
+ * every provider has a token. Each concrete plugin (e.g. `KavitaServerPlugin`) decides its own
+ * `authJson` shape and is the only thing that ever decodes it. Every concrete plugin must expose
+ * a `companion object` implementing this — see its `Info` companion for the reference shape.
+ * This is a convention, not compiler-enforced (Kotlin interfaces can't require a specific
+ * companion object shape).
+ */
+interface ServerPluginRegistration {
+    val id: String
+    val displayName: String
+    val version: String
+    val credentialFields: List<CredentialField>
+    val factory: (requestTool: RequestTool, baseUrl: String, authJson: String) -> ServerPlugin
+}
+
+/**
  * Contract every content-provider plugin must satisfy — the shape [Server] (not yet built) knows
  * how to call, regardless of which real server answers behind it. A plugin's raw implementation
  * (e.g. `plugins/kavita/`'s own request-only files) never implements this directly — a dedicated
@@ -55,6 +101,14 @@ data class PluginPageDimension(
  * Server, or above it) decides whether to catch or let them keep rising.
  */
 interface ServerPlugin {
+    // Identity — mirrors this class's companion ServerPluginRegistration (same values), so both a
+    // live instance and the static catalog (Server.providers.list(), no instance needed) agree.
+    // Server (and anything logging on its behalf) reads this instead of hardcoding a provider's
+    // name in code, per the plan's "provider name is data, not UI copy" decision.
+    val id: String            // stable technical id, e.g. "kavita" — same key used to select this plugin
+    val displayName: String   // user/log-facing name, e.g. "Kavita"
+    val version: String       // this adapter's own version (our Kotlin code, not the remote server's)
+
     val auth: Auth
     val serials: Serials
     fun serial(serialId: String): Serial
@@ -72,16 +126,25 @@ interface ServerPlugin {
     }
 
     interface Auth {
-        suspend fun authenticate(apiKey: String)
+        // No parameter — uses whatever credential this instance was already constructed with
+        // (decoded from ServerPluginRegistration.factory's authJson). Re-authenticating with a
+        // genuinely different credential means building a new plugin instance, not calling this
+        // again with a different value. Server always calls this the same way regardless of
+        // whether a provider has a real session concept — a provider with none simply does
+        // nothing here and leaves getSession() returning null forever, which is a normal,
+        // expected outcome, not an error Server needs to special-case.
+        suspend fun authenticate()
         suspend fun checkToken(): String?
         suspend fun reauthenticate()
         suspend fun logout()
 
-        // Synchronous, no network call — just the JWT currently held by this instance (null if
-        // it never authenticated yet). Any operation needing a JWT authenticates lazily on its
-        // own first if this is null; whoever created the plugin can read the result back here
-        // afterwards (e.g. to persist it), without a network round trip of its own.
-        fun getToken(): String?
+        // Synchronous, no network call — whatever opaque session blob this instance currently
+        // holds (null if it never authenticated yet, or if this provider has no session concept
+        // at all — both are valid, unremarkable states). Server never parses this string; it only
+        // stores it and later merges it back into a future authJson via
+        // ServerPluginRegistration.factory, so only this same plugin class ever reads it again.
+        // Any operation needing a session authenticates lazily on its own first if this is null.
+        fun getSession(): String?
     }
 
     interface Serials {
