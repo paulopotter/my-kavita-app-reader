@@ -25,11 +25,19 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
                 AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9,
+                AppDatabase.MIGRATION_9_8,
             )
             .build()
 
     @Provides
     fun provideServerConfigDao(db: AppDatabase): ServerConfigDao = db.serverConfigDao()
+
+    @Provides
+    fun provideServerGroupDao(db: AppDatabase): ServerGroupDao = db.serverGroupDao()
+
+    @Provides
+    fun provideServerUrlDao(db: AppDatabase): ServerUrlDao = db.serverUrlDao()
 
     @Provides
     fun provideAuthConfigDao(db: AppDatabase): AuthConfigDao = db.authConfigDao()
