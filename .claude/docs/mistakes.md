@@ -102,6 +102,17 @@ or a migration that DROPs and recreates a table.
 Every Room migration must also be accompanied by a JS migration if any JS
 table references the affected Room columns.
 
+**Rule — always pair with a downgrade migration.** Every `Migration(N, N+1)`
+added to `AppDatabase.kt` must ship alongside a `Migration(N+1, N)` (both
+registered in `DatabaseModule.kt`'s `.addMigrations(...)`), even though the
+project has no current scenario that exercises a downgrade. `Room` has no
+automatic rollback — omitting the reverse migration means a downgrade
+(app rolled back, or a bug forces a Room open at an older expected version)
+falls through to a crash or silent data loss instead of a controlled path.
+Cover the downgrade with the same `MigrationTestHelper` pattern used for the
+forward migration (see `Migration_8_9_Test.kt`'s downgrade test for the
+reference shape).
+
 ---
 
 ### 8. ProcessLifecycleMarker set in module `init {}` instead of on first navigation
