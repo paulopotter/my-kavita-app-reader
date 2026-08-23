@@ -153,6 +153,22 @@ rule that decides for you:
 actually need to be an error instead. Never assume a field's category by pattern-matching it
 against these four — ask the user which one applies, every time, for every new field.
 
+**R11 — `server`/`resolvedAtEpochMs` reflect the last SUCCESSFUL `:server` call, overwritten in
+call order, not necessarily the last call attempted.** `:server`'s content-read methods each
+return a `ServerResponse<T>` envelope (`data`, `serverInfo: ServerActiveInfo`,
+`resolvedAtEpochMs`) — see `android/server/README.md`'s "Every READ content method returns
+`ServerResponse<T>`" section for why (eliminates a race a separate `getActiveInfo()` call would
+have). When a Layer 3 contract makes several `:server` calls to assemble itself (e.g. Page calling
+both `getUrl()` and `getDimensions()`), it keeps a running `server`/`resolvedAtEpochMs` pair,
+overwritten after each call that actually succeeds — a later call's envelope always wins over an
+earlier one, but a call that fails (and is tolerated, not escalated to `Failure` — R10 category 2)
+leaves the running values from the last call that *did* succeed untouched, rather than clearing
+them or trying to fetch a fresh value independently. Call order therefore matters: whichever call
+happens last determines the final `server`/`resolvedAtEpochMs`, provided it succeeded — if the
+last call in sequence fails, the values simply stay whatever the previous successful call set.
+General rule, not Page-specific — applies to Chapter/Series (Task 019/020) and any future
+contract composing multiple `:server` calls.
+
 **R10 addendum — classify every field as Vital / Necessary / Aggregating before deciding its
 absence behavior; the classification is the criterion, not a separate afterthought:**
 - **Vital** — without it, the contract itself isn't usable. If a vital field can't be resolved,
@@ -240,6 +256,81 @@ export interface PageContract extends ImageDescriptor {
 ```
 Page is read-only today (no page-level write endpoint exists — only whole-chapter
 mark-read/unread).
+
+**Task 018 — real Kotlin implementation, corrections to the modeling-phase shape above:**
+
+- **`PageResult` collapses into `PageDigest` itself being the `sealed interface`** — no separate
+  `PageResult` wrapper type. `PageDigest.Success`/`PageDigest.Failure` are the two variants
+  directly (same idiom as the existing `OtaCheckResult` in `:tools`) — R8's "flattened, never
+  nested under a named key" spirit is honored by the sealed hierarchy itself, not by a second
+  wrapper type on top of it.
+- **`server: ServerDescriptor` becomes `server: ServerActiveInfo`** (`:server`'s real type, Task
+  018's own addition — see `android/server/README.md`) — never `null` inside `Success` (a
+  successful `Success` always has at least one successful `:server` call behind it, so there's
+  always a `ServerActiveInfo` to report — see R11).
+- **`cache` is always `null`** in this task — no cache module exists yet (Task 015's guideline is
+  followed as-is: the field exists in the shape, unpopulated).
+- **`chapter` is NOT `{ id, pageTotal }` as originally modeled — it's the entire `Chapter`
+  parameter the function received, passed through unchanged.** The function's real signature is
+  `buildPageDigest(chapter: Chapter, pageIndex: Int)` — `chapter.id`/`chapter.serial.id` are the
+  only two fields Page actually reads (to call `Server.serial(chapter.serial.id).chapter(chapter.id)`),
+  everything else on `chapter` is "profit" (unused by Page, but preserved in the output). This
+  reflects the general rule (user's own framing): **a field that's populated by handing back
+  another module's own object is never re-shaped/filtered by the receiving module — it's exactly
+  what was received.** Applies the same way `server`/`cache` already work (never filtered/reduced
+  by Page) — `chapter` is no different, just sourced from a caller-supplied parameter instead of
+  a `:server`/`:cache` call.
+- **`Chapter`'s own shape (`id`, `serial: { id }`) is a Task-018-only placeholder — NOT the real
+  `ChapterContract`/`ChapterDigest`, which doesn't exist yet (Task 019).** `chapter.id`/
+  `chapter.serial.id` — not `chapter.chapterId`/`chapter.serialId` as flat fields — because once
+  inside the `chapter` object, repeating "chapter"/using a flat `serialId` would be redundant/
+  inconsistent with how a real nested contract reads. **Explicit pending item: revisit this
+  placeholder's exact fields once Task 019 (Chapter) and Task 020 (Series) actually build
+  `ChapterDigest`/`SeriesDigest` for real — Page's `Chapter` parameter type must be corrected to
+  match whatever the real shape turns out to be, not left as this minimal placeholder.**
+
+```kotlin
+// :content-digest, Task 018 — package/file names illustrative, not yet finalized
+data class Chapter(
+    val id: String,
+    val serial: Serial,
+) {
+    data class Serial(val id: String)
+}
+
+sealed interface PageDigest {
+    data class Success(
+        val id: String,
+        val number: Int,
+        val url: String,
+        val hasFetchedDimensions: Boolean,
+        val width: Int?,
+        val height: Int?,
+        val aspectRatio: Double?,
+        val orientation: Orientation?,
+        val resolvedAtEpochMs: Long,
+        val server: ServerActiveInfo,
+        val cache: Nothing?,   // always null this task — typed as Nothing? until Cache module exists
+        val chapter: Chapter,   // the exact parameter received, unfiltered
+    ) : PageDigest
+
+    data class Failure(val error: ErrorDigest) : PageDigest
+
+    enum class Orientation { PORTRAIT, LANDSCAPE }
+}
+
+data class ErrorDigest(val code: String?, val message: String?)
+```
+
+**Assembly order (R11 in practice):** `getUrl()` first (vital — its failure makes the whole
+result `PageDigest.Failure`), then `getDimensions()` (tolerated failure — caught, `width`/
+`height` stay `null`, doesn't escalate). `server`/`resolvedAtEpochMs` start `null`, get
+overwritten after each successful call, in that order — so they end up reflecting `getDimensions()`'s
+own resolution when it succeeds, or fall back to `getUrl()`'s when `getDimensions()` fails.
+`hasFetchedDimensions = width != null && height != null && width > 0 && height > 0` — a real `0`
+from the server counts the same as "no usable dimension," not literally "has data." `orientation`
+is `null` both when `aspectRatio` is `null` and when it's exactly `1` (perfect square — neither
+orientation applies) — `landscape` when `> 1`, `portrait` when `< 1`.
 
 **`chapter/contract.ts`**:
 ```typescript
