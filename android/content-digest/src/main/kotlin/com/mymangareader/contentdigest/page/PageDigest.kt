@@ -1,5 +1,7 @@
 package com.mymangareader.contentdigest.page
 
+import com.mymangareader.contentdigest.error.ErrorDigest
+import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
 
@@ -20,7 +22,7 @@ sealed interface PageDigest {
         val resolvedAtEpochMs: Long,
         val server: ServerActiveInfo,        // never null in Success — see R11 in _contract-design-notes.md
         val cache: Nothing?,                 // always null this task — no Cache module exists yet (Task 015)
-        val chapter: Chapter,                // the exact parameter buildPageDigest received, unfiltered
+        val chapter: ChapterSummary,         // the exact parameter buildPageDigest received, unfiltered
     ) : PageDigest
 
     data class Failure(val error: ErrorDigest) : PageDigest
@@ -32,13 +34,13 @@ sealed interface PageDigest {
 // Failure. getDimensions() second — a tolerated failure (caught, width/height stay null, doesn't
 // escalate to Failure). `server`/`resolvedAtEpochMs` are overwritten after each call that
 // actually succeeds, so they end up reflecting whichever call succeeded LAST in this sequence.
-suspend fun buildPageDigest(server: Server, chapter: Chapter, pageIndex: Int): PageDigest {
+suspend fun buildPageDigest(server: Server, chapter: ChapterSummary, pageIndex: Int): PageDigest {
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
 
     val url: String
     try {
-        val urlResponse = server.serial(chapter.serial.id).chapter(chapter.id).page(pageIndex).getUrl()
+        val urlResponse = server.serial(chapter.seriesId).chapter(chapter.id).page(pageIndex).getUrl()
         serverInfo = urlResponse.serverInfo
         resolvedAtEpochMs = urlResponse.resolvedAtEpochMs
         url = urlResponse.data
@@ -49,7 +51,7 @@ suspend fun buildPageDigest(server: Server, chapter: Chapter, pageIndex: Int): P
     var width: Int? = null
     var height: Int? = null
     try {
-        val dimensionsResponse = server.serial(chapter.serial.id).chapter(chapter.id).page(pageIndex).getDimensions()
+        val dimensionsResponse = server.serial(chapter.seriesId).chapter(chapter.id).page(pageIndex).getDimensions()
         serverInfo = dimensionsResponse.serverInfo
         resolvedAtEpochMs = dimensionsResponse.resolvedAtEpochMs
         width = dimensionsResponse.data.width

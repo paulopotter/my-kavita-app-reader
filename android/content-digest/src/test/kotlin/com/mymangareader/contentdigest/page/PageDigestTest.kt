@@ -4,9 +4,11 @@ import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
+import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
 import com.mymangareader.server.Server
+import com.mymangareader.server.ServerActiveInfo
 import com.mymangareader.server.plugins.CredentialField
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
@@ -78,7 +80,8 @@ private class FakePlugin(
 
     override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
         override suspend fun get(): PluginSerial =
-            PluginSerial(id = serialId, name = "S", coverUrl = null, pagesRead = 0, totalPages = 0, lastUpdatedUtc = null, summary = null, genres = emptyList(), tags = emptyList())
+            PluginSerial(id = serialId, name = "S", pagesRead = 0, totalPages = 0, lastUpdatedUtc = null, summary = null, genres = emptyList(), tags = emptyList())
+        override fun getCoverUrl(): String = "http://fake/serial-cover/$serialId"
 
         override val chapters = object : ServerPlugin.Chapters {
             override suspend fun list(): List<PluginChapter> = emptyList()
@@ -87,7 +90,12 @@ private class FakePlugin(
 
         override fun chapter(chapterId: String): ServerPlugin.Chapter = object : ServerPlugin.Chapter {
             override suspend fun get(): PluginChapter =
-                PluginChapter(id = chapterId, title = "C", number = null, pageCount = 1, pagesRead = 0, isSpecial = false)
+                PluginChapter(
+                    id = chapterId, title = "C", number = null, pageCount = 1, pagesRead = 0, isSpecial = false,
+                    decimalNumber = 0.0, specialLabel = null, createdUtc = null, lastReadingProgressUtc = null,
+                    fileFormat = null,
+                )
+            override fun getCoverUrl(): String = "http://fake/chapter-cover/$chapterId"
             override suspend fun setRead(isRead: Boolean) = Unit
             override suspend fun getProgress(): PluginProgress? = null
             override suspend fun setProgress(pageIndex: Int) = Unit
@@ -118,7 +126,26 @@ class PageDigestTest {
     private lateinit var urlDao: FakeServerUrlDao
     private lateinit var plugin: FakePlugin
     private lateinit var server: Server
-    private val chapter = Chapter(id = "c1", serial = Chapter.Serial(id = "s1"))
+    private val fakeChapterServerInfo = ServerActiveInfo(
+        groupId = "g1", groupName = "Group", providerId = "fake",
+        urlId = "u1", url = "http://fake", timeoutMs = 5000, priority = 0,
+    )
+    private val chapter = ChapterSummary(
+        id = "c1",
+        seriesId = "s1",
+        decimalNumber = 1.0,
+        number = 1,
+        specialLabel = null,
+        isSpecial = false,
+        title = "Chapter 1",
+        createdUtc = null,
+        coverImage = ImageDescriptor(
+            url = "http://fake/cover", hasFetchedDimensions = false, width = null, height = null,
+            aspectRatio = null, orientation = null, resolvedAtEpochMs = 1L, server = fakeChapterServerInfo, cache = null,
+        ),
+        resolvedAtEpochMs = 1L,
+        server = fakeChapterServerInfo,
+    )
 
     @Before
     fun setUp() {
