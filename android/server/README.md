@@ -100,7 +100,6 @@ data class NewServerUrl(
 data class PluginSerial(
     val id: String,
     val name: String,
-    val coverUrl: String?,
     val pagesRead: Int,
     val totalPages: Int,
     val lastUpdatedUtc: String?,
@@ -116,6 +115,11 @@ data class PluginChapter(
     val pageCount: Int,
     val pagesRead: Int,
     val isSpecial: Boolean,
+    val decimalNumber: Double,   // Kavita's real SortOrder — authoritative numeric ordering value
+    val specialLabel: String?,   // Kavita's real Range — populated when it diverges from decimalNumber
+    val createdUtc: String?,
+    val lastReadingProgressUtc: String?,   // Kavita's real ChapterDto.lastReadingProgressUtc — source for a resumePoint's recordedAtEpochMs
+    val fileFormat: String?,     // free-form text as far as :server is concerned — Kavita's own MangaFormat→text table lives only in KavitaServerPlugin
 )
 
 data class PluginProgress(
@@ -127,6 +131,40 @@ data class PluginPageDimension(
     val width: Int,     // non-nullable — the Kavita adapter throws instead of returning a partial/null value if the server has no dimension for this page
     val height: Int,
 )
+
+enum class ImageOrientation { PORTRAIT, LANDSCAPE }
+
+// The one place aspectRatio/orientation/hasFetchedDimensions get computed for any image this
+// module resolves — every caller (Page's url+dimensions, a cover's url) builds its own
+// ImageDescriptor through buildImageDescriptor() below instead of re-deriving the same formula.
+// Already carries server/resolvedAtEpochMs (same idiom PageDigest.Success already used before
+// this module existed) — a READ method returning this is NOT also wrapped in ServerResponse<T>
+// (would duplicate serverInfo/resolvedAtEpochMs for no reason); see serial().getCoverImage()/
+// chapter().getCoverImage() below, which return ImageDescriptor directly.
+data class ImageDescriptor(
+    val url: String,
+    val hasFetchedDimensions: Boolean,
+    val width: Int?,
+    val height: Int?,
+    val aspectRatio: Double?,      // width/height — landscape when >1, portrait when <1, null when exactly 1 (perfect square) or dimensions unknown
+    val orientation: ImageOrientation?,
+    val resolvedAtEpochMs: Long,
+    val server: ServerActiveInfo,
+    val cache: Nothing?,           // always null — no Cache module exists yet (Task 015's guideline, same as PageDigest)
+)
+
+// Pure — no network, no knowledge of who's calling or how many requests it took to gather
+// url/width/height. server/resolvedAtEpochMs/cache are passed in because each caller decides
+// those differently (e.g. a caller doing R11's "last successful call wins" logic across several
+// calls is the caller's own job, not this function's).
+fun buildImageDescriptor(
+    url: String,
+    width: Int?,
+    height: Int?,
+    resolvedAtEpochMs: Long,
+    server: ServerActiveInfo,
+    cache: Nothing? = null,
+): ImageDescriptor
 ```
 
 ### Exceptions
@@ -336,11 +374,15 @@ server.getActiveInfo()
 //                   urlId="u1", url="http://192.168.1.5:5000", timeoutMs=5000, priority=1)
 ```
 
-## Every READ content method returns `ServerResponse<T>`
+## Every READ content method returns `ServerResponse<T>` — except `getCoverImage()`
 
 **Decision (Task 018 mini-iteration):** every content method that returns actual data — as
 opposed to a write like `setRead`/`setProgress`, which stays `Unit` — is wrapped in
-`ServerResponse<T>` (`data`, `serverInfo`, `resolvedAtEpochMs`). This replaced an earlier design
+`ServerResponse<T>` (`data`, `serverInfo`, `resolvedAtEpochMs`). **One exception (Task 019):**
+`serial(id).getCoverImage()`/`chapter(id).getCoverImage()` return `ImageDescriptor` directly, not
+`ServerResponse<ImageDescriptor>` — `ImageDescriptor` already carries `server`/`resolvedAtEpochMs`
+as its own fields (same idiom `PageDigest.Success` already used before this module existed), so
+wrapping it again would duplicate that data for no reason. This replaced an earlier design
 where a caller (e.g. `:content-digest`'s `PageDigest`) would call a content method and *then*
 separately call `getActiveInfo()` to find out which server answered — that had a real race: by
 the time the second call ran, a different group/URL resolution could already have happened.
@@ -418,10 +460,12 @@ active yet.
 suspend fun serials.list(): ServerResponse<List<PluginSerial>>
 
 suspend fun serial(serialId: String).get(): ServerResponse<PluginSerial>
+suspend fun serial(serialId: String).getCoverImage(): ImageDescriptor   // NOT ServerResponse<T> — ImageDescriptor already carries server/resolvedAtEpochMs itself, see above
 suspend fun serial(serialId: String).chapters.list(): ServerResponse<List<PluginChapter>>
 suspend fun serial(serialId: String).chapters.setRead(isRead: Boolean, chapterIds: List<String>)   // Unit — write, no envelope
 
 suspend fun serial(serialId).chapter(chapterId: String).get(): ServerResponse<PluginChapter>
+suspend fun serial(serialId).chapter(chapterId).getCoverImage(): ImageDescriptor   // same pattern as serial().getCoverImage()
 suspend fun serial(serialId).chapter(chapterId).setRead(isRead: Boolean)   // Unit — write, no envelope
 suspend fun serial(serialId).chapter(chapterId).getProgress(): ServerResponse<PluginProgress?>
 suspend fun serial(serialId).chapter(chapterId).setProgress(pageIndex: Int)   // Unit — write, no envelope
@@ -436,7 +480,7 @@ See "Every READ content method returns `ServerResponse<T>`" above for what `serv
 ### `serials.list()`
 ```kotlin
 server.serials.list().data
-// listOf(PluginSerial(id="s1", name="One Piece", coverUrl=null, pagesRead=340, totalPages=1200,
+// listOf(PluginSerial(id="s1", name="One Piece", pagesRead=340, totalPages=1200,
 //                      lastUpdatedUtc="2026-08-20T10:00:00Z", summary=null, genres=[], tags=[]))
 ```
 
@@ -445,8 +489,23 @@ server.serials.list().data
 error `RequestTool` raises for that provider's real API call.
 ```kotlin
 server.serial("s1").get().data
-// PluginSerial(id="s1", name="One Piece", coverUrl=null, pagesRead=340, totalPages=1200,
+// PluginSerial(id="s1", name="One Piece", pagesRead=340, totalPages=1200,
 //              lastUpdatedUtc="2026-08-20T10:00:00Z", summary="A pirate crew...", genres=["Action"], tags=["Pirates"])
+```
+
+### `serial(serialId).getCoverImage()`
+Pure string concatenation for the Kavita adapter (`buildSeriesCoverUrl`) — never throws on its
+own (no network call). `width`/`height` are always `null`, `hasFetchedDimensions`/`aspectRatio`/
+`orientation` follow from that (no dedicated dimensions endpoint exists for a series/chapter
+cover). Returns `ImageDescriptor` directly, not wrapped in `ServerResponse<T>` — see above.
+```kotlin
+server.serial("s1").getCoverImage()
+// ImageDescriptor(url="https://kavita.example.com/api/Image/series-cover?seriesId=s1&apiKey=abc123...",
+//                  hasFetchedDimensions=false, width=null, height=null, aspectRatio=null, orientation=null,
+//                  resolvedAtEpochMs=1755878400000,
+//                  server=ServerActiveInfo(groupId="g1", groupName="Minha Kavita", providerId="kavita",
+//                                           urlId="u1", url="http://192.168.1.5:5000", timeoutMs=5000, priority=1),
+//                  cache=null)
 ```
 
 ### `serial(serialId).chapters.list()`
@@ -470,6 +529,15 @@ real, reachable path, not defensive).
 ```kotlin
 server.serial("s1").chapter("c1").get().data
 // PluginChapter(id="c1", title="Romance Dawn", number="1", pageCount=54, pagesRead=54, isSpecial=false)
+```
+
+### `serial(serialId).chapter(chapterId).getCoverImage()`
+Same shape/rationale as `serial(serialId).getCoverImage()`, built via `buildChapterCoverUrl`.
+```kotlin
+server.serial("s1").chapter("c1").getCoverImage()
+// ImageDescriptor(url="https://kavita.example.com/api/Image/chapter-cover?chapterId=c1&apiKey=abc123...",
+//                  hasFetchedDimensions=false, width=null, height=null, aspectRatio=null, orientation=null,
+//                  resolvedAtEpochMs=1755878400000, server=ServerActiveInfo(...), cache=null)
 ```
 
 ### `serial(serialId).chapter(chapterId).setRead(isRead)`

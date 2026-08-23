@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 private const val SERIES_ALL_PATH = "/api/Series/all-v2"
 private const val SERIES_ALL_BODY =
     """{"id":0,"statements":[],"combination":1,"sortOptions":{"sortField":1,"isAscending":true},"limitTo":0}"""
+private const val SERIES_COVER_PATH = "/api/Image/series-cover"
 
 private val seriesJson = Json { ignoreUnknownKeys = true }
 
@@ -54,6 +55,7 @@ class KavitaSeriesException(message: String) : Exception(message)
 class KavitaSeries(
     private val baseUrl: String,
     private val jwt: String,
+    private val apiKey: String,
     private val requestTool: RequestTool,
 ) {
     suspend fun listSeries(): List<KavitaSeriesDto> {
@@ -89,4 +91,7 @@ class KavitaSeries(
         if (http.status != 200) throw KavitaSeriesException("Series metadata failed: HTTP ${http.status}")
         return seriesJson.decodeFromString(http.body)
     }
+
+    fun buildSeriesCoverUrl(seriesId: String): String =
+        "${baseUrl.trimEnd('/')}$SERIES_COVER_PATH?seriesId=$seriesId&apiKey=$apiKey"
 }

@@ -36,7 +36,7 @@ class KavitaChapterTest {
     fun `listVolumesForSeries returns raw volumes with chapters`() = runTest {
         server.enqueue(
             MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"range":"1","number":"1","sortOrder":1.0,"pages":20,"isSpecial":false,"title":"Ch 1","pagesRead":5,"volumeId":10}]}]""",
+                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"range":"1","number":"1","sortOrder":1.0,"pages":20,"isSpecial":false,"title":"Ch 1","pagesRead":5,"volumeId":10,"createdUtc":"2026-01-01T00:00:00Z","format":3}]}]""",
             ),
         )
 
@@ -51,6 +51,21 @@ class KavitaChapterTest {
         assertEquals(20, ch.pages)
         assertEquals(5, ch.pagesRead)
         assertEquals(10, ch.volumeId)
+        assertEquals("2026-01-01T00:00:00Z", ch.createdUtc)
+        assertEquals(3, ch.format)
+    }
+
+    @Test
+    fun `listVolumesForSeries defaults format to 0 when absent`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """[{"id":10,"seriesId":7,"chapters":[{"id":100}]}]""",
+            ),
+        )
+
+        val ch = chapter.listVolumesForSeries("7").single().chapters.single()
+
+        assertEquals(0, ch.format)
     }
 
     @Test
@@ -80,6 +95,13 @@ class KavitaChapterTest {
         val url = chapter.buildPageUrl("100", 2)
 
         assertEquals("$baseUrl/api/reader/image?chapterId=100&page=2&apiKey=api-key-123", url)
+    }
+
+    @Test
+    fun `buildChapterCoverUrl builds a chapter cover url`() {
+        val url = chapter.buildChapterCoverUrl("100")
+
+        assertEquals("$baseUrl/api/Image/chapter-cover?chapterId=100&apiKey=api-key-123", url)
     }
 
     @Test

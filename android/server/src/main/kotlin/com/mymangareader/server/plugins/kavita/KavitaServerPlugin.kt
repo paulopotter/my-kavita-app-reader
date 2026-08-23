@@ -92,7 +92,7 @@ class KavitaServerPlugin(
     private var jwt: String? = initialJwt
     private var refreshToken: String? = null
     private val kavitaAuth = KavitaAuth(baseUrl, requestTool)
-    private fun kavitaSeries(token: String) = KavitaSeries(baseUrl, token, requestTool)
+    private fun kavitaSeries(token: String) = KavitaSeries(baseUrl, token, apiKey, requestTool)
     private fun kavitaChapter(token: String) = KavitaChapter(baseUrl, token, apiKey, requestTool)
 
     private suspend fun ensureToken(): String {
@@ -196,9 +196,13 @@ class KavitaServerPlugin(
             )
         }
 
+        // Synchronous by design (no network call — this just concatenates a string), same
+        // rationale as KavitaPage.getUrl() — safe because buildSeriesCoverUrl only reads apiKey,
+        // never the jwt parameter, so an empty one here is inert.
+        override fun getCoverUrl(): String = kavitaSeries(token = "").buildSeriesCoverUrl(serialId)
+
         override val chapters: ServerPlugin.Chapters = object : ServerPlugin.Chapters {
-            override suspend fun list(): List<PluginChapter> =
-                volumes().flatMap { it.chapters }.map { it.toPluginChapter() }
+            override suspend fun list(): List<PluginChapter> = volumes().flatMap { it.chapters }.map { it.toPluginChapter() }
 
             override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) {
                 val chapter = kavitaChapter(ensureToken())
@@ -225,6 +229,9 @@ class KavitaServerPlugin(
                 .firstOrNull { it.id.toString() == chapterId }
                 ?.toPluginChapter()
                 ?: throw KavitaServerPluginException("Chapter $chapterId not found in series $seriesId")
+
+        // Synchronous by design — same rationale as KavitaPage.getUrl()/KavitaSerial.getCoverUrl().
+        override fun getCoverUrl(): String = kavitaChapter(token = "").buildChapterCoverUrl(chapterId)
 
         override suspend fun setRead(isRead: Boolean) {
             val chapter = kavitaChapter(ensureToken())
@@ -267,7 +274,6 @@ class KavitaServerPlugin(
 private fun KavitaSeriesDto.toPluginSerial(summary: String?, genres: List<String>, tags: List<String>) = PluginSerial(
     id = id.toString(),
     name = name,
-    coverUrl = null,
     pagesRead = pagesRead,
     totalPages = pages,
     lastUpdatedUtc = lastChapterAddedUtc,
@@ -276,6 +282,18 @@ private fun KavitaSeriesDto.toPluginSerial(summary: String?, genres: List<String
     tags = tags,
 )
 
+// Kavita's own MangaFormat enum (0=Image, 1=Archive, 2=Unknown, 3=Epub, 4=Pdf) — this table is the
+// only place that knowledge lives; PluginChapter.fileFormat is free-form text as far as :server
+// (Layer 2) is concerned, not a closed enum tied to this provider.
+private fun Int.toPluginFileFormat(): String? = when (this) {
+    0 -> "image"
+    1 -> "archive"
+    2 -> "unknown"
+    3 -> "epub"
+    4 -> "pdf"
+    else -> null
+}
+
 private fun KavitaChapterDto.toPluginChapter() = PluginChapter(
     id = id.toString(),
     title = title,
@@ -283,4 +301,9 @@ private fun KavitaChapterDto.toPluginChapter() = PluginChapter(
     pageCount = pages,
     pagesRead = pagesRead,
     isSpecial = isSpecial,
+    decimalNumber = sortOrder,
+    specialLabel = range,
+    createdUtc = createdUtc,
+    lastReadingProgressUtc = lastReadingProgressUtc,
+    fileFormat = format.toPluginFileFormat(),
 )

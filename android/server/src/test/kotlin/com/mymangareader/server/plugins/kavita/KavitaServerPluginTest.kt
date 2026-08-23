@@ -209,6 +209,13 @@ class KavitaServerPluginTest {
     }
 
     @Test
+    fun `serial getCoverUrl builds a series cover url`() {
+        val url = plugin.serial("7").getCoverUrl()
+
+        assertEquals("$baseUrl/api/Image/series-cover?seriesId=7&apiKey=api-key-123", url)
+    }
+
+    @Test
     fun `serial get throws when series fetch fails`() = runTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
@@ -249,6 +256,68 @@ class KavitaServerPluginTest {
         val titles = plugin.serial("7").chapters.list().map { it.title }
 
         assertEquals(listOf("Ch 1", "Ch 2", "Ch 3"), titles)
+    }
+
+    @Test
+    fun `chapters list maps decimalNumber specialLabel createdUtc and fileFormat`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """[{"id":10,"seriesId":7,"chapters":[
+                    |{"id":100,"title":"Ch 1","range":"1","sortOrder":1.0,"createdUtc":"2026-01-01T00:00:00Z","format":3}
+                    |]}]""".trimMargin(),
+            ),
+        )
+
+        val chapter = plugin.serial("7").chapters.list().single()
+
+        assertEquals(1.0, chapter.decimalNumber)
+        assertEquals("1", chapter.specialLabel)
+        assertEquals("2026-01-01T00:00:00Z", chapter.createdUtc)
+        assertEquals("epub", chapter.fileFormat)
+    }
+
+    @Test
+    fun `chapters list maps every MangaFormat value`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """[{"id":10,"seriesId":7,"chapters":[
+                    |{"id":100,"format":0},
+                    |{"id":101,"format":1},
+                    |{"id":102,"format":2},
+                    |{"id":103,"format":3},
+                    |{"id":104,"format":4}
+                    |]}]""".trimMargin(),
+            ),
+        )
+
+        val formats = plugin.serial("7").chapters.list().map { it.fileFormat }
+
+        assertEquals(listOf("image", "archive", "unknown", "epub", "pdf"), formats)
+    }
+
+    @Test
+    fun `chapter get maps decimalNumber specialLabel createdUtc and fileFormat`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """[{"id":10,"seriesId":7,"chapters":[
+                    |{"id":100,"title":"Ch 1","range":"Special","sortOrder":2.5,"createdUtc":"2026-02-02T00:00:00Z","format":1}
+                    |]}]""".trimMargin(),
+            ),
+        )
+
+        val chapter = plugin.serial("7").chapter("100").get()
+
+        assertEquals(2.5, chapter.decimalNumber)
+        assertEquals("Special", chapter.specialLabel)
+        assertEquals("2026-02-02T00:00:00Z", chapter.createdUtc)
+        assertEquals("archive", chapter.fileFormat)
+    }
+
+    @Test
+    fun `chapter getCoverUrl builds a chapter cover url`() {
+        val url = plugin.serial("7").chapter("100").getCoverUrl()
+
+        assertEquals("$baseUrl/api/Image/chapter-cover?chapterId=100&apiKey=api-key-123", url)
     }
 
     @Test

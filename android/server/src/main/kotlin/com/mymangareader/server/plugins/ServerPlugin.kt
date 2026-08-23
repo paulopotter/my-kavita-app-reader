@@ -10,7 +10,6 @@ import com.mymangareader.tools.network.RequestTool
 data class PluginSerial(
     val id: String,
     val name: String,
-    val coverUrl: String?,
     val pagesRead: Int,
     val totalPages: Int,
     val lastUpdatedUtc: String?,
@@ -23,9 +22,14 @@ data class PluginChapter(
     val id: String,
     val title: String,
     val number: String?,
-    val pageCount: Int,
-    val pagesRead: Int,
-    val isSpecial: Boolean,
+    val pageCount: Int?,
+    val pagesRead: Int?,
+    val isSpecial: Boolean?,
+    val decimalNumber: Double?,
+    val specialLabel: String?,
+    val createdUtc: String?,
+    val lastReadingProgressUtc: String?,
+    val fileFormat: String?,
 )
 
 data class PluginProgress(
@@ -153,6 +157,7 @@ interface ServerPlugin {
 
     interface Serial {
         suspend fun get(): PluginSerial
+        fun getCoverUrl(): String
         val chapters: Chapters
         fun chapter(chapterId: String): Chapter
     }
@@ -164,6 +169,7 @@ interface ServerPlugin {
 
     interface Chapter {
         suspend fun get(): PluginChapter
+        fun getCoverUrl(): String
         suspend fun setRead(isRead: Boolean)
         suspend fun getProgress(): PluginProgress?
         suspend fun setProgress(pageIndex: Int)

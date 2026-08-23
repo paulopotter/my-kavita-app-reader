@@ -25,6 +25,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -129,6 +130,7 @@ private class FakePlugin(val authJson: String, var failSerialsListWith: Throwabl
 
     override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
         override suspend fun get(): PluginSerial = fakeSerial(serialId)
+        override fun getCoverUrl(): String = "$baseUrlForFake/serial-cover/$serialId"
 
         override val chapters = object : ServerPlugin.Chapters {
             override suspend fun list(): List<PluginChapter> = listOf(fakeChapter("$serialId-ch1"))
@@ -139,6 +141,7 @@ private class FakePlugin(val authJson: String, var failSerialsListWith: Throwabl
 
         override fun chapter(chapterId: String): ServerPlugin.Chapter = object : ServerPlugin.Chapter {
             override suspend fun get(): PluginChapter = fakeChapter(chapterId)
+            override fun getCoverUrl(): String = "$baseUrlForFake/chapter-cover/$chapterId"
             override suspend fun setRead(isRead: Boolean) {
                 lastSetReadSingle = chapterId to isRead
             }
@@ -160,12 +163,14 @@ private class FakePlugin(val authJson: String, var failSerialsListWith: Throwabl
     var baseUrlForFake: String = ""
 
     private fun fakeSerial(id: String) = PluginSerial(
-        id = id, name = "Serial $id", coverUrl = null, pagesRead = 0, totalPages = 0,
+        id = id, name = "Serial $id", pagesRead = 0, totalPages = 0,
         lastUpdatedUtc = null, summary = null, genres = emptyList(), tags = emptyList(),
     )
 
     private fun fakeChapter(id: String) = PluginChapter(
         id = id, title = "Chapter $id", number = null, pageCount = 1, pagesRead = 0, isSpecial = false,
+        decimalNumber = 0.0, specialLabel = null, createdUtc = null, lastReadingProgressUtc = null,
+        fileFormat = null,
     )
 }
 
@@ -500,6 +505,19 @@ class ServerTest {
     }
 
     @Test
+    fun `serial getCoverImage delegates to the active plugin`() = runTest {
+        activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+
+        val cover = server.serial("42").getCoverImage()
+
+        assertTrue(cover.url.endsWith("/serial-cover/42"))
+        assertFalse(cover.hasFetchedDimensions)
+        assertNull(cover.width)
+        assertNull(cover.height)
+    }
+
+    @Test
     fun `serial chapters list delegates to the active plugin`() = runTest {
         activateGroup()
         mockServer.enqueue(MockResponse().setResponseCode(200))
@@ -560,6 +578,19 @@ class ServerTest {
         val chapter = server.serial("42").chapter("100").get()
 
         assertEquals("100", chapter.data.id)
+    }
+
+    @Test
+    fun `chapter getCoverImage delegates to the active plugin`() = runTest {
+        activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+
+        val cover = server.serial("42").chapter("100").getCoverImage()
+
+        assertTrue(cover.url.endsWith("/chapter-cover/100"))
+        assertFalse(cover.hasFetchedDimensions)
+        assertNull(cover.width)
+        assertNull(cover.height)
     }
 
     @Test

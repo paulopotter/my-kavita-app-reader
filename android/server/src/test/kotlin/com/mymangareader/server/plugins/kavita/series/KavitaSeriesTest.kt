@@ -21,7 +21,7 @@ class KavitaSeriesTest {
         server = MockWebServer()
         server.start()
         val baseUrl = server.url("/").toString().trimEnd('/')
-        series = KavitaSeries(baseUrl, "jwt-token", RequestTool(OkHttpClient()))
+        series = KavitaSeries(baseUrl, "jwt-token", "api-key-123", RequestTool(OkHttpClient()))
     }
 
     @After
@@ -100,5 +100,14 @@ class KavitaSeriesTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
         assertFailsWith<KavitaSeriesException> { series.getSeriesMetadata("7") }
+    }
+
+    @Test
+    fun `buildSeriesCoverUrl builds a series cover url`() {
+        val baseUrl = server.url("/").toString().trimEnd('/')
+
+        val url = series.buildSeriesCoverUrl("7")
+
+        assertEquals("$baseUrl/api/Image/series-cover?seriesId=7&apiKey=api-key-123", url)
     }
 }

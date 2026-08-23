@@ -143,6 +143,54 @@ data class ServerResponse<T>(
     val resolvedAtEpochMs: Long,
 )
 
+enum class ImageOrientation { PORTRAIT, LANDSCAPE }
+
+// The one place aspectRatio/orientation/hasFetchedDimensions get computed — every caller that
+// resolves an image (Page's url+dimensions, a cover's url) builds its own ImageDescriptor through
+// this instead of re-deriving the same formula. Pure — no network, no knowledge of who's calling
+// or how many requests it took to gather url/width/height; server/resolvedAtEpochMs/cache are
+// passed in because each caller decides those differently (e.g. Page's R11 "last successful call
+// wins" logic is the caller's job, not this function's).
+data class ImageDescriptor(
+    val url: String,
+    val hasFetchedDimensions: Boolean,
+    val width: Int?,
+    val height: Int?,
+    val aspectRatio: Double?,
+    val orientation: ImageOrientation?,
+    val resolvedAtEpochMs: Long,
+    val server: ServerActiveInfo,
+    val cache: Nothing?,
+)
+
+fun buildImageDescriptor(
+    url: String,
+    width: Int?,
+    height: Int?,
+    resolvedAtEpochMs: Long,
+    server: ServerActiveInfo,
+    cache: Nothing? = null,
+): ImageDescriptor {
+    val hasFetchedDimensions = width != null && height != null && width > 0 && height > 0
+    val aspectRatio = if (hasFetchedDimensions) width!!.toDouble() / height!!.toDouble() else null
+    val orientation = when {
+        aspectRatio == null || aspectRatio == 1.0 -> null
+        aspectRatio > 1.0 -> ImageOrientation.LANDSCAPE
+        else -> ImageOrientation.PORTRAIT
+    }
+    return ImageDescriptor(
+        url = url,
+        hasFetchedDimensions = hasFetchedDimensions,
+        width = width,
+        height = height,
+        aspectRatio = aspectRatio,
+        orientation = orientation,
+        resolvedAtEpochMs = resolvedAtEpochMs,
+        server = server,
+        cache = cache,
+    )
+}
+
 /**
  * Server only ever imports [ServerPlugin]/[ServerPluginRegistration] — never a concrete plugin
  * like `KavitaServerPlugin` directly. [pluginRegistrations] is the one place that knows every
@@ -254,6 +302,17 @@ class Server @Inject constructor(
     private inner class SerialHandle(private val serialId: String) : Serial {
         override suspend fun get(): ServerResponse<PluginSerial> = withUrlRetryEnveloped { it.serial(serialId).get() }
 
+        override suspend fun getCoverImage(): ImageDescriptor {
+            val response = withUrlRetryEnveloped { it.serial(serialId).getCoverUrl() }
+            return buildImageDescriptor(
+                url = response.data,
+                width = null,
+                height = null,
+                resolvedAtEpochMs = response.resolvedAtEpochMs,
+                server = response.serverInfo,
+            )
+        }
+
         override val chapters: Chapters = object : Chapters {
             override suspend fun list(): ServerResponse<List<PluginChapter>> = withUrlRetryEnveloped { it.serial(serialId).chapters.list() }
             override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) =
@@ -265,6 +324,16 @@ class Server @Inject constructor(
 
     private inner class ChapterHandle(private val serialId: String, private val chapterId: String) : Chapter {
         override suspend fun get(): ServerResponse<PluginChapter> = withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).get() }
+        override suspend fun getCoverImage(): ImageDescriptor {
+            val response = withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).getCoverUrl() }
+            return buildImageDescriptor(
+                url = response.data,
+                width = null,
+                height = null,
+                resolvedAtEpochMs = response.resolvedAtEpochMs,
+                server = response.serverInfo,
+            )
+        }
         override suspend fun setRead(isRead: Boolean) = withUrlRetry { it.serial(serialId).chapter(chapterId).setRead(isRead) }
         override suspend fun getProgress(): ServerResponse<PluginProgress?> =
             withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).getProgress() }
@@ -450,6 +519,7 @@ class Server @Inject constructor(
 
     interface Serial {
         suspend fun get(): ServerResponse<PluginSerial>
+        suspend fun getCoverImage(): ImageDescriptor
         val chapters: Chapters
         fun chapter(chapterId: String): Chapter
     }
@@ -461,6 +531,7 @@ class Server @Inject constructor(
 
     interface Chapter {
         suspend fun get(): ServerResponse<PluginChapter>
+        suspend fun getCoverImage(): ImageDescriptor
         suspend fun setRead(isRead: Boolean)
         suspend fun getProgress(): ServerResponse<PluginProgress?>
         suspend fun setProgress(pageIndex: Int)
