@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":server"))
+    implementation(project(":tools"))
 
     implementation(libs.kotlinx.coroutines.android)
 
