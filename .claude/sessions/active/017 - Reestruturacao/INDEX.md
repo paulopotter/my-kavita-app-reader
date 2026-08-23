@@ -29,7 +29,7 @@ changelog entry by hand.
 | [014](014-plugin-manager-module.md) | 2 — Contracts | Plugin manager module design | done (design only, no reference implementation yet) |
 | [015](015-cache-guideline.md) | 3 — Cache guideline | Local cache guideline (Room vs. memory, who orchestrates cache→network) | done |
 | [016](016-relocate-kavita-plugin.md) | 4 — Implementation | Relocate the raw Kavita plugin to `Server/plugins/kavita/` (pure repositioning) | done (diverged from plan — see task file's Result section) |
-| [017](017-server-module-implementation.md) | 4 — Implementation | Implement the `Server` module for real (routing + `KavitaAdapter`, no cache yet) | doing — `ServerPlugin` interface + `KavitaAdapter` (`KavitaServerPlugin`) done; `Server` facade/routing + URL resolution still pending |
+| [017](017-server-module-implementation.md) | 4 — Implementation | Implement the `Server` module for real (routing + `KavitaAdapter`, no cache yet) | done (RN bridge included; `KavitaUrlSelector` absorption deferred to 021/024-028 — see task file's Result) |
 | [018](018-contract-page-implementation.md) | 4 — Implementation | Contract — Page implementation (idiomatic Kotlin `PageContract`/`PageResult`) | todo (blocked by 017) |
 | [019](019-contract-chapter-implementation.md) | 4 — Implementation | Contract — Chapter implementation (`ChapterContract`/`ChapterResult`/`ChapterNeighborContract`) | todo (blocked by 018) |
 | [020](020-contract-series-implementation.md) | 4 — Implementation | Contract — Series implementation (`SeriesContract`/`SeriesResult`) | todo (blocked by 019) |

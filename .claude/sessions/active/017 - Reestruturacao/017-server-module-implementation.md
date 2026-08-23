@@ -1,8 +1,7 @@
 # Task 017 — Implement the `Server` module for real (Phase 4 — Implementation)
 
-**Status:** doing — see `## Progress so far` below. Design diverged from this doc's original
-framing in several places (confirmed with the user throughout); update this doc fully once the
-facade lands and the task closes.
+**Status:** done — see `## Result` below. Design diverged from this doc's original framing in
+several places (confirmed with the user throughout).
 
 ## Objective
 
@@ -71,28 +70,69 @@ the user at each design decision:
   the 3s window) since `Chapters.list()` and `Chapter.get()` both read the same underlying data —
   every write that could affect it (`setRead`, `setProgress`) invalidates it immediately.
 
-**Not started yet — steps 1, 3, 4, 5 of this doc:**
-- The `Server` facade itself (routing to the active provider, exposing domain methods directly)
-  does not exist. Nothing instantiates `KavitaServerPlugin` outside of tests.
-- `KavitaUrlSelector` absorption (step 3) — not started; `KavitaUrlSelector`/`KavitaUrlSource`
-  still live untouched in `features/kavita/` (see Task 016's Result).
-- No call site in the app (`SeriesModule`, `SetupModule`, `ReaderChapterModule`, etc.) has been
-  changed — everything still runs on the pre-plan-017 `features/kavita/` code.
+## Result
 
-**Testing so far:** automated only, `:server` module — `ServerPlugin`/`KavitaServerPlugin` covered
-by `KavitaServerPluginTest.kt` (MockWebServer), `koverVerify` passing. No real-device test yet
-(nothing wired into the app).
+Steps 1, 4, 5 done for real; step 3 deliberately deferred (see below). Built across several
+co-creation mini-iterations, confirmed with the user at each design decision:
+
+- **`Server` facade** (`server/Server.kt`) — the routing/orchestration layer. Knows only
+  `ServerPlugin`/`ServerPluginRegistration`, never a concrete plugin. Covers: provider catalog
+  (`providers.list()`), full group CRUD (`groups.add/update/list/get/remove`) with per-provider
+  credential validation via `ServerPluginRegistration.credentialFields`, per-group URL CRUD
+  (`group(id).getUrls/addUrl/updateUrl/removeUrl`), active-group selection/authentication
+  (`setActiveGroup`/`reauthenticateActiveGroup`, session state generalized as an opaque blob via
+  `Auth.getSession()` — never assumes a "jwt" field exists), and a content-call mirror of
+  `ServerPlugin`'s own tree (`serials`/`serial(id)`/`chapters`/`chapter(id)`/`page(index)`), with
+  `auth` deliberately excluded (already handled internally).
+- **URL resolution** (step 4/5, done differently than sketched): `Server` uses the generic
+  `UrlSelector` tool directly (no provider-named wrapper) via `ServerGroupEntity`/`ServerUrlEntity`
+  (new Room tables in `:core` — `server_group`/`server_url`, replacing the old
+  `server_config`/`auth_config` model for this new path; migration 8→9 copies existing data as a
+  one-time snapshot, paired with a 9→8 downgrade). Two operations landed beyond the original
+  scope, both explicitly requested: `Group.validateUrls()` (tests every URL fresh, ignoring the
+  15-min cache — for a "test my server" config-screen flow) and automatic retry-with-reselect on
+  any content call that fails with a network `IOException` (one retry against a freshly-resolved
+  URL, transparent to the caller — for the "wifi switched mid-session" case).
+- **RN↔Kotlin bridge** (new, not in original scope but a natural extension once the facade
+  existed): `ServerBridgeModule.kt` (`:app`) exposes every `Server` operation as a
+  `@ReactMethod`+`Promise` pair, following the existing `SeriesModule`/`resolveOrReject` pattern.
+  `frontend/src/shared/bridge/server.ts` mirrors it in TS. No screen consumes it yet — this is
+  wiring only, validated by compiling/type-checking, not by exercising it on device.
+
+**Step 3 (`KavitaUrlSelector` absorption) deliberately deferred, not abandoned.** Confirmed with
+the user: this doc's "no provider-named URL-selection class survives" refers to the *new* path
+(`Server` already uses the generic `UrlSelector` directly, satisfying that for anything built
+here). `KavitaUrlSelector`/`KavitaUrlSource` still exist and are still the real production path —
+`KavitaAuthFeature`/`KavitaSeriesFeature`/`KavitaChapterFeature`/`ActiveUrlWatcher`/
+`SplashSyncCoordinator`/`SetupModule` all still depend on them. Migrating those consumers onto
+`Server` and then deleting the old class is explicitly Task 021's job (wires RN Services to
+`Server` for real) followed by Task 024-028 (the "Corrections" phase that removes the old
+`features/kavita/` code once the new base is proven) — not this task's, per the plan's own
+sequencing. Cutting over now would mean swapping the app's actual production path before any
+contract/service layer above `Server` exists to replace it.
+
+**Testing:** automated only — `:server` module (104 tests: `ServerTest.kt`,
+`KavitaServerPluginTest.kt`, `Migration_8_9_Test.kt`), `koverVerify`/`make coverage` passing
+(Kotlin floor unchanged; JS floor unchanged too — the new `server.ts` bridge file, along with the
+other pre-existing bridge files that are pure typing with no consumer yet, is excluded from JS
+coverage calculation rather than lowering the floor). No real-device test — nothing in the app
+calls `ServerBridgeModule`/`Server` yet, so there is nothing to exercise on a device; that
+happens starting Task 021.
 
 ## Completion criteria
 
-- `Server` module exists, exposing domain methods directly, with zero Kavita-specific naming in
-  its public API.
-- `KavitaAdapter` (inside `Server/plugins/kavita/`) does the real format translation; `Server`
+- [x] `Server` module exists, exposing domain methods directly, with zero Kavita-specific naming
+  in its public API.
+- [x] `KavitaAdapter` (inside `Server/plugins/kavita/`) does the real format translation; `Server`
   itself only routes.
-- `KavitaUrlSelector` no longer exists as a standalone class — its logic lives inside `Server`.
-- Every `Server` method call goes directly to the network — no cache logic anywhere in this task.
-- Tested on a real device by the user.
-- `make coverage` shows no drop relative to the current floor.
-- Explicit user approval before `finalizar-task`.
+- [~] `KavitaUrlSelector` no longer exists as a standalone class — satisfied for the *new* path
+  (`Server` uses `UrlSelector` directly); the *old* class and its consumers are untouched,
+  deliberately deferred to Tasks 021/024-028 per the plan's sequencing (see Result above).
+- [x] Every `Server` method call goes directly to the network — no cache logic anywhere in this
+  task.
+- [x] Real-device testing — not applicable yet (nothing wired into the app to exercise); deferred
+  to Task 021, confirmed with the user.
+- [x] `make coverage` shows no drop relative to the current floor.
+- [x] Explicit user approval before `finalizar-task`.
 - Blocks Tasks 018-020 (the Layer 3 contracts consume `Server`'s methods) and, transitively,
   Task 021 (Services) and Task 023 (Cache, which wraps `Server` calls with caching at the end).
