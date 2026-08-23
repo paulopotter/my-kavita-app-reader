@@ -109,6 +109,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":tools"))
     implementation(project(":features"))
+    implementation(project(":server"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)

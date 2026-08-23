@@ -28,6 +28,7 @@ import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
+import com.mymangareader.server.Server
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
@@ -57,6 +58,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     @Inject lateinit var uiPreferencesDao: UiPreferencesDao
     @Inject lateinit var seriesSortPrefsDao: SeriesSortPrefsDao
     @Inject lateinit var activeUrlWatcher: ActiveUrlWatcher
+    @Inject lateinit var server: Server
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -78,6 +80,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
                     uiPreferencesDao = uiPreferencesDao,
                     seriesSortPrefsDao = seriesSortPrefsDao,
                     activeUrlWatcher = activeUrlWatcher,
+                    server = server,
                 )
 
             override fun getJSMainModuleName(): String = "index"
