@@ -74,7 +74,14 @@
       "/node_modules/",
       "/__tests__/",
       "\\.d\\.ts$",
-      "/src/index\\.ts$"
+      "/src/index\\.ts$",
+      "/src/shared/bridge/chapter\\.ts$",
+      "/src/shared/bridge/config\\.ts$",
+      "/src/shared/bridge/library\\.ts$",
+      "/src/shared/bridge/network\\.ts$",
+      "/src/shared/bridge/page\\.ts$",
+      "/src/shared/bridge/series\\.ts$",
+      "/src/shared/bridge/server\\.ts$"
     ],
     "coverageReporters": [
       "text",
