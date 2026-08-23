@@ -151,14 +151,14 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun listSerials(promise: Promise) {
         scope.launch {
-            runCatching { server.serials.list() }.resolveOrReject(promise, "LIST_SERIALS_ERROR") { it.toSerialsWritableArray() }
+            runCatching { server.serials.list().data }.resolveOrReject(promise, "LIST_SERIALS_ERROR") { it.toSerialsWritableArray() }
         }
     }
 
     @ReactMethod
     fun getSerial(serialId: String, promise: Promise) {
         scope.launch {
-            runCatching { server.serial(serialId).get() }.resolveOrReject(promise, "GET_SERIAL_ERROR") { it.toWritableMap() }
+            runCatching { server.serial(serialId).get().data }.resolveOrReject(promise, "GET_SERIAL_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -167,7 +167,7 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun listChapters(serialId: String, promise: Promise) {
         scope.launch {
-            runCatching { server.serial(serialId).chapters.list() }
+            runCatching { server.serial(serialId).chapters.list().data }
                 .resolveOrReject(promise, "LIST_CHAPTERS_ERROR") { it.toChaptersWritableArray() }
         }
     }
@@ -184,7 +184,7 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun getChapter(serialId: String, chapterId: String, promise: Promise) {
         scope.launch {
-            runCatching { server.serial(serialId).chapter(chapterId).get() }
+            runCatching { server.serial(serialId).chapter(chapterId).get().data }
                 .resolveOrReject(promise, "GET_CHAPTER_ERROR") { it.toWritableMap() }
         }
     }
@@ -200,7 +200,7 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun getChapterProgress(serialId: String, chapterId: String, promise: Promise) {
         scope.launch {
-            runCatching { server.serial(serialId).chapter(chapterId).getProgress() }
+            runCatching { server.serial(serialId).chapter(chapterId).getProgress().data }
                 .resolveOrReject(promise, "GET_CHAPTER_PROGRESS_ERROR") { it?.toWritableMap() }
         }
     }
@@ -218,7 +218,7 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun getPageDimensions(serialId: String, chapterId: String, pageIndex: Int, promise: Promise) {
         scope.launch {
-            runCatching { server.serial(serialId).chapter(chapterId).page(pageIndex).getDimensions() }
+            runCatching { server.serial(serialId).chapter(chapterId).page(pageIndex).getDimensions().data }
                 .resolveOrReject(promise, "GET_PAGE_DIMENSIONS_ERROR") { it.toWritableMap() }
         }
     }
@@ -226,7 +226,7 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun getPageUrl(serialId: String, chapterId: String, pageIndex: Int, promise: Promise) {
         scope.launch {
-            runCatching { server.serial(serialId).chapter(chapterId).page(pageIndex).getUrl() }
+            runCatching { server.serial(serialId).chapter(chapterId).page(pageIndex).getUrl().data }
                 .resolveOrReject(promise, "GET_PAGE_URL_ERROR")
         }
     }

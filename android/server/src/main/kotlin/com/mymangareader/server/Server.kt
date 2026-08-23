@@ -117,6 +117,32 @@ data class NewServerUrl(
     val priority: Int,
 )
 
+// ServerGroupInfo + ServerUrlInfo's fields, flattened side by side — deliberately excludes
+// credentialsJson (secret) AND healthCheckPath (pure config-time infra detail, not something a
+// caller asking "which server answered this" needs). Not a nested { group, activeUrl } shape —
+// callers wanting "which server, without secrets" get one flat object, per the user's own call.
+data class ServerActiveInfo(
+    val groupId: String,
+    val groupName: String,
+    val providerId: String,
+    val urlId: String,
+    val url: String,
+    val timeoutMs: Int,
+    val priority: Int,
+)
+
+// Envelope every READ content method (serials.list, serial().get, chapters.list, chapter().get,
+// chapter().getProgress, page().getDimensions, page().getUrl) returns — [serverInfo] is never a
+// re-resolved "current" value, it's the exact group+URL resolvePlugin used to produce THIS
+// [data], captured at the moment of that specific resolution (see buildActiveInfo below) — no
+// possible race with a later group/URL switch. Write methods (setRead, setProgress, ...) keep
+// returning Unit — there's no "data" to attach provenance to.
+data class ServerResponse<T>(
+    val data: T,
+    val serverInfo: ServerActiveInfo,
+    val resolvedAtEpochMs: Long,
+)
+
 /**
  * Server only ever imports [ServerPlugin]/[ServerPluginRegistration] — never a concrete plugin
  * like `KavitaServerPlugin` directly. [pluginRegistrations] is the one place that knows every
@@ -146,6 +172,16 @@ class Server @Inject constructor(
     // no session concept simply never has an entry here — that's a normal, permanent state, not
     // a missing one. Guarded by the same activeMutex as everything else touching activeGroupId.
     private val sessionByGroupId = mutableMapOf<String, String>()
+
+    // The ServerActiveInfo resolvePlugin built the last time it ran for this group, for ANY
+    // reason (setActiveGroup/reauthenticateActiveGroup authenticating, a content call resolving
+    // its plugin, or a withUrlRetry-triggered re-selection) — already fully assembled there
+    // (buildActiveInfo), never re-resolved/re-fetched afterward. This always reflects the group+
+    // URL Server itself actually used last, never a fresh/independent re-check (that's what
+    // group(id).validateUrls() is for). A group with no entry here yet has never been resolved at
+    // all in this process — group(id).getActive()/getActive()/getActiveInfo() return null only in
+    // that case, never throw. Guarded by the same activeMutex as everything else here.
+    private val lastActiveInfoByGroupId = mutableMapOf<String, ServerActiveInfo>()
 
     val providers: Providers = object : Providers {
         override fun list(): List<ProviderInfo> = pluginRegistrations.values.map { it.toInfo() }
@@ -210,16 +246,16 @@ class Server @Inject constructor(
     // dead URL (e.g. a LAN IP that stopped answering after a wifi switch) gets replaced
     // transparently instead of failing the call outright.
     val serials: Serials = object : Serials {
-        override suspend fun list(): List<PluginSerial> = withUrlRetry { it.serials.list() }
+        override suspend fun list(): ServerResponse<List<PluginSerial>> = withUrlRetryEnveloped { it.serials.list() }
     }
 
     fun serial(serialId: String): Serial = SerialHandle(serialId)
 
     private inner class SerialHandle(private val serialId: String) : Serial {
-        override suspend fun get(): PluginSerial = withUrlRetry { it.serial(serialId).get() }
+        override suspend fun get(): ServerResponse<PluginSerial> = withUrlRetryEnveloped { it.serial(serialId).get() }
 
         override val chapters: Chapters = object : Chapters {
-            override suspend fun list(): List<PluginChapter> = withUrlRetry { it.serial(serialId).chapters.list() }
+            override suspend fun list(): ServerResponse<List<PluginChapter>> = withUrlRetryEnveloped { it.serial(serialId).chapters.list() }
             override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) =
                 withUrlRetry { it.serial(serialId).chapters.setRead(isRead, chapterIds) }
         }
@@ -228,9 +264,10 @@ class Server @Inject constructor(
     }
 
     private inner class ChapterHandle(private val serialId: String, private val chapterId: String) : Chapter {
-        override suspend fun get(): PluginChapter = withUrlRetry { it.serial(serialId).chapter(chapterId).get() }
+        override suspend fun get(): ServerResponse<PluginChapter> = withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).get() }
         override suspend fun setRead(isRead: Boolean) = withUrlRetry { it.serial(serialId).chapter(chapterId).setRead(isRead) }
-        override suspend fun getProgress(): PluginProgress? = withUrlRetry { it.serial(serialId).chapter(chapterId).getProgress() }
+        override suspend fun getProgress(): ServerResponse<PluginProgress?> =
+            withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).getProgress() }
         override suspend fun setProgress(pageIndex: Int) = withUrlRetry { it.serial(serialId).chapter(chapterId).setProgress(pageIndex) }
 
         override fun page(pageIndex: Int): Page = PageHandle(serialId, chapterId, pageIndex)
@@ -241,11 +278,11 @@ class Server @Inject constructor(
         private val chapterId: String,
         private val pageIndex: Int,
     ) : Page {
-        override suspend fun getDimensions(): PluginPageDimension =
-            withUrlRetry { it.serial(serialId).chapter(chapterId).page(pageIndex).getDimensions() }
+        override suspend fun getDimensions(): ServerResponse<PluginPageDimension> =
+            withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).page(pageIndex).getDimensions() }
 
-        override suspend fun getUrl(): String =
-            withUrlRetry { it.serial(serialId).chapter(chapterId).page(pageIndex).getUrl() }
+        override suspend fun getUrl(): ServerResponse<String> =
+            withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).page(pageIndex).getUrl() }
     }
 
     // Runs one content call against the active group's plugin; if it fails with a network error
@@ -254,7 +291,8 @@ class Server @Inject constructor(
     // fresh URL selection (ignoring the 15-minute cache) and retries the same call exactly once
     // against a freshly-built plugin. A second network failure is not retried again — it
     // propagates, since two dead URLs in a row means the group itself is unreachable right now,
-    // not that the wrong URL was picked.
+    // not that the wrong URL was picked. Used directly by WRITE methods (no data to envelope);
+    // READ methods use withUrlRetryEnveloped below instead.
     private suspend fun <T> withUrlRetry(action: suspend (ServerPlugin) -> T): T {
         val groupId = activeGroupId ?: throw ServerException("No active server group set — call setActiveGroup(id) first")
         return try {
@@ -262,6 +300,19 @@ class Server @Inject constructor(
         } catch (e: IOException) {
             action(getActiveContent(forceUrlReselect = true, groupId = groupId))
         }
+    }
+
+    // Same retry behavior as withUrlRetry, but for READ methods: wraps the result in a
+    // ServerResponse using lastActiveInfoByGroupId[activeGroupId] — which resolvePlugin (called
+    // internally by getActiveContent, on either the first attempt or the retry) has *always*
+    // already written to by the time action() returns successfully, so this is never stale or
+    // racing against a later call: it's exactly the group+URL that produced this specific [data].
+    private suspend fun <T> withUrlRetryEnveloped(action: suspend (ServerPlugin) -> T): ServerResponse<T> {
+        val data = withUrlRetry(action)
+        val groupId = activeGroupId ?: throw ServerException("No active server group set — call setActiveGroup(id) first")
+        val serverInfo = activeMutex.withLock { lastActiveInfoByGroupId[groupId] }
+            ?: throw ServerException("No resolution recorded for group $groupId after a successful content call — this should be unreachable")
+        return ServerResponse(data = data, serverInfo = serverInfo, resolvedAtEpochMs = System.currentTimeMillis())
     }
 
     interface Group {
@@ -276,6 +327,14 @@ class Server @Inject constructor(
         // screen means "check right now," not "trust what I last knew." Throws ServerException
         // if none responded.
         suspend fun validateUrls(): ServerUrlInfo
+
+        // The ServerUrlInfo that actually won selection the last time this group's plugin was
+        // resolved for ANY reason (see resolvePlugin) — setActiveGroup/reauthenticateActiveGroup
+        // authenticating, or a content call. Never re-runs selection or hits the network itself.
+        // null only if this group has never been resolved at all in this process (not an error)
+        // — this is the key difference from validateUrls(), which always re-checks live. Only
+        // the URL fields — for the group's own identity too, see Server.getActiveInfo().
+        suspend fun getActive(): ServerUrlInfo?
     }
 
     // Selects the active group. Same "ensure a session" shape used inside KavitaServerPlugin's
@@ -339,9 +398,33 @@ class Server @Inject constructor(
             throw ServerException("Could not resolve a healthy URL for group $groupId: ${it.message}")
         }
 
+        // Same string→entity reconciliation as Group.validateUrls() — UrlSelector only returns
+        // the winning URL string, not which ServerUrlEntity it came from, so it's looked up here
+        // by matching the trimmed URL. The resulting ServerActiveInfo is built right here, from
+        // the exact group+url this resolution just used, and recorded so group(id).getActive()/
+        // getActive()/getActiveInfo() — and every ServerResponse a content call returns — reflect
+        // precisely this resolution, never a later re-check.
+        serverUrlDao.getByGroupId(groupId).firstOrNull { it.url.trimEnd('/') == activeUrl }?.let {
+            lastActiveInfoByGroupId[groupId] = buildActiveInfo(group, it)
+        }
+
         val authJson = mergeAuthJson(group.credentialsJson, sessionJson)
         return registration.factory(requestTool, activeUrl, authJson)
     }
+
+    // Pure assembly — never resolves/fetches anything itself, just flattens the two rows it's
+    // given into the shape ServerActiveInfo promises (no credentialsJson/healthCheckPath).
+    // Shared by resolvePlugin (which already has both rows from the resolution it just ran) and
+    // getActiveInfo (which resolves them itself, for a caller with no in-flight content call).
+    private fun buildActiveInfo(group: ServerGroupEntity, url: ServerUrlEntity) = ServerActiveInfo(
+        groupId = group.id,
+        groupName = group.name,
+        providerId = group.providerId,
+        urlId = url.id,
+        url = url.url,
+        timeoutMs = url.timeoutMs,
+        priority = url.priority,
+    )
 
     private suspend fun urlCandidatesFor(groupId: String, healthCheckPath: String): List<UrlCandidate> {
         val urls = serverUrlDao.getByGroupId(groupId)
@@ -362,31 +445,31 @@ class Server @Inject constructor(
     }
 
     interface Serials {
-        suspend fun list(): List<PluginSerial>
+        suspend fun list(): ServerResponse<List<PluginSerial>>
     }
 
     interface Serial {
-        suspend fun get(): PluginSerial
+        suspend fun get(): ServerResponse<PluginSerial>
         val chapters: Chapters
         fun chapter(chapterId: String): Chapter
     }
 
     interface Chapters {
-        suspend fun list(): List<PluginChapter>
+        suspend fun list(): ServerResponse<List<PluginChapter>>
         suspend fun setRead(isRead: Boolean, chapterIds: List<String>)
     }
 
     interface Chapter {
-        suspend fun get(): PluginChapter
+        suspend fun get(): ServerResponse<PluginChapter>
         suspend fun setRead(isRead: Boolean)
-        suspend fun getProgress(): PluginProgress?
+        suspend fun getProgress(): ServerResponse<PluginProgress?>
         suspend fun setProgress(pageIndex: Int)
         fun page(pageIndex: Int): Page
     }
 
     interface Page {
-        suspend fun getDimensions(): PluginPageDimension
-        suspend fun getUrl(): String
+        suspend fun getDimensions(): ServerResponse<PluginPageDimension>
+        suspend fun getUrl(): ServerResponse<String>
     }
 
     private inner class GroupHandle(private val groupId: String) : Group {
@@ -437,6 +520,32 @@ class Server @Inject constructor(
             }
             return serverUrlDao.getByGroupId(groupId).first { it.url.trimEnd('/') == winningUrl }.toInfo()
         }
+
+        override suspend fun getActive(): ServerUrlInfo? = activeMutex.withLock {
+            lastActiveInfoByGroupId[groupId]?.let {
+                ServerUrlInfo(id = it.urlId, groupId = it.groupId, url = it.url, timeoutMs = it.timeoutMs, priority = it.priority)
+            }
+        }
+    }
+
+    // Same data as group(groupId).getActive(), but for whichever group is currently selected via
+    // setActiveGroup — no groupId needed. null when no group is active at all; once a group has
+    // been made active, setActiveGroup's own resolvePlugin call already recorded an entry, so
+    // this is only null before the very first setActiveGroup call of this process.
+    suspend fun getActive(): ServerUrlInfo? {
+        val groupId = activeGroupId ?: return null
+        return group(groupId).getActive()
+    }
+
+    // Group + active URL, flattened, credentialsJson/healthCheckPath left out — the "which
+    // server answered this, safe to expose" shape a Layer 3 domain contract (e.g. PageDigest's
+    // ServerDescriptor, Task 018+) can use as-is. Reads the already-assembled ServerActiveInfo
+    // resolvePlugin last recorded for the active group — never re-resolves anything itself. null
+    // when no group is active at all, or that group has never been resolved yet in this process
+    // (same conditions as getActive()).
+    suspend fun getActiveInfo(): ServerActiveInfo? {
+        val groupId = activeGroupId ?: return null
+        return activeMutex.withLock { lastActiveInfoByGroupId[groupId] }
     }
 }
 

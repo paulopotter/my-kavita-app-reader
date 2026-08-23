@@ -474,7 +474,19 @@ class ServerTest {
 
         val serials = server.serials.list()
 
-        assertEquals(listOf("1"), serials.map { it.id })
+        assertEquals(listOf("1"), serials.data.map { it.id })
+    }
+
+    @Test
+    fun `serials list envelope carries the group and url that answered it`() = runTest {
+        val groupId = activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+
+        val serials = server.serials.list()
+
+        assertEquals(groupId, serials.serverInfo.groupId)
+        assertEquals(baseUrl, serials.serverInfo.url)
+        assertTrue(serials.resolvedAtEpochMs > 0)
     }
 
     @Test
@@ -484,7 +496,7 @@ class ServerTest {
 
         val serial = server.serial("42").get()
 
-        assertEquals("42", serial.id)
+        assertEquals("42", serial.data.id)
     }
 
     @Test
@@ -494,7 +506,7 @@ class ServerTest {
 
         val chapters = server.serial("42").chapters.list()
 
-        assertEquals(listOf("42-ch1"), chapters.map { it.id })
+        assertEquals(listOf("42-ch1"), chapters.data.map { it.id })
     }
 
     // getActiveContent() builds a fresh FakePlugin instance on every call, so asserting on
@@ -547,7 +559,7 @@ class ServerTest {
 
         val chapter = server.serial("42").chapter("100").get()
 
-        assertEquals("100", chapter.id)
+        assertEquals("100", chapter.data.id)
     }
 
     @Test
@@ -566,7 +578,7 @@ class ServerTest {
 
         val progress = server.serial("42").chapter("100").getProgress()
 
-        assertEquals(3, progress?.pageIndex)
+        assertEquals(3, progress.data?.pageIndex)
     }
 
     @Test
@@ -585,8 +597,8 @@ class ServerTest {
 
         val dimension = server.serial("42").chapter("100").page(1).getDimensions()
 
-        assertEquals(800, dimension.width)
-        assertEquals(1200, dimension.height)
+        assertEquals(800, dimension.data.width)
+        assertEquals(1200, dimension.data.height)
     }
 
     @Test
@@ -596,7 +608,18 @@ class ServerTest {
 
         val url = server.serial("42").chapter("100").page(1).getUrl()
 
-        assertTrue(url.endsWith("/page/100/1"))
+        assertTrue(url.data.endsWith("/page/100/1"))
+    }
+
+    @Test
+    fun `page getDimensions envelope carries the group and url that answered it`() = runTest {
+        val groupId = activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+
+        val dimension = server.serial("42").chapter("100").page(1).getDimensions()
+
+        assertEquals(groupId, dimension.serverInfo.groupId)
+        assertEquals(baseUrl, dimension.serverInfo.url)
     }
 
     // ── network retry (withUrlRetry) ────────────────────────────────────────
@@ -632,7 +655,7 @@ class ServerTest {
         failNextServalsListCall = true
         val serials = retryServer.serials.list()
 
-        assertEquals(listOf("1"), serials.map { it.id })
+        assertEquals(listOf("1"), serials.data.map { it.id })
         assertEquals(1, urlSelector.invalidateAndReselectCalls)
     }
 
@@ -691,5 +714,139 @@ class ServerTest {
         val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
 
         assertFailsWith<ServerException> { server.group(group.id).validateUrls() }
+    }
+
+    // ── group.getActive / Server.getActive ──────────────────────────────────
+
+    @Test
+    fun `group getActive returns null before this group has ever been resolved`() = runTest {
+        val groupId = addHealthyGroup()
+
+        // addHealthyGroup only adds the group+url rows — it never calls setActiveGroup or any
+        // content method, so resolvePlugin has never run for this group yet.
+        assertNull(server.group(groupId).getActive())
+    }
+
+    @Test
+    fun `group getActive reflects the url setActiveGroup itself resolved, even with no content call yet`() = runTest {
+        val groupId = activateGroup()
+
+        // activateGroup() only calls setActiveGroup — resolvePlugin already ran once to
+        // authenticate, so getActive() must already report that resolution, not null.
+        val active = server.group(groupId).getActive()
+        assertEquals(baseUrl, active?.url)
+    }
+
+    @Test
+    fun `group getActive reflects the url a later content call resolved, updating the earlier record`() = runTest {
+        val groupId = activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+
+        server.serials.list()
+
+        val active = server.group(groupId).getActive()
+        assertEquals(baseUrl, active?.url)
+    }
+
+    @Test
+    fun `group getActive never hits the network itself, unlike validateUrls`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl)
+        val activeServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+        val group = activeServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+        activeServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // setActiveGroup's health check
+        activeServer.setActiveGroup(group.id)
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // serials.list()'s health check
+        activeServer.serials.list()
+        val callsAfterOneContentCall = urlSelector.getActiveUrlCalls + urlSelector.invalidateAndReselectCalls
+
+        activeServer.group(group.id).getActive()
+
+        assertEquals(callsAfterOneContentCall, urlSelector.getActiveUrlCalls + urlSelector.invalidateAndReselectCalls)
+    }
+
+    @Test
+    fun `group getActive reflects the retry's final winning url, not the one that failed`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl)
+        var failNextServalsListCall = false
+        val retryServer = Server(
+            groupDao,
+            urlDao,
+            mapOf(
+                "fake" to fakeRegistration(
+                    onFactory = { _, _, _, plugin ->
+                        if (failNextServalsListCall) {
+                            plugin.failSerialsListWith = IOException("connection refused")
+                            failNextServalsListCall = false
+                        }
+                    },
+                ),
+            ),
+            urlSelector,
+            RequestTool(OkHttpClient()),
+        )
+        val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+        retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+        retryServer.setActiveGroup(group.id)
+
+        failNextServalsListCall = true
+        retryServer.serials.list()
+
+        // the retry's force-reselect still resolves to the same baseUrl (only one URL configured
+        // in this test) — what matters is that getActive() reflects the id resolvePlugin recorded
+        // on that final, successful resolution, not a stale/failed one.
+        val active = retryServer.group(group.id).getActive()
+        assertEquals(baseUrl, active?.url)
+    }
+
+    @Test
+    fun `Server getActive returns null when no group is active`() = runTest {
+        assertNull(server.getActive())
+    }
+
+    @Test
+    fun `Server getActive reflects the url setActiveGroup itself resolved, even with no content call yet`() = runTest {
+        activateGroup()
+
+        assertEquals(baseUrl, server.getActive()?.url)
+    }
+
+    @Test
+    fun `Server getActive delegates to the active group's getActive`() = runTest {
+        activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+
+        server.serials.list()
+
+        assertEquals(baseUrl, server.getActive()?.url)
+    }
+
+    // ── Server.getActiveInfo ─────────────────────────────────────────────────
+
+    @Test
+    fun `getActiveInfo returns null when no group is active`() = runTest {
+        assertNull(server.getActiveInfo())
+    }
+
+    @Test
+    fun `getActiveInfo combines the group and its active url, flattened, without credentialsJson or healthCheckPath`() = runTest {
+        val groupId = activateGroup()
+
+        val info = server.getActiveInfo()
+
+        assertEquals(groupId, info?.groupId)
+        assertEquals("My Server", info?.groupName)
+        assertEquals("fake", info?.providerId)
+        assertEquals(baseUrl, info?.url)
+    }
+
+    @Test
+    fun `getActiveInfo reflects a later content call's resolution, not just setActiveGroup's`() = runTest {
+        activateGroup()
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+
+        server.serials.list()
+
+        assertEquals(baseUrl, server.getActiveInfo()?.url)
     }
 }
