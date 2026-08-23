@@ -31,7 +31,7 @@ changelog entry by hand.
 | [016](016-relocate-kavita-plugin.md) | 4 — Implementation | Relocate the raw Kavita plugin to `Server/plugins/kavita/` (pure repositioning) | done (diverged from plan — see task file's Result section) |
 | [017](017-server-module-implementation.md) | 4 — Implementation | Implement the `Server` module for real (routing + `KavitaAdapter`, no cache yet) | done (RN bridge included; `KavitaUrlSelector` absorption deferred to 021/024-028 — see task file's Result) |
 | [018](018-contract-page-implementation.md) | 4 — Implementation | Contract — Page implementation (idiomatic Kotlin `PageContract`/`PageResult`) | done (grew into `:server` additions — `ServerResponse<T>`, `getActiveInfo()` — see task file's Result) |
-| [019](019-contract-chapter-implementation.md) | 4 — Implementation | Contract — Chapter implementation (`ChapterContract`/`ChapterResult`/`ChapterNeighborContract`) | todo (blocked by 018) |
+| [019](019-contract-chapter-implementation.md) | 4 — Implementation | Contract — Chapter implementation (`ChapterContract`/`ChapterResult`/`ChapterNeighborContract`) | done (`ChapterDigest`/`ChapterFields`/`ChapterNeighborDigest`, same idiom as Task 018 — see task file's Result) |
 | [020](020-contract-series-implementation.md) | 4 — Implementation | Contract — Series implementation (`SeriesContract`/`SeriesResult`) | todo (blocked by 019) |
 | [021](021-rn-services-implementation.md) | 4 — Implementation | RN Services (Page/Chapter/Series) — real network flow, no cache yet | todo (blocked by 020) |
 | [022](022-external-metadata-module.md) | 4 — Implementation | `ExternalMetadata`/BFF module implementation (own module, per Task 012) | todo (blocked by 017; scope decided at implementation time) |
