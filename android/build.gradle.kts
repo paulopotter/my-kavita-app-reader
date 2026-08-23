@@ -13,7 +13,7 @@ plugins {
 kover {
     merge {
         subprojects {
-            it.name in listOf("core", "tools", "features", "server")
+            it.name in listOf("core", "tools", "features", "server", "content-digest")
         }
     }
     reports {
@@ -42,14 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=62 — bump this value whenever coverage improves (never lower it).
-            // Was 60. Added tests for the immersive-mode/per-app-language/series-detail-cache
-            // work (ScreenControlModule, ConfigRepository, KavitaSeriesFeature) — koverVerify's
-            // own measured value is ~62.52%.
+            // COVERAGE_FLOOR_KOTLIN=71 — bump this value whenever coverage improves (never lower it).
+            // Was 62. Task 018 added :content-digest (new module, merged into this group) plus
+            // new Server.getActiveInfo()/ServerResponse<T> tests — koverVerify's own measured
+            // value is ~72.15%, floor set slightly below to leave headroom.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 62
+                        minValue = 71
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
