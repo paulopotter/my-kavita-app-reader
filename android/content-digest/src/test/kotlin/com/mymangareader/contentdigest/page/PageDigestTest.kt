@@ -14,6 +14,7 @@ import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
 import com.mymangareader.server.plugins.PluginSerial
+import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.ActiveUrlSelector
@@ -79,8 +80,16 @@ private class FakePlugin(
     }
 
     override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
-        override suspend fun get(): PluginSerial =
-            PluginSerial(id = serialId, name = "S", pagesRead = 0, totalPages = 0, lastUpdatedUtc = null, summary = null, genres = emptyList(), tags = emptyList())
+        override suspend fun get(): PluginSerial = PluginSerial(
+            id = serialId, name = "S", pagesRead = 0, totalPages = 0,
+            libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
+            latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
+            aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
+        )
+        override suspend fun getMetadata(): PluginSeriesMetadata = PluginSeriesMetadata(
+            description = null, genres = emptyList(), tags = emptyList(),
+            publicationStatus = null, ageRating = null, releaseYear = null, language = null,
+        )
         override fun getCoverUrl(): String = "http://fake/serial-cover/$serialId"
 
         override val chapters = object : ServerPlugin.Chapters {

@@ -13,6 +13,7 @@ import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
 import com.mymangareader.server.plugins.PluginSerial
+import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.ActiveUrlSelector
@@ -69,6 +70,7 @@ private class FakePlugin(
     var dimensionsForPage: (Int) -> Result<PluginPageDimension> = { Result.success(PluginPageDimension(width = 800, height = 1200)) },
     var urlForPage: (Int) -> Result<String> = { pageIndex -> Result.success("http://fake/page/$pageIndex") },
 ) : ServerPlugin {
+    var chapterGetCallCount = 0
     override val id = "fake"
     override val displayName = "Fake"
     override val version = "0.0.0"
@@ -86,8 +88,16 @@ private class FakePlugin(
     }
 
     override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
-        override suspend fun get(): PluginSerial =
-            PluginSerial(id = serialId, name = "S", pagesRead = 0, totalPages = 0, lastUpdatedUtc = null, summary = null, genres = emptyList(), tags = emptyList())
+        override suspend fun get(): PluginSerial = PluginSerial(
+            id = serialId, name = "S", pagesRead = 0, totalPages = 0,
+            libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
+            latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
+            aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
+        )
+        override suspend fun getMetadata(): PluginSeriesMetadata = PluginSeriesMetadata(
+            description = null, genres = emptyList(), tags = emptyList(),
+            publicationStatus = null, ageRating = null, releaseYear = null, language = null,
+        )
         override fun getCoverUrl(): String = "http://fake/serial-cover/$serialId"
 
         override val chapters = object : ServerPlugin.Chapters {
@@ -96,7 +106,10 @@ private class FakePlugin(
         }
 
         override fun chapter(chapterId: String): ServerPlugin.Chapter = object : ServerPlugin.Chapter {
-            override suspend fun get(): PluginChapter = chapterResult.getOrThrow()
+            override suspend fun get(): PluginChapter {
+                chapterGetCallCount++
+                return chapterResult.getOrThrow()
+            }
             override fun getCoverUrl(): String = "http://fake/chapter-cover/$chapterId"
             override suspend fun setRead(isRead: Boolean) = Unit
             override suspend fun getProgress(): PluginProgress? = progressResult.getOrThrow()
@@ -464,6 +477,52 @@ class ChapterDigestTest {
         assertEquals(neighbor, digest.prevChapter)
         assertEquals(neighbor, digest.nextChapter)
         assertEquals(neighborDigest.id, (digest.prevChapter as ChapterNeighborDigest.Success).id)
+    }
+
+    // ── knownChapter (Series-supplied PluginChapter) ────────────────────
+
+    @Test
+    fun `a complete knownChapter skips chapter get entirely`() = runTest {
+        activateGroup()
+        val known = baseChapter()
+
+        val digest = buildChapterDigest(server, "s1", "c1", knownChapter = known) as ChapterDigest.Success
+
+        assertEquals(0, plugin.chapterGetCallCount)
+        assertEquals(known.id, digest.id)
+        assertEquals(known.title, digest.title)
+    }
+
+    @Test
+    fun `an incomplete knownChapter (one field missing) falls back to chapter get entirely`() = runTest {
+        activateGroup()
+        val incomplete = baseChapter(fileFormat = null)
+
+        val digest = buildChapterDigest(server, "s1", "c1", knownChapter = incomplete) as ChapterDigest.Success
+
+        assertEquals(1, plugin.chapterGetCallCount)
+        // the real chapter.get() result wins entirely — not a partial merge with `incomplete`
+        assertEquals("archive", digest.pages.fileFormat)
+    }
+
+    @Test
+    fun `no knownChapter always calls chapter get, same as before`() = runTest {
+        activateGroup()
+
+        buildChapterDigest(server, "s1", "c1")
+
+        assertEquals(1, plugin.chapterGetCallCount)
+    }
+
+    @Test
+    fun `server and resolvedAtEpochMs come from getCoverImage when chapter get was skipped`() = runTest {
+        activateGroup()
+        val known = baseChapter()
+
+        val digest = buildChapterDigest(server, "s1", "c1", knownChapter = known) as ChapterDigest.Success
+
+        assertTrue(digest.resolvedAtEpochMs > 0)
+        assertEquals(baseUrl, digest.server.url)
     }
 
     @Test

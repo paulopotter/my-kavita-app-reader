@@ -101,30 +101,55 @@ sealed interface ChapterNeighborDigest {
     data class Failure(val error: ErrorDigest) : ChapterNeighborDigest
 }
 
-// Assembly order (R11): chapter.get() first — vital, its failure makes the whole result a
-// Failure. getProgress() second — tolerated failure (caught, resumePoint stays null, doesn't
-// escalate). server/resolvedAtEpochMs are overwritten after each call that actually succeeds —
-// they end up reflecting whichever of THIS chapter's own calls succeeded last; pages.list's own
-// per-page calls never touch these fields (each PageDigest carries its own server/resolvedAtEpochMs).
+// A PluginChapter Series already fetched (from its own chapters.list() call) — used to skip a
+// redundant chapter.get() call, but ONLY when it's genuinely complete for what buildChapterDigest
+// itself needs. This is a completeness check, not a fallback/merge: if even one field
+// buildChapterDigest reads is missing, the passed-in value is discarded entirely and get() runs
+// from scratch — never a partial merge between the two sources.
+internal fun PluginChapter.isCompleteForChapterDigest(): Boolean =
+    decimalNumber != null && specialLabel != null && isSpecial != null && createdUtc != null &&
+        lastReadingProgressUtc != null && fileFormat != null && pageCount != null && pagesRead != null
+
+// Assembly order (R11): chapter.get() first (unless skipped — see isCompleteForChapterDigest
+// above) — vital when it does run, its failure makes the whole result a Failure. getProgress()
+// second — tolerated failure (caught, resumePoint stays null, doesn't escalate). server/
+// resolvedAtEpochMs are overwritten after each call that actually succeeds — they end up
+// reflecting whichever of THIS chapter's own calls succeeded last; pages.list's own per-page
+// calls never touch these fields (each PageDigest carries its own server/resolvedAtEpochMs). If
+// get() is skipped, server/resolvedAtEpochMs simply have no value yet until the next call
+// (getCoverImage, which always runs) sets them — same idiom PageDigest already uses.
 suspend fun buildChapterDigest(
     server: Server,
     seriesId: String,
     chapterId: String,
+    knownChapter: PluginChapter? = null,
     prevChapter: ChapterNeighborDigest? = null,
     nextChapter: ChapterNeighborDigest? = null,
 ): ChapterDigest {
-    var serverInfo: ServerActiveInfo
-    var resolvedAtEpochMs: Long
+    var serverInfo: ServerActiveInfo? = null
+    var resolvedAtEpochMs: Long? = null
 
     val summary: ChapterSummary
     val plugin: PluginChapter
     try {
-        val chapterResponse = server.serial(seriesId).chapter(chapterId).get()
-        serverInfo = chapterResponse.serverInfo
-        resolvedAtEpochMs = chapterResponse.resolvedAtEpochMs
-        plugin = chapterResponse.data
+        if (knownChapter != null && knownChapter.isCompleteForChapterDigest()) {
+            plugin = knownChapter
+        } else {
+            val chapterResponse = server.serial(seriesId).chapter(chapterId).get()
+            serverInfo = chapterResponse.serverInfo
+            resolvedAtEpochMs = chapterResponse.resolvedAtEpochMs
+            plugin = chapterResponse.data
+        }
 
         val coverImage = server.serial(seriesId).chapter(chapterId).getCoverImage()
+        // getCoverImage() never fails on its own (no network call — see :server's README), but
+        // it only gets to set server/resolvedAtEpochMs when get() didn't already (i.e. get() was
+        // skipped via knownChapter) — otherwise get()'s own envelope is the one R11 cares about
+        // at this point, same as before knownChapter existed.
+        if (serverInfo == null) {
+            serverInfo = coverImage.server
+            resolvedAtEpochMs = coverImage.resolvedAtEpochMs
+        }
 
         val number = plugin.decimalNumber?.let { decimal ->
             val whole = decimal.toInt()
@@ -141,8 +166,8 @@ suspend fun buildChapterDigest(
             title = plugin.title,
             createdUtc = plugin.createdUtc,
             coverImage = coverImage,
-            resolvedAtEpochMs = resolvedAtEpochMs,
-            server = serverInfo,
+            resolvedAtEpochMs = resolvedAtEpochMs!!,
+            server = serverInfo!!,
         )
     } catch (e: Exception) {
         return ChapterDigest.Failure(e.toErrorDigest())
