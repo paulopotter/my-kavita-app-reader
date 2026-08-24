@@ -47,3 +47,4 @@ changelog entry by hand.
 | [032](032-claude-md-contract-rule.md) | 7 — Safeguards | CLAUDE.md contract-change rule with concrete examples (was Task 004) | todo |
 | [033](033-architectural-compliance-skill.md) | 7 — Safeguards | Architectural compliance skill/agent | todo (blocked by 032) |
 | [034](034-changelog-skill-origin-tag.md) | 7 — Safeguards | `atualizar-changelog` skill — use `<origin-tag>..HEAD` diff as cross-check | todo |
+| [035](035-fix-config-setup-session-auth.md) | 5 — Corrections | Correction — Config/Setup session & auth (401 on Library/Following, migrate to `:server`/`ServerService`) | todo (blocked by 017; related to 021 but not blocked by it) |

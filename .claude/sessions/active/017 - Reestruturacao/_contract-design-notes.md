@@ -996,6 +996,139 @@ short hard rule.
 onto this pattern) and any future domain needing cache, which should reuse `Cache`/`CacheManager`
 rather than inventing its own ad-hoc mechanism.
 
+## Task 021 — RN Services layer: namespace convention, file naming, read/write split, object args, `bound()`
+
+**Date:** 2026-08-24 (Task 021 mini-iteration — long session, several intermediate designs
+superseded; this entry reflects only the final state actually implemented)
+
+**File/folder naming convention, project-wide from now on (not Task-021-specific):**
+`nome.type.ext` (e.g. `pages.services.ts`, `pages.tests.ts`), folders/files always plural even
+when a domain's real operations are singular-only (e.g. `pages/pages.services.ts`, not
+`page/page.services.ts`). Tests live beside the file they test, not in `__tests__/` — that older
+pattern stays untouched on the 37 existing files (no retroactive migration), applies only to new
+code from this task onward. `index.ts` never contains logic, only re-export
+(`export * from './x.services'`) — enforced by convention, and excluded from coverage
+(`coveragePathIgnorePatterns` generalized from `/src/index\.ts$` to `/index\.ts$` in
+`frontend/package.json`). Jest's `testMatch` was extended (not replaced) to recognize
+`*.tests.ts` alongside the pre-existing `__tests__/*.test.ts`.
+
+**Namespace convention: plural = batch operation, singular = single-item operation, both can
+live in the same file.** A domain's folder/file is always plural
+(`serials/serials.services.ts`), but it exports two separate consts when both shapes of
+operation exist: the plural const (`SerialsService`) holds only batch operations (`list`), the
+singular const (`SerialService`) holds only single-item operations (`get`/`getFull`/...). A
+domain with no batch operation today only exports the singular const — no empty plural namespace
+is created speculatively (e.g. `pages/pages.services.ts` only exports `PageService`, since there
+is no batch page-fetch operation on the bridge yet).
+
+**Every exported namespace name ends in `Service`.** `PageService`, `ChapterService`,
+`SerialService`/`SerialsService`, `ServerService`/`ServersService` — final correction after
+iterating on bare names (`Server` alone was flagged as a possible future collision with the
+Kotlin `Server` class from `:server`). Folders/files stay bare (`services/pages/`, not
+`services/page-service/`) — only the exported const carries the suffix.
+
+**Every method that takes more than zero arguments takes exactly one named-argument object —
+never positional parameters.** E.g. `ChapterService.get({ seriesId, chapterId })`,
+`ServerService.group.update({ groupId, name?, credentialsJson?, healthCheckPath? })`. Decided
+specifically so `Methods.bound()` (below) can merge in fixed fields generically without knowing
+each method's parameter order/count. A method with truly zero parameters (`ServerService.
+group.active.get()`) stays parameterless — there's no object to merge fields into.
+
+**`full: boolean` becomes two named methods, not a field.** Every bridge operation that took a
+`full` flag (`getChapterDigest`, `getSeriesDigest`) is exposed as `get(...)` (always
+`full=false`) and `getFull(...)` (always `full=true`) — never a boolean passed through.
+
+**Binary bridge writes (e.g. `setChapterRead`) become 3 public methods, not 1.** `isRead:
+boolean` on the bridge becomes: `status.set({..., isRead})` (the one that actually calls the
+bridge), plus `read({...})` and `unread({...})` as convenience wrappers that call `status.set`
+with `isRead` already filled in. All 3 stay exported — the user explicitly wants both the
+self-documenting shortcut *and* the explicit-boolean form available, never just one.
+
+**`raw` is the single root namespace for direct, non-Digest bridge reads.** Every method that
+reads straight from `ServerBridge` (bypassing `:content-digest` entirely — no computed/
+aggregated fields) lives under `<Service>.raw`, never mixed into other namespaces
+(`status`/`progress`/`chapters`). E.g. `ChapterService.raw.get` (→ `ServerBridge.getChapter`),
+`PageService.raw.dimensions`/`raw.url`, `SerialService.raw.get` (→ `getSerial`) and
+`SerialService.raw.chapters.list` (→ `listChapters`, nested because it's chapters-of-that-series).
+
+**Isolation rule: a Service only ever calls its own bridge file(s) — `DigestBridge` and/or
+`ServerBridge`.** `SerialService` never imports `ChapterDigest`/`ChapterService` directly, even
+though `SeriesDigest` already embeds `chapters.list: ChapterDigest[]` (built by Kotlin inside
+`buildSeriesDigest`) — if a future Service needs data it doesn't already have embedded, it calls
+the other **Service**, not the other bridge/digest directly. This governs what the RN Service
+*code* is allowed to import/call — it does **not** mean `SeriesDigest`'s already-embedded
+`chapters.list` gets stripped out or re-fetched in a loop. The bridge's own aggregated payload is
+returned as-is.
+
+**Read/write split — Digest-backed reads and direct `ServerBridge` reads/writes now coexist in
+the same Service, per domain.** Earlier in this task, `get`/`getFull` (Digest) were considered
+the *only* thing these Services would own, with mutations staying on the pre-Digest bridges
+(`SeriesBridge`, `ReaderChapterBridge`, `LibraryBridge`) forever. That framing changed once it
+became clear `ServerBridge` (Task 017's `Server` module) already exposes real, working writes
+(`setChapterRead`, `setChaptersRead`, `setChapterProgress`) and non-Digest reads (`getChapter`,
+`getSerial`, `listChapters`, `getPageDimensions`, `getPageUrl`) that were simply never wired to
+any RN Service yet. Final shape: each Service wraps **both** its Digest read(s) (`get`/`getFull`)
+**and** whatever direct `ServerBridge` operations belong to that same domain (`raw.*`,
+`status.set`/`read`/`unread`, `progress.get`/`set`) — the pre-Digest bridges
+(`SeriesBridge.markChaptersRead`, `LibraryBridge.listSeries`, sort prefs, screen-control, BFF
+sync) are untouched and still the only path for what `ServerBridge` doesn't cover at all.
+
+**`SerialsService.list()` goes straight to `ServerBridge.listSerials()`, bypassing the Digest
+entirely — there is no batch digest operation.** Returns the raw `PluginSerial[]`, no enrichment.
+A caller needing the richer `SeriesDigest` per series (e.g. the Library screen) loops over the
+ids this returns, calling `SerialService.get`/`getFull` once per id — the loop lives in the
+consuming screen/hook, not inside `serials.services.ts` (same "loop belongs to whoever needs it"
+call already made for Library back in Task 011).
+
+**`servers/servers.services.ts` (Server management) — not in the original Task 014/021 scope,
+added because Server will also front BFF operations in the future.** Namespace-by-resource, not
+by-verb (`ServerService.group.get(...)`, not `ServerService.get.group(...)`). Full mapping:
+- `ServersService.providers.list()` / `ServersService.groups.list()` — batch,
+  `ServerBridge.listProviders`/`listGroups`, no arguments.
+- `ServerService.group.{get,add,update,remove}` — single-group management. `add` deliberately
+  takes no `groupId` (a group doesn't exist yet at creation time) — this is *why* it's excluded
+  from `bound()` below.
+- `ServerService.group.active.{set,get}` — was `setActiveGroup`/`getActiveGroupId` on the bridge,
+  reorganized into a `active` sub-resource (same by-resource convention) once the flat verb names
+  read oddly next to `group.get`/`group.update`. `active.get()` takes zero arguments.
+- `ServerService.urls.{list,add,update,remove,validate}` — a group's registered URLs.
+- `ServerService.auth.reauthenticate({groupId})` — `ServerBridge.reauthenticateActiveGroup`. No
+  separate `Auth` Service was created — deliberately deferred, still under discussion; auth for a
+  given server lives under that server's own `auth` sub-namespace instead of a cross-cutting
+  module.
+
+**`Methods.bound(target, skipKeys, fixed)` — generic object-merge binder, `shared/tools/methods/
+methods.tool.ts`.** Recursively walks any Service object (any nesting depth) and returns an
+equivalent object where every single-object-argument method accepts a *partial* version of its
+own argument — the fields already present in `fixed` are merged in automatically (`{...fixed,
+...(arg ?? {})}`), so a caller only supplies whatever remains, and can still override a fixed
+field for one call by passing it explicitly. Not built on `Function.prototype.bind` (that only
+works with positional parameters, which the "single object argument" convention above
+deliberately moved away from) — it's a plain wrapper function per method. Two exclusions, both
+by key name, both recursive:
+- `'bound'` itself is always dropped, so a Service's own `bound(...)` doesn't get wrapped around
+  itself (which would produce a meaningless bound-of-bound).
+- `skipKeys` (2nd parameter, e.g. `['add']` for `ServerService.bound`) drops any other named key
+  that structurally can't take the fixed fields — `ServerService.group.add` has no `groupId`
+  parameter at all, so `ServerService.bound({groupId}).group` deliberately has no `add`.
+
+Every domain Service exposes its own `bound(fixed)`: `PageService.bound({seriesId, chapterId,
+pageIndex})`, `ChapterService.bound({seriesId, chapterId})`, `SerialService.bound({seriesId})`,
+`ServerService.bound({groupId})`. No state beyond the fixed object itself — every call on a
+bound object still hits `DigestBridge`/`ServerBridge` fresh, same as calling the Service
+directly; `bound()` is pure convenience over repeating ids, never a cache.
+
+**Explicitly paused, not rejected: derived/computed getters that read a field out of an
+already-fetched Digest (e.g. a `readStatusOf(digest)`-style helper), and any Service returning
+something other than a fresh bridge call.** The user's call, mid-task: keep every Service method
+a real `DigestBridge`/`ServerBridge` call, nothing that only reprocesses data already in hand —
+avoids conflating "convenience" with hidden state/caching before `CacheManager` (Task 023)
+exists. Revisit only if the user asks again, informed by a real consumer's need, not speculatively.
+
+**Applies to:** Task 021 (all 4 Services — `pages`, `chapters`, `serials`, `servers`) and every
+future `shared/services/` addition, which should follow the same namespace/naming/isolation/
+single-object-argument/`bound()` conventions rather than reinventing them per-domain.
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing
