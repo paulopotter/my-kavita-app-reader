@@ -6,8 +6,8 @@ directly; every field ultimately comes from calling `:server`'s `Server` facade.
 
 This document exists for the same reason `:server`'s own README does: answer, per type/function,
 **exact shape, what each field means, and every condition under which a result becomes a
-`Failure`** — so a caller building on top (Series, Task 020; the RN bridge, later) doesn't have to
-re-read `PageDigest.kt`/`ChapterDigest.kt` end to end every time.
+`Failure`** — so a caller building on top (the RN bridge, later) doesn't have to re-read
+`PageDigest.kt`/`ChapterDigest.kt`/`SeriesDigest.kt` end to end every time.
 
 ## Conventions that apply to every digest in this module
 
@@ -179,10 +179,14 @@ duplicate every field declaration — both implement it, differing only in wheth
 
 ### Field derivation rules
 
-- **`number`** — `decimalNumber` truncated to `Int`, **only if it's a whole number**
-  (`decimalNumber.toInt().toDouble() == decimalNumber`). Otherwise `null` this task — a fractional
-  `decimalNumber` (e.g. a real "Extra 0.5" chapter) has no meaningful integer `number` yet; Series
-  (Task 020) may resolve it differently later.
+- **`number`** — when `buildChapterDigest` is called in isolation (no Series context):
+  `decimalNumber` truncated to `Int`, **only if it's a whole number**
+  (`decimalNumber.toInt().toDouble() == decimalNumber`), otherwise `null` — a fractional
+  `decimalNumber` (e.g. a real "Extra 0.5" chapter) has no meaningful integer `number` on its own.
+  When built as part of `SeriesDigest.chapters.list` (Task 020), this fallback is superseded: the
+  real value is the chapter's 1-indexed position in the series' `decimalNumber`-sorted list (see
+  `SeriesDigest` below) — this is the only place `number` can be resolved correctly, since it
+  depends on the full ordered set of chapters, not any chapter in isolation.
 - **`specialLabel`** — `PluginChapter.specialLabel` (Kavita's real `Range`), **only when
   `isSpecial == true`**. In real Kavita data, `Range` is often populated with the same numeric
   string as a normal chapter's number (confirmed via a real-server smoke test — a plain chapter
@@ -254,14 +258,36 @@ unbounded recursion. `pages` (the full list included) is intentionally kept, eve
 a neighbor's payload larger — mirrors how the Reader already fetches a neighbor's full page data
 today (needed for the prev/curr/next trio to render without a second round-trip).
 
-### `buildChapterDigest(server: Server, seriesId: String, chapterId: String, prevChapter: ChapterNeighborDigest? = null, nextChapter: ChapterNeighborDigest? = null): ChapterDigest`
+### `buildChapterDigest(server: Server, seriesId: String, chapterId: String, knownChapter: PluginChapter? = null, prevChapter: ChapterNeighborDigest? = null, nextChapter: ChapterNeighborDigest? = null): ChapterDigest`
+
+**`knownChapter` (Task 020) — an optional completeness-checked fast path, not a fallback/merge.**
+When Series already fetched a `PluginChapter` (from its own `chapters.list()` call) and passes it
+here, `buildChapterDigest` checks whether **every field it itself reads from `PluginChapter`**
+(`decimalNumber`, `specialLabel`, `isSpecial`, `createdUtc`, `lastReadingProgressUtc`,
+`fileFormat`, `pageCount`, `pagesRead` — see `isCompleteForChapterDigest()`) is non-null on the
+passed-in value:
+- **All present** → `chapter.get()` is skipped entirely, `knownChapter` is used as-is.
+- **Any missing** (even one) → `knownChapter` is discarded completely and `chapter.get()` runs
+  from scratch, exactly as if nothing had been passed — **never** a partial merge between the two
+  sources. This isn't a Kavita-specific optimization (today, Kavita's `chapters.list()` and
+  `chapter(id).get()` happen to return identical data, so the check always passes for Kavita) — it's
+  a real completeness guarantee that holds for any future provider whose per-item `get()` might
+  return more than its own batch `list()` does.
+- `PluginChapterCompletenessTest.kt` guards this from silently going stale: if `PluginChapter`
+  ever gains a new nullable field, that test fails until `isCompleteForChapterDigest()` is updated
+  to account for it too (or the field is deliberately excluded, like `number`, which is never read
+  from `PluginChapter` by this function).
 
 **Assembly order matters (R11):**
-1. `server.serial(seriesId).chapter(chapterId).get()` — **vital**. Any thrown exception here makes
-   the whole result `ChapterDigest.Failure(e.toErrorDigest())`. On success, also calls
-   `server.serial(seriesId).chapter(chapterId).getCoverImage()` (never throws on its own — no
-   network call, pure string concatenation, see `:server`'s README) to build the `ChapterSummary`
-   this step assembles.
+1. `chapter.get()` (unless skipped via `knownChapter`, see above) — **vital when it does run**. Any
+   thrown exception here makes the whole result `ChapterDigest.Failure(e.toErrorDigest())`. Either
+   way (skipped or not), also calls `server.serial(seriesId).chapter(chapterId).getCoverImage()`
+   (never throws on its own — no network call, pure string concatenation, see `:server`'s README)
+   to build the `ChapterSummary` this step assembles. If `get()` was skipped, `server`/
+   `resolvedAtEpochMs` have no value yet at this point — `getCoverImage()` is the one that sets
+   them (same idiom as `PageDigest` starting with `server = null` until its first real call
+   succeeds); if `get()` did run, its own envelope already won and `getCoverImage()`'s doesn't
+   overwrite it.
 2. `server.serial(seriesId).chapter(chapterId).getProgress()` — **tolerated**. A thrown exception
    here is caught silently — `pages.resumePoint.stoppedAtPageIndex` stays `null`, `server`/
    `resolvedAtEpochMs` keep whatever step 1 already set, and the result is still built as a
@@ -274,8 +300,10 @@ today (needed for the prev/curr/next trio to render without a second round-trip)
    touches `ChapterDigest.Success.server`/`resolvedAtEpochMs`, only steps 1–2 do.
 
 `prevChapter`/`nextChapter` are passed straight through as given — this function never resolves
-its own neighbors; only Series (Task 020) does, by calling this function once per chapter and
-wiring the results together afterward.
+its own neighbors; only `SeriesDigest` (below) does, by calling this function once per chapter and
+wiring the results together afterward. Likewise `number` defaults to `decimalNumber` truncated
+(only when it's a whole number) when called in isolation — `SeriesDigest` overwrites it with the
+chapter's real 1-indexed position once it knows the full sorted list.
 
 **Example (real values from a smoke test against a live Kavita server — apiKey redacted):**
 ```kotlin
@@ -320,11 +348,166 @@ one.
 
 ---
 
+## `series/` — `SeriesFields` (shared shape)
+
+```kotlin
+interface SeriesFields {
+    val id: String
+    val name: String
+    val library: Library?              // {id, name} — Necessary; null when the series has no libraryId (provider-agnostic — Kavita always sends one, but the contract can't assume every provider has this concept)
+    val lastUpdatesUTC: LastUpdatesUTC? // {series, chapterAdded, readDate} — each an epoch-millis Long? via parseIsoUtcToEpochMs
+    val coverImage: ImageDescriptor
+    val chapters: Chapters?            // Necessary — null ONLY when the chapters.list() call itself failed; a series with no chapters published yet is chapters = Chapters(..., list = [])
+    val otherNames: OtherNames?        // {original, localized} — Aggregating
+    val sortName: String?
+    val otherIds: OtherIds?            // {aniListId, malId} — Aggregating
+    val colors: Colors?                // {primary, secondary} — Aggregating
+    val metadata: Metadata?            // Aggregating — null on any getMetadata() failure, never escalates
+    val resolvedAtEpochMs: Long        // R11 — only reflects THIS Series' own calls (get/getCoverImage), never chapters.list's or metadata's
+    val server: ServerActiveInfo
+    val cache: Nothing?
+
+    data class Library(val id: String, val name: String?)
+    data class LastUpdatesUTC(val series: Long?, val chapterAdded: Long?, val readDate: Long?)
+    data class OtherNames(val original: String?, val localized: String?)
+    data class OtherIds(val aniListId: Int?, val malId: Long?)
+    data class Colors(val primary: String?, val secondary: String?)
+
+    data class Metadata(
+        val description: String?,           // Kavita's real summary field — the modeling-phase spec called this `description`, the real DTO calls it `summary`
+        val genres: List<PluginGenreOrTag>,  // id+name pairs — kept the id, unlike an earlier code path that discarded it
+        val tags: List<PluginGenreOrTag>,
+        val publicationStatus: String?,      // Kavita's real PublicationStatus enum, translated to its name (e.g. "OnGoing") — see :server's README
+        val ageRating: PluginAgeRating?,     // {rating, system} — system is "Kavita" here, NOT "ESRB": Kavita's own AgeRating names (Unknown/Teen/Mature17Plus/...) aren't real ESRB vocabulary, so the adapter names its own rating system instead of hardcoding a wrong one
+        val releaseYear: Int?,               // 0 from Kavita means "not set" — treated as null, same convention as PluginSerial's aniListId/malId
+        val language: String?,
+    )
+
+    enum class ChaptersStatus { SUCCESS, PARTIAL, ERROR }
+
+    data class Chapters(
+        val status: ChaptersStatus,   // same success/failure aggregation as ChapterFields.Pages.status, one layer up: applied to List<ChapterDigest> instead of List<PageDigest>
+        val readCount: Int?,          // null only for a genuinely empty list — otherwise a real count, including 0
+        val total: Int,               // derived from list.size
+        val resumePoint: ResumePoint?,
+        val list: List<ChapterDigest>,
+    )
+
+    enum class ResumePointStatus { IN_PROGRESS, UNREAD }
+
+    data class ResumePoint(
+        val stoppedAtChapterId: String,
+        val stoppedAtChapterIndex: Int,
+        val status: ResumePointStatus,
+        val recordedAtEpochMs: Long?,   // duplicated from list[stoppedAtChapterIndex].pages.resumePoint.recordedAtEpochMs, for convenience
+    )
+}
+```
+
+### Field derivation rules
+
+- **`chapters.readCount`** — counts `chapters.list` entries whose `ChapterDigest.Success.readStatus
+  == READ` (chapter-level, not page-level). `null` **only** when `chapters.list` is genuinely empty
+  (a "coming soon" series — nothing to report progress on) — a series with chapters and zero of
+  them read is `readCount = 0`, a real, different value from `null`. No server-side chapter-count
+  progress field exists on `SeriesDto` (only page-granularity `pages`/`pagesRead`, already mapped
+  to `PluginSerial.totalPages`/`pagesRead`) — this is always derived by counting the list.
+- **`chapters.status`** — the same success/failure aggregation `ChapterFields.Pages.status` already
+  uses, applied one layer up: every entry `Success` → `SUCCESS`; every entry `Failure` → `ERROR`;
+  mixed → `PARTIAL`. A chapter that fails here (its own `buildChapterDigest` call threw) still gets
+  a `ChapterDigest.Failure` entry in the list — never silently dropped — and its neighbors are
+  still built normally around it (see `chapters.list` ordering below).
+- **`chapters.resumePoint`** — a 2-level cascade over `chapters.list`, in order: the first
+  `ChapterDigest.Success` with `readStatus == IN_PROGRESS` wins; if none, the first with
+  `readStatus == UNREAD`; if every chapter is `READ`, `null` (a "reread" state — nothing left to
+  resume). Deliberately simpler than an older 3-level cascade this replaces — a "reread threshold"
+  grey zone was dropped as redundant with `readStatus`'s own effectively-read threshold.
+
+---
+
+## `series/` — `SeriesDigest`
+
+```kotlin
+sealed interface SeriesDigest {
+    data class Success(
+        override val id: String,
+        // ...every SeriesFields field...
+        override val resolvedAtEpochMs: Long,
+        override val server: ServerActiveInfo,
+        override val cache: Nothing?,
+    ) : SeriesDigest, SeriesFields
+
+    data class Failure(val error: ErrorDigest) : SeriesDigest
+}
+```
+
+No `SeriesNeighborDigest` — a series has no "previous/next" concept, unlike a chapter within a
+series. `chapters.list` is `List<ChapterDigest>` directly (not `ChapterNeighborDigest`); it's
+`SeriesDigest`, not `ChapterDigest` itself, that resolves each chapter's `prevChapter`/`nextChapter`
+— `ChapterDigest` alone has no visibility into chapter order (see `buildChapterDigest`'s own
+`prevChapter`/`nextChapter` params, which default to `null` when it's called in isolation).
+
+### `buildSeriesDigest(server: Server, seriesId: String): SeriesDigest`
+
+**Assembly order matters (R11):**
+1. `server.serial(seriesId).get()` — **vital**, always runs (no equivalent of `buildChapterDigest`'s
+   `knownChapter` fast path here — nothing calls `SeriesDigest` from a context that would already
+   have this data). Any thrown exception makes the whole result `SeriesDigest.Failure`. On success,
+   also calls `getCoverImage()` unconditionally — since `get()` always ran and always set `server`/
+   `resolvedAtEpochMs` on success, `getCoverImage()` (which never fails on its own) is
+   unconditionally the last successful call at this point, per R11.
+2. `getMetadata()` — **tolerated** (Aggregating). A thrown exception here is caught, `metadata`
+   stays `null`, and doesn't touch `server`/`resolvedAtEpochMs`.
+3. `chapters.list()` (the raw `List<PluginChapter>`) — **tolerated** (Necessary, not Vital: a
+   fetch failure here doesn't invalidate `id`/`name`/`library`/`coverImage`/`metadata`, already
+   resolved independently). A thrown exception makes `chapters` (the whole block, not the module)
+   `null`; a real empty series is `chapters.list = []` (a `Chapters` value with an empty list),
+   never confused with this `null`.
+
+**Building `chapters` (when `chapters.list()` succeeds):**
+1. **Sort** the raw `PluginChapter` list by `decimalNumber` ascending (missing `decimalNumber`
+   sorts last). This is what lets a special/extra chapter (e.g. `decimalNumber = 1.5`, "Extra")
+   land in its correct position without any special-cased logic — a chapter is just a number on a
+   line, in order.
+2. **Build every `ChapterDigest` in parallel** (`coroutineScope` + `async`/`awaitAll`, order
+   preserved by list position regardless of completion order — same idiom `pages.list` already
+   uses), passing each entry's own `PluginChapter` as `knownChapter` (see `buildChapterDigest`
+   above for the completeness check that decides whether this actually skips a redundant
+   `chapter.get()` call).
+3. **First pass** — overwrite `number` on every `ChapterDigest.Success` with its **1-indexed
+   position in the sorted list** (`index + 1`), superseding `buildChapterDigest`'s own
+   isolated-call fallback. This must happen *before* building neighbors (next step), so a
+   neighbor's own `number` is already correct — not the stale fallback.
+4. **Second pass** — for every `ChapterDigest.Success`, build `prevChapter`/`nextChapter` from the
+   already-built neighbors at `index - 1`/`index + 1` (converted to `ChapterNeighborDigest` — a
+   `Success` becomes a `ChapterNeighborDigest.Success` with every `ChapterFields` field copied
+   over; a `Failure` becomes a `ChapterNeighborDigest.Failure` with the same error). **No
+   additional network calls** — this is pure in-memory reshaping of chapters already built.
+
+**Example (real values from a smoke test against a live Kavita server — apiKey redacted):**
+```kotlin
+buildSeriesDigest(server, seriesId = "156")
+// SeriesDigest.Success(
+//   id = "156", name = "A Ascensão do Espadachim de Rank Baixo",
+//   library = Library(id = "1", name = "Mangás"),
+//   lastUpdatesUTC = LastUpdatesUTC(series = 1787069627921, chapterAdded = 1787080101685, readDate = 1787071164964),
+//   coverImage = ImageDescriptor(url = "https://.../api/Image/series-cover?seriesId=156&...", ...),
+//   chapters = Chapters(
+//     status = SUCCESS, readCount = 17, total = 17, resumePoint = null,
+//     list = [ChapterDigest.Success(id = "18565", number = 1, ...), ...],   // 17 entries, sorted, numbered 1..17
+//   ),
+//   otherNames = OtherNames(original = "...", localized = ""),
+//   sortName = "A Ascensão do Espadachim de Rank Baixo",
+//   otherIds = OtherIds(aniListId = null, malId = null),
+//   colors = Colors(primary = "#...", secondary = "#..."),
+//   metadata = Metadata(description = "...", genres = [...], tags = [], publicationStatus = "OnGoing", ageRating = PluginAgeRating(rating = "Unknown", system = "Kavita"), releaseYear = null, language = "pt-BR"),
+//   resolvedAtEpochMs = 1787531471622, server = ServerActiveInfo(...), cache = null,
+// )
+```
+
+---
+
 ## Not yet in this module
 
-- **`SeriesDigest`** (Task 020) — will compose `List<ChapterDigest>` the same way `ChapterDigest`
-  composes `List<PageDigest>` (same-layer domain-to-domain calls, per R1 in
-  `_contract-design-notes.md`), and will be the one to actually resolve `prevChapter`/`nextChapter`
-  for each `ChapterDigest` it builds.
 - **Cache integration** — every `cache` field in this module is `Nothing?`/always `null` until the
   Cache module (Task 015's guideline) exists.
