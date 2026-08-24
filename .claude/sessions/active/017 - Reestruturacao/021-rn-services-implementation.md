@@ -1,6 +1,10 @@
+---
+status: done
+---
+
 # Task 021 — RN Services (Page/Chapter/Series) implementation (Phase 4 — Implementation)
 
-**Status:** todo (blocked by Task 020 — needs all 3 domain contracts implemented)
+**Status:** done
 
 ## Objective
 
@@ -48,3 +52,62 @@ is only to get the full network flow working end-to-end on the RN side, exactly 
 - Blocks Task 023 (`CacheManager` wiring — the Services built here are what gets modified to use
   `CacheManager` instead of calling `Server` directly, once Task 023 lands). Does **not** block
   Task 022 (`ExternalMetadata`/BFF is a separate module, independent of these 3 Services).
+
+## Result
+
+Implemented as 4 Services, not 3 — `PageService`, `ChapterService`, `SerialService`/
+`SerialsService`, and `ServerService`/`ServersService` (the last one not in the original scope,
+added because `Server` will also front BFF operations in the future). Each lives in
+`frontend/src/shared/services/<domain>/<domain>.services.ts` (plural folder/file, `nome.type.ext`
+convention — new project-wide standard from this task on, tests beside the file instead of
+`__tests__/`, `Jest.testMatch` extended accordingly).
+
+**Real design decisions, on top of the original scope:**
+- Naming convention formalized: plural namespace = batch operation (`SerialsService.list`,
+  `ServersService.providers.list`), singular = single-item (`SerialService.get`). Every exported
+  namespace ends in `Service`.
+- Every method with 2+ fields takes a single named-argument object, never positional params —
+  this is what lets the generic `Methods.bound` (new tool, `shared/tools/methods/methods.tool.ts`)
+  merge in fixed ids without knowing each method's signature. Every Service exposes its own
+  `bound(ids)`, fixing repeated ids (`seriesId`/`chapterId`/`groupId`) with no state beyond that —
+  every call still hits the bridge fresh.
+- `full: boolean` became two named methods (`get`/`getFull`), never a boolean parameter. Binary
+  writes (`setChapterRead`) became 3 public methods: `status.set({isRead})` (the real call),
+  `read()`/`unread()` (convenience wrappers).
+- `raw` is the single root namespace for direct, non-Digest `ServerBridge` reads (e.g.
+  `ChapterService.raw.get`, `SerialService.raw.chapters.list`) — kept separate from
+  Digest-backed `get`/`getFull`.
+- Read/write scope grew beyond the original "GET-only" framing: `ServerBridge` (Task 017's
+  `Server`) already had real, working writes (`setChapterRead`, `setChaptersRead`,
+  `setChapterProgress`) and non-Digest reads that had never been wired to any RN Service — these
+  now live alongside each Service's Digest-backed `get`/`getFull`. The pre-Digest bridges
+  (`SeriesBridge`, `LibraryBridge`, sort prefs, screen-control, BFF sync) are untouched.
+
+**Real bug found and fixed during device testing (out of the original scope, but blocking
+verification):** `RequestTool.request`/`ActiveUrlSelector.selectFastest` used
+`withTimeout(OrNull)` around a blocking `Call.execute()` — with no coroutine suspension point
+inside, a timed-out coroutine only observes cancellation on its next real suspension, which never
+comes until `execute()` itself returns. Under real Android network conditions (radio doze, a
+network switch mid-request) this left `SerialsService.list()` hanging forever with no exception,
+no log — reproduced live via the Debug smoke test screen. Fixed with a `java.util.Timer`
+watchdog (independent thread, not coroutine-based) that calls `call.cancel()` after the timeout —
+closing the socket forces a stuck `execute()` to return immediately. Registered as a real finding
+in Task 035, which also covers the underlying reason this was findable at all: the app's session
+still lives on the pre-`:server` auth path, with no JWT refresh — separate root cause, tracked
+there, not fixed in this task.
+
+**New Debug screen** (`frontend/src/screens/config/`, `ConfigScreen.tsx`/`DebugSmokeTest.ts`,
+`AppVersions.tsx`): 5 toques on the app-version column unlocks a "Debug" menu item running a
+read-only smoke test against all 4 Services (including `bound()`) on the real active server —
+used to verify this task on-device and to catch the `RequestTool` hang above.
+
+**Tested on a real device** (`make redeploy-log`), via the Debug screen: `ServersService`/
+`ServerService` (providers/groups/group/urls/session), `SerialsService`/`SerialService` (list,
+get, getFull, raw.get, raw.chapters.list via `bound`), `ChapterService` (get, getFull, raw.get,
+progress.get via `bound`), `PageService` (get, raw.dimensions via `bound`) — all confirmed
+working end-to-end against the real Kavita server, including the `RequestTool` fix.
+
+`make coverage`: no drop relative to the floor — 100% statements/branches/functions/lines on all
+4 new `*.services.ts` files and `methods.tool.ts`; Kotlin `koverVerify` passes project-wide
+(`RequestTool`/`ActiveUrlSelector` changes covered by new tests simulating a never-responding
+connection).
