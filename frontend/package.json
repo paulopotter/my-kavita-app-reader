@@ -55,6 +55,10 @@
   },
   "jest": {
     "preset": "react-native",
+    "testMatch": [
+      "**/__tests__/**/*.test.ts?(x)",
+      "**/*.tests.ts?(x)"
+    ],
     "setupFiles": [
       "./node_modules/@shopify/react-native-skia/jestSetup.js"
     ],
@@ -74,7 +78,7 @@
       "/node_modules/",
       "/__tests__/",
       "\\.d\\.ts$",
-      "/src/index\\.ts$",
+      "/index\\.ts$",
       "/src/shared/bridge/chapter\\.ts$",
       "/src/shared/bridge/config\\.ts$",
       "/src/shared/bridge/library\\.ts$",
