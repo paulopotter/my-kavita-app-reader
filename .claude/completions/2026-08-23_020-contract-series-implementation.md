@@ -70,3 +70,24 @@ camada/concern) antes desta finalização.
 - **`COVERAGE_FLOOR_KOTLIN` já ajustado nesta task** (74 → 76).
 - Scripts de smoke test com credenciais reais nunca ficaram no repositório — `git status` limpo
   confirmado antes de cada commit desta task.
+
+## Pós-fechamento (2026-08-24) — payload reduzido por padrão
+
+Depois de fechada, o usuário testou o resultado real (arquivo JSON de uma série com 17 capítulos)
+e notou que o payload tinha ~3MB — cada `ChapterDigest` dentro de `chapters.list` carregava
+`pages.list` inteiro (URL/dimensões/`ImageDescriptor` por página), o que não escala para 119
+séries num app móvel.
+
+**Correção**: `buildChapterDigest`/`buildSeriesDigest` ganharam um parâmetro `full: Boolean =
+false`. Com `full=false` (o novo padrão): `pages.list` vem `[]`, `pages.status`/`pages.total`
+vêm `null` (nunca calculados a partir de uma lista vazia — `count`/`readCount`/`fileFormat`/
+`resumePoint` continuam normais, pois não dependem de `pages.list`). As chamadas de rede por
+página (`page.getUrl()`/`getDimensions()`) nem acontecem nesse modo — não é só um corte de
+payload, é economia real de banda. `full=true` restaura o comportamento anterior (útil ao abrir
+um capítulo específico para leitura). `SeriesDigest.chapters.list` propaga o mesmo `full` recebido
+para cada capítulo.
+
+Validado contra o servidor real: a mesma série de 17 capítulos caiu de ~3MB para ~80KB
+(~97% menor) com o novo default. Coverage seguiu em ~76.55% — piso mantido em 76 (a margem sobre o
+valor medido ficou pequena demais para justificar subir agora). 3 commits pequenos (`ChapterDigest`,
+`SeriesDigest`, README).

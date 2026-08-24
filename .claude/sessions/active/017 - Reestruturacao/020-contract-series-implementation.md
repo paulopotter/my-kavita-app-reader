@@ -115,3 +115,9 @@ after two rounds of correction, the 2-pass `number`/neighbor resolution after a 
 and fixed during self-review, `readCount`'s empty-list-is-null rule), reviewed the real-server
 smoke test output (as a downloaded JSON file), then explicitly approved: "Faz o Readme, se ja tem
 os testes, pode commitar (pequenos commits), e pode fechar a task".
+
+**Post-close correction (2026-08-24):** the real smoke test output (~3MB for one 17-chapter
+series) turned out to be too large for mobile use once scaled across a real library (119 series).
+Added a `full: Boolean = false` parameter to `buildChapterDigest`/`buildSeriesDigest` — see the
+"Pós-fechamento" section in this task's completion doc
+(`.claude/completions/2026-08-23_020-contract-series-implementation.md`) for the full writeup.
