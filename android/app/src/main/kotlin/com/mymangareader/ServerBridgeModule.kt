@@ -264,13 +264,20 @@ class ServerBridgeModule @Inject constructor(
     private fun PluginSerial.toWritableMap() = Arguments.createMap().apply {
         putString("id", id)
         putString("name", name)
-        coverUrl?.let { putString("coverUrl", it) }
         putInt("pagesRead", pagesRead)
         putInt("totalPages", totalPages)
-        lastUpdatedUtc?.let { putString("lastUpdatedUtc", it) }
-        summary?.let { putString("summary", it) }
-        putArray("genres", Arguments.createArray().also { arr -> genres.forEach { g -> arr.pushString(g) } })
-        putArray("tags", Arguments.createArray().also { arr -> tags.forEach { t -> arr.pushString(t) } })
+        libraryId?.let { putString("libraryId", it) }
+        libraryName?.let { putString("libraryName", it) }
+        lastFolderScannedUtc?.let { putString("lastFolderScannedUtc", it) }
+        lastChapterAddedUtc?.let { putString("lastChapterAddedUtc", it) }
+        latestReadDateUtc?.let { putString("latestReadDateUtc", it) }
+        originalName?.let { putString("originalName", it) }
+        localizedName?.let { putString("localizedName", it) }
+        sortName?.let { putString("sortName", it) }
+        aniListId?.let { putInt("aniListId", it) }
+        malId?.let { putDouble("malId", it.toDouble()) }
+        primaryColor?.let { putString("primaryColor", it) }
+        secondaryColor?.let { putString("secondaryColor", it) }
     }
 
     private fun List<PluginSerial>.toSerialsWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
@@ -279,9 +286,14 @@ class ServerBridgeModule @Inject constructor(
         putString("id", id)
         putString("title", title)
         number?.let { putString("number", it) }
-        putInt("pageCount", pageCount)
-        putInt("pagesRead", pagesRead)
-        putBoolean("isSpecial", isSpecial)
+        pageCount?.let { putInt("pageCount", it) }
+        pagesRead?.let { putInt("pagesRead", it) }
+        isSpecial?.let { putBoolean("isSpecial", it) }
+        decimalNumber?.let { putDouble("decimalNumber", it) }
+        specialLabel?.let { putString("specialLabel", it) }
+        createdUtc?.let { putString("createdUtc", it) }
+        lastReadingProgressUtc?.let { putString("lastReadingProgressUtc", it) }
+        fileFormat?.let { putString("fileFormat", it) }
     }
 
     private fun List<PluginChapter>.toChaptersWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
