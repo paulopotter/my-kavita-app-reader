@@ -1,0 +1,261 @@
+package com.mymangareader.contentdigest.series
+
+import com.mymangareader.contentdigest.chapter.ChapterDigest
+import com.mymangareader.contentdigest.chapter.ChapterFields
+import com.mymangareader.contentdigest.chapter.ChapterNeighborDigest
+import com.mymangareader.contentdigest.chapter.buildChapterDigest
+import com.mymangareader.contentdigest.error.ErrorDigest
+import com.mymangareader.contentdigest.error.toErrorDigest
+import com.mymangareader.server.ImageDescriptor
+import com.mymangareader.server.Server
+import com.mymangareader.server.ServerActiveInfo
+import com.mymangareader.server.plugins.PluginAgeRating
+import com.mymangareader.server.plugins.PluginChapter
+import com.mymangareader.server.plugins.PluginGenreOrTag
+import com.mymangareader.server.plugins.PluginSerial
+import com.mymangareader.server.plugins.PluginSeriesMetadata
+import com.mymangareader.tools.datetime.parseIsoUtcToEpochMs
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+
+interface SeriesFields {
+    val id: String
+    val name: String
+    val library: Library?
+    val lastUpdatesUTC: LastUpdatesUTC?
+    val coverImage: ImageDescriptor
+    val chapters: Chapters?            // Necessary — null only when the chapters.list() call itself failed; a real empty series is chapters.list=[] (a Chapters value with an empty list), not null
+    val otherNames: OtherNames?
+    val sortName: String?
+    val otherIds: OtherIds?
+    val colors: Colors?
+    val metadata: Metadata?            // Aggregating — null on any getMetadata() failure, never escalates
+    val resolvedAtEpochMs: Long        // R11 — only reflects this Series' OWN calls (get/getCoverImage), never chapters.list's or metadata's
+    val server: ServerActiveInfo
+    val cache: Nothing?
+
+    data class Library(val id: String, val name: String?)
+    data class LastUpdatesUTC(val series: Long?, val chapterAdded: Long?, val readDate: Long?)
+    data class OtherNames(val original: String?, val localized: String?)
+    data class OtherIds(val aniListId: Int?, val malId: Long?)
+    data class Colors(val primary: String?, val secondary: String?)
+
+    data class Metadata(
+        val description: String?,
+        val genres: List<PluginGenreOrTag>,
+        val tags: List<PluginGenreOrTag>,
+        val publicationStatus: String?,
+        val ageRating: PluginAgeRating?,
+        val releaseYear: Int?,
+        val language: String?,
+    )
+
+    enum class ChaptersStatus { SUCCESS, PARTIAL, ERROR }
+
+    data class Chapters(
+        val status: ChaptersStatus,
+        val readCount: Int?,    // count of chapters.list entries whose ChapterDigest.Success.readStatus == READ
+        val total: Int,         // derived from list.size
+        val resumePoint: ResumePoint?,
+        val list: List<ChapterDigest>,
+    )
+
+    enum class ResumePointStatus { IN_PROGRESS, UNREAD }
+
+    data class ResumePoint(
+        val stoppedAtChapterId: String,
+        val stoppedAtChapterIndex: Int,
+        val status: ResumePointStatus,
+        val recordedAtEpochMs: Long?,   // duplicated from list[stoppedAtChapterIndex].pages.resumePoint.recordedAtEpochMs, for convenience
+    )
+}
+
+sealed interface SeriesDigest {
+    data class Success(
+        override val id: String,
+        override val name: String,
+        override val library: SeriesFields.Library?,
+        override val lastUpdatesUTC: SeriesFields.LastUpdatesUTC?,
+        override val coverImage: ImageDescriptor,
+        override val chapters: SeriesFields.Chapters?,
+        override val otherNames: SeriesFields.OtherNames?,
+        override val sortName: String?,
+        override val otherIds: SeriesFields.OtherIds?,
+        override val colors: SeriesFields.Colors?,
+        override val metadata: SeriesFields.Metadata?,
+        override val resolvedAtEpochMs: Long,
+        override val server: ServerActiveInfo,
+        override val cache: Nothing?,
+    ) : SeriesDigest, SeriesFields
+
+    data class Failure(val error: ErrorDigest) : SeriesDigest
+}
+
+private fun PluginSeriesMetadata.toDigestMetadata() = SeriesFields.Metadata(
+    description = description,
+    genres = genres,
+    tags = tags,
+    publicationStatus = publicationStatus,
+    ageRating = ageRating,
+    releaseYear = releaseYear,
+    language = language,
+)
+
+// Assembly order (R11): serial.get() first — vital, its failure makes the whole result a
+// Failure. getCoverImage() second — never fails on its own (no network call), but only sets
+// server/resolvedAtEpochMs when get() left them unset (mirrors buildChapterDigest's own
+// knownChapter idiom — see there for why). getMetadata() and chapters.list() are both tolerated
+// failures (Aggregating / Necessary per the design notes) — caught, the corresponding field
+// stays null, doesn't escalate, and doesn't touch server/resolvedAtEpochMs (those only reflect
+// THIS Series' own get()/getCoverImage() calls, never metadata's or chapters'').
+suspend fun buildSeriesDigest(server: Server, seriesId: String): SeriesDigest {
+    var serverInfo: ServerActiveInfo? = null
+    var resolvedAtEpochMs: Long? = null
+
+    val plugin: PluginSerial
+    val coverImage: ImageDescriptor
+    try {
+        val serialResponse = server.serial(seriesId).get()
+        serverInfo = serialResponse.serverInfo
+        resolvedAtEpochMs = serialResponse.resolvedAtEpochMs
+        plugin = serialResponse.data
+
+        coverImage = server.serial(seriesId).getCoverImage()
+        // Unlike buildChapterDigest (which has a knownChapter fast path that can skip its own
+        // get() call), buildSeriesDigest always calls serial.get() for real above — there's no
+        // "Series already had this" caller. So serverInfo is never null at this point, and
+        // getCoverImage() (which never fails on its own) is unconditionally the last successful
+        // call per R11.
+        serverInfo = coverImage.server
+        resolvedAtEpochMs = coverImage.resolvedAtEpochMs
+    } catch (e: Exception) {
+        return SeriesDigest.Failure(e.toErrorDigest())
+    }
+
+    val metadata: SeriesFields.Metadata? = try {
+        server.serial(seriesId).getMetadata().data.toDigestMetadata()
+    } catch (e: Exception) {
+        null
+    }
+
+    val chapters: SeriesFields.Chapters? = try {
+        buildChaptersBlock(server, seriesId, server.serial(seriesId).chapters.list().data)
+    } catch (e: Exception) {
+        null
+    }
+
+    return SeriesDigest.Success(
+        id = plugin.id,
+        name = plugin.name,
+        library = plugin.libraryId?.let { SeriesFields.Library(id = it, name = plugin.libraryName) },
+        lastUpdatesUTC = SeriesFields.LastUpdatesUTC(
+            series = parseIsoUtcToEpochMs(plugin.lastFolderScannedUtc),
+            chapterAdded = parseIsoUtcToEpochMs(plugin.lastChapterAddedUtc),
+            readDate = parseIsoUtcToEpochMs(plugin.latestReadDateUtc),
+        ),
+        coverImage = coverImage,
+        chapters = chapters,
+        otherNames = SeriesFields.OtherNames(original = plugin.originalName, localized = plugin.localizedName),
+        sortName = plugin.sortName,
+        otherIds = SeriesFields.OtherIds(aniListId = plugin.aniListId, malId = plugin.malId),
+        colors = SeriesFields.Colors(primary = plugin.primaryColor, secondary = plugin.secondaryColor),
+        metadata = metadata,
+        resolvedAtEpochMs = resolvedAtEpochMs!!,
+        server = serverInfo!!,
+        cache = null,
+    )
+}
+
+// Builds chapters.list: sorts by decimalNumber (ascending — this is what lets a special/extra
+// chapter like 1.5 land in the right place without any special-cased logic), builds every
+// ChapterDigest in parallel (passing each chapter's own PluginChapter as knownChapter, since
+// Series already fetched it via chapters.list() — see buildChapterDigest's own completeness
+// check for why this may or may not actually skip a redundant chapter.get()), then makes a
+// second pass to inject each chapter's real `number` (1-indexed position in this sorted list —
+// supersedes the decimalNumber-truncated fallback buildChapterDigest used when built in
+// isolation) and prevChapter/nextChapter (from the already-built neighbors, converted to
+// ChapterNeighborDigest — no additional network calls).
+private suspend fun buildChaptersBlock(server: Server, seriesId: String, rawChapters: List<PluginChapter>): SeriesFields.Chapters {
+    val sorted = rawChapters.sortedBy { it.decimalNumber ?: Double.MAX_VALUE }
+
+    val digests = coroutineScope {
+        sorted.map { raw -> async { buildChapterDigest(server, seriesId, raw.id, knownChapter = raw) } }
+            .map { it.await() }
+    }
+
+    // Two passes on purpose: `number` (1-indexed position in this sorted list) must already be
+    // final on every entry BEFORE building any neighbor — otherwise a neighbor's own `number`
+    // would still carry buildChapterDigest's isolated-call fallback (decimalNumber truncated, or
+    // null), not the real sequential position Series alone can resolve.
+    val withNumber = digests.mapIndexed { index, digest ->
+        if (digest is ChapterDigest.Success) digest.copy(number = index + 1) else digest
+    }
+    val withNeighborsAndNumber = withNumber.mapIndexed { index, digest ->
+        if (digest !is ChapterDigest.Success) return@mapIndexed digest
+        val prev = withNumber.getOrNull(index - 1)?.toNeighborDigest()
+        val next = withNumber.getOrNull(index + 1)?.toNeighborDigest()
+        digest.copy(prevChapter = prev, nextChapter = next)
+    }
+
+    val status = when {
+        withNeighborsAndNumber.all { it is ChapterDigest.Success } -> SeriesFields.ChaptersStatus.SUCCESS
+        withNeighborsAndNumber.all { it is ChapterDigest.Failure } -> SeriesFields.ChaptersStatus.ERROR
+        else -> SeriesFields.ChaptersStatus.PARTIAL
+    }
+
+    val successfulChapters = withNeighborsAndNumber.filterIsInstance<ChapterDigest.Success>()
+    // null only for a genuinely empty chapters.list (a "coming soon" series — nothing to report
+    // progress on at all) — not the same as 0, which asserts "series has chapters and none are
+    // read." No server-side chapter-count-based progress field exists on SeriesDto (only
+    // page-granularity pages/pagesRead) — this is derived by counting list, per the design notes.
+    val readCount = if (withNeighborsAndNumber.isNotEmpty()) successfulChapters.count { it.readStatus == ChapterFields.ReadStatus.READ } else null
+
+    return SeriesFields.Chapters(
+        status = status,
+        readCount = readCount,
+        total = withNeighborsAndNumber.size,
+        resumePoint = buildResumePoint(withNeighborsAndNumber),
+        list = withNeighborsAndNumber,
+    )
+}
+
+// 2-level cascade: first IN_PROGRESS chapter in order → else first UNREAD chapter in order →
+// else null (every chapter is READ — a "reread" state, nothing left to resume).
+private fun buildResumePoint(list: List<ChapterDigest>): SeriesFields.ResumePoint? {
+    val inProgressIndex = list.indexOfFirst { it is ChapterDigest.Success && it.readStatus == ChapterFields.ReadStatus.IN_PROGRESS }
+    val unreadIndex = list.indexOfFirst { it is ChapterDigest.Success && it.readStatus == ChapterFields.ReadStatus.UNREAD }
+
+    val (index, status) = when {
+        inProgressIndex != -1 -> inProgressIndex to SeriesFields.ResumePointStatus.IN_PROGRESS
+        unreadIndex != -1 -> unreadIndex to SeriesFields.ResumePointStatus.UNREAD
+        else -> return null
+    }
+
+    val chapter = list[index] as ChapterDigest.Success
+    return SeriesFields.ResumePoint(
+        stoppedAtChapterId = chapter.id,
+        stoppedAtChapterIndex = index,
+        status = status,
+        recordedAtEpochMs = chapter.pages.resumePoint?.recordedAtEpochMs,
+    )
+}
+
+private fun ChapterDigest.toNeighborDigest(): ChapterNeighborDigest = when (this) {
+    is ChapterDigest.Failure -> ChapterNeighborDigest.Failure(error)
+    is ChapterDigest.Success -> ChapterNeighborDigest.Success(
+        id = id,
+        seriesId = seriesId,
+        decimalNumber = decimalNumber,
+        number = number,
+        specialLabel = specialLabel,
+        isSpecial = isSpecial,
+        title = title,
+        createdUtc = createdUtc,
+        coverImage = coverImage,
+        readStatus = readStatus,
+        pages = pages,
+        resolvedAtEpochMs = resolvedAtEpochMs,
+        server = server,
+        cache = cache,
+    )
+}

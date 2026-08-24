@@ -1,0 +1,463 @@
+package com.mymangareader.contentdigest.series
+
+import com.mymangareader.contentdigest.chapter.ChapterDigest
+import com.mymangareader.core.database.ServerGroupDao
+import com.mymangareader.core.database.ServerGroupEntity
+import com.mymangareader.core.database.ServerUrlDao
+import com.mymangareader.core.database.ServerUrlEntity
+import com.mymangareader.server.NewServerGroup
+import com.mymangareader.server.NewServerUrl
+import com.mymangareader.server.Server
+import com.mymangareader.server.plugins.CredentialField
+import com.mymangareader.server.plugins.PluginChapter
+import com.mymangareader.server.plugins.PluginPageDimension
+import com.mymangareader.server.plugins.PluginProgress
+import com.mymangareader.server.plugins.PluginSerial
+import com.mymangareader.server.plugins.PluginSeriesMetadata
+import com.mymangareader.server.plugins.ServerPlugin
+import com.mymangareader.server.plugins.ServerPluginRegistration
+import com.mymangareader.tools.network.ActiveUrlSelector
+import com.mymangareader.tools.network.RequestTool
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+// ── Fakes ────────────────────────────────────────────────────────────────
+
+private class FakeServerGroupDao : ServerGroupDao {
+    private val rows = mutableMapOf<String, ServerGroupEntity>()
+    override suspend fun upsert(entity: ServerGroupEntity) { rows[entity.id] = entity }
+    override suspend fun delete(entity: ServerGroupEntity) { rows.remove(entity.id) }
+    override fun observeAll(): Flow<List<ServerGroupEntity>> = MutableStateFlow(rows.values.toList())
+    override suspend fun getAll(): List<ServerGroupEntity> = rows.values.toList()
+    override suspend fun getById(id: String): ServerGroupEntity? = rows[id]
+    override suspend fun deleteById(id: String) { rows.remove(id) }
+}
+
+private class FakeServerUrlDao : ServerUrlDao {
+    private val rows = mutableMapOf<String, ServerUrlEntity>()
+    override suspend fun upsert(entity: ServerUrlEntity) { rows[entity.id] = entity }
+    override suspend fun delete(entity: ServerUrlEntity) { rows.remove(entity.id) }
+    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> =
+        MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
+    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> =
+        rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+    override suspend fun getById(id: String): ServerUrlEntity? = rows[id]
+    override suspend fun deleteById(id: String) { rows.remove(id) }
+    override suspend fun deleteByGroupId(groupId: String) { rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) } }
+}
+
+private fun fakeChapter(
+    id: String,
+    decimalNumber: Double,
+    pagesRead: Int = 0,
+    pageCount: Int = 0,
+    isSpecial: Boolean = false,
+) = PluginChapter(
+    id = id, title = "Chapter $id", number = decimalNumber.toString(), pageCount = pageCount, pagesRead = pagesRead, isSpecial = isSpecial,
+    decimalNumber = decimalNumber, specialLabel = if (isSpecial) "Extra" else decimalNumber.toString(),
+    createdUtc = "2026-01-01T00:00:00", lastReadingProgressUtc = "2026-01-02T00:00:00", fileFormat = "archive",
+)
+
+// Controls every ServerPlugin.Serial operation buildSeriesDigest calls.
+private class FakePlugin(
+    var serialResult: Result<PluginSerial> = Result.success(
+        PluginSerial(
+            id = "s1", name = "Series 1", pagesRead = 0, totalPages = 0,
+            libraryId = "1", libraryName = "Library", lastFolderScannedUtc = null, lastChapterAddedUtc = null,
+            latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
+            aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
+        ),
+    ),
+    var metadataResult: Result<PluginSeriesMetadata> = Result.success(
+        PluginSeriesMetadata(description = null, genres = emptyList(), tags = emptyList(), publicationStatus = null, ageRating = null, releaseYear = null, language = null),
+    ),
+    var chaptersListResult: Result<List<PluginChapter>> = Result.success(emptyList()),
+    var progressForChapter: (String) -> Result<PluginProgress?> = { Result.success(null) },
+    var chapterIdsThatFailGet: Set<String> = emptySet(),
+) : ServerPlugin {
+    var serialGetCallCount = 0
+    override val id = "fake"
+    override val displayName = "Fake"
+    override val version = "0.0.0"
+
+    override val auth = object : ServerPlugin.Auth {
+        override suspend fun authenticate() = Unit
+        override suspend fun checkToken(): String? = null
+        override suspend fun reauthenticate() = Unit
+        override suspend fun logout() = Unit
+        override fun getSession(): String? = null
+    }
+
+    override val serials = object : ServerPlugin.Serials {
+        override suspend fun list(): List<PluginSerial> = emptyList()
+    }
+
+    override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
+        override suspend fun get(): PluginSerial {
+            serialGetCallCount++
+            return serialResult.getOrThrow()
+        }
+        override suspend fun getMetadata(): PluginSeriesMetadata = metadataResult.getOrThrow()
+        override fun getCoverUrl(): String = "http://fake/serial-cover/$serialId"
+
+        override val chapters = object : ServerPlugin.Chapters {
+            override suspend fun list(): List<PluginChapter> = chaptersListResult.getOrThrow()
+            override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) = Unit
+        }
+
+        override fun chapter(chapterId: String): ServerPlugin.Chapter = object : ServerPlugin.Chapter {
+            override suspend fun get(): PluginChapter {
+                if (chapterId in chapterIdsThatFailGet) throw RuntimeException("chapter $chapterId failed")
+                return chaptersListResult.getOrThrow().first { it.id == chapterId }
+            }
+            override fun getCoverUrl(): String = "http://fake/chapter-cover/$chapterId"
+            override suspend fun setRead(isRead: Boolean) = Unit
+            override suspend fun getProgress(): PluginProgress? = progressForChapter(chapterId).getOrThrow()
+            override suspend fun setProgress(pageIndex: Int) = Unit
+            override val pages = object : ServerPlugin.Pages {}
+            override fun page(pageIndex: Int): ServerPlugin.Page = object : ServerPlugin.Page {
+                override suspend fun getDimensions(): PluginPageDimension = PluginPageDimension(width = 800, height = 1200)
+                override fun getUrl(): String = "http://fake/page/$chapterId/$pageIndex"
+            }
+        }
+    }
+}
+
+private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = object : ServerPluginRegistration {
+    override val id = "fake"
+    override val displayName = "Fake"
+    override val version = "0.0.0"
+    override val credentialFields = listOf(CredentialField("apiKey", "API Key", "string") { null })
+    override val factory = { _: RequestTool, _: String, _: String -> plugin as ServerPlugin }
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────
+
+class SeriesDigestTest {
+
+    private lateinit var mockServer: MockWebServer
+    private lateinit var baseUrl: String
+    private lateinit var groupDao: FakeServerGroupDao
+    private lateinit var urlDao: FakeServerUrlDao
+    private lateinit var plugin: FakePlugin
+    private lateinit var server: Server
+
+    @Before
+    fun setUp() {
+        mockServer = MockWebServer()
+        mockServer.start()
+        baseUrl = mockServer.url("/").toString().trimEnd('/')
+        groupDao = FakeServerGroupDao()
+        urlDao = FakeServerUrlDao()
+        plugin = FakePlugin()
+        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(), RequestTool(OkHttpClient()))
+    }
+
+    @After
+    fun tearDown() {
+        mockServer.shutdown()
+    }
+
+    private suspend fun activateGroup() {
+        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+        server.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+        server.setActiveGroup(group.id)
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+    }
+
+    @Test
+    fun `success carries every series field`() = runTest {
+        activateGroup()
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals("s1", digest.id)
+        assertEquals("Series 1", digest.name)
+        assertEquals("1", digest.library?.id)
+        assertEquals("Library", digest.library?.name)
+        assertNull(digest.cache)
+    }
+
+    @Test
+    fun `serial get failure makes the whole result a Failure`() = runTest {
+        activateGroup()
+        plugin.serialResult = Result.failure(IllegalStateException("boom"))
+
+        val digest = buildSeriesDigest(server, "s1")
+
+        assertTrue(digest is SeriesDigest.Failure)
+        digest as SeriesDigest.Failure
+        assertEquals("IllegalStateException", digest.error.code)
+    }
+
+    @Test
+    fun `getMetadata failure is tolerated — Success with metadata null`() = runTest {
+        activateGroup()
+        plugin.metadataResult = Result.failure(RuntimeException("no metadata"))
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertNull(digest.metadata)
+    }
+
+    @Test
+    fun `chapters list failure is tolerated — Success with chapters null`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.failure(RuntimeException("no chapters"))
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertNull(digest.chapters)
+    }
+
+    @Test
+    fun `library is null when libraryId is missing`() = runTest {
+        activateGroup()
+        plugin.serialResult = Result.success(
+            PluginSerial(
+                id = "s1", name = "Series 1", pagesRead = 0, totalPages = 0,
+                libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
+                latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
+                aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertNull(digest.library)
+    }
+
+    // ── chapters.list ordering / number / neighbors ─────────────────────
+
+    @Test
+    fun `chapters are sorted by decimalNumber, with a special chapter landing in the right place`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch2", decimalNumber = 2.0),
+                fakeChapter("ch1", decimalNumber = 1.0),
+                fakeChapter("ch-extra", decimalNumber = 1.5, isSpecial = true),
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+        val ids = digest.chapters?.list?.map { (it as ChapterDigest.Success).id }
+
+        assertEquals(listOf("ch1", "ch-extra", "ch2"), ids)
+    }
+
+    @Test
+    fun `number reflects 1-indexed position in the sorted list, not decimalNumber`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch2", decimalNumber = 2.0),
+                fakeChapter("ch1", decimalNumber = 1.0),
+                fakeChapter("ch-extra", decimalNumber = 1.5, isSpecial = true),
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+        val numbers = digest.chapters?.list?.map { (it as ChapterDigest.Success).number }
+
+        assertEquals(listOf(1, 2, 3), numbers)
+    }
+
+    @Test
+    fun `prevChapter and nextChapter point to the correct sorted neighbors`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch1", decimalNumber = 1.0),
+                fakeChapter("ch2", decimalNumber = 2.0),
+                fakeChapter("ch3", decimalNumber = 3.0),
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+        val list = digest.chapters!!.list.map { it as ChapterDigest.Success }
+
+        fun neighborId(neighbor: com.mymangareader.contentdigest.chapter.ChapterNeighborDigest?) =
+            (neighbor as? com.mymangareader.contentdigest.chapter.ChapterNeighborDigest.Success)?.id
+
+        assertNull(list[0].prevChapter)
+        assertEquals("ch2", neighborId(list[0].nextChapter))
+        assertEquals("ch1", neighborId(list[1].prevChapter))
+        assertEquals("ch3", neighborId(list[1].nextChapter))
+        assertEquals("ch2", neighborId(list[2].prevChapter))
+        assertNull(list[2].nextChapter)
+    }
+
+    // ── chapters.status / readCount ──────────────────────────────────────
+
+    @Test
+    fun `chapters status is SUCCESS when every chapter succeeds`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0)))
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals(SeriesFields.ChaptersStatus.SUCCESS, digest.chapters?.status)
+    }
+
+    @Test
+    fun `readCount is null for a genuinely empty chapters list`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(emptyList())
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals(0, digest.chapters?.total)
+        assertNull(digest.chapters?.readCount)
+    }
+
+    @Test
+    fun `readCount counts only chapters whose readStatus is READ`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 10), // READ
+                fakeChapter("ch2", decimalNumber = 2.0, pageCount = 10, pagesRead = 5),  // IN_PROGRESS
+                fakeChapter("ch3", decimalNumber = 3.0, pageCount = 10, pagesRead = 0),  // UNREAD
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals(1, digest.chapters?.readCount)
+    }
+
+    // ── resumePoint cascade ───────────────────────────────────────────────
+
+    @Test
+    fun `resumePoint picks the first IN_PROGRESS chapter over UNREAD ones`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 10), // READ
+                fakeChapter("ch2", decimalNumber = 2.0, pageCount = 10, pagesRead = 0),  // UNREAD
+                fakeChapter("ch3", decimalNumber = 3.0, pageCount = 10, pagesRead = 4),  // IN_PROGRESS
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals("ch3", digest.chapters?.resumePoint?.stoppedAtChapterId)
+        assertEquals(SeriesFields.ResumePointStatus.IN_PROGRESS, digest.chapters?.resumePoint?.status)
+    }
+
+    @Test
+    fun `resumePoint falls back to the first UNREAD chapter when none are IN_PROGRESS`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 10), // READ
+                fakeChapter("ch2", decimalNumber = 2.0, pageCount = 10, pagesRead = 0),  // UNREAD
+            ),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals("ch2", digest.chapters?.resumePoint?.stoppedAtChapterId)
+        assertEquals(SeriesFields.ResumePointStatus.UNREAD, digest.chapters?.resumePoint?.status)
+    }
+
+    @Test
+    fun `resumePoint's recordedAtEpochMs is null when the chapter has no progress data at all`() = runTest {
+        activateGroup()
+        val unreadNoProgress = fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 0)
+            .copy(lastReadingProgressUtc = null)
+        plugin.chaptersListResult = Result.success(listOf(unreadNoProgress))
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals("ch1", digest.chapters?.resumePoint?.stoppedAtChapterId)
+        assertNull(digest.chapters?.resumePoint?.recordedAtEpochMs)
+    }
+
+    @Test
+    fun `resumePoint is null when every chapter is READ`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 10)),
+        )
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertNull(digest.chapters?.resumePoint)
+    }
+
+    @Test
+    fun `chapters status is PARTIAL when one chapter fails and others succeed`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch1", decimalNumber = 1.0),
+                // fileFormat=null makes this knownChapter incomplete, forcing a real chapter.get() call
+                fakeChapter("ch2", decimalNumber = 2.0).copy(fileFormat = null),
+            ),
+        )
+        plugin.chapterIdsThatFailGet = setOf("ch2")
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals(SeriesFields.ChaptersStatus.PARTIAL, digest.chapters?.status)
+        val results = digest.chapters?.list?.map { it::class.simpleName }
+        assertEquals(listOf("Success", "Failure"), results)
+    }
+
+    @Test
+    fun `chapters status is ERROR when every chapter fails`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(fakeChapter("ch1", decimalNumber = 1.0).copy(fileFormat = null)),
+        )
+        plugin.chapterIdsThatFailGet = setOf("ch1")
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertEquals(SeriesFields.ChaptersStatus.ERROR, digest.chapters?.status)
+    }
+
+    @Test
+    fun `a failed chapter's neighbors still get built for the surrounding successful chapters`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(
+            listOf(
+                fakeChapter("ch1", decimalNumber = 1.0),
+                fakeChapter("ch2", decimalNumber = 2.0).copy(fileFormat = null),
+                fakeChapter("ch3", decimalNumber = 3.0),
+            ),
+        )
+        plugin.chapterIdsThatFailGet = setOf("ch2")
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+        val list = digest.chapters!!.list
+
+        assertTrue(list[0] is ChapterDigest.Success)
+        assertTrue(list[1] is ChapterDigest.Failure)
+        assertTrue(list[2] is ChapterDigest.Success)
+        // ch1's nextChapter still resolves to ch2's Failure (not skipped)
+        val ch1Next = (list[0] as ChapterDigest.Success).nextChapter
+        assertTrue(ch1Next is com.mymangareader.contentdigest.chapter.ChapterNeighborDigest.Failure)
+    }
+
+    @Test
+    fun `no active group makes the whole result a Failure, not a crash`() = runTest {
+        val digest = buildSeriesDigest(server, "s1")
+
+        assertTrue(digest is SeriesDigest.Failure)
+    }
+}
