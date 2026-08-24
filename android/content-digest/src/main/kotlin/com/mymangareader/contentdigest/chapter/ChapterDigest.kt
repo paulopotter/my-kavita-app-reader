@@ -38,14 +38,14 @@ interface ChapterFields {
 
     data class Pages(
         val fileFormat: String?,
-        val status: PagesStatus,
+        val status: PagesStatus?,       // null when list wasn't fetched (full=false) — "not checked," never a value derived from an empty list
         val count: Int?,
         val readCount: Int?,
-        val total: Int,                 // derived from list.size
-        val totalWidthPx: Int?,         // Σ width across list — null unless every page succeeded AND has usable dimensions
+        val total: Int?,                 // derived from list.size when full=true — null when list wasn't fetched (full=false); never falls back to `count`, which is a different (server-declared, not cross-checked) value
+        val totalWidthPx: Int?,         // Σ width across list — null unless every page succeeded AND has usable dimensions (also null whenever list wasn't fetched)
         val totalHeightPx: Int?,        // Σ height across list — same condition
-        val resumePoint: ResumePoint?,
-        val list: List<PageDigest>,
+        val resumePoint: ResumePoint?,  // independent of full — comes from getProgress()/lastReadingProgressUtc, not pages.list
+        val list: List<PageDigest>,     // empty when full=false — not fetched, not "zero pages" (see status/total, both null in that case, for how to tell the difference)
     )
 
     data class ResumePoint(
@@ -125,6 +125,7 @@ suspend fun buildChapterDigest(
     knownChapter: PluginChapter? = null,
     prevChapter: ChapterNeighborDigest? = null,
     nextChapter: ChapterNeighborDigest? = null,
+    full: Boolean = false,
 ): ChapterDigest {
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
@@ -187,15 +188,26 @@ suspend fun buildChapterDigest(
 
     recordedAtEpochMs = parseIsoUtcToEpochMs(plugin.lastReadingProgressUtc)
 
-    val list = coroutineScope {
-        (0 until (plugin.pageCount ?: 0)).map { pageIndex -> async { buildPageDigest(server, summary, pageIndex) } }
-            .map { it.await() }
+    // full=false (the default) skips every per-page network call entirely — not just trims the
+    // resulting payload. A caller only listing chapters (e.g. SeriesDigest today) doesn't pay for
+    // pages.list's URL/dimensions round-trips at all unless it explicitly asks for full=true.
+    val list = if (full) {
+        coroutineScope {
+            (0 until (plugin.pageCount ?: 0)).map { pageIndex -> async { buildPageDigest(server, summary, pageIndex) } }
+                .map { it.await() }
+        }
+    } else {
+        emptyList()
     }
 
-    val pagesStatus = when {
-        list.all { it is PageDigest.Success } -> ChapterFields.PagesStatus.SUCCESS
-        list.all { it is PageDigest.Failure } -> ChapterFields.PagesStatus.ERROR
-        else -> ChapterFields.PagesStatus.PARTIAL
+    val pagesStatus = if (!full) {
+        null
+    } else {
+        when {
+            list.all { it is PageDigest.Success } -> ChapterFields.PagesStatus.SUCCESS
+            list.all { it is PageDigest.Failure } -> ChapterFields.PagesStatus.ERROR
+            else -> ChapterFields.PagesStatus.PARTIAL
+        }
     }
 
     val count = plugin.pageCount
@@ -239,7 +251,7 @@ suspend fun buildChapterDigest(
             status = pagesStatus,
             count = count,
             readCount = readCount,
-            total = list.size,
+            total = if (full) list.size else null,
             totalWidthPx = totalWidthPx,
             totalHeightPx = totalHeightPx,
             resumePoint = resumePoint,

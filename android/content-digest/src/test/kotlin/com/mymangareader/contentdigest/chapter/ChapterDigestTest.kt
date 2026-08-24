@@ -349,7 +349,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         assertEquals(3, digest.pages.total)
         assertEquals(listOf(0, 1, 2), digest.pages.list.map { (it as PageDigest.Success).number })
@@ -360,7 +360,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         assertEquals(ChapterFields.PagesStatus.SUCCESS, digest.pages.status)
     }
@@ -371,7 +371,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
         plugin.urlForPage = { Result.failure(RuntimeException("dead")) }
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         assertEquals(ChapterFields.PagesStatus.ERROR, digest.pages.status)
         assertTrue(digest.pages.list.all { it is PageDigest.Failure })
@@ -383,7 +383,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
         plugin.urlForPage = { index -> if (index == 1) Result.failure(RuntimeException("bad")) else Result.success("http://fake/page/$index") }
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         assertEquals(ChapterFields.PagesStatus.PARTIAL, digest.pages.status)
     }
@@ -394,11 +394,27 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
         plugin.dimensionsForPage = { index -> if (index == 1) Result.failure(RuntimeException("bad")) else Result.success(PluginPageDimension(800, 1200)) }
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         // getDimensions() failing is tolerated inside PageDigest (still Success, per Task 018) —
         // so pages.status stays SUCCESS even though page 1 has no usable dimensions.
         assertEquals(ChapterFields.PagesStatus.SUCCESS, digest.pages.status)
+    }
+
+    // ── full=false (default) ─────────────────────────────────────────────
+
+    @Test
+    fun `full defaults to false — pages list is empty, status and total are null`() = runTest {
+        activateGroup()
+        plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
+
+        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+
+        assertTrue(digest.pages.list.isEmpty())
+        assertNull(digest.pages.status)
+        assertNull(digest.pages.total)
+        // count/readCount/fileFormat/resumePoint don't depend on pages.list — still populated
+        assertEquals(3, digest.pages.count)
     }
 
     // ── totalWidthPx / totalHeightPx ─────────────────────────────────────
@@ -409,7 +425,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
         plugin.dimensionsForPage = { Result.success(PluginPageDimension(width = 100, height = 200)) }
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         assertEquals(200, digest.pages.totalWidthPx)
         assertEquals(400, digest.pages.totalHeightPx)
@@ -421,7 +437,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
         plugin.dimensionsForPage = { index -> if (index == 0) Result.success(PluginPageDimension(0, 0)) else Result.success(PluginPageDimension(100, 200)) }
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
 
         assertNull(digest.pages.totalWidthPx)
         assertNull(digest.pages.totalHeightPx)
