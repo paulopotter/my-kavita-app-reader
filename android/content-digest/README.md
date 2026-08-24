@@ -156,14 +156,14 @@ interface ChapterFields {
 
     data class Pages(
         val fileFormat: String?,
-        val status: PagesStatus,
+        val status: PagesStatus?,       // null when list wasn't fetched (full=false, the default) — "not checked," never a value derived from an empty list
         val count: Int?,
         val readCount: Int?,
-        val total: Int,                 // derived from list.size — cross-check against count
-        val totalWidthPx: Int?,         // Σ width across list — null unless every page succeeded AND has usable dimensions
+        val total: Int?,                // derived from list.size when full=true — null when full=false; never falls back to count, a different (server-declared, uncross-checked) value
+        val totalWidthPx: Int?,         // Σ width across list — null unless every page succeeded AND has usable dimensions (also null when full=false)
         val totalHeightPx: Int?,        // Σ height across list — same condition
-        val resumePoint: ResumePoint?,
-        val list: List<PageDigest>,
+        val resumePoint: ResumePoint?,  // independent of full — comes from getProgress()/lastReadingProgressUtc, not pages.list
+        val list: List<PageDigest>,     // empty when full=false — not fetched, not "zero pages" (see status/total, both null in that case, for how to tell the difference)
     )
 
     data class ResumePoint(
@@ -258,7 +258,19 @@ unbounded recursion. `pages` (the full list included) is intentionally kept, eve
 a neighbor's payload larger — mirrors how the Reader already fetches a neighbor's full page data
 today (needed for the prev/curr/next trio to render without a second round-trip).
 
-### `buildChapterDigest(server: Server, seriesId: String, chapterId: String, knownChapter: PluginChapter? = null, prevChapter: ChapterNeighborDigest? = null, nextChapter: ChapterNeighborDigest? = null): ChapterDigest`
+### `buildChapterDigest(server: Server, seriesId: String, chapterId: String, knownChapter: PluginChapter? = null, prevChapter: ChapterNeighborDigest? = null, nextChapter: ChapterNeighborDigest? = null, full: Boolean = false): ChapterDigest`
+
+**`full` (default `false`) — whether `pages.list` is actually built at all.** `false` is the
+*cheap* default on purpose: it skips every per-page network call (`page.getUrl()`/
+`getDimensions()`) entirely, not just trims the resulting payload — `pages.list` comes back
+`[]`, and `pages.status`/`pages.total` come back `null` (never a value derived from that empty
+list — see `Pages`' own field comments above for how a caller tells "not fetched" apart from "a
+real empty/zero result"). `pages.count`/`readCount`/`fileFormat`/`resumePoint` are unaffected
+either way — none of them depend on `pages.list`. Pass `full = true` only when the actual page
+list is needed (e.g. opening a chapter to read it) — `SeriesDigest.chapters.list` (below) defaults
+to `full = false` for exactly this reason: listing a series' chapters doesn't need every page of
+every chapter fetched up front, and doing so anyway made a single series' payload scale into
+megabytes (confirmed on a real 17-chapter series before this parameter existed).
 
 **`knownChapter` (Task 020) — an optional completeness-checked fast path, not a fallback/merge.**
 When Series already fetched a `PluginChapter` (from its own `chapters.list()` call) and passes it
@@ -447,7 +459,16 @@ series. `chapters.list` is `List<ChapterDigest>` directly (not `ChapterNeighborD
 — `ChapterDigest` alone has no visibility into chapter order (see `buildChapterDigest`'s own
 `prevChapter`/`nextChapter` params, which default to `null` when it's called in isolation).
 
-### `buildSeriesDigest(server: Server, seriesId: String): SeriesDigest`
+### `buildSeriesDigest(server: Server, seriesId: String, full: Boolean = false): SeriesDigest`
+
+**`full` (default `false`) is passed straight through to every `buildChapterDigest` call this
+function makes** (see `full`'s own docs above) — `SeriesDigest.chapters.list[*].pages.list` comes
+back empty by default, for the same reason `buildChapterDigest` defaults to it: a series' chapter
+listing doesn't need every page of every chapter fetched, and doing so anyway made a single
+series' payload scale into megabytes. Pass `full = true` only when the caller genuinely needs
+every chapter's full page list up front (rare — most callers that need one chapter's pages call
+`buildChapterDigest` directly for that one chapter instead of asking `SeriesDigest` for all of
+them).
 
 **Assembly order matters (R11):**
 1. `server.serial(seriesId).get()` — **vital**, always runs (no equivalent of `buildChapterDigest`'s
