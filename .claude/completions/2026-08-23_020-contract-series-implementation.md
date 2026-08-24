@@ -91,3 +91,51 @@ Validado contra o servidor real: a mesma série de 17 capítulos caiu de ~3MB pa
 (~97% menor) com o novo default. Coverage seguiu em ~76.55% — piso mantido em 76 (a margem sobre o
 valor medido ficou pequena demais para justificar subir agora). 3 commits pequenos (`ChapterDigest`,
 `SeriesDigest`, README).
+
+## Pós-fechamento (2026-08-24) — bridge RN↔Kotlin para os digests
+
+Depois do ajuste do `full`, o usuário perguntou se dava para trocar a fonte de dados do RN atual
+para os digests sem custo grande. A investigação mostrou que não havia bridge nenhuma ligando
+`:content-digest` ao RN — as telas RN de hoje seguem consumindo `ServerBridgeModule` (`:server`
+puro), sem nenhum caminho para `PageDigest`/`ChapterDigest`/`SeriesDigest`. O usuário reconheceu
+que isso era um gap do próprio escopo original ("nós mapeamos errado o Digest, era para o digest
+ter o bridge") e pediu para criar a bridge agora — só o lado Kotlin + tipos TS, sem trocar
+nenhuma tela ainda.
+
+**Entregue:**
+- `DigestBridgeModule.kt` (`android/app/.../DigestBridgeModule.kt`): `@ReactMethod`s
+  `getPageDigest`/`getChapterDigest`/`getSeriesDigest`, cada um chamando o builder correspondente
+  de `:content-digest` e resolvendo a Promise sempre — nunca rejeitando para uma `Failure`
+  esperada (só uma exceção genuinamente fora do que os builders já cobrem rejeitaria, e na
+  prática isso nunca acontece: `buildPageDigest`/`buildChapterDigest`/`buildSeriesDigest` sempre
+  capturam suas próprias exceções e devolvem `Failure`, nunca relançam). `getPageDigest` monta um
+  `ChapterSummary` mínimo localmente (só `id`/`seriesId`, os dois únicos campos que
+  `buildPageDigest` lê de fato) em vez de buscar o capítulo inteiro — evita uma chamada de rede
+  desnecessária.
+- `DigestBridgeMappers.kt`: `toWritableMap()` para cada tipo que os três digests carregam
+  (`ServerActiveInfo`, `ImageDescriptor`, `ErrorDigest`, `PageDigest`, `ChapterDigest`/
+  `ChapterNeighborDigest`, `SeriesDigest` e todos os sub-blocos de `SeriesFields`) — sempre
+  `{isSuccess, ...}`.
+- Registro em `AppReactPackage.kt` e dependência `implementation(project(":content-digest"))`
+  adicionada a `android/app/build.gradle.kts` (faltava — só por isso `:app` já estava quebrado
+  antes desta correção, por mudanças não propagadas de `PluginSerial`/`PluginChapter` das Tasks
+  019/020 em `ServerBridgeModule.kt`, consertado primeiro).
+- `frontend/src/shared/bridge/digest.ts`: tipos TS espelhando 1:1 cada `toWritableMap()` — não são
+  os contratos TS originais de `chapter.ts`/`series.ts`/`page.ts` (que antecedem a reescrita
+  Kotlin e não têm relação com isso).
+
+**`knownChapter`/`prevChapter`/`nextChapter` ficaram deliberadamente fora** — nenhum consumidor RN
+tem esses dados em mãos ainda (nenhuma tela foi migrada). Registrado como comentário no próprio
+`DigestBridgeModule.kt` para não ser esquecido quando um consumidor real precisar evitar uma busca
+redundante.
+
+**Testes:** `DigestBridgeModuleTest.kt` cobre só `getName()`. Não foi possível testar os caminhos
+de sucesso/falha em JVM puro — `Arguments.createMap()` (usado por todo `DigestBridgeMappers.kt`)
+precisa da lib nativa `reactnativejni`, indisponível mesmo sob Robolectric, mesma limitação já
+documentada em `ReaderChapterModuleTest.kt`/`NetworkStatusModuleTest.kt` para o `ServerBridgeModule`
+existente. `make coverage-kotlin`: ~76.55%, piso mantido em 76. `make coverage-js`/`tsc --noEmit`/
+`eslint`: sem regressão (`digest.ts` é só tipos, sem lógica testável). Resolução real (sucesso e
+Failure) não foi validada nem por smoke test manual nesta rodada — fica pendente para quando um
+consumidor RN real existir.
+
+2 commits pequenos: `feat(android/app)` (bridge Kotlin) e `feat(front/shared/bridge)` (tipos TS).

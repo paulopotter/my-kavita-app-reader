@@ -121,3 +121,10 @@ series) turned out to be too large for mobile use once scaled across a real libr
 Added a `full: Boolean = false` parameter to `buildChapterDigest`/`buildSeriesDigest` — see the
 "Pós-fechamento" section in this task's completion doc
 (`.claude/completions/2026-08-23_020-contract-series-implementation.md`) for the full writeup.
+
+**Post-close addition (2026-08-24):** created the RN↔Kotlin bridge for the digests themselves
+(`DigestBridgeModule.kt`/`DigestBridgeMappers.kt` in `:app`, registered in `AppReactPackage.kt`,
+plus `frontend/src/shared/bridge/digest.ts`) — a gap in the original Task 019/020 scope (the
+digests were built but never exposed to RN). Kotlin side + TS types only, no screen migrated yet.
+See the completion doc's own "Pós-fechamento" section for the full writeup, including why only
+`getName()` is testable in JVM.
