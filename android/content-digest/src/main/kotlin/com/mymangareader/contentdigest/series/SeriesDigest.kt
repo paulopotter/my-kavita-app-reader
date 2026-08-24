@@ -108,7 +108,7 @@ private fun PluginSeriesMetadata.toDigestMetadata() = SeriesFields.Metadata(
 // failures (Aggregating / Necessary per the design notes) — caught, the corresponding field
 // stays null, doesn't escalate, and doesn't touch server/resolvedAtEpochMs (those only reflect
 // THIS Series' own get()/getCoverImage() calls, never metadata's or chapters'').
-suspend fun buildSeriesDigest(server: Server, seriesId: String): SeriesDigest {
+suspend fun buildSeriesDigest(server: Server, seriesId: String, full: Boolean = false): SeriesDigest {
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
 
@@ -139,7 +139,7 @@ suspend fun buildSeriesDigest(server: Server, seriesId: String): SeriesDigest {
     }
 
     val chapters: SeriesFields.Chapters? = try {
-        buildChaptersBlock(server, seriesId, server.serial(seriesId).chapters.list().data)
+        buildChaptersBlock(server, seriesId, server.serial(seriesId).chapters.list().data, full)
     } catch (e: Exception) {
         null
     }
@@ -175,11 +175,11 @@ suspend fun buildSeriesDigest(server: Server, seriesId: String): SeriesDigest {
 // supersedes the decimalNumber-truncated fallback buildChapterDigest used when built in
 // isolation) and prevChapter/nextChapter (from the already-built neighbors, converted to
 // ChapterNeighborDigest — no additional network calls).
-private suspend fun buildChaptersBlock(server: Server, seriesId: String, rawChapters: List<PluginChapter>): SeriesFields.Chapters {
+private suspend fun buildChaptersBlock(server: Server, seriesId: String, rawChapters: List<PluginChapter>, full: Boolean): SeriesFields.Chapters {
     val sorted = rawChapters.sortedBy { it.decimalNumber ?: Double.MAX_VALUE }
 
     val digests = coroutineScope {
-        sorted.map { raw -> async { buildChapterDigest(server, seriesId, raw.id, knownChapter = raw) } }
+        sorted.map { raw -> async { buildChapterDigest(server, seriesId, raw.id, knownChapter = raw, full = full) } }
             .map { it.await() }
     }
 

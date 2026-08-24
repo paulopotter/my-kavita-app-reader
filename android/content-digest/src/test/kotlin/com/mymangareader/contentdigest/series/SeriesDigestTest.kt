@@ -1,6 +1,7 @@
 package com.mymangareader.contentdigest.series
 
 import com.mymangareader.contentdigest.chapter.ChapterDigest
+import com.mymangareader.contentdigest.chapter.ChapterFields
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
@@ -188,6 +189,32 @@ class SeriesDigestTest {
         assertEquals("1", digest.library?.id)
         assertEquals("Library", digest.library?.name)
         assertNull(digest.cache)
+    }
+
+    @Test
+    fun `full defaults to false — each chapter's pages list comes back empty`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 5)))
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+        val chapter = digest.chapters?.list?.single() as ChapterDigest.Success
+
+        assertTrue(chapter.pages.list.isEmpty())
+        assertNull(chapter.pages.status)
+        assertNull(chapter.pages.total)
+    }
+
+    @Test
+    fun `full=true propagates down to every chapter's pages list`() = runTest {
+        activateGroup()
+        plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 2)))
+
+        val digest = buildSeriesDigest(server, "s1", full = true) as SeriesDigest.Success
+        val chapter = digest.chapters?.list?.single() as ChapterDigest.Success
+
+        assertEquals(2, chapter.pages.list.size)
+        assertEquals(2, chapter.pages.total)
+        assertEquals(ChapterFields.PagesStatus.SUCCESS, chapter.pages.status)
     }
 
     @Test
