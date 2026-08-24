@@ -70,6 +70,7 @@ class AppReactPackage(
             ScreenControlModule(uiPreferencesDao, context),
             NetworkStatusModule(activeUrlWatcher, context),
             ServerBridgeModule(server, context),
+            DigestBridgeModule(server, context),
         )
     }
 
