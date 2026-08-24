@@ -18,6 +18,18 @@ import { ChapterSortConfigFields } from '../../shared/components/ChapterSortConf
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
 import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
 import { addBffServer, savePreferences, saveServer } from './ConfigService';
+import {
+  chapterSteps,
+  discoverActiveGroupId,
+  discoverFirstChapterId,
+  discoverFirstGroupId,
+  discoverFirstSeriesId,
+  pageSteps,
+  serialSteps,
+  serverServiceSteps,
+  serverSteps,
+  type SmokeTestStep,
+} from './DebugSmokeTest';
 import { useConfig } from './useConfig';
 
 const BG = '#1A1A2E';
@@ -27,7 +39,7 @@ const RED = '#E94560';
 const GREEN = '#38A169';
 const MUTED = '#A0AEC0';
 
-type Screen = 'menu' | 'server' | 'reading' | 'chapter';
+type Screen = 'menu' | 'server' | 'reading' | 'chapter' | 'debug';
 type ConnStatus = 'idle' | 'testing' | 'ok' | 'error';
 type AuthStatus = 'idle' | 'loading' | 'ok' | 'error';
 interface MenuState { type: 'kavita' | 'bff' | 'apikey'; id: string }
@@ -74,6 +86,8 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
       return <ReadingPrefsScreen onBack={goBack} />;
     case 'chapter':
       return <ChapterSortSettingsScreen onBack={goBack} />;
+    case 'debug':
+      return <DebugScreen onBack={goBack} />;
     default:
       return <ConfigMenuScreen onNavigate={setScreen} />;
   }
@@ -84,6 +98,7 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
 function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
   const t = useStrings();
   const { language, setLanguage } = useLanguage();
+  const [debugUnlocked, setDebugUnlocked] = useState(false);
 
   const handleLanguageToggle = async () => {
     const next = language === 'en' ? 'pt-BR' : 'en';
@@ -109,6 +124,15 @@ function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
         <Text style={styles.menuRowArrow}>›</Text>
       </TouchableOpacity>
       <View style={styles.divider} />
+      {debugUnlocked && (
+        <>
+          <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('debug')}>
+            <Text style={styles.menuRowLabel}>Debug</Text>
+            <Text style={styles.menuRowArrow}>›</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+        </>
+      )}
       <View style={styles.menuFooter}>
         <View style={styles.langSwitchRow}>
           <TouchableOpacity
@@ -125,7 +149,7 @@ function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
             <Text style={[styles.langOptionTxt, language === 'en' && styles.langOptionTxtActive]}>🇺🇸 EN</Text>
           </TouchableOpacity>
         </View>
-        <AppVersions t={t} />
+        <AppVersions t={t} onDebugUnlocked={() => setDebugUnlocked(true)} />
       </View>
     </View>
   );
@@ -674,6 +698,189 @@ function ChapterSortSettingsScreen({ onBack }: { onBack: () => void }) {
           />
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+// ─── Debug (Task 021 RN Services smoke test) ───────────────────────────────────
+//
+// One section per domain (Server, ServerService, Serials, Chapters, Pages), each with its own
+// "Run" button and result list — a failure in one section never blocks the others. Sections that
+// need an id (groupId/seriesId/chapterId) try to auto-discover it first; the discovered value is
+// shown in an editable text input the user can override before running that section, since
+// auto-discovery can legitimately come up empty (e.g. no active group yet).
+
+function logStep(step: SmokeTestStep) {
+  console.log(`[DebugSmokeTest] ${step.ok ? 'OK' : 'FAIL'} ${step.label}: ${step.detail}`);
+}
+
+function SmokeTestSection({
+  title,
+  idLabel,
+  idValue,
+  onIdChange,
+  onRun,
+  disabled,
+}: {
+  title: string;
+  idLabel?: string;
+  idValue?: string;
+  onIdChange?: (v: string) => void;
+  onRun: () => Promise<SmokeTestStep[]>;
+  disabled?: boolean;
+}) {
+  const [running, setRunning] = useState(false);
+  const [steps, setSteps] = useState<SmokeTestStep[]>([]);
+
+  const handleRun = async () => {
+    setRunning(true);
+    setSteps([]);
+    console.log(`[DebugSmokeTest] section "${title}" starting`);
+    const results = await onRun();
+    results.forEach(logStep);
+    setSteps(results);
+    console.log(`[DebugSmokeTest] section "${title}" finished`);
+    setRunning(false);
+  };
+
+  return (
+    <View style={styles.formCard}>
+      <Text style={styles.section}>{title}</Text>
+      {idLabel && (
+        <>
+          <Text style={styles.inputLabel}>{idLabel}</Text>
+          <TextInput
+            style={styles.inputFull}
+            value={idValue}
+            onChangeText={onIdChange}
+            placeholder="(not discovered — enter manually)"
+            placeholderTextColor="#4A5568"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </>
+      )}
+      <TouchableOpacity
+        style={[styles.outlineBtn, (running || disabled) && styles.btnDisabled]}
+        onPress={handleRun}
+        disabled={running || disabled}>
+        <Text style={styles.outlineTxt}>{running ? 'Running…' : `Run ${title}`}</Text>
+      </TouchableOpacity>
+
+      {steps.map((step, i) => (
+        <View key={i} style={styles.serverRow}>
+          <View style={[styles.dot, step.ok ? styles.dotActive : styles.dotInactive]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.serverUrl} numberOfLines={1}>{step.label}</Text>
+            <Text style={step.ok ? styles.msgOk : styles.msgError} numberOfLines={2}>
+              {step.detail}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function DebugScreen({ onBack }: { onBack: () => void }) {
+  const [groupId, setGroupId] = useState('');
+  const [seriesId, setSeriesId] = useState('');
+  const [chapterId, setChapterId] = useState('');
+  const [pageIndex, setPageIndex] = useState('0');
+
+  useEffect(() => {
+    discoverActiveGroupId().then(id => {
+      if (id) { setGroupId(id); return; }
+      discoverFirstGroupId().then(fallback => { if (fallback) { setGroupId(fallback); } });
+    });
+  }, []);
+
+  return (
+    <View style={styles.root}>
+      <View style={styles.subHeader}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtnArea} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={styles.backChevron}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.subTitle}>Debug</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <SmokeTestSection
+          title="Server"
+          idLabel="groupId"
+          idValue={groupId}
+          onIdChange={setGroupId}
+          disabled={!groupId}
+          onRun={async () => {
+            const results: SmokeTestStep[] = [];
+            for (const run of serverSteps(groupId)) { results.push(await run()); }
+            return results;
+          }}
+        />
+
+        <SmokeTestSection
+          title="ServerService (session)"
+          idLabel="groupId"
+          idValue={groupId}
+          onIdChange={setGroupId}
+          disabled={!groupId}
+          onRun={async () => {
+            const results: SmokeTestStep[] = [];
+            for (const run of serverServiceSteps(groupId)) { results.push(await run()); }
+            return results;
+          }}
+        />
+
+        <SmokeTestSection
+          title="Serials / SerialService"
+          idLabel="seriesId"
+          idValue={seriesId}
+          onIdChange={setSeriesId}
+          onRun={async () => {
+            let id = seriesId;
+            if (!id) {
+              const discovered = await discoverFirstSeriesId();
+              if (discovered) { id = discovered; setSeriesId(discovered); }
+            }
+            if (!id) { return [{ label: 'SerialsService.list', ok: false, detail: 'no seriesId — type one in manually' }]; }
+            const results: SmokeTestStep[] = [];
+            for (const run of serialSteps(id)) { results.push(await run()); }
+            return results;
+          }}
+        />
+
+        <SmokeTestSection
+          title="ChapterService"
+          idLabel="chapterId"
+          idValue={chapterId}
+          onIdChange={setChapterId}
+          disabled={!seriesId}
+          onRun={async () => {
+            let id = chapterId;
+            if (!id) {
+              const discovered = await discoverFirstChapterId(seriesId);
+              if (discovered) { id = discovered; setChapterId(discovered); }
+            }
+            if (!id) { return [{ label: 'raw.chapters.list', ok: false, detail: 'no chapterId — type one in manually' }]; }
+            const results: SmokeTestStep[] = [];
+            for (const run of chapterSteps(seriesId, id)) { results.push(await run()); }
+            return results;
+          }}
+        />
+
+        <SmokeTestSection
+          title="PageService"
+          idLabel="pageIndex"
+          idValue={pageIndex}
+          onIdChange={setPageIndex}
+          disabled={!seriesId || !chapterId}
+          onRun={async () => {
+            const results: SmokeTestStep[] = [];
+            for (const run of pageSteps(seriesId, chapterId, Number(pageIndex) || 0)) { results.push(await run()); }
+            return results;
+          }}
+        />
+      </ScrollView>
     </View>
   );
 }
