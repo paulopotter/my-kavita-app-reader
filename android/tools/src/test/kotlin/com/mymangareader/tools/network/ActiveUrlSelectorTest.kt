@@ -1,8 +1,10 @@
 package com.mymangareader.tools.network
 
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -21,7 +23,7 @@ class ActiveUrlSelectorTest {
         server2 = MockWebServer()
         server1.start()
         server2.start()
-        selector = ActiveUrlSelector()
+        selector = ActiveUrlSelector(OkHttpClient())
     }
 
     @After
@@ -115,5 +117,35 @@ class ActiveUrlSelectorTest {
         selector.getActiveUrl(listOf(candidate(server1)))
 
         assertTrue(selector.getLastKnownUrl()?.startsWith("http://") == true)
+    }
+
+    // Simulates the real-world hang this watchdog exists for: a socket that accepts the
+    // connection but never sends a response — plain `withTimeoutOrNull` around a blocking
+    // execute() doesn't reliably fire in that case (see the class-level comment), so this
+    // verifies the Timer-based watchdog actually cancels the stuck call and the selector still
+    // resolves (with failure, since this is the only candidate and it never answers), instead of
+    // hanging.
+    @Test
+    fun `a candidate that never responds is treated as unhealthy, not left hanging`() = runTest {
+        server1.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+
+        val result = selector.getActiveUrl(listOf(candidate(server1, timeoutMs = 200)))
+
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun `a slower never-responding candidate does not block a healthy one from winning`() = runTest {
+        server1.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        server2.enqueue(MockResponse().setResponseCode(200))
+
+        val result = selector.getActiveUrl(
+            listOf(
+                candidate(server1, "a", priority = 0, timeoutMs = 200),
+                candidate(server2, "b", priority = 1, timeoutMs = 2000),
+            )
+        )
+
+        assertTrue(result.isSuccess)
     }
 }

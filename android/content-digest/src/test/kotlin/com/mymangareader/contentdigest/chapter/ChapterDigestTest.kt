@@ -150,7 +150,7 @@ class ChapterDigestTest {
         groupDao = FakeServerGroupDao()
         urlDao = FakeServerUrlDao()
         plugin = FakePlugin()
-        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(), RequestTool(OkHttpClient()))
+        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
     }
 
     @After

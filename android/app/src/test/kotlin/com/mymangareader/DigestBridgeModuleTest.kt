@@ -50,7 +50,7 @@ class DigestBridgeModuleTest {
 
     @Test
     fun `getName retorna DigestBridgeModule`() {
-        val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(), RequestTool(OkHttpClient()))
+        val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
         val module = DigestBridgeModule(server, mock<ReactApplicationContext>())
 
         assertEquals("DigestBridgeModule", module.name)

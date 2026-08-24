@@ -220,7 +220,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration()),
-            ActiveUrlSelector(),
+            ActiveUrlSelector(OkHttpClient()),
             RequestTool(OkHttpClient()),
         )
     }
@@ -409,7 +409,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(),
+            ActiveUrlSelector(OkHttpClient()),
             RequestTool(OkHttpClient()),
         )
 
@@ -431,7 +431,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(),
+            ActiveUrlSelector(OkHttpClient()),
             RequestTool(OkHttpClient()),
         )
         // Same Server/UrlSelector instance throughout — one health check response covers every
@@ -460,7 +460,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(),
+            ActiveUrlSelector(OkHttpClient()),
             RequestTool(OkHttpClient()),
         )
         mockServer.enqueue(MockResponse().setResponseCode(200)) // health check
@@ -544,7 +544,7 @@ class ServerTest {
                 groupDao,
                 urlDao,
                 mapOf("fake" to fakeRegistration(onFactory = { _, _, _, plugin -> instances += plugin })),
-                ActiveUrlSelector(),
+                ActiveUrlSelector(OkHttpClient()),
                 RequestTool(OkHttpClient()),
             )
         }

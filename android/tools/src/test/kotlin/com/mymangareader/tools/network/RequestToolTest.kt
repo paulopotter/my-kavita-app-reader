@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -103,5 +104,20 @@ class RequestToolTest {
         val result = tool.request("http://localhost:1/unreachable")
 
         assertTrue(result.isFailure)
+    }
+
+    // Simulates the real-world scenario the coroutine-level timeout exists for: a socket that
+    // stays open and accepts the connection, but never sends a response — OkHttp's own
+    // connect/read timeouts don't reliably fire in every Android network condition (see
+    // RequestTool.kt's own comment), so this is the backstop being verified directly, using a
+    // short timeoutMs (not the real 35s default) so the test itself doesn't hang.
+    @Test
+    fun `never-responding connection still resolves via the coroutine-level timeout`() = runTest {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+
+        val result = tool.request(server.url("/hangs").toString(), timeoutMs = 200L)
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is RequestTimeoutException)
     }
 }
