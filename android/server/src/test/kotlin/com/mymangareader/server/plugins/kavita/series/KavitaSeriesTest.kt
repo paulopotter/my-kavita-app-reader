@@ -81,7 +81,7 @@ class KavitaSeriesTest {
     fun `getSeriesMetadata returns genres and tags with ids`() = runTest {
         server.enqueue(
             MockResponse().setResponseCode(200).setBody(
-                """{"seriesId":7,"summary":"A great story","genres":[{"id":1,"title":"Action"}],"tags":[{"id":2,"title":"Isekai"}],"publicationStatus":"OnGoing","releaseYear":2020,"language":"en"}""",
+                """{"seriesId":7,"summary":"A great story","genres":[{"id":1,"title":"Action"}],"tags":[{"id":2,"title":"Isekai"}],"publicationStatus":0,"ageRating":3,"releaseYear":2020,"language":"en"}""",
             ),
         )
 
@@ -91,7 +91,8 @@ class KavitaSeriesTest {
         assertEquals(1, dto.genres.single().id)
         assertEquals("Action", dto.genres.single().title)
         assertEquals(2, dto.tags.single().id)
-        assertEquals("OnGoing", dto.publicationStatus)
+        assertEquals(0, dto.publicationStatus)
+        assertEquals(3, dto.ageRating)
         assertEquals(2020, dto.releaseYear)
     }
 

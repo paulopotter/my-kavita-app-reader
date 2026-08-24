@@ -8,6 +8,7 @@ import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
 import com.mymangareader.server.plugins.PluginSerial
+import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.RequestTool
@@ -302,6 +303,9 @@ class Server @Inject constructor(
     private inner class SerialHandle(private val serialId: String) : Serial {
         override suspend fun get(): ServerResponse<PluginSerial> = withUrlRetryEnveloped { it.serial(serialId).get() }
 
+        override suspend fun getMetadata(): ServerResponse<PluginSeriesMetadata> =
+            withUrlRetryEnveloped { it.serial(serialId).getMetadata() }
+
         override suspend fun getCoverImage(): ImageDescriptor {
             val response = withUrlRetryEnveloped { it.serial(serialId).getCoverUrl() }
             return buildImageDescriptor(
@@ -519,6 +523,7 @@ class Server @Inject constructor(
 
     interface Serial {
         suspend fun get(): ServerResponse<PluginSerial>
+        suspend fun getMetadata(): ServerResponse<PluginSeriesMetadata>
         suspend fun getCoverImage(): ImageDescriptor
         val chapters: Chapters
         fun chapter(chapterId: String): Chapter

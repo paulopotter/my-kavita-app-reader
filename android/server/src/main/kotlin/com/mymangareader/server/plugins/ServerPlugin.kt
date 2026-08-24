@@ -7,15 +7,55 @@ import com.mymangareader.tools.network.RequestTool
 // provider without knowing its provider-specific DTOs. Each adapter (e.g. KavitaServerPlugin) is
 // responsible for translating its raw plugin's real response into these.
 
+// Fields from Kavita's real SeriesDto (the first, cheaper series call) — never mixes in fields
+// that require the separate SeriesMetadataDto call (see PluginSeriesMetadata below). Naming
+// already matches SeriesContract's vocabulary (Task 020), not SeriesDto's raw field names — same
+// convention PluginChapter already follows for Chapter (Task 019).
 data class PluginSerial(
     val id: String,
     val name: String,
     val pagesRead: Int,
     val totalPages: Int,
-    val lastUpdatedUtc: String?,
-    val summary: String?,
-    val genres: List<String>,
-    val tags: List<String>,
+    val libraryId: String?,
+    val libraryName: String?,
+    val lastFolderScannedUtc: String?,
+    val lastChapterAddedUtc: String?,
+    val latestReadDateUtc: String?,
+    val originalName: String?,
+    val localizedName: String?,
+    val sortName: String?,
+    val aniListId: Int?,
+    val malId: Long?,
+    val primaryColor: String?,
+    val secondaryColor: String?,
+)
+
+// Fields from Kavita's real SeriesMetadataDto — a genuinely separate network call
+// (GET /api/Series/metadata), same precedent as Page's dimensions requiring their own call.
+// genres/tags kept as id+name pairs (not just name) — SeriesContract's own correction of an
+// earlier finding that discarded GenreDto/TagDto's id.
+data class PluginSeriesMetadata(
+    val description: String?,
+    val genres: List<PluginGenreOrTag>,
+    val tags: List<PluginGenreOrTag>,
+    val publicationStatus: String?,
+    val ageRating: PluginAgeRating?,
+    val releaseYear: Int?,
+    val language: String?,
+)
+
+// [system] is decided by the adapter, not hardcoded here — a rating vocabulary is itself a
+// provider concern (e.g. Kavita's own AgeRating enum isn't real ESRB naming, even though it
+// shares the same spirit). Grouped with [rating] instead of a bare string so a future second
+// rating system doesn't require breaking this field.
+data class PluginAgeRating(
+    val rating: String?,
+    val system: String,
+)
+
+data class PluginGenreOrTag(
+    val id: String,
+    val name: String,
 )
 
 data class PluginChapter(
@@ -157,6 +197,7 @@ interface ServerPlugin {
 
     interface Serial {
         suspend fun get(): PluginSerial
+        suspend fun getMetadata(): PluginSeriesMetadata
         fun getCoverUrl(): String
         val chapters: Chapters
         fun chapter(chapterId: String): Chapter

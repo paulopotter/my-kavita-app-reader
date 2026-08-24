@@ -4,10 +4,8 @@ import com.mymangareader.tools.network.RequestTool
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -181,31 +179,38 @@ class KavitaServerPluginTest {
         assertEquals("Serial A", serial.name)
         assertEquals(40, serial.pagesRead)
         assertEquals(100, serial.totalPages)
-        assertNull(serial.summary)
-        assertTrue(serial.genres.isEmpty())
     }
 
-    // ── serial(id).get() — parallel fetch + merge ───────────────────────
+    // ── serial(id).get() / getMetadata() — two separate network calls ──
 
     @Test
-    fun `serial get merges series and metadata fetched in parallel`() = runTest {
-        server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse =
-                if (request.path?.contains("/metadata") == true) {
-                    MockResponse().setResponseCode(200).setBody(
-                        """{"seriesId":7,"summary":"A great story","genres":[{"id":1,"title":"Action"}],"tags":[{"id":2,"title":"Isekai"}]}""",
-                    )
-                } else {
-                    MockResponse().setResponseCode(200).setBody("""{"id":7,"name":"Serial B","pages":50,"pagesRead":10}""")
-                }
-        }
+    fun `serial get maps SeriesDto fields without a second call`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"id":7,"name":"Serial B","pages":50,"pagesRead":10}"""))
 
         val serial = plugin.serial("7").get()
 
         assertEquals("Serial B", serial.name)
-        assertEquals("A great story", serial.summary)
-        assertEquals(listOf("Action"), serial.genres)
-        assertEquals(listOf("Isekai"), serial.tags)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `serial getMetadata maps SeriesMetadataDto fields via its own call`() = runTest {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"seriesId":7,"summary":"A great story","genres":[{"id":1,"title":"Action"}],"tags":[{"id":2,"title":"Isekai"}],"publicationStatus":0,"ageRating":8,"releaseYear":2020,"language":"en"}""",
+            ),
+        )
+
+        val metadata = plugin.serial("7").getMetadata()
+
+        assertEquals("A great story", metadata.description)
+        assertEquals(listOf("1" to "Action"), metadata.genres.map { it.id to it.name })
+        assertEquals(listOf("2" to "Isekai"), metadata.tags.map { it.id to it.name })
+        assertEquals("OnGoing", metadata.publicationStatus)
+        assertEquals("Teen", metadata.ageRating?.rating)
+        assertEquals("Kavita", metadata.ageRating?.system)
+        assertEquals(2020, metadata.releaseYear)
+        assertEquals("en", metadata.language)
     }
 
     @Test
@@ -217,30 +222,16 @@ class KavitaServerPluginTest {
 
     @Test
     fun `serial get throws when series fetch fails`() = runTest {
-        server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse =
-                if (request.path?.contains("/metadata") == true) {
-                    MockResponse().setResponseCode(200).setBody("""{"seriesId":7}""")
-                } else {
-                    MockResponse().setResponseCode(500)
-                }
-        }
+        server.enqueue(MockResponse().setResponseCode(500))
 
         assertFailsWith<Throwable> { plugin.serial("7").get() }
     }
 
     @Test
-    fun `serial get throws when metadata fetch fails`() = runTest {
-        server.dispatcher = object : Dispatcher() {
-            override fun dispatch(request: RecordedRequest): MockResponse =
-                if (request.path?.contains("/metadata") == true) {
-                    MockResponse().setResponseCode(500)
-                } else {
-                    MockResponse().setResponseCode(200).setBody("""{"id":7,"name":"Serial B"}""")
-                }
-        }
+    fun `serial getMetadata throws when metadata fetch fails`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(500))
 
-        assertFailsWith<Throwable> { plugin.serial("7").get() }
+        assertFailsWith<Throwable> { plugin.serial("7").getMetadata() }
     }
 
     // ── serial(id).chapters (group) ─────────────────────────────────────

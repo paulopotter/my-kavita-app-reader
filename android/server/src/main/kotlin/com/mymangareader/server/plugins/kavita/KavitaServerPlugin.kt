@@ -1,10 +1,13 @@
 package com.mymangareader.server.plugins.kavita
 
+import com.mymangareader.server.plugins.PluginAgeRating
 import com.mymangareader.server.plugins.PluginChapter
+import com.mymangareader.server.plugins.PluginGenreOrTag
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
 import com.mymangareader.server.plugins.CredentialField
 import com.mymangareader.server.plugins.PluginSerial
+import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.server.plugins.kavita.auth.KavitaAuth
@@ -138,8 +141,7 @@ class KavitaServerPlugin(
 
     override val serials: ServerPlugin.Serials = object : ServerPlugin.Serials {
         override suspend fun list(): List<PluginSerial> =
-            kavitaSeries(ensureToken()).listSeries()
-                .map { it.toPluginSerial(summary = null, genres = emptyList(), tags = emptyList()) }
+            kavitaSeries(ensureToken()).listSeries().map { it.toPluginSerial() }
     }
 
     override fun serial(serialId: String): ServerPlugin.Serial = KavitaSerial(serialId)
@@ -180,21 +182,11 @@ class KavitaServerPlugin(
             cachedVolumes = null
         }
 
-        override suspend fun get(): PluginSerial = coroutineScope {
-            val series = kavitaSeries(ensureToken())
+        override suspend fun get(): PluginSerial =
+            kavitaSeries(ensureToken()).getSeries(serialId).toPluginSerial()
 
-            val seriesDeferred = async { series.getSeries(serialId) }
-            val metadataDeferred = async { series.getSeriesMetadata(serialId) }
-
-            val seriesDto = seriesDeferred.await()
-            val metadata = metadataDeferred.await()
-
-            seriesDto.toPluginSerial(
-                summary = metadata.summary,
-                genres = metadata.genres.map { it.title },
-                tags = metadata.tags.map { it.title },
-            )
-        }
+        override suspend fun getMetadata(): PluginSeriesMetadata =
+            kavitaSeries(ensureToken()).getSeriesMetadata(serialId).toPluginSeriesMetadata()
 
         // Synchronous by design (no network call — this just concatenates a string), same
         // rationale as KavitaPage.getUrl() — safe because buildSeriesCoverUrl only reads apiKey,
@@ -271,15 +263,73 @@ class KavitaServerPlugin(
     }
 }
 
-private fun KavitaSeriesDto.toPluginSerial(summary: String?, genres: List<String>, tags: List<String>) = PluginSerial(
+// name is Vital (SeriesContract) — a series with no name isn't a usable result at all, so a
+// missing name throws here rather than silently defaulting, letting buildSeriesDigest turn it
+// into a SeriesDigest.Failure the same way any other thrown exception does.
+private fun KavitaSeriesDto.toPluginSerial() = PluginSerial(
     id = id.toString(),
-    name = name,
+    name = name ?: throw KavitaServerPluginException("Series $id has no name"),
     pagesRead = pagesRead,
     totalPages = pages,
-    lastUpdatedUtc = lastChapterAddedUtc,
-    summary = summary,
-    genres = genres,
-    tags = tags,
+    libraryId = if (libraryId != 0) libraryId.toString() else null,
+    libraryName = libraryName,
+    lastFolderScannedUtc = lastFolderScanned,
+    lastChapterAddedUtc = lastChapterAddedUtc,
+    latestReadDateUtc = latestReadDate,
+    originalName = originalName,
+    localizedName = localizedName,
+    sortName = sortName,
+    aniListId = if (aniListId != 0) aniListId else null,
+    malId = if (malId != 0L) malId else null,
+    primaryColor = primaryColor,
+    secondaryColor = secondaryColor,
+)
+
+// Kavita's own PublicationStatus enum (0=OnGoing, 1=Hiatus, 2=Completed, 3=Cancelled, 4=Ended) —
+// this table is the only place that knowledge lives, same rationale as toPluginFileFormat below.
+private fun Int.toPluginPublicationStatus(): String? = when (this) {
+    0 -> "OnGoing"
+    1 -> "Hiatus"
+    2 -> "Completed"
+    3 -> "Cancelled"
+    4 -> "Ended"
+    else -> null
+}
+
+// Kavita's own AgeRating enum — its names aren't real ESRB vocabulary (ESRB uses E/E10+/T/M/AO),
+// so [system] is "Kavita" here, not a hardcoded "ESRB" — a different provider's adapter would pick
+// its own real rating system's name.
+private fun Int.toPluginAgeRating(): PluginAgeRating {
+    val rating = when (this) {
+        0 -> "Unknown"
+        1 -> "RatingPending"
+        2 -> "EarlyChildhood"
+        3 -> "Everyone"
+        4 -> "G"
+        5 -> "Everyone10Plus"
+        6 -> "PG"
+        7 -> "KidsToAdults"
+        8 -> "Teen"
+        9 -> "Mature15Plus"
+        10 -> "Mature17Plus"
+        11 -> "Mature"
+        12 -> "R18Plus"
+        13 -> "AdultsOnly"
+        14 -> "X18Plus"
+        -1 -> "NotApplicable"
+        else -> null
+    }
+    return PluginAgeRating(rating = rating, system = "Kavita")
+}
+
+private fun KavitaSeriesMetadataDto.toPluginSeriesMetadata() = PluginSeriesMetadata(
+    description = summary,
+    genres = genres.map { PluginGenreOrTag(id = it.id.toString(), name = it.title) },
+    tags = tags.map { PluginGenreOrTag(id = it.id.toString(), name = it.title) },
+    publicationStatus = publicationStatus.toPluginPublicationStatus(),
+    ageRating = ageRating.toPluginAgeRating(),
+    releaseYear = if (releaseYear != 0) releaseYear else null,
+    language = language,
 )
 
 // Kavita's own MangaFormat enum (0=Image, 1=Archive, 2=Unknown, 3=Epub, 4=Pdf) — this table is the
