@@ -4,10 +4,13 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableMap
 import com.mymangareader.contentdigest.chapter.buildChapterDigest
 import com.mymangareader.contentdigest.page.ChapterSummary
 import com.mymangareader.contentdigest.page.buildPageDigest
+import com.mymangareader.contentdigest.series.SeriesDigestOptions
 import com.mymangareader.contentdigest.series.buildSeriesDigest
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
@@ -40,6 +43,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class DigestBridgeModule @Inject constructor(
     private val server: Server,
+    private val externalMetadataServer: ExternalMetadataServer,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
@@ -98,11 +102,30 @@ class DigestBridgeModule @Inject constructor(
         }
     }
 
+    // [options] carries full/includeExternalMetadata/externalMetadataGroupId — a ReadableMap
+    // instead of separate parameters since this already mirrors SeriesDigestOptions' own
+    // "2+ fields → one named object" shape on the Kotlin side. includeExternalMetadata (default
+    // false) is what actually turns on the BFF/M3 enrichment — omitting it keeps today's
+    // behavior (no extra network call to ExternalMetadataServer) unchanged for existing callers.
     @ReactMethod
-    fun getSeriesDigest(seriesId: String, full: Boolean, promise: Promise) {
+    fun getSeriesDigest(seriesId: String, options: ReadableMap, promise: Promise) {
         scope.launch {
-            runCatching { buildSeriesDigest(server, seriesId, full = full) }
-                .resolveOrReject(promise, "GET_SERIES_DIGEST_ERROR") { it.toWritableMap() }
+            val full = if (options.hasKey("full")) options.getBoolean("full") else false
+            val includeExternalMetadata = if (options.hasKey("includeExternalMetadata")) options.getBoolean("includeExternalMetadata") else false
+            val externalMetadataGroupId = if (options.hasKey("externalMetadataGroupId")) options.getString("externalMetadataGroupId") else null
+
+            runCatching {
+                buildSeriesDigest(
+                    server,
+                    seriesId,
+                    SeriesDigestOptions(
+                        full = full,
+                        includeExternalMetadata = includeExternalMetadata,
+                        externalMetadataServer = if (includeExternalMetadata) externalMetadataServer else null,
+                        externalMetadataGroupId = externalMetadataGroupId,
+                    ),
+                )
+            }.resolveOrReject(promise, "GET_SERIES_DIGEST_ERROR") { it.toWritableMap() }
         }
     }
 }

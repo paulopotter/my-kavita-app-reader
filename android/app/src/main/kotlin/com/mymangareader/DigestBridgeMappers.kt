@@ -7,8 +7,11 @@ import com.mymangareader.contentdigest.chapter.ChapterFields
 import com.mymangareader.contentdigest.chapter.ChapterNeighborDigest
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.page.PageDigest
+import com.mymangareader.contentdigest.series.ExternalMetadataDigest
 import com.mymangareader.contentdigest.series.SeriesDigest
 import com.mymangareader.contentdigest.series.SeriesFields
+import com.mymangareader.externalmetadataserver.ExternalMetadataActiveInfo
+import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.ImageOrientation
 import com.mymangareader.server.ServerActiveInfo
@@ -186,6 +189,48 @@ private fun SeriesFields.Metadata.toWritableMap(): WritableMap = Arguments.creat
     ageRating?.let { putMap("ageRating", it.toWritableMap()) }
     releaseYear?.let { putInt("releaseYear", it) }
     language?.let { putString("language", it) }
+    // null when SeriesDigestOptions.includeExternalMetadata was false — buildExternalMetadataDigest
+    // was never even called, so there's genuinely nothing to report (not the same as it being
+    // called and finding "not configured," which is a real Failure — see ExternalMetadataDigest).
+    external?.let { putMap("external", it.toWritableMap()) }
+}
+
+private fun ExternalMetadataActiveInfo.toWritableMap(): WritableMap = Arguments.createMap().apply {
+    putString("groupId", groupId)
+    putString("groupName", groupName)
+    putString("providerId", providerId)
+    putString("urlId", urlId)
+    putString("url", url)
+    putInt("timeoutMs", timeoutMs)
+    putInt("priority", priority)
+}
+
+private fun ExternalMetadataMatch.toWritableMap(): WritableMap = Arguments.createMap().apply {
+    putString("seriesId", seriesId)
+    slug?.let { putString("slug", it) }
+    putString("status", status)
+    downloadedChapters?.let { putInt("downloadedChapters", it) }
+    totalChapters?.let { putInt("totalChapters", it) }
+    latestChapterLabel?.let { putString("latestChapterLabel", it) }
+    putBoolean("hasErrors", hasErrors)
+}
+
+// Same 2-state {isSuccess, error} shape every other XDigest uses on the bridge. A Failure whose
+// error.code is "not_configured" means buildExternalMetadataDigest was called but found no
+// ExternalMetadataServer group configured — RN checks error.code to tell that apart from a real
+// sync failure (per Task 022's explicit call: RN validates the error code/message and ignores vs.
+// explodes accordingly).
+private fun ExternalMetadataDigest.toWritableMap(): WritableMap = when (this) {
+    is ExternalMetadataDigest.Failure -> Arguments.createMap().apply {
+        putBoolean("isSuccess", false)
+        putMap("error", error.toWritableMap())
+    }
+    is ExternalMetadataDigest.Success -> Arguments.createMap().apply {
+        putBoolean("isSuccess", true)
+        match?.let { putMap("match", it.toWritableMap()) }
+        putMap("server", server.toWritableMap())
+        putDouble("resolvedAtEpochMs", resolvedAtEpochMs.toDouble())
+    }
 }
 
 private fun SeriesFields.ResumePoint.toWritableMap(): WritableMap = Arguments.createMap().apply {

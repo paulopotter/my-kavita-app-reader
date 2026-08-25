@@ -19,6 +19,7 @@ import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.server.Server
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.tools.bridge.ConfigRepository
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.bridge.DbValidatorModule
@@ -45,6 +46,7 @@ class AppReactPackage(
     private val seriesSortPrefsDao: SeriesSortPrefsDao,
     private val activeUrlWatcher: ActiveUrlWatcher,
     private val server: Server,
+    private val externalMetadataServer: ExternalMetadataServer,
 ) : ReactPackage {
 
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
@@ -70,7 +72,8 @@ class AppReactPackage(
             ScreenControlModule(uiPreferencesDao, context),
             NetworkStatusModule(activeUrlWatcher, context),
             ServerBridgeModule(server, context),
-            DigestBridgeModule(server, context),
+            DigestBridgeModule(server, externalMetadataServer, context),
+            ExternalMetadataBridgeModule(externalMetadataServer, server, context),
         )
     }
 

@@ -5,6 +5,7 @@ import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.server.Server
 import com.mymangareader.tools.network.ActiveUrlSelector
 import com.mymangareader.tools.network.RequestTool
@@ -51,7 +52,7 @@ class DigestBridgeModuleTest {
     @Test
     fun `getName retorna DigestBridgeModule`() {
         val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
-        val module = DigestBridgeModule(server, mock<ReactApplicationContext>())
+        val module = DigestBridgeModule(server, mock<ExternalMetadataServer>(), mock<ReactApplicationContext>())
 
         assertEquals("DigestBridgeModule", module.name)
     }
