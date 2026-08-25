@@ -27,6 +27,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_7_8,
                 AppDatabase.MIGRATION_8_9,
                 AppDatabase.MIGRATION_9_8,
+                AppDatabase.MIGRATION_9_10,
+                AppDatabase.MIGRATION_10_9,
             )
             .build()
 
@@ -68,4 +70,10 @@ object DatabaseModule {
 
     @Provides
     fun provideSeriesDetailCacheDao(db: AppDatabase): SeriesDetailCacheDao = db.seriesDetailCacheDao()
+
+    @Provides
+    fun provideExternalMetadataGroupDao(db: AppDatabase): ExternalMetadataGroupDao = db.externalMetadataGroupDao()
+
+    @Provides
+    fun provideExternalMetadataUrlDao(db: AppDatabase): ExternalMetadataUrlDao = db.externalMetadataUrlDao()
 }
