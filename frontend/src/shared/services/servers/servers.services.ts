@@ -5,6 +5,7 @@ import {
   type ServerUrlInfo,
 } from '../../bridge/server';
 import { Methods } from '../../tools/methods';
+import { ExternalService } from './external.services';
 
 // Layer 4 — thin wrapper over ServerBridge (Server, Layer 2). No cache, no transformation:
 // callers get the raw shapes exactly as Server produced them. ServersService (plural) is the
@@ -116,11 +117,17 @@ export const ServerService = {
       return ServerBridge.reauthenticateActiveGroup(groupId);
     },
   },
+  // The BFF/M3 "server" surface — same generalizer shape as Server itself, own module
+  // (:external-metadata-server), exposed here as a sibling namespace rather than a separate
+  // top-level service, since it's conceptually "another kind of server" the app talks to.
+  external: ExternalService,
   // bound({groupId}) fixes only the id (object-merge underneath, via Methods.bound) — see
   // serials.services.ts for the same pattern and rationale. `group.add` is excluded (skipKeys)
   // since it doesn't take a groupId at all — a group doesn't exist yet when it's called.
-  // `active.get()` takes no argument at all, so binding leaves it unchanged.
+  // `active.get()` takes no argument at all, so binding leaves it unchanged. `external` is its
+  // own independent service (its groupId is a different id than this ServerService's own),
+  // excluded from binding here — call ExternalService.bound({groupId}) directly instead.
   bound(fixed: { groupId: string }) {
-    return Methods.bound(ServerService, ['add'], fixed);
+    return Methods.bound(ServerService, ['add', 'external'], fixed);
   },
 };
