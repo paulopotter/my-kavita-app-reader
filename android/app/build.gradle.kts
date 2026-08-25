@@ -111,6 +111,7 @@ dependencies {
     implementation(project(":features"))
     implementation(project(":server"))
     implementation(project(":content-digest"))
+    implementation(project(":external-metadata-server"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)
