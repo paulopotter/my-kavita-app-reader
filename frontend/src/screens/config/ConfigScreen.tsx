@@ -22,9 +22,12 @@ import {
   chapterSteps,
   discoverActiveGroupId,
   discoverFirstChapterId,
+  discoverFirstExternalGroupId,
   discoverFirstGroupId,
   discoverFirstSeriesId,
+  externalSteps,
   pageSteps,
+  serialExternalDetailSteps,
   serialSteps,
   serverServiceSteps,
   serverSteps,
@@ -787,12 +790,14 @@ function DebugScreen({ onBack }: { onBack: () => void }) {
   const [seriesId, setSeriesId] = useState('');
   const [chapterId, setChapterId] = useState('');
   const [pageIndex, setPageIndex] = useState('0');
+  const [externalGroupId, setExternalGroupId] = useState('');
 
   useEffect(() => {
     discoverActiveGroupId().then(id => {
       if (id) { setGroupId(id); return; }
       discoverFirstGroupId().then(fallback => { if (fallback) { setGroupId(fallback); } });
     });
+    discoverFirstExternalGroupId().then(id => { if (id) { setExternalGroupId(id); } });
   }, []);
 
   return (
@@ -845,6 +850,20 @@ function DebugScreen({ onBack }: { onBack: () => void }) {
             if (!id) { return [{ label: 'SerialsService.list', ok: false, detail: 'no seriesId — type one in manually' }]; }
             const results: SmokeTestStep[] = [];
             for (const run of serialSteps(id)) { results.push(await run()); }
+            for (const run of serialExternalDetailSteps(id)) { results.push(await run()); }
+            return results;
+          }}
+        />
+
+        <SmokeTestSection
+          title="External (:external-metadata-server)"
+          idLabel="externalGroupId"
+          idValue={externalGroupId}
+          onIdChange={setExternalGroupId}
+          disabled={!externalGroupId}
+          onRun={async () => {
+            const results: SmokeTestStep[] = [];
+            for (const run of externalSteps(externalGroupId)) { results.push(await run()); }
             return results;
           }}
         />

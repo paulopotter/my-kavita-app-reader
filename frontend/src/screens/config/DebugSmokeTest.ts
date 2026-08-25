@@ -1,7 +1,7 @@
 import { ChapterService } from '../../shared/services/chapters';
 import { PageService } from '../../shared/services/pages';
 import { SerialService, SerialsService } from '../../shared/services/serials';
-import { ServersService, ServerService } from '../../shared/services/servers';
+import { ExternalsService, ExternalService, ServersService, ServerService } from '../../shared/services/servers';
 
 export interface SmokeTestStep {
   label: string;
@@ -123,6 +123,58 @@ export function serialSteps(seriesId: string): Array<() => Promise<SmokeTestStep
     () => runStep('SerialService.bound(...).raw.chapters.list', async () => {
       const chapters = await bound.raw.chapters.list();
       return `${chapters.length} chapter(s)`;
+    }),
+  ];
+}
+
+// ── Section 3b: SerialService.externalDetail (read-only, BFF/M3 metadata) ──────
+
+export function serialExternalDetailSteps(seriesId: string): Array<() => Promise<SmokeTestStep>> {
+  return [
+    () => runStep('SerialService.externalDetail.sync', async () => {
+      const raw = await SerialService.raw.get({ seriesId });
+      const match = await SerialService.externalDetail.sync({ seriesId, seriesName: raw.name });
+      return match ? `slug=${match.slug ?? '(none)'} status=${match.status}` : '(no match)';
+    }),
+  ];
+}
+
+// ── Section 3c: ExternalsService/ExternalService (:external-metadata-server, read-only) ──
+
+export async function discoverFirstExternalGroupId(): Promise<string | null> {
+  try {
+    const groups = await ExternalsService.groups.list();
+    return groups[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function externalSteps(groupId: string): Array<() => Promise<SmokeTestStep>> {
+  return [
+    () => runStep('ExternalsService.providers.list', async () => {
+      const providers = await ExternalsService.providers.list();
+      return `${providers.length} provider(s)`;
+    }),
+    () => runStep('ExternalsService.groups.list', async () => {
+      const groups = await ExternalsService.groups.list();
+      return `${groups.length} group(s)`;
+    }),
+    () => runStep('ExternalService.group.get', async () => {
+      const group = await ExternalService.group.get({ groupId });
+      return group ? `name=${group.name}` : '(not found)';
+    }),
+    () => runStep('ExternalService.group.getInfo', async () => {
+      const info = await ExternalService.group.getInfo({ groupId });
+      return `${info.urls.length} url(s)`;
+    }),
+    () => runStep('ExternalService.urls.list', async () => {
+      const urls = await ExternalService.urls.list({ groupId });
+      return `${urls.length} url(s)`;
+    }),
+    () => runStep('ExternalService.active.getUrl (before set)', async () => {
+      const active = await ExternalService.active.getUrl();
+      return active ? `url=${active.url}` : '(none resolved yet)';
     }),
   ];
 }
