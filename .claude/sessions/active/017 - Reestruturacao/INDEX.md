@@ -34,7 +34,7 @@ changelog entry by hand.
 | [019](019-contract-chapter-implementation.md) | 4 — Implementation | Contract — Chapter implementation (`ChapterContract`/`ChapterResult`/`ChapterNeighborContract`) | done (`ChapterDigest`/`ChapterFields`/`ChapterNeighborDigest`, same idiom as Task 018 — see task file's Result) |
 | [020](020-contract-series-implementation.md) | 4 — Implementation | Contract — Series implementation (`SeriesContract`/`SeriesResult`) | done (`SeriesDigest`/`SeriesFields`, no `SeriesNeighborDigest`; post-close `full` param cuts payload ~97%; post-close RN↔Kotlin digest bridge added (Kotlin + TS types only) — see task file's Result) |
 | [021](021-rn-services-implementation.md) | 4 — Implementation | RN Services (Page/Chapter/Series) — real network flow, no cache yet | done (4 Services incl. Server; see task file's Result) |
-| [022](022-external-metadata-module.md) | 4 — Implementation | `ExternalMetadata`/BFF module implementation (own module, per Task 012) | todo (blocked by 017; scope decided at implementation time) |
+| [022](022-external-metadata-module.md) | 4 — Implementation | `ExternalMetadata`/BFF module implementation (own module, per Task 012) | done |
 | [023](023-cache-module-implementation.md) | 4 — Implementation | `Cache` (Kotlin) + `CacheManager` (RN) implementation — closes the deferred cache gap | todo (blocked by 021) |
 | [024](024-fix-series.md) | 5 — Corrections | Correction — Series (stop reading `chapterCacheDao` directly, unify `SeriesSummary`) | todo (blocked by 010, 008, 016-023) |
 | [025](025-fix-chapter.md) | 5 — Corrections | Correction — Chapter (unify duplicated `emitProgressChanged`) | todo (blocked by 008, 016-023) |
