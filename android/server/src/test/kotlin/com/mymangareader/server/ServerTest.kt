@@ -378,6 +378,42 @@ class ServerTest {
         assertEquals(listOf("http://a", "http://b"), urls.map { it.url })
     }
 
+    // ── group.getInfo / Server.getActiveGroupInfo ─────────────────────────
+
+    @Test
+    fun `group getInfo throws when the group doesn't exist`() = runTest {
+        assertFailsWith<ServerException> { server.group("missing").getInfo() }
+    }
+
+    @Test
+    fun `group getInfo returns the group's identity with its urls embedded, without credentialsJson or healthCheckPath`() = runTest {
+        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+        server.group(group.id).addUrl(NewServerUrl("http://b", 5000, 1))
+        server.group(group.id).addUrl(NewServerUrl("http://a", 5000, 0))
+
+        val info = server.group(group.id).getInfo()
+
+        assertEquals(group.id, info.id)
+        assertEquals("My Server", info.name)
+        assertEquals("fake", info.providerId)
+        assertEquals(listOf("http://a", "http://b"), info.urls.map { it.url })
+    }
+
+    @Test
+    fun `Server getActiveGroupInfo returns null when no group is active`() = runTest {
+        assertNull(server.getActiveGroupInfo())
+    }
+
+    @Test
+    fun `Server getActiveGroupInfo delegates to the active group's getInfo`() = runTest {
+        val groupId = activateGroup()
+
+        val info = server.getActiveGroupInfo()
+
+        assertEquals(groupId, info?.id)
+        assertEquals(listOf(baseUrl), info?.urls?.map { it.url })
+    }
+
     // ── setActiveGroup / getActiveContent ────────────────────────────────
 
     @Test

@@ -105,6 +105,18 @@ data class ServerUrlInfo(
     val priority: Int,
 )
 
+// group(groupId).getInfo()'s own shape — the group's identity (no credentialsJson/healthCheckPath,
+// same omission getActiveInfo() already makes) plus its full list of URLs embedded, for a caller
+// that wants "everything about this group" without a separate getUrls() round trip. Distinct from
+// ServerActiveInfo (one already-resolved URL) — this is the group's configuration, not a live
+// resolution.
+data class ServerGroupFullInfo(
+    val id: String,
+    val name: String,
+    val providerId: String,
+    val urls: List<ServerUrlInfo>,
+)
+
 data class NewServerGroup(
     val name: String,
     val providerId: String,
@@ -390,6 +402,11 @@ class Server @Inject constructor(
 
     interface Group {
         suspend fun getUrls(): List<ServerUrlInfo>
+
+        // The group's own identity + getUrls() embedded, in one call. Throws if the group
+        // doesn't exist — same "not found" contract as every other Group operation.
+        suspend fun getInfo(): ServerGroupFullInfo
+
         suspend fun addUrl(url: NewServerUrl): ServerUrlInfo
         suspend fun updateUrl(urlId: String, url: String? = null, timeoutMs: Int? = null, priority: Int? = null): ServerUrlInfo
         suspend fun removeUrl(urlId: String)
@@ -551,6 +568,16 @@ class Server @Inject constructor(
     private inner class GroupHandle(private val groupId: String) : Group {
         override suspend fun getUrls(): List<ServerUrlInfo> = serverUrlDao.getByGroupId(groupId).map { it.toInfo() }
 
+        override suspend fun getInfo(): ServerGroupFullInfo {
+            val group = serverGroupDao.getById(groupId) ?: throw ServerException("Server group not found: $groupId")
+            return ServerGroupFullInfo(
+                id = group.id,
+                name = group.name,
+                providerId = group.providerId,
+                urls = getUrls(),
+            )
+        }
+
         override suspend fun addUrl(url: NewServerUrl): ServerUrlInfo {
             serverGroupDao.getById(groupId) ?: throw ServerException("Server group not found: $groupId")
             requireNotBlank("url", url.url)
@@ -622,6 +649,14 @@ class Server @Inject constructor(
     suspend fun getActiveInfo(): ServerActiveInfo? {
         val groupId = activeGroupId ?: return null
         return activeMutex.withLock { lastActiveInfoByGroupId[groupId] }
+    }
+
+    // Same "which group is active" resolution as getActiveInfo(), but returns the active group's
+    // full configuration (getInfo()'s shape — every URL, not just the one last resolved) instead
+    // of a single already-resolved URL. Coexists with getActiveInfo(); neither replaces the other.
+    suspend fun getActiveGroupInfo(): ServerGroupFullInfo? {
+        val groupId = activeGroupId ?: return null
+        return group(groupId).getInfo()
     }
 }
 
