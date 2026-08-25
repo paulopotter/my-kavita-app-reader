@@ -1129,6 +1129,109 @@ exists. Revisit only if the user asks again, informed by a real consumer's need,
 future `shared/services/` addition, which should follow the same namespace/naming/isolation/
 single-object-argument/`bound()` conventions rather than reinventing them per-domain.
 
+## Task 022 — `ExternalMetadataServer` module: scope, name, and structural design
+
+**Date:** 2026-08-24 (Task 022 mini-iteration)
+
+**Scope confirmed: real migration, not a thin skeleton.** New code written from scratch,
+inspired only by today's real `BffFeature.kt` (`android/features/src/main/kotlin/com/
+mymangareader/features/bff/BffFeature.kt`) as a reference for what behavior needs to exist —
+never copied/adapted from it, per the standing "never reuse old code in new modules" rule.
+`BffFeature` is removed once the migration lands.
+
+**Module: its own Gradle module, sibling to `:server` — reaffirms Task 012's decision.**
+Considered keeping `ExternalMetadataServer` as a folder inside `:server`'s own Gradle module
+(same "server" domain, less boilerplate), but rejected: a Gradle module is the real unit this
+project's layer isolation (`core ← tools ← features`, and each generalizer's own boundary)
+enforces via the compiler — an `internal` visibility inside one Gradle module means nothing to
+a sibling folder in the *same* module. Folder-only separation would make `ExternalMetadataServer`
+and `Server` able to reach into each other's `internal` details with nothing stopping it except
+convention — exactly the kind of accidental-cross-import this project prefers to make
+structurally impossible (same reasoning Task 014 already used to justify nesting a raw plugin
+physically inside its owning generalizer's module, not a shared/loose folder). Reusing the same
+plugin-contract pattern (`plugins/<provider>/`) is orthogonal to which Gradle module hosts it —
+each generalizer gets its own internal contract regardless (`ExternalMetadataPlugin` is not an
+extension/subtype of `ServerPlugin`).
+
+**Names:**
+- Gradle module: `:external-metadata-server`, package `com.mymangareader.externalmetadataserver`.
+- Facade class: `ExternalMetadataServer` (deliberately not "BFF" — the class doesn't know it's
+  serving a BFF-shaped provider, same as `Server` doesn't know it's serving Kavita).
+- Provider id: `personalBff` — `ExternalMetadataServer/plugins/personalBff/`. Neutral technical
+  identifier, not a personal/instance-specific name (respects the "no personal data in code"
+  invariant) — the concern that motivated picking this name was never "is `bff` an OK label,"
+  it was "does naming the provider expose something about my personal server" — resolved by
+  `personalBff` denoting the *type* of provider (a personally-run BFF), never an actual
+  URL/instance.
+
+**Provider-name scope worry, resolved:** user asked how much today's one real `personalBff`
+implementation's shape constrains adding a second metadata provider later. Same answer Task 014
+already gave for `Server`/Kavita (which also only has one real provider today): the full
+generalizer pattern is used regardless of provider count (the deciding question is "does this
+talk to the outside world," not "how many providers exist"), and the **adapter**
+(`plugins/personalBff/PersonalBffAdapter.kt`) is free to look exactly like `personalBff`'s real
+API (`/manga` endpoint, `slug`/`kavita_id`/etc. fields) — it never needs to anticipate a second
+provider. Only the **shared contract** (`ExternalMetadataPlugin`) needs care, and even that only
+needs to cover what the current adapter actually exposes today (same "base shape, not turnkey"
+rule as Amendment 2 above) — not a hypothetical second provider's needs. A future second
+provider extends the contract then, not now.
+
+**Data model: replicates `Server`'s `Group`/`Url` split, not `BffServerConfigEntity`'s current
+flat shape.** `BffServerConfigEntity`/`BffServerConfigDao` (today, in `:core`) are flat — one row
+is one URL, no group concept — mirroring the *old*, pre-Task-014/017 `ServerConfigEntity`/
+`ServerConfigDao` shape (still present in `:core`, superseded for `Server` itself by
+`ServerGroupEntity`/`ServerUrlEntity`). Decision: `ExternalMetadataServer` gets its own
+`ExternalMetadataGroupEntity`/`ExternalMetadataUrlEntity` (new, in `:core`), structurally
+mirroring `ServerGroupEntity`/`ServerUrlEntity` — not the old flat shape — because the BFF is
+tied to a specific content server's identity (its whole reason for existing is correlating
+metadata against a given server's series ids), so it needs the same two-level structure Server
+itself has.
+
+**Optional two-level link, BFF↔Server, both nullable:**
+- `ExternalMetadataGroupEntity.linkedServerGroupId: String?` — when set, this metadata group is
+  scoped to one specific `ServerGroup` (e.g. "my personalBff" linked to "My Kavita"). When
+  `null`, this metadata group applies to **any** active server group (universal fallback).
+- `ExternalMetadataUrlEntity.linkedServerUrlId: String?` — finer-grained, only meaningful when
+  the owning group already has a `linkedServerGroupId`: when set, this specific metadata URL is
+  scoped to one specific `ServerUrl` inside that linked server group. When `null` (but the group
+  is linked), the metadata URL applies to any URL within that linked server group.
+- This replaces `BffServerConfigEntity.linkedKavitaServerConfigId`'s single flat link with the
+  same two-level shape as the rest of the entities.
+
+**Plugin contract shape — no content tree, one real operation.** Unlike `ServerPlugin` (which
+has a `serials/serial/chapters/chapter/page` tree because `Server` serves readable content),
+`ExternalMetadataPlugin` has no content tree — today's real behavior is "given a batch of Kavita
+series, return metadata matches," nothing else:
+```
+interface ExternalMetadataPlugin {
+    val auth: ExternalMetadataAuth  // no-op is a valid implementation if personalBff has no auth
+    suspend fun fetchMatches(kavitaSeries: List<SeriesSummary>): List<ExternalMetadataMatch>
+}
+```
+`ExternalMetadataPluginRegistration` mirrors `ServerPluginRegistration` (`id`/`displayName`/
+`version`/`credentialFields`/`factory`).
+
+**Active-group resolution: explicit parameter from RN, not Kotlin↔Kotlin broadcast — for now.**
+User's first instinct was "Server fires an event when it switches, ExternalMetadataServer
+listens" — checked against Task 013's `EventBus` design and rejected as-is: `EventBus`
+(Mechanism 3) is explicitly RN↔RN only; Task 013 states outright "there is no Kotlin-to-Kotlin
+broadcast... Kotlin genuinely has no broadcast primitive of its own." Two sibling Kotlin
+generalizer modules cannot listen to each other directly. Decided instead: `syncMatches`
+receives the active server group id explicitly from its caller —
+`syncMatches(kavitaSeries: List<SeriesSummary>, activeServerGroupId: String): ServerResponse<
+List<ExternalMetadataMatch>>` — RN already knows which server group is active (same "RN decides
+*when* to sync" orchestration Task 028 already fixed for `syncBff`), so it passes it straight
+through; no new inter-module Kotlin dependency, no `EventBus` involvement yet. **Not closed
+long-term** — user expects both mechanisms (explicit parameter AND an eventual RN-mediated
+"server switched" signal that also updates `ExternalMetadataServer`'s own notion of active
+group, the same two-step EventBus-emit-then-RPC-call shape already used elsewhere) to coexist
+eventually; only the explicit-parameter path is being built now.
+
+**Applies to:** Task 022 (fixes the module's name, Gradle boundary, data model, plugin contract
+shape, and active-group resolution before any code is written) — and any future BFF/metadata
+provider added later, which extends `ExternalMetadataPlugin`/adds a new `plugins/<provider>/`
+folder rather than redesigning this shape.
+
 ## Open / rejected — do not re-litigate without new information
 
 - **`actions`/execution-instruction fields inside a contract** (e.g. `cache.execute` describing
