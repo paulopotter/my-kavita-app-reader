@@ -42,14 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=76 — bump this value whenever coverage improves (never lower it).
-            // Was 74. Task 020 added SeriesDigest/SeriesFields (:content-digest, ~99% covered
-            // module-wide) and :server's SeriesDto/SeriesMetadataDto full mapping — koverVerify's
-            // own measured value is ~76.50%, floor set slightly below to leave headroom.
+            // COVERAGE_FLOOR_KOTLIN=77 — bump this value whenever coverage improves (never lower it).
+            // Was 76. Task 022 added :external-metadata-server (well-tested, ~90%+ module-wide)
+            // and Server.getInfo()/getActiveGroupInfo() — koverVerify's own measured value is
+            // ~77.13%, floor set slightly below to leave headroom.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 76
+                        minValue = 77
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

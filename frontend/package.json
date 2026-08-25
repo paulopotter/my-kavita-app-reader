@@ -95,10 +95,10 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 45,
-        "lines": 45,
-        "functions": 70,
-        "branches": 86
+        "statements": 46,
+        "lines": 46,
+        "functions": 71,
+        "branches": 87
       }
     }
   }
