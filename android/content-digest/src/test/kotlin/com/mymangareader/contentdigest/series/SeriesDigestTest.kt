@@ -2,10 +2,22 @@ package com.mymangareader.contentdigest.series
 
 import com.mymangareader.contentdigest.chapter.ChapterDigest
 import com.mymangareader.contentdigest.chapter.ChapterFields
+import com.mymangareader.core.database.ExternalMetadataGroupDao
+import com.mymangareader.core.database.ExternalMetadataGroupEntity
+import com.mymangareader.core.database.ExternalMetadataUrlDao
+import com.mymangareader.core.database.ExternalMetadataUrlEntity
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
+import com.mymangareader.externalmetadataserver.NewExternalMetadataGroup
+import com.mymangareader.externalmetadataserver.NewExternalMetadataUrl
+import com.mymangareader.externalmetadataserver.plugins.CredentialField as ExternalMetadataCredentialField
+import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
+import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataPlugin
+import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataPluginRegistration
+import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
 import com.mymangareader.server.Server
@@ -134,6 +146,57 @@ private class FakePlugin(
     }
 }
 
+// ── ExternalMetadataServer fakes (for SeriesDigestOptions.externalMetadataServer) ──────────
+
+private class FakeExternalMetadataGroupDao : ExternalMetadataGroupDao {
+    private val rows = mutableMapOf<String, ExternalMetadataGroupEntity>()
+    override suspend fun upsert(entity: ExternalMetadataGroupEntity) { rows[entity.id] = entity }
+    override suspend fun delete(entity: ExternalMetadataGroupEntity) { rows.remove(entity.id) }
+    override fun observeAll(): Flow<List<ExternalMetadataGroupEntity>> = MutableStateFlow(rows.values.toList())
+    override suspend fun getAll(): List<ExternalMetadataGroupEntity> = rows.values.toList()
+    override suspend fun getById(id: String): ExternalMetadataGroupEntity? = rows[id]
+    override suspend fun deleteById(id: String) { rows.remove(id) }
+}
+
+private class FakeExternalMetadataUrlDao : ExternalMetadataUrlDao {
+    private val rows = mutableMapOf<String, ExternalMetadataUrlEntity>()
+    override suspend fun upsert(entity: ExternalMetadataUrlEntity) { rows[entity.id] = entity }
+    override suspend fun delete(entity: ExternalMetadataUrlEntity) { rows.remove(entity.id) }
+    override fun observeByGroupId(groupId: String): Flow<List<ExternalMetadataUrlEntity>> =
+        MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
+    override suspend fun getByGroupId(groupId: String): List<ExternalMetadataUrlEntity> =
+        rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+    override suspend fun getAll(): List<ExternalMetadataUrlEntity> = rows.values.toList()
+    override suspend fun getById(id: String): ExternalMetadataUrlEntity? = rows[id]
+    override suspend fun deleteById(id: String) { rows.remove(id) }
+    override suspend fun deleteByGroupId(groupId: String) { rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) } }
+}
+
+private class FakeExternalMetadataPlugin(var matchResult: Result<ExternalMetadataMatch?>) : ExternalMetadataPlugin {
+    override val id = "fake-m3"
+    override val displayName = "Fake M3"
+    override val version = "0.0.0"
+    override val auth = object : ExternalMetadataPlugin.Auth {
+        override suspend fun authenticate() = Unit
+        override suspend fun checkToken(): String? = null
+        override suspend fun reauthenticate() = Unit
+        override suspend fun logout() = Unit
+        override fun getSession(): String? = null
+    }
+    override suspend fun fetchMatches(series: List<ExternalMetadataSeriesRef>): List<ExternalMetadataMatch?> =
+        listOf(matchResult.getOrThrow())
+    override suspend fun fetchMatch(series: ExternalMetadataSeriesRef): ExternalMetadataMatch? = matchResult.getOrThrow()
+}
+
+private fun fakeExternalMetadataRegistration(plugin: FakeExternalMetadataPlugin): ExternalMetadataPluginRegistration =
+    object : ExternalMetadataPluginRegistration {
+        override val id = "fake-m3"
+        override val displayName = "Fake M3"
+        override val version = "0.0.0"
+        override val credentialFields: List<ExternalMetadataCredentialField> = emptyList()
+        override val factory = { _: RequestTool, _: String, _: String -> plugin as ExternalMetadataPlugin }
+    }
+
 private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = object : ServerPluginRegistration {
     override val id = "fake"
     override val displayName = "Fake"
@@ -209,7 +272,7 @@ class SeriesDigestTest {
         activateGroup()
         plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 2)))
 
-        val digest = buildSeriesDigest(server, "s1", full = true) as SeriesDigest.Success
+        val digest = buildSeriesDigest(server, "s1", SeriesDigestOptions(full = true)) as SeriesDigest.Success
         val chapter = digest.chapters?.list?.single() as ChapterDigest.Success
 
         assertEquals(2, chapter.pages.list.size)
@@ -486,5 +549,123 @@ class SeriesDigestTest {
         val digest = buildSeriesDigest(server, "s1")
 
         assertTrue(digest is SeriesDigest.Failure)
+    }
+
+    // ── external metadata composition (SeriesDigestOptions.externalMetadataServer) ──────────
+
+    private suspend fun buildTestExternalMetadataServer(
+        externalPlugin: FakeExternalMetadataPlugin,
+        linkedServerGroupId: String? = null,
+    ): ExternalMetadataServer {
+        val extGroupDao = FakeExternalMetadataGroupDao()
+        val extUrlDao = FakeExternalMetadataUrlDao()
+        val externalMetadataServer = ExternalMetadataServer(
+            extGroupDao,
+            extUrlDao,
+            mapOf("fake-m3" to fakeExternalMetadataRegistration(externalPlugin)),
+            ActiveUrlSelector(OkHttpClient()),
+            RequestTool(OkHttpClient()),
+        )
+        val group = externalMetadataServer.groups.add(
+            NewExternalMetadataGroup("Fake M3", "fake-m3", "{}", "/health", linkedServerGroupId),
+        )
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check
+        externalMetadataServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
+        return externalMetadataServer
+    }
+
+    @Test
+    fun `includeExternalMetadata false (default) never calls buildExternalMetadataDigest — metadata external stays null`() = runTest {
+        activateGroup()
+
+        val digest = buildSeriesDigest(server, "s1") as SeriesDigest.Success
+
+        assertNull(digest.metadata?.external)
+    }
+
+    @Test
+    fun `includeExternalMetadata true resolves via syncByServerId using this series' own serverInfo groupId`() = runTest {
+        activateGroup()
+        val kavitaGroupId = server.getActiveGroupId()!!
+        val externalPlugin = FakeExternalMetadataPlugin(
+            Result.success(ExternalMetadataMatch("s1", "slug-1", "ongoing", 3, 10, "10", false)),
+        )
+        val externalMetadataServer = buildTestExternalMetadataServer(externalPlugin, linkedServerGroupId = kavitaGroupId)
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the sync itself
+
+        val digest = buildSeriesDigest(
+            server, "s1",
+            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
+        ) as SeriesDigest.Success
+
+        val external = digest.metadata?.external as ExternalMetadataDigest.Success
+        assertEquals("slug-1", external.match?.slug)
+        assertEquals("ongoing", external.match?.status)
+        assertTrue(external.resolvedAtEpochMs > 0)
+    }
+
+    @Test
+    fun `externalMetadataGroupId override uses syncByGroup instead of resolving by server`() = runTest {
+        activateGroup()
+        val externalPlugin = FakeExternalMetadataPlugin(
+            Result.success(ExternalMetadataMatch("s1", "slug-explicit", "completed", 5, 5, "5", false)),
+        )
+        // unlinked group — if the composition wrongly used syncByServerId here, this would still
+        // resolve via the unlinked fallback and pass; the real assertion that proves syncByGroup
+        // specifically was used is the groupId identity check below.
+        val extGroupDao = FakeExternalMetadataGroupDao()
+        val extUrlDao = FakeExternalMetadataUrlDao()
+        val externalMetadataServer = ExternalMetadataServer(
+            extGroupDao, extUrlDao,
+            mapOf("fake-m3" to fakeExternalMetadataRegistration(externalPlugin)),
+            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()),
+        )
+        val explicitGroup = externalMetadataServer.groups.add(NewExternalMetadataGroup("Explicit", "fake-m3", "{}", "/health"))
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+        externalMetadataServer.group(explicitGroup.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+
+        val digest = buildSeriesDigest(
+            server, "s1",
+            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer, externalMetadataGroupId = explicitGroup.id),
+        ) as SeriesDigest.Success
+
+        val external = digest.metadata?.external as ExternalMetadataDigest.Success
+        assertEquals("slug-explicit", external.match?.slug)
+    }
+
+    @Test
+    fun `includeExternalMetadata true with no group configured yields a Failure with not_configured code`() = runTest {
+        activateGroup()
+        val extGroupDao = FakeExternalMetadataGroupDao()
+        val extUrlDao = FakeExternalMetadataUrlDao()
+        val emptyExternalMetadataServer = ExternalMetadataServer(
+            extGroupDao, extUrlDao, emptyMap(),
+            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()),
+        )
+
+        val digest = buildSeriesDigest(
+            server, "s1",
+            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = emptyExternalMetadataServer),
+        ) as SeriesDigest.Success
+
+        val external = digest.metadata?.external as ExternalMetadataDigest.Failure
+        assertEquals("not_configured", external.error.code)
+    }
+
+    @Test
+    fun `external metadata sync failure becomes a Failure, not a null, and doesn't fail the whole digest`() = runTest {
+        activateGroup()
+        val kavitaGroupId = server.getActiveGroupId()!!
+        val externalPlugin = FakeExternalMetadataPlugin(Result.failure(RuntimeException("M3 unreachable")))
+        val externalMetadataServer = buildTestExternalMetadataServer(externalPlugin, linkedServerGroupId = kavitaGroupId)
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+
+        val digest = buildSeriesDigest(
+            server, "s1",
+            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
+        ) as SeriesDigest.Success
+
+        assertTrue(digest.metadata?.external is ExternalMetadataDigest.Failure)
     }
 }

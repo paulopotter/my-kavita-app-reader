@@ -6,6 +6,8 @@ import com.mymangareader.contentdigest.chapter.ChapterNeighborDigest
 import com.mymangareader.contentdigest.chapter.buildChapterDigest
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
+import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
@@ -48,6 +50,7 @@ interface SeriesFields {
         val ageRating: PluginAgeRating?,
         val releaseYear: Int?,
         val language: String?,
+        val external: ExternalMetadataDigest?, // null when SeriesDigestOptions.includeExternalMetadata was false — SeriesDigest never even called buildExternalMetadataDigest; non-null (Success/Failure) once it did — see ExternalMetadataDigest's own doc
     )
 
     enum class ChaptersStatus { SUCCESS, PARTIAL, ERROR }
@@ -91,7 +94,7 @@ sealed interface SeriesDigest {
     data class Failure(val error: ErrorDigest) : SeriesDigest
 }
 
-private fun PluginSeriesMetadata.toDigestMetadata() = SeriesFields.Metadata(
+private fun PluginSeriesMetadata.toDigestMetadata(external: ExternalMetadataDigest?) = SeriesFields.Metadata(
     description = description,
     genres = genres,
     tags = tags,
@@ -99,16 +102,40 @@ private fun PluginSeriesMetadata.toDigestMetadata() = SeriesFields.Metadata(
     ageRating = ageRating,
     releaseYear = releaseYear,
     language = language,
+    external = external,
+)
+
+// Optional composition inputs — grouped into one object per the project's "2+ fields → one
+// named object" convention, since server/seriesId already made buildSeriesDigest's signature
+// crowded once external-metadata sync was added.
+//
+// [includeExternalMetadata] is the ONLY switch that decides whether buildSeriesDigest even calls
+// buildExternalMetadataDigest at all — "I don't want this data for this call" (e.g. the Reader
+// screen, where it's irrelevant and would just slow the response down). This is a different
+// decision from "is any ExternalMetadataServer group configured" — that's discovered INSIDE
+// buildExternalMetadataDigest (via groups.list()), never signaled by passing null here.
+// [externalMetadataServer] is always the real Hilt-injected instance when includeExternalMetadata
+// is true — required (not nullable) at that point since there's no other way to ask it anything.
+// [externalMetadataGroupId] is only ever a specific override (e.g. a config screen testing one
+// exact group) — when null (the common case), resolution falls back to Kavita's own
+// serverInfo.groupId (already known from server.serial(seriesId).get(), no separate lookup).
+data class SeriesDigestOptions(
+    val full: Boolean = false,
+    val includeExternalMetadata: Boolean = false,
+    val externalMetadataServer: ExternalMetadataServer? = null,
+    val externalMetadataGroupId: String? = null,
 )
 
 // Assembly order (R11): serial.get() first — vital, its failure makes the whole result a
 // Failure. getCoverImage() second — never fails on its own (no network call), but only sets
 // server/resolvedAtEpochMs when get() left them unset (mirrors buildChapterDigest's own
-// knownChapter idiom — see there for why). getMetadata() and chapters.list() are both tolerated
-// failures (Aggregating / Necessary per the design notes) — caught, the corresponding field
-// stays null, doesn't escalate, and doesn't touch server/resolvedAtEpochMs (those only reflect
-// THIS Series' own get()/getCoverImage() calls, never metadata's or chapters'').
-suspend fun buildSeriesDigest(server: Server, seriesId: String, full: Boolean = false): SeriesDigest {
+// knownChapter idiom — see there for why). getMetadata()/chapters.list()/the external-metadata
+// sync are all tolerated failures (Aggregating / Necessary per the design notes) — caught, the
+// corresponding field stays null, doesn't escalate, and doesn't touch server/resolvedAtEpochMs
+// (those only reflect THIS Series' own get()/getCoverImage() calls, never metadata's,
+// chapters'', or the external sync's).
+suspend fun buildSeriesDigest(server: Server, seriesId: String, options: SeriesDigestOptions = SeriesDigestOptions()): SeriesDigest {
+    val full = options.full
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
 
@@ -132,8 +159,21 @@ suspend fun buildSeriesDigest(server: Server, seriesId: String, full: Boolean = 
         return SeriesDigest.Failure(e.toErrorDigest())
     }
 
+    val externalMetadata: ExternalMetadataDigest? = if (options.includeExternalMetadata) {
+        buildExternalMetadataDigest(
+            externalMetadataServer = requireNotNull(options.externalMetadataServer) {
+                "includeExternalMetadata=true requires a non-null externalMetadataServer"
+            },
+            groupId = options.externalMetadataGroupId,
+            kavitaServerGroupId = serverInfo.groupId,
+            series = ExternalMetadataSeriesRef(id = plugin.id, name = plugin.name),
+        )
+    } else {
+        null
+    }
+
     val metadata: SeriesFields.Metadata? = try {
-        server.serial(seriesId).getMetadata().data.toDigestMetadata()
+        server.serial(seriesId).getMetadata().data.toDigestMetadata(externalMetadata)
     } catch (e: Exception) {
         null
     }
