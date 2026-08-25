@@ -22,8 +22,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ServerUrlEntity::class,
         ExternalMetadataGroupEntity::class,
         ExternalMetadataUrlEntity::class,
+        CacheEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,6 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun serverUrlDao(): ServerUrlDao
     abstract fun externalMetadataGroupDao(): ExternalMetadataGroupDao
     abstract fun externalMetadataUrlDao(): ExternalMetadataUrlDao
+    abstract fun cacheDao(): CacheDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -129,5 +131,7 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_9_8 = com.mymangareader.core.database.migrations.Migration_9_8
         val MIGRATION_9_10 = com.mymangareader.core.database.migrations.Migration_9_10
         val MIGRATION_10_9 = com.mymangareader.core.database.migrations.Migration_10_9
+        val MIGRATION_10_11 = com.mymangareader.core.database.migrations.Migration_10_11
+        val MIGRATION_11_10 = com.mymangareader.core.database.migrations.Migration_11_10
     }
 }
