@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import type { ExternalMetadataActiveInfo, ExternalMetadataMatch } from './external';
 
 // Mirrors :content-digest's Page/Chapter/Series digest builders (android/content-digest) via
 // DigestBridgeModule/DigestBridgeMappers.kt — every shape here is 1:1 with a toWritableMap()
@@ -155,6 +156,18 @@ export interface SeriesColors {
   secondary?: string;
 }
 
+// Same {isSuccess, error} shape every XDigest uses on the bridge. A Failure whose error.code is
+// "not_configured" means buildExternalMetadataDigest ran but found no ExternalMetadataServer
+// group configured — check error.code to tell that apart from a real sync failure.
+export interface ExternalMetadataDigestSuccess {
+  isSuccess: true;
+  match?: ExternalMetadataMatch;
+  server: ExternalMetadataActiveInfo;
+  resolvedAtEpochMs: number;
+}
+
+export type ExternalMetadataDigest = ExternalMetadataDigestSuccess | DigestFailure;
+
 export interface SeriesMetadata {
   description?: string;
   genres: PluginGenreOrTag[];
@@ -163,6 +176,9 @@ export interface SeriesMetadata {
   ageRating?: PluginAgeRating;
   releaseYear?: number;
   language?: string;
+  // absent when SeriesDigestOptions.includeExternalMetadata was false — the caller never asked
+  // for enrichment, not the same as "asked and it failed" (see ExternalMetadataDigest.Failure).
+  external?: ExternalMetadataDigest;
 }
 
 export type SeriesResumePointStatus = 'IN_PROGRESS' | 'UNREAD';
@@ -206,10 +222,20 @@ export type SeriesDigest = SeriesDigestSuccess | DigestFailure;
 
 // ── bridge module ────────────────────────────────────────────────────────
 
+// Mirrors DigestBridgeModule.getSeriesDigest's own ReadableMap options parameter — full/
+// includeExternalMetadata/externalMetadataGroupId, all optional (native side defaults each to
+// false/undefined when the key is absent). includeExternalMetadata is what actually turns on the
+// BFF/M3 enrichment for this call; externalMetadataGroupId is only ever a specific override.
+export interface SeriesDigestOptions {
+  full?: boolean;
+  includeExternalMetadata?: boolean;
+  externalMetadataGroupId?: string;
+}
+
 interface DigestBridgeModuleInterface {
   getPageDigest(seriesId: string, chapterId: string, pageIndex: number): Promise<PageDigest>;
   getChapterDigest(seriesId: string, chapterId: string, full: boolean): Promise<ChapterDigest>;
-  getSeriesDigest(seriesId: string, full: boolean): Promise<SeriesDigest>;
+  getSeriesDigest(seriesId: string, options: SeriesDigestOptions): Promise<SeriesDigest>;
 }
 
 export const DigestBridge: DigestBridgeModuleInterface = NativeModules.DigestBridgeModule;
