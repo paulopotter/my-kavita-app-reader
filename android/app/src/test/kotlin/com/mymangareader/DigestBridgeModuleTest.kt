@@ -1,6 +1,7 @@
 package com.mymangareader
 
 import com.facebook.react.bridge.ReactApplicationContext
+import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
@@ -52,7 +53,7 @@ class DigestBridgeModuleTest {
     @Test
     fun `getName retorna DigestBridgeModule`() {
         val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
-        val module = DigestBridgeModule(server, mock<ExternalMetadataServer>(), mock<ReactApplicationContext>())
+        val module = DigestBridgeModule(server, mock<ExternalMetadataServer>(), mock<Cache>(), mock<ReactApplicationContext>())
 
         assertEquals("DigestBridgeModule", module.name)
     }

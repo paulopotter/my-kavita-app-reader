@@ -112,6 +112,7 @@ dependencies {
     implementation(project(":server"))
     implementation(project(":content-digest"))
     implementation(project(":external-metadata-server"))
+    implementation(project(":cache"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)

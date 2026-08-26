@@ -5,6 +5,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.mymangareader.cache.Cache
 import com.mymangareader.contentdigest.chapter.buildChapterDigest
 import com.mymangareader.contentdigest.page.ChapterSummary
 import com.mymangareader.contentdigest.page.buildPageDigest
@@ -44,6 +45,7 @@ import kotlinx.coroutines.launch
 class DigestBridgeModule @Inject constructor(
     private val server: Server,
     private val externalMetadataServer: ExternalMetadataServer,
+    private val cache: Cache,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
@@ -89,7 +91,7 @@ class DigestBridgeModule @Inject constructor(
                     urlId = "", url = "", timeoutMs = 0, priority = 0,
                 ),
             )
-            runCatching { buildPageDigest(server, minimalChapterSummary, pageIndex) }
+            runCatching { buildPageDigest(server, minimalChapterSummary, pageIndex, cache) }
                 .resolveOrReject(promise, "GET_PAGE_DIGEST_ERROR") { it.toWritableMap() }
         }
     }
@@ -97,7 +99,7 @@ class DigestBridgeModule @Inject constructor(
     @ReactMethod
     fun getChapterDigest(seriesId: String, chapterId: String, full: Boolean, promise: Promise) {
         scope.launch {
-            runCatching { buildChapterDigest(server, seriesId, chapterId, full = full) }
+            runCatching { buildChapterDigest(server, seriesId, chapterId, cache, full = full) }
                 .resolveOrReject(promise, "GET_CHAPTER_DIGEST_ERROR") { it.toWritableMap() }
         }
     }
@@ -118,6 +120,7 @@ class DigestBridgeModule @Inject constructor(
                 buildSeriesDigest(
                     server,
                     seriesId,
+                    cache,
                     SeriesDigestOptions(
                         full = full,
                         includeExternalMetadata = includeExternalMetadata,
