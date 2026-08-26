@@ -5,6 +5,7 @@ import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
 import com.mymangareader.contentdigest.page.PageDigest
+import com.mymangareader.contentdigest.testcache.fakeCache
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
 import com.mymangareader.server.Server
@@ -141,6 +142,7 @@ class ChapterDigestTest {
     private lateinit var urlDao: FakeServerUrlDao
     private lateinit var plugin: FakePlugin
     private lateinit var server: Server
+    private val cache = fakeCache()
 
     @Before
     fun setUp() {
@@ -171,7 +173,7 @@ class ChapterDigestTest {
     fun `success carries every chapter field`() = runTest {
         activateGroup()
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals("c1", digest.id)
         assertEquals("s1", digest.seriesId)
@@ -184,7 +186,7 @@ class ChapterDigestTest {
         assertTrue(digest.coverImage.url.endsWith("/chapter-cover/c1"))
         assertNull(digest.prevChapter)
         assertNull(digest.nextChapter)
-        assertNull(digest.cache)
+        assertEquals("c1:false", digest.cache?.key)
     }
 
     @Test
@@ -192,7 +194,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.failure(IllegalStateException("boom"))
 
-        val digest = buildChapterDigest(server, "s1", "c1")
+        val digest = buildChapterDigest(server, "s1", "c1", cache)
 
         assertTrue(digest is ChapterDigest.Failure)
         digest as ChapterDigest.Failure
@@ -205,7 +207,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.progressResult = Result.failure(RuntimeException("no progress"))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.pages.resumePoint?.stoppedAtPageIndex)
     }
@@ -214,7 +216,7 @@ class ChapterDigestTest {
     fun `resumePoint carries stoppedAtPageIndex and recordedAtEpochMs when both are available`() = runTest {
         activateGroup()
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals(1, digest.pages.resumePoint?.stoppedAtPageIndex)
         assertEquals(1767312000000L, digest.pages.resumePoint?.recordedAtEpochMs)
@@ -231,7 +233,7 @@ class ChapterDigestTest {
         )
         plugin.progressResult = Result.success(null)
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.pages.resumePoint)
     }
@@ -243,7 +245,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(decimalNumber = 5.0))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals(5, digest.number)
     }
@@ -253,7 +255,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(decimalNumber = 5.5))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.number)
     }
@@ -263,7 +265,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(decimalNumber = null))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.number)
     }
@@ -275,7 +277,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(specialLabel = "Extra", isSpecial = true))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals("Extra", digest.specialLabel)
     }
@@ -285,7 +287,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(specialLabel = "1", isSpecial = false))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.specialLabel)
     }
@@ -295,7 +297,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(specialLabel = "1", isSpecial = null))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.specialLabel)
     }
@@ -307,7 +309,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 5, pagesRead = 0))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals(ChapterFields.ReadStatus.UNREAD, digest.readStatus)
     }
@@ -317,7 +319,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 5, pagesRead = 5))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals(ChapterFields.ReadStatus.READ, digest.readStatus)
     }
@@ -327,7 +329,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 5, pagesRead = 2))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals(ChapterFields.ReadStatus.IN_PROGRESS, digest.readStatus)
     }
@@ -337,7 +339,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = null, pagesRead = 3))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertEquals(ChapterFields.ReadStatus.UNREAD, digest.readStatus)
     }
@@ -349,7 +351,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         assertEquals(3, digest.pages.total)
         assertEquals(listOf(0, 1, 2), digest.pages.list.map { (it as PageDigest.Success).number })
@@ -360,7 +362,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         assertEquals(ChapterFields.PagesStatus.SUCCESS, digest.pages.status)
     }
@@ -371,7 +373,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
         plugin.urlForPage = { Result.failure(RuntimeException("dead")) }
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         assertEquals(ChapterFields.PagesStatus.ERROR, digest.pages.status)
         assertTrue(digest.pages.list.all { it is PageDigest.Failure })
@@ -383,7 +385,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
         plugin.urlForPage = { index -> if (index == 1) Result.failure(RuntimeException("bad")) else Result.success("http://fake/page/$index") }
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         assertEquals(ChapterFields.PagesStatus.PARTIAL, digest.pages.status)
     }
@@ -394,7 +396,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
         plugin.dimensionsForPage = { index -> if (index == 1) Result.failure(RuntimeException("bad")) else Result.success(PluginPageDimension(800, 1200)) }
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         // getDimensions() failing is tolerated inside PageDigest (still Success, per Task 018) —
         // so pages.status stays SUCCESS even though page 1 has no usable dimensions.
@@ -408,7 +410,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 3))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertTrue(digest.pages.list.isEmpty())
         assertNull(digest.pages.status)
@@ -425,7 +427,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
         plugin.dimensionsForPage = { Result.success(PluginPageDimension(width = 100, height = 200)) }
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         assertEquals(200, digest.pages.totalWidthPx)
         assertEquals(400, digest.pages.totalHeightPx)
@@ -437,7 +439,7 @@ class ChapterDigestTest {
         plugin.chapterResult = Result.success(baseChapter(pageCount = 2))
         plugin.dimensionsForPage = { index -> if (index == 0) Result.success(PluginPageDimension(0, 0)) else Result.success(PluginPageDimension(100, 200)) }
 
-        val digest = buildChapterDigest(server, "s1", "c1", full = true) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
 
         assertNull(digest.pages.totalWidthPx)
         assertNull(digest.pages.totalHeightPx)
@@ -448,7 +450,7 @@ class ChapterDigestTest {
         activateGroup()
         plugin.chapterResult = Result.success(baseChapter(pageCount = 0))
 
-        val digest = buildChapterDigest(server, "s1", "c1") as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
 
         assertNull(digest.pages.totalWidthPx)
         assertNull(digest.pages.totalHeightPx)
@@ -461,7 +463,7 @@ class ChapterDigestTest {
         activateGroup()
         val neighbor = ChapterNeighborDigest.Failure(com.mymangareader.contentdigest.error.ErrorDigest("X", "boom"))
 
-        val digest = buildChapterDigest(server, "s1", "c1", prevChapter = neighbor, nextChapter = null) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, prevChapter = neighbor, nextChapter = null) as ChapterDigest.Success
 
         assertEquals(neighbor, digest.prevChapter)
         assertNull(digest.nextChapter)
@@ -470,7 +472,7 @@ class ChapterDigestTest {
     @Test
     fun `prevChapter and nextChapter are carried through unchanged (Success neighbor)`() = runTest {
         activateGroup()
-        val neighborDigest = buildChapterDigest(server, "s1", "c0") as ChapterDigest.Success
+        val neighborDigest = buildChapterDigest(server, "s1", "c0", cache) as ChapterDigest.Success
         val neighbor = ChapterNeighborDigest.Success(
             id = neighborDigest.id,
             seriesId = neighborDigest.seriesId,
@@ -488,7 +490,7 @@ class ChapterDigestTest {
             cache = null,
         )
 
-        val digest = buildChapterDigest(server, "s1", "c1", prevChapter = neighbor, nextChapter = neighbor) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, prevChapter = neighbor, nextChapter = neighbor) as ChapterDigest.Success
 
         assertEquals(neighbor, digest.prevChapter)
         assertEquals(neighbor, digest.nextChapter)
@@ -502,7 +504,7 @@ class ChapterDigestTest {
         activateGroup()
         val known = baseChapter()
 
-        val digest = buildChapterDigest(server, "s1", "c1", knownChapter = known) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, knownChapter = known) as ChapterDigest.Success
 
         assertEquals(0, plugin.chapterGetCallCount)
         assertEquals(known.id, digest.id)
@@ -514,7 +516,7 @@ class ChapterDigestTest {
         activateGroup()
         val incomplete = baseChapter(fileFormat = null)
 
-        val digest = buildChapterDigest(server, "s1", "c1", knownChapter = incomplete) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, knownChapter = incomplete) as ChapterDigest.Success
 
         assertEquals(1, plugin.chapterGetCallCount)
         // the real chapter.get() result wins entirely — not a partial merge with `incomplete`
@@ -525,7 +527,7 @@ class ChapterDigestTest {
     fun `no knownChapter always calls chapter get, same as before`() = runTest {
         activateGroup()
 
-        buildChapterDigest(server, "s1", "c1")
+        buildChapterDigest(server, "s1", "c1", cache)
 
         assertEquals(1, plugin.chapterGetCallCount)
     }
@@ -535,7 +537,7 @@ class ChapterDigestTest {
         activateGroup()
         val known = baseChapter()
 
-        val digest = buildChapterDigest(server, "s1", "c1", knownChapter = known) as ChapterDigest.Success
+        val digest = buildChapterDigest(server, "s1", "c1", cache, knownChapter = known) as ChapterDigest.Success
 
         assertTrue(digest.resolvedAtEpochMs > 0)
         assertEquals(baseUrl, digest.server.url)
@@ -543,9 +545,70 @@ class ChapterDigestTest {
 
     @Test
     fun `no active group makes the whole result a Failure, not a crash`() = runTest {
-        val digest = buildChapterDigest(server, "s1", "c1")
+        val digest = buildChapterDigest(server, "s1", "c1", cache)
 
         assertTrue(digest is ChapterDigest.Failure)
+    }
+
+    // ── Cache-first behavior ─────────────────────────────────────────────────
+
+    @Test
+    fun `a fresh cache hit never touches the network`() = runTest {
+        activateGroup()
+        val first = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
+
+        val second = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
+
+        assertEquals(first.title, second.title)
+        assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
+    }
+
+    @Test
+    fun `a write with no neighbors preserves neighbors already attached by a previous write`() = runTest {
+        activateGroup()
+        val neighbor = ChapterNeighborDigest.Failure(com.mymangareader.contentdigest.error.ErrorDigest("X", "boom"))
+        buildChapterDigest(server, "s1", "c1", cache, prevChapter = neighbor, nextChapter = neighbor)
+
+        val digest = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
+
+        assertEquals(neighbor, digest.prevChapter)
+        assertEquals(neighbor, digest.nextChapter)
+    }
+
+    @Test
+    fun `a write with a neighbor overwrites whatever was cached before`() = runTest {
+        activateGroup()
+        val oldNeighbor = ChapterNeighborDigest.Failure(com.mymangareader.contentdigest.error.ErrorDigest("OLD", "old"))
+        buildChapterDigest(server, "s1", "c1", cache, prevChapter = oldNeighbor, nextChapter = null)
+        val newNeighbor = ChapterNeighborDigest.Failure(com.mymangareader.contentdigest.error.ErrorDigest("NEW", "new"))
+
+        val digest = buildChapterDigest(server, "s1", "c1", cache, prevChapter = newNeighbor, nextChapter = null) as ChapterDigest.Success
+
+        assertEquals(newNeighbor, digest.prevChapter)
+    }
+
+    @Test
+    fun `full=true and full=false are cached separately, never mixed up`() = runTest {
+        activateGroup()
+
+        val light = buildChapterDigest(server, "s1", "c1", cache, full = false) as ChapterDigest.Success
+        val full = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
+
+        assertTrue(light.pages.list.isEmpty())
+        assertTrue(full.pages.list.isNotEmpty())
+        assertEquals("c1:false", light.cache?.key)
+        assertEquals("c1:true", full.cache?.key)
+    }
+
+    @Test
+    fun `force true bypasses the cache read but still writes fresh data`() = runTest {
+        activateGroup()
+        buildChapterDigest(server, "s1", "c1", cache)
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the forced re-fetch
+
+        val forced = buildChapterDigest(server, "s1", "c1", cache, force = true) as ChapterDigest.Success
+
+        assertTrue(forced.cache != null)
     }
 
     private fun baseChapter(

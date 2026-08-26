@@ -1,5 +1,9 @@
 package com.mymangareader.contentdigest.chapter
 
+import com.mymangareader.cache.Cache
+import com.mymangareader.cache.CacheDescriptor
+import com.mymangareader.cache.CacheEntry
+import com.mymangareader.cache.CacheMode
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.contentdigest.page.ChapterSummary
@@ -10,8 +14,15 @@ import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.tools.datetime.parseIsoUtcToEpochMs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.Json
 
 // Fields shared between ChapterDigest.Success and ChapterNeighborDigest.Success — everything
 // except prevChapter/nextChapter (the only fields causing unbounded recursion, see
@@ -31,11 +42,14 @@ interface ChapterFields {
     val pages: Pages
     val resolvedAtEpochMs: Long    // R11 — only reflects the Chapter's OWN calls (get/getProgress), never pages.list's
     val server: ServerActiveInfo
-    val cache: Nothing?            // always null this task — no Cache module exists yet (Task 015)
+    val cache: CacheDescriptor?    // null only until the first successful cache write completes
 
+    @Serializable
     enum class ReadStatus { READ, IN_PROGRESS, UNREAD }
+    @Serializable
     enum class PagesStatus { SUCCESS, PARTIAL, ERROR }
 
+    @Serializable
     data class Pages(
         val fileFormat: String?,
         val status: PagesStatus?,       // null when list wasn't fetched (full=false) — "not checked," never a value derived from an empty list
@@ -48,13 +62,16 @@ interface ChapterFields {
         val list: List<PageDigest>,     // empty when full=false — not fetched, not "zero pages" (see status/total, both null in that case, for how to tell the difference)
     )
 
+    @Serializable
     data class ResumePoint(
         val stoppedAtPageIndex: Int?,
         val recordedAtEpochMs: Long?,
     )
 }
 
+@Serializable
 sealed interface ChapterDigest {
+    @Serializable
     data class Success(
         override val id: String,
         override val seriesId: String,
@@ -67,20 +84,28 @@ sealed interface ChapterDigest {
         override val coverImage: ImageDescriptor,
         override val readStatus: ChapterFields.ReadStatus,
         override val pages: ChapterFields.Pages,
-        val prevChapter: ChapterNeighborDigest?,   // filled by Series (Task 020, optional param), null if no neighbor or Series didn't provide one
+        // Merged on write, not overwritten blindly — see buildChapterDigest's own doc: a write
+        // with neither neighbor set preserves whatever was already cached, so a later read
+        // without neighbors never erases what a previous Series-driven write already attached.
+        val prevChapter: ChapterNeighborDigest?,
         val nextChapter: ChapterNeighborDigest?,
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
-        override val cache: Nothing?,
+        // Never part of the JSON persisted in Cache — see PageDigest.Success.cache's own doc for
+        // the full rationale (circular at write time, redundant with what Cache already knows).
+        @Transient override val cache: CacheDescriptor? = null,
     ) : ChapterDigest, ChapterFields
 
+    @Serializable
     data class Failure(val error: ErrorDigest) : ChapterDigest
 }
 
 // Excludes only prevChapter/nextChapter — the only fields causing unbounded recursion. `pages`
 // (full list included) is intentionally kept, even though it makes the neighbor payload larger —
 // mirrors how the Reader already fetches a neighbor's full page data today.
+@Serializable
 sealed interface ChapterNeighborDigest {
+    @Serializable
     data class Success(
         override val id: String,
         override val seriesId: String,
@@ -95,9 +120,10 @@ sealed interface ChapterNeighborDigest {
         override val pages: ChapterFields.Pages,
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
-        override val cache: Nothing?,
+        @Transient override val cache: CacheDescriptor? = null,
     ) : ChapterNeighborDigest, ChapterFields
 
+    @Serializable
     data class Failure(val error: ErrorDigest) : ChapterNeighborDigest
 }
 
@@ -110,6 +136,87 @@ internal fun PluginChapter.isCompleteForChapterDigest(): Boolean =
     decimalNumber != null && specialLabel != null && isSpecial != null && createdUtc != null &&
         lastReadingProgressUtc != null && fileFormat != null && pageCount != null && pagesRead != null
 
+private const val CHAPTER_CACHE_DOMAIN = "chapter"
+private val chapterDigestJson = Json { ignoreUnknownKeys = true }
+private val chapterDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+private fun chapterDigestCacheKey(chapterId: String, full: Boolean) = "$chapterId:$full"
+
+private fun CacheEntry.toChapterCacheDescriptor(key: String) = CacheDescriptor(
+    key = key,
+    variant = "full",
+    domain = CHAPTER_CACHE_DOMAIN,
+    mode = CacheMode.PERSISTENT,
+    cachedAtEpochMs = cachedAtEpochMs,
+    expiresAtEpochMs = cachedAtEpochMs + ttlMs,
+)
+
+/**
+ * Cache-first entry point — same shape as [buildPageDigest]: a fresh hit returns without touching
+ * the network; a stale hit returns immediately and fires a background refresh (this same
+ * function, `force = true`); a miss or `force = true` always fetches and writes.
+ *
+ * [force] propagates down to every [buildPageDigest] call this makes for `full = true` — a
+ * forced Series refresh (its own `force = true` reaching this function) must force its chapters'
+ * pages too, not silently serve stale pages under a freshly-refreshed chapter.
+ *
+ * prevChapter/nextChapter are merged into the cached entry, never blindly overwritten: a write
+ * that receives neither (e.g. a direct `getChapterDigest` call, with no Series in the loop)
+ * preserves whatever neighbors an earlier Series-driven write already attached — see the merge
+ * step below. A write that DOES receive at least one neighbor always wins.
+ */
+suspend fun buildChapterDigest(
+    server: Server,
+    seriesId: String,
+    chapterId: String,
+    cache: Cache,
+    knownChapter: PluginChapter? = null,
+    prevChapter: ChapterNeighborDigest? = null,
+    nextChapter: ChapterNeighborDigest? = null,
+    full: Boolean = false,
+    force: Boolean = false,
+): ChapterDigest {
+    val key = chapterDigestCacheKey(chapterId, full)
+
+    if (!force) {
+        val cached = cache.persistent.get(key, variant = "full")
+        if (cached != null) {
+            val cachedDigest = chapterDigestJson.decodeFromString<ChapterDigest.Success>(cached.value)
+                .copy(cache = cached.toChapterCacheDescriptor(key))
+            val merged = if (prevChapter == null && nextChapter == null) {
+                cachedDigest
+            } else {
+                cachedDigest.copy(prevChapter = prevChapter, nextChapter = nextChapter)
+            }
+            if (cached.isExpired) {
+                chapterDigestBackgroundScope.launch {
+                    buildChapterDigest(server, seriesId, chapterId, cache, knownChapter, prevChapter, nextChapter, full, force = true)
+                }
+            }
+            return merged
+        }
+    }
+
+    val fresh = fetchChapterDigest(server, seriesId, chapterId, cache, knownChapter, prevChapter, nextChapter, full, force)
+    if (fresh !is ChapterDigest.Success) return fresh
+
+    // Merge with whatever neighbors are already cached before writing, so a neighbor-less write
+    // never erases neighbors a previous Series-driven write attached.
+    val existingNeighbors = if (fresh.prevChapter == null && fresh.nextChapter == null) {
+        cache.persistent.get(key, variant = "full")?.let { runCatching { chapterDigestJson.decodeFromString<ChapterDigest.Success>(it.value) }.getOrNull() }
+    } else {
+        null
+    }
+    val toPersist = if (existingNeighbors != null) {
+        fresh.copy(prevChapter = existingNeighbors.prevChapter, nextChapter = existingNeighbors.nextChapter)
+    } else {
+        fresh
+    }
+
+    val descriptor = cache.persistent.put(key, chapterDigestJson.encodeToString(ChapterDigest.Success.serializer(), toPersist), CHAPTER_CACHE_DOMAIN, variant = "full")
+    return toPersist.copy(cache = descriptor)
+}
+
 // Assembly order (R11): chapter.get() first (unless skipped — see isCompleteForChapterDigest
 // above) — vital when it does run, its failure makes the whole result a Failure. getProgress()
 // second — tolerated failure (caught, resumePoint stays null, doesn't escalate). server/
@@ -118,14 +225,16 @@ internal fun PluginChapter.isCompleteForChapterDigest(): Boolean =
 // calls never touch these fields (each PageDigest carries its own server/resolvedAtEpochMs). If
 // get() is skipped, server/resolvedAtEpochMs simply have no value yet until the next call
 // (getCoverImage, which always runs) sets them — same idiom PageDigest already uses.
-suspend fun buildChapterDigest(
+private suspend fun fetchChapterDigest(
     server: Server,
     seriesId: String,
     chapterId: String,
+    cache: Cache,
     knownChapter: PluginChapter? = null,
     prevChapter: ChapterNeighborDigest? = null,
     nextChapter: ChapterNeighborDigest? = null,
     full: Boolean = false,
+    force: Boolean = false,
 ): ChapterDigest {
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
@@ -193,7 +302,7 @@ suspend fun buildChapterDigest(
     // pages.list's URL/dimensions round-trips at all unless it explicitly asks for full=true.
     val list = if (full) {
         coroutineScope {
-            (0 until (plugin.pageCount ?: 0)).map { pageIndex -> async { buildPageDigest(server, summary, pageIndex) } }
+            (0 until (plugin.pageCount ?: 0)).map { pageIndex -> async { buildPageDigest(server, summary, pageIndex, cache, force = force) } }
                 .map { it.await() }
         }
     } else {
