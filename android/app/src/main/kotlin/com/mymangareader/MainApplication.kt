@@ -12,6 +12,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
+import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
@@ -61,6 +62,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     @Inject lateinit var activeUrlWatcher: ActiveUrlWatcher
     @Inject lateinit var server: Server
     @Inject lateinit var externalMetadataServer: ExternalMetadataServer
+    @Inject lateinit var cache: Cache
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -84,6 +86,7 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
                     activeUrlWatcher = activeUrlWatcher,
                     server = server,
                     externalMetadataServer = externalMetadataServer,
+                    cache = cache,
                 )
 
             override fun getJSMainModuleName(): String = "index"

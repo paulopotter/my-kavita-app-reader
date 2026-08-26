@@ -4,6 +4,7 @@ import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
+import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
@@ -47,6 +48,7 @@ class AppReactPackage(
     private val activeUrlWatcher: ActiveUrlWatcher,
     private val server: Server,
     private val externalMetadataServer: ExternalMetadataServer,
+    private val cache: Cache,
 ) : ReactPackage {
 
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
@@ -72,8 +74,9 @@ class AppReactPackage(
             ScreenControlModule(uiPreferencesDao, context),
             NetworkStatusModule(activeUrlWatcher, context),
             ServerBridgeModule(server, context),
-            DigestBridgeModule(server, externalMetadataServer, context),
+            DigestBridgeModule(server, externalMetadataServer, cache, context),
             ExternalMetadataBridgeModule(externalMetadataServer, server, context),
+            CacheBridgeModule(cache, context),
         )
     }
 
