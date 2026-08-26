@@ -48,4 +48,22 @@ function bound<T extends object, TFixed extends object, TSkip extends string>(
   return result as BoundOf<T, TFixed, TSkip>;
 }
 
-export const Methods = { bound };
+// Generic runtime guard for a method whose single object argument has fields TypeScript already
+// marks required — TypeScript only protects compile-time callers, so a caller reaching in from
+// plain JS, an `any`, or a `// @ts-ignore`'d call can still pass `undefined` or omit a field.
+// `methodLabel` (e.g. "persistent.get") is passed in explicitly rather than inferred: a method
+// shorthand has no reliable way to learn its own property name from `this` at runtime (`this`
+// only resolves to the whole object, not to which of its own methods is currently executing).
+// Returns `args` narrowed to non-undefined so a caller can use the result directly.
+function requireArgs<T extends object>(args: T | undefined, methodLabel: string, requiredFields: (keyof T)[]): T {
+  if (!args) {
+    throw new Error(`${methodLabel} requires { ${requiredFields.join(', ')} }, got no arguments`);
+  }
+  const missing = requiredFields.filter((field) => args[field] === undefined);
+  if (missing.length > 0) {
+    throw new Error(`${methodLabel} is missing required field(s): ${missing.join(', ')}`);
+  }
+  return args;
+}
+
+export const Methods = { bound, requireArgs };

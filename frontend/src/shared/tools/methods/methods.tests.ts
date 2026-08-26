@@ -85,3 +85,30 @@ describe('Methods.bound', () => {
     expect('get' in boundTarget.group).toBe(true);
   });
 });
+
+describe('Methods.requireArgs', () => {
+  it('returns args unchanged when every required field is present', () => {
+    const args = { key: 'c1', domain: 'page' };
+    const result = Methods.requireArgs(args, 'Example.method', ['key', 'domain']);
+    expect(result).toBe(args);
+  });
+
+  it('throws when args is undefined', () => {
+    const args: { key: string } | undefined = undefined;
+    expect(() => Methods.requireArgs<{ key: string }>(args, 'Example.method', ['key'])).toThrow(
+      'Example.method requires { key }, got no arguments',
+    );
+  });
+
+  it('throws naming every missing required field', () => {
+    const args = { key: 'c1' } as { key: string; domain?: string; variant?: string };
+    expect(() => Methods.requireArgs(args, 'Example.method', ['key', 'domain', 'variant'])).toThrow(
+      'Example.method is missing required field(s): domain, variant',
+    );
+  });
+
+  it('does not throw when a field not listed as required is missing', () => {
+    const args = { key: 'c1' } as { key: string; variant?: string };
+    expect(() => Methods.requireArgs(args, 'Example.method', ['key'])).not.toThrow();
+  });
+});
