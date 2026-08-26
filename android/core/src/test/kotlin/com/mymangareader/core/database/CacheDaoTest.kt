@@ -33,38 +33,53 @@ class CacheDaoTest {
 
     private fun entry(
         key: String,
+        variant: String = "",
         domain: String = "page",
         value: String = "{}",
         cachedAtEpochMs: Long = 1_000L,
         expiresAtEpochMs: Long = 2_000L,
+        ttlMs: Long = expiresAtEpochMs - cachedAtEpochMs,
+        lastAccessedAtEpochMs: Long = cachedAtEpochMs,
     ) = CacheEntity(
         key = key,
+        variant = variant,
         value = value,
         domain = domain,
         cachedAtEpochMs = cachedAtEpochMs,
+        ttlMs = ttlMs,
         expiresAtEpochMs = expiresAtEpochMs,
+        lastAccessedAtEpochMs = lastAccessedAtEpochMs,
     )
 
     @Test
     fun `getByKey retorna null quando a chave nao existe`() = runTest {
-        assertNull(dao.getByKey("missing"))
+        assertNull(dao.getByKey("missing", ""))
     }
 
     @Test
     fun `upsert seguido de getByKey retorna a entrada gravada`() = runTest {
         dao.upsert(entry("page:1", value = "\"hello\""))
 
-        val result = dao.getByKey("page:1")
+        val result = dao.getByKey("page:1", "")
 
         assertEquals("\"hello\"", result?.value)
     }
 
     @Test
-    fun `upsert com a mesma chave substitui a entrada anterior`() = runTest {
+    fun `upsert com a mesma chave e variant substitui a entrada anterior`() = runTest {
         dao.upsert(entry("page:1", value = "old"))
         dao.upsert(entry("page:1", value = "new"))
 
-        assertEquals("new", dao.getByKey("page:1")?.value)
+        assertEquals("new", dao.getByKey("page:1", "")?.value)
+    }
+
+    @Test
+    fun `mesma key com variants diferentes coexistem sem colidir`() = runTest {
+        dao.upsert(entry("c1:true", variant = "full", value = "full-payload"))
+        dao.upsert(entry("c1:false", variant = "full", value = "light-payload"))
+
+        assertEquals("full-payload", dao.getByKey("c1:true", "full")?.value)
+        assertEquals("light-payload", dao.getByKey("c1:false", "full")?.value)
     }
 
     @Test
@@ -72,10 +87,10 @@ class CacheDaoTest {
         dao.upsert(entry("page:1"))
         dao.upsert(entry("page:2"))
 
-        dao.deleteByKey("page:1")
+        dao.deleteByKey("page:1", "")
 
-        assertNull(dao.getByKey("page:1"))
-        assertTrue(dao.getByKey("page:2") != null)
+        assertNull(dao.getByKey("page:1", ""))
+        assertTrue(dao.getByKey("page:2", "") != null)
     }
 
     @Test
@@ -86,9 +101,49 @@ class CacheDaoTest {
 
         dao.deleteByDomain("page")
 
-        assertNull(dao.getByKey("page:1"))
-        assertNull(dao.getByKey("page:2"))
-        assertTrue(dao.getByKey("chapter:1") != null)
+        assertNull(dao.getByKey("page:1", ""))
+        assertNull(dao.getByKey("page:2", ""))
+        assertTrue(dao.getByKey("chapter:1", "") != null)
+    }
+
+    @Test
+    fun `deleteByVariant remove todas as entradas daquele dominio e variant, preservando outras variants e dominios`() = runTest {
+        dao.upsert(entry("c1:true", domain = "chapter", variant = "full"))
+        dao.upsert(entry("c2:true", domain = "chapter", variant = "full"))
+        dao.upsert(entry("c1:false", domain = "chapter", variant = "full"))
+        dao.upsert(entry("s1:true", domain = "series", variant = "full"))
+
+        dao.deleteByVariant("chapter", "full")
+
+        assertNull(dao.getByKey("c1:true", "full"))
+        assertNull(dao.getByKey("c2:true", "full"))
+        assertNull(dao.getByKey("c1:false", "full"))
+        assertTrue(dao.getByKey("s1:true", "full") != null)
+    }
+
+    @Test
+    fun `touchLastAccessed atualiza somente a entrada indicada`() = runTest {
+        dao.upsert(entry("page:1", lastAccessedAtEpochMs = 1_000L))
+        dao.upsert(entry("page:2", lastAccessedAtEpochMs = 1_000L))
+
+        dao.touchLastAccessed("page:1", "", 9_000L)
+
+        assertEquals(9_000L, dao.getByKey("page:1", "")?.lastAccessedAtEpochMs)
+        assertEquals(1_000L, dao.getByKey("page:2", "")?.lastAccessedAtEpochMs)
+    }
+
+    @Test
+    fun `getOlderThan retorna apenas entradas com cachedAt e lastAccessedAt ambos antes do cutoff`() = runTest {
+        // Escrita antiga, nunca mais lida — candidata real ao expurgo.
+        dao.upsert(entry("stale", cachedAtEpochMs = 1_000L, lastAccessedAtEpochMs = 1_000L))
+        // Escrita antiga, mas lida recentemente — não deve ser expurgada.
+        dao.upsert(entry("recently-read", cachedAtEpochMs = 1_000L, lastAccessedAtEpochMs = 9_000L))
+        // Escrita recente — não deve ser expurgada.
+        dao.upsert(entry("fresh", cachedAtEpochMs = 9_000L, lastAccessedAtEpochMs = 9_000L))
+
+        val olderThan = dao.getOlderThan(cutoffEpochMs = 5_000L)
+
+        assertEquals(listOf("stale"), olderThan.map { it.key })
     }
 
     @Test
@@ -103,15 +158,17 @@ class CacheDaoTest {
     }
 
     @Test
-    fun `deleteByKeys remove multiplas entradas de uma vez`() = runTest {
+    fun `deleteExpired remove multiplas entradas de uma vez, respeitando key e variant`() = runTest {
         dao.upsert(entry("a"))
         dao.upsert(entry("b"))
-        dao.upsert(entry("c"))
+        dao.upsert(entry("c:true", variant = "full"))
+        dao.upsert(entry("c:false", variant = "full"))
 
-        dao.deleteByKeys(listOf("a", "c"))
+        dao.deleteExpired(listOf(entry("a"), entry("c:true", variant = "full")))
 
-        assertNull(dao.getByKey("a"))
-        assertTrue(dao.getByKey("b") != null)
-        assertNull(dao.getByKey("c"))
+        assertNull(dao.getByKey("a", ""))
+        assertTrue(dao.getByKey("b", "") != null)
+        assertNull(dao.getByKey("c:true", "full"))
+        assertTrue(dao.getByKey("c:false", "full") != null)
     }
 }

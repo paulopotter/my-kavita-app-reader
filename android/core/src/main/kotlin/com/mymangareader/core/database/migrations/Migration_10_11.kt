@@ -12,11 +12,15 @@ val Migration_10_11 = object : Migration(10, 11) {
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS cache (
-                `key` TEXT NOT NULL PRIMARY KEY,
+                `key` TEXT NOT NULL,
+                variant TEXT NOT NULL,
                 value TEXT NOT NULL,
                 domain TEXT NOT NULL,
                 cachedAtEpochMs INTEGER NOT NULL,
-                expiresAtEpochMs INTEGER NOT NULL
+                ttlMs INTEGER NOT NULL,
+                expiresAtEpochMs INTEGER NOT NULL,
+                lastAccessedAtEpochMs INTEGER NOT NULL,
+                PRIMARY KEY(`key`, variant)
             )
             """.trimIndent(),
         )

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 11,
-    "identityHash": "b2f34d67ff3cd8d7c0564c115bafad85",
+    "identityHash": "630b8bfabd1ea08472c541a74ca0ebc9",
     "entities": [
       {
         "tableName": "server_config",
@@ -721,11 +721,17 @@
       },
       {
         "tableName": "cache",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, `domain` TEXT NOT NULL, `cachedAtEpochMs` INTEGER NOT NULL, `expiresAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `variant` TEXT NOT NULL, `value` TEXT NOT NULL, `domain` TEXT NOT NULL, `cachedAtEpochMs` INTEGER NOT NULL, `ttlMs` INTEGER NOT NULL, `expiresAtEpochMs` INTEGER NOT NULL, `lastAccessedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`key`, `variant`))",
         "fields": [
           {
             "fieldPath": "key",
             "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variant",
+            "columnName": "variant",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -748,8 +754,20 @@
             "notNull": true
           },
           {
+            "fieldPath": "ttlMs",
+            "columnName": "ttlMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "expiresAtEpochMs",
             "columnName": "expiresAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAccessedAtEpochMs",
+            "columnName": "lastAccessedAtEpochMs",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -757,7 +775,8 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "key"
+            "key",
+            "variant"
           ]
         },
         "indices": [],
@@ -767,7 +786,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b2f34d67ff3cd8d7c0564c115bafad85')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '630b8bfabd1ea08472c541a74ca0ebc9')"
     ]
   }
 }
