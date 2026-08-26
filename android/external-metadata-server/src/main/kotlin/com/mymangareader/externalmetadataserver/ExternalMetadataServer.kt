@@ -18,6 +18,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
 
 class ExternalMetadataServerException(message: String) : Exception(message)
 
@@ -72,6 +73,7 @@ data class NewExternalMetadataUrl(
     val linkedServerUrlId: String? = null,
 )
 
+@Serializable
 data class ExternalMetadataActiveInfo(
     val groupId: String,
     val groupName: String,

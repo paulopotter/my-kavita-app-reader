@@ -28,6 +28,7 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":tools"))
+    implementation(project(":cache"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

@@ -1,6 +1,7 @@
 package com.mymangareader.server.plugins
 
 import com.mymangareader.tools.network.RequestTool
+import kotlinx.serialization.Serializable
 
 // Provider-agnostic shapes ServerPlugin speaks in — not the final app-wide contract (that's a
 // separate, later layer), just enough structure for Server (not yet built) to work with any
@@ -48,11 +49,13 @@ data class PluginSeriesMetadata(
 // provider concern (e.g. Kavita's own AgeRating enum isn't real ESRB naming, even though it
 // shares the same spirit). Grouped with [rating] instead of a bare string so a future second
 // rating system doesn't require breaking this field.
+@Serializable
 data class PluginAgeRating(
     val rating: String?,
     val system: String,
 )
 
+@Serializable
 data class PluginGenreOrTag(
     val id: String,
     val name: String,

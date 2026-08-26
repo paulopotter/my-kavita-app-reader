@@ -1,6 +1,7 @@
 package com.mymangareader.externalmetadataserver.plugins
 
 import com.mymangareader.tools.network.RequestTool
+import kotlinx.serialization.Serializable
 
 // Provider-agnostic shapes ExternalMetadataPlugin speaks in — not the app-wide contract, just
 // enough structure for ExternalMetadataServer to work with any metadata provider without knowing
@@ -18,6 +19,7 @@ data class ExternalMetadataSeriesRef(
     val name: String,
 )
 
+@Serializable
 data class ExternalMetadataMatch(
     val seriesId: String,
     val slug: String?,

@@ -1,5 +1,6 @@
 package com.mymangareader.server
 
+import com.mymangareader.cache.CacheDescriptor
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
@@ -20,6 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -134,6 +136,7 @@ data class NewServerUrl(
 // credentialsJson (secret) AND healthCheckPath (pure config-time infra detail, not something a
 // caller asking "which server answered this" needs). Not a nested { group, activeUrl } shape —
 // callers wanting "which server, without secrets" get one flat object, per the user's own call.
+@Serializable
 data class ServerActiveInfo(
     val groupId: String,
     val groupName: String,
@@ -156,6 +159,7 @@ data class ServerResponse<T>(
     val resolvedAtEpochMs: Long,
 )
 
+@Serializable
 enum class ImageOrientation { PORTRAIT, LANDSCAPE }
 
 // The one place aspectRatio/orientation/hasFetchedDimensions get computed — every caller that
@@ -164,6 +168,7 @@ enum class ImageOrientation { PORTRAIT, LANDSCAPE }
 // or how many requests it took to gather url/width/height; server/resolvedAtEpochMs/cache are
 // passed in because each caller decides those differently (e.g. Page's R11 "last successful call
 // wins" logic is the caller's job, not this function's).
+@Serializable
 data class ImageDescriptor(
     val url: String,
     val hasFetchedDimensions: Boolean,
@@ -173,7 +178,7 @@ data class ImageDescriptor(
     val orientation: ImageOrientation?,
     val resolvedAtEpochMs: Long,
     val server: ServerActiveInfo,
-    val cache: Nothing?,
+    val cache: CacheDescriptor?,
 )
 
 fun buildImageDescriptor(
@@ -182,7 +187,7 @@ fun buildImageDescriptor(
     height: Int?,
     resolvedAtEpochMs: Long,
     server: ServerActiveInfo,
-    cache: Nothing? = null,
+    cache: CacheDescriptor? = null,
 ): ImageDescriptor {
     val hasFetchedDimensions = width != null && height != null && width > 0 && height > 0
     val aspectRatio = if (hasFetchedDimensions) width!!.toDouble() / height!!.toDouble() else null
