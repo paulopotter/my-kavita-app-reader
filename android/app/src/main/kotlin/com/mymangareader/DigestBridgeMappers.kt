@@ -75,7 +75,7 @@ fun PageDigest.toWritableMap(): WritableMap = when (this) {
         orientation?.let { putString("orientation", it.name) }
         putDouble("resolvedAtEpochMs", resolvedAtEpochMs.toDouble())
         putMap("server", server.toWritableMap())
-        putNull("cache")
+        cache?.let { putMap("cache", it.toWritableMap()) } ?: putNull("cache")
         // chapter: ChapterSummary — deliberately NOT included here. It's the exact ChapterSummary
         // buildPageDigest received (see :content-digest's own README), redundant with the
         // ChapterDigest the RN side already has (or is fetching separately) — avoids repeating a
@@ -99,7 +99,7 @@ private fun WritableMap.putChapterFields(fields: ChapterFields) = apply {
     putMap("pages", fields.pages.toWritableMap())
     putDouble("resolvedAtEpochMs", fields.resolvedAtEpochMs.toDouble())
     putMap("server", fields.server.toWritableMap())
-    putNull("cache")
+    fields.cache?.let { putMap("cache", it.toWritableMap()) } ?: putNull("cache")
 }
 
 private fun ChapterFields.Pages.toWritableMap(): WritableMap = Arguments.createMap().apply {
@@ -268,6 +268,6 @@ fun SeriesDigest.toWritableMap(): WritableMap = when (this) {
         metadata?.let { putMap("metadata", it.toWritableMap()) }
         putDouble("resolvedAtEpochMs", resolvedAtEpochMs.toDouble())
         putMap("server", server.toWritableMap())
-        putNull("cache")
+        cache?.let { putMap("cache", it.toWritableMap()) } ?: putNull("cache")
     }
 }

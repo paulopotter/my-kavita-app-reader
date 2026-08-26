@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import type { CacheDescriptorBridge } from './cache';
 import type { ExternalMetadataActiveInfo, ExternalMetadataMatch } from './external';
 
 // Mirrors :content-digest's Page/Chapter/Series digest builders (android/content-digest) via
@@ -51,7 +52,7 @@ export interface PageDigestSuccess {
   orientation?: ImageOrientation;
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
-  cache: null;
+  cache: CacheDescriptorBridge | null;
   // chapter (ChapterSummary) is deliberately NOT sent over the bridge — see
   // DigestBridgeMappers.kt's own comment: redundant with the ChapterDigest the RN side already
   // has or is fetching separately.
@@ -101,7 +102,7 @@ interface ChapterFieldsShape {
   pages: ChapterPages;
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
-  cache: null;
+  cache: CacheDescriptorBridge | null;
 }
 
 export interface ChapterNeighborDigestSuccess extends ChapterFieldsShape {
@@ -215,7 +216,7 @@ export interface SeriesDigestSuccess {
   metadata?: SeriesMetadata;
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
-  cache: null;
+  cache: CacheDescriptorBridge | null;
 }
 
 export type SeriesDigest = SeriesDigestSuccess | DigestFailure;

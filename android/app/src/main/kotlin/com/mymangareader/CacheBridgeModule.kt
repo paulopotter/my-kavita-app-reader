@@ -1,6 +1,5 @@
 package com.mymangareader
 
-import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -137,21 +136,5 @@ class CacheBridgeModule @Inject constructor(
         scope.launch {
             runCatching { store.purgeOlderThan(cutoffEpochMs.toLong()) }.resolveOrReject(promise, errorCode)
         }
-    }
-
-    private fun CacheEntry.toWritableMap() = Arguments.createMap().apply {
-        putString("value", value)
-        putDouble("cachedAtEpochMs", cachedAtEpochMs.toDouble())
-        putDouble("ttlMs", ttlMs.toDouble())
-        putBoolean("isExpired", isExpired)
-    }
-
-    private fun CacheDescriptor.toWritableMap() = Arguments.createMap().apply {
-        putString("key", key)
-        putString("variant", variant)
-        putString("domain", domain)
-        putString("mode", mode.name)
-        putDouble("cachedAtEpochMs", cachedAtEpochMs.toDouble())
-        putDouble("expiresAtEpochMs", expiresAtEpochMs.toDouble())
     }
 }
