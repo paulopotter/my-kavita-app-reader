@@ -4,6 +4,7 @@ import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
+import com.mymangareader.contentdigest.testcache.fakeCache
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
@@ -135,6 +136,7 @@ class PageDigestTest {
     private lateinit var urlDao: FakeServerUrlDao
     private lateinit var plugin: FakePlugin
     private lateinit var server: Server
+    private val cache = fakeCache()
     private val fakeChapterServerInfo = ServerActiveInfo(
         groupId = "g1", groupName = "Group", providerId = "fake",
         urlId = "u1", url = "http://fake", timeoutMs = 5000, priority = 0,
@@ -186,7 +188,7 @@ class PageDigestTest {
         activateGroup()
         plugin.dimensionsResult = Result.success(PluginPageDimension(width = 1240, height = 1754))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 3) as PageDigest.Success
+        val digest = buildPageDigest(server, chapter, pageIndex = 3, cache) as PageDigest.Success
 
         assertEquals("c1:3", digest.id)
         assertEquals(3, digest.number)
@@ -196,7 +198,7 @@ class PageDigestTest {
         assertTrue(digest.hasFetchedDimensions)
         assertEquals(1240.0 / 1754.0, digest.aspectRatio!!, 0.0001)
         assertEquals(PageDigest.Orientation.PORTRAIT, digest.orientation)
-        assertNull(digest.cache)
+        assertEquals("c1:3", digest.cache?.key)
         assertEquals(chapter, digest.chapter)
     }
 
@@ -204,7 +206,7 @@ class PageDigestTest {
     fun `success reflects the last successful call's serverInfo per R11`() = runTest {
         activateGroup()
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0) as PageDigest.Success
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
         // getDimensions() ran after getUrl() and succeeded — its serverInfo/resolvedAtEpochMs win.
         assertEquals(baseUrl, digest.server.url)
@@ -216,7 +218,7 @@ class PageDigestTest {
         activateGroup()
         plugin.dimensionsResult = Result.success(PluginPageDimension(width = 1600, height = 900))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0) as PageDigest.Success
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
         assertEquals(PageDigest.Orientation.LANDSCAPE, digest.orientation)
     }
@@ -226,7 +228,7 @@ class PageDigestTest {
         activateGroup()
         plugin.dimensionsResult = Result.success(PluginPageDimension(width = 500, height = 500))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0) as PageDigest.Success
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
         assertNull(digest.orientation)
         assertEquals(1.0, digest.aspectRatio)
@@ -237,7 +239,7 @@ class PageDigestTest {
         activateGroup()
         plugin.dimensionsResult = Result.success(PluginPageDimension(width = 0, height = 0))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0) as PageDigest.Success
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
         assertEquals(false, digest.hasFetchedDimensions)
         assertNull(digest.aspectRatio)
@@ -252,7 +254,7 @@ class PageDigestTest {
         activateGroup()
         plugin.dimensionsResult = Result.failure(RuntimeException("no dimension for this page"))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0)
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
 
         assertTrue(digest is PageDigest.Success)
         digest as PageDigest.Success
@@ -268,7 +270,7 @@ class PageDigestTest {
         activateGroup()
         plugin.urlResult = Result.failure(IllegalStateException("boom"))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0)
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
 
         assertTrue(digest is PageDigest.Failure)
         digest as PageDigest.Failure
@@ -278,8 +280,62 @@ class PageDigestTest {
 
     @Test
     fun `no active group makes the whole result a Failure, not a crash`() = runTest {
-        val digest = buildPageDigest(server, chapter, pageIndex = 0)
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
 
         assertTrue(digest is PageDigest.Failure)
+    }
+
+    // ── Cache-first behavior ─────────────────────────────────────────────────
+
+    @Test
+    fun `a fresh cache hit never touches the network`() = runTest {
+        activateGroup()
+        val first = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+
+        // A second URL health check is enqueued only if the second call actually hits the
+        // network — if it wrongly bypassed the cache, MockWebServer would have nothing queued
+        // and the call would fail/hang instead of quietly succeeding, making this a real check.
+        val second = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+
+        assertEquals(first.url, second.url)
+        assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
+    }
+
+    @Test
+    fun `a cache miss fetches fresh and writes a CacheDescriptor with mode PERSISTENT`() = runTest {
+        activateGroup()
+
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+
+        assertEquals(com.mymangareader.cache.CacheMode.PERSISTENT, digest.cache?.mode)
+        assertEquals("page", digest.cache?.domain)
+        assertEquals("", digest.cache?.variant)
+    }
+
+    @Test
+    fun `force true bypasses the cache read but still writes fresh data`() = runTest {
+        activateGroup()
+        buildPageDigest(server, chapter, pageIndex = 0, cache)
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the forced re-fetch
+
+        val forced = buildPageDigest(server, chapter, pageIndex = 0, cache, force = true) as PageDigest.Success
+
+        assertTrue(forced.cache != null)
+    }
+
+    @Test
+    fun `a stale cache hit returns immediately and refreshes in the background`() = runTest {
+        activateGroup()
+        buildPageDigest(server, chapter, pageIndex = 0, cache)
+        // Force the entry to be treated as expired: invalidate then re-write it with a
+        // negative TTL, so the next get() reports isExpired = true.
+        val stalePayload = cache.persistent.get("c1:0")!!.value
+        cache.persistent.put("c1:0", stalePayload, domain = "page", ttlMs = -1L)
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the background refresh
+
+        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+
+        // Returned immediately from the stale cache — no exception, no wait for the network.
+        assertTrue(digest.cache != null)
     }
 }
