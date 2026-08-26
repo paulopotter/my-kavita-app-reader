@@ -144,48 +144,153 @@ reuse it without crossing screen boundaries.
 
 ## Cache Guideline — `Cache` (Kotlin) + `CacheManager` (RN)
 
-Every domain that needs local cache reuses two generic modules instead of
-inventing its own ad-hoc mechanism (as `LibraryModule.kt`'s `@Volatile var`
-fields, or per-domain Room tables like `series_detail_cache`/`chapter_cache`,
-did historically):
+*Kotlin side implemented (Task 023). RN side (`CacheManager`) not started
+yet — see "Deliberately deferred" below.*
 
-- **`Cache` (Kotlin, Layer 2)** — generic, dumb get/put/invalidate by key.
-  Knows nothing about any domain. Only implements the `PERSISTENT` mode.
-  The real storage underneath (one generic Room table vs. domain-specific
-  tables) is not fixed here — each case is judged when that data is actually
-  implemented.
-- **`CacheManager` (RN)** — the single orchestrator every domain
-  Service/hook calls to resolve cache-then-network, replacing the old
-  pattern of a hook calling two separate native methods (`getX`/`getCachedX`)
-  and deciding the sequence itself. Resolves *any* cache mode:
-  - `PERSISTENT` → delegates to the Kotlin `Cache` module via the bridge.
-  - `VOLATILE` → resolved entirely in RN memory, never touches the bridge.
+Every domain that needs local cache reuses one generic module (`:cache`,
+Layer 1 — as domain-agnostic as `:core` itself) instead of inventing its
+own ad-hoc mechanism, as `LibraryModule.kt`'s old `@Volatile var` fields,
+per-domain Room tables (`series_detail_cache`/`chapter_cache`), and
+`M3Plugin`'s/`ActiveUrlSelector`'s own hand-rolled `Mutex`+`Map` memoization
+all did historically (`M3Plugin` migrated to `Cache.network` in Task 023;
+`ActiveUrlSelector` has not been migrated yet).
 
-  The caller never needs to know which backend a given cache uses.
+### `Cache` (Kotlin) — three backends, one facade
 
-**`CacheDescriptor` is the shared contract carrying this decision** —
-created at Layer 2, embedded inside a domain contract's `cache` field
-(`PageContract.cache`, `ChapterContract.cache`, `SeriesContract.cache`), and
-handed back to `CacheManager` unchanged when the RN side needs to
-resolve/refresh that same value:
-
-```typescript
-export interface CacheDescriptor {
-  key: string;
-  mode: "PERSISTENT" | "VOLATILE";
-  cachedAtEpochMs: number | null;
+```kotlin
+class Cache {
+    val persistent: Persistent   // Room-backed, survives app restart
+    val memoryKotlin: MemoryKotlin // in-process Map, lives only as long as this Kotlin process
+    val network: Network          // not a value store — single-flight + TTL around a suspend block
+    fun storeFor(mode: CacheMode): CacheStore // resolves persistent/memoryKotlin automatically
 }
 ```
 
+- **`persistent`/`memoryKotlin`** both implement `CacheStore` — the same
+  contract (`get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/
+  `purgeExpired`/`purgeOlderThan`), differing only in where the data
+  physically lives. `put()` returns the `CacheDescriptor` it just produced
+  (never `Unit`) — a caller building a digest attaches provenance without
+  re-deriving it.
+- **`network`** protects a network call from redundant concurrent
+  execution (single-flight via a `Mutex` per key, not one global lock) plus
+  a TTL memoization window — a different shape (`run(key, ttlMs, block)`,
+  no `value`/`domain`/`variant`) but the same lifecycle parity as the other
+  two (`invalidate`/`purgeExpired`/`purgeOlderThan`).
+
+**Key/variant/domain convention** (`CacheEntity`, `:core`): `domain` is a
+caller-chosen label (`"page"`/`"chapter"`/`"series"`/...) opaque to `Cache`,
+only used for `invalidateDomain`/`invalidateVariant`. `variant` names which
+parameter(s) change a payload's shape (`"full"`, or `"full:external"` for
+more than one, colon-separated — never the values); `key` carries the
+entity id plus that same parameter's value(s) in the same positional order
+(`"c1:true"`, `"s1:true:false"`). A domain with no such parameter (e.g.
+Page) uses `variant = ""` and `key` = the bare id. Primary key is
+`(key, variant)` together.
+
+**`CacheDescriptor`** — created at Layer 1 (`:cache`), embedded inside a
+domain digest's own `cache` field (`PageDigest.Success.cache`,
+`ChapterDigest.Success.cache`, `SeriesDigest.Success.cache`, all
+`:content-digest`), marked `@Transient` on every digest (never serialized
+inside the JSON persisted in `Cache` itself — it would be circular at
+write time, and redundant with what `Cache` already knows for that row;
+always reconstructed from the real `CacheEntry` when a value is read back):
+
+```kotlin
+enum class CacheMode { PERSISTENT, MEMORY_KOTLIN } // MEMORY (RN-only) and NETWORK never produce a descriptor
+
+data class CacheDescriptor(
+    val key: String,
+    val variant: String,
+    val domain: String,
+    val mode: CacheMode,
+    val cachedAtEpochMs: Long,
+    val expiresAtEpochMs: Long,
+)
+```
+
+### Cache-first pattern in `:content-digest` (`buildPageDigest`/`buildChapterDigest`/`buildSeriesDigest`)
+
+Each builder takes `cache: Cache` (required, same convention as `server:
+Server` — passed explicitly, never a module-level singleton) and
+`force: Boolean = false`:
+
+- `force = false` + fresh hit → returns the cached value, no network call.
+- `force = false` + stale hit → returns the stale value immediately, fires
+  a background refresh (the same function, `force = true`, on its own
+  `CoroutineScope`) that re-fetches and rewrites the cache — the original
+  caller never waits for it.
+- `force = false` + miss, or `force = true` → always fetches fresh and
+  writes the result before returning (a forced call never skips the write,
+  only the read).
+
+`force` propagates top-down through the domain composition: a forced
+Series refresh forces every Chapter it builds, which forces every Page —
+a manual "refresh everything" action from the Series level never leaves a
+stale Chapter or Page underneath a freshly-refreshed Series.
+
+Keys today: Page `"chapterId:pageIndex"` (`domain="page"`, `variant=""`);
+Chapter `"chapterId:full"` (`domain="chapter"`, `variant="full"`); Series
+`"seriesId:full:includeExternalMetadata"` (`domain="series"`,
+`variant="full:external"`). All three currently use `mode = PERSISTENT` —
+no domain has been judged to need `MEMORY_KOTLIN` yet (that decision is
+still made per case, only when a real reason shows up, not from a general
+survey).
+
+`ChapterDigest.Success.prevChapter`/`nextChapter` are merged on write, not
+overwritten blindly: a write that receives neither (e.g. a direct
+`getChapterDigest` RN call, no Series in the loop) preserves whatever
+neighbors an earlier Series-driven write already attached; a write that
+receives at least one neighbor always wins.
+
+**Known trade-off, deliberately not solved yet** (see backlog 017): a
+Chapter's cached JSON embeds its full `PageDigest` list (each Page also has
+its own separate cache entry — real duplication), and a Series embeds full
+`Chapter`s the same way. A referenced-by-key cascade (Chapter stores Page
+keys, re-reads each from `Cache` instead of embedding a copy) would remove
+the duplication and fix a subtle staleness gap (an embedded Page doesn't
+know it's expired even if its own TTL has elapsed), at the cost of turning
+one cache read into N synchronous reads and more complex staleness
+semantics — not implemented.
+
+### `BackgroundExecute` (`:tools`) — generic fire-and-forget with `Cache`
+
+```kotlin
+class BackgroundExecute {
+    fun launch(fetchFn: suspend () -> String): Job                                    // runs fetchFn, writes nothing
+    fun launchWithStore(fetchFn: suspend () -> String, descriptor: CacheDescriptor): Job // runs fetchFn, writes the result via Cache.storeFor(descriptor.mode)
+}
+```
+
+Both return the started `Job` — never awaited internally — so a caller
+that wants to react once the refresh finishes (e.g. an `EventBus` emit,
+once that exists) can call `job.invokeOnCompletion { ... }` itself.
+`:cache` was promoted to Layer 1 (as generic as `:core`) so `:tools`
+(Layer 1) could depend on it without inverting `core ← tools ← features`.
+Not used by the digest builders above (each calls itself recursively
+instead — it already knows how to fetch); available for other callers
+(e.g. a future RN-driven background refresh) that need the same
+fire-and-forget shape without duplicating the pattern.
+
 **Deliberately deferred — not decided now, same philosophy as `EventToken`
 (Task 013):**
-- Whether a given field/domain is `PERSISTENT` or `VOLATILE` — decided per
-  case, only when that data is actually implemented.
-- `CacheManager`'s exact API (function names, signatures, who dispatches
-  the `EventBus` event, how to invalidate an entry, what happens on a
-  cache miss, how errors are represented) — none of this is designed yet;
-  it will be defined during the implementation of each real case, not in
-  the abstract now.
+- **`CacheManager` (RN)** — not built yet. When it is, it's expected to be
+  thinner than originally sketched: the cache-first *decision* (read vs.
+  fetch vs. stale-refresh) already lives in the Kotlin builders above, not
+  in RN orchestration. `CacheManager`'s real job is likely just exposing
+  `CacheBridge` (already implemented — `persistent`/`memoryKotlin` ×
+  `get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/
+  `purgeExpired`/`purgeOlderThan`; `network` deliberately not
+  bridged — its `block` parameter is a Kotlin function, which can't cross
+  RN↔Kotlin) to RN Services, plus the `MEMORY` mode (RN-only in-memory
+  cache, mirroring `MEMORY_KOTLIN` but living in JS instead — not built).
+- **Who calls `purgeExpired`/`purgeOlderThan`** — implemented on both
+  `persistent`/`memoryKotlin`/`network`, exposed over the bridge, but
+  nothing calls them yet. Expected to be a splash-screen routine on the RN
+  side once `CacheManager` exists.
+- **Whether a given field/domain should be `MEMORY_KOTLIN` instead of
+  `PERSISTENT`** — decided per case, only when a real reason shows up
+  (e.g. a field that changes too often to be worth surviving restart).
 
 ## Reader Screen — the one native-rendering exception
 
