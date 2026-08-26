@@ -247,7 +247,7 @@ class ExternalMetadataServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration()),
-            ActiveUrlSelector(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
             RequestTool(OkHttpClient()),
             Cache(FakeCacheDao()),
         )
@@ -257,7 +257,7 @@ class ExternalMetadataServerTest {
         FakeServerGroupDao(),
         FakeServerUrlDao(),
         mapOf("fake-server" to fakeServerRegistration()),
-        ActiveUrlSelector(OkHttpClient()),
+        ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
         RequestTool(OkHttpClient()),
     )
 

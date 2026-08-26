@@ -52,8 +52,9 @@ class DigestBridgeModuleTest {
 
     @Test
     fun `getName retorna DigestBridgeModule`() {
-        val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
-        val module = DigestBridgeModule(server, mock<ExternalMetadataServer>(), mock<Cache>(), mock<ReactApplicationContext>())
+        val cache = mock<Cache>()
+        val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()))
+        val module = DigestBridgeModule(server, mock<ExternalMetadataServer>(), cache, mock<ReactApplicationContext>())
 
         assertEquals("DigestBridgeModule", module.name)
     }

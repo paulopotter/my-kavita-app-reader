@@ -1,5 +1,6 @@
 package com.mymangareader.tools.network
 
+import com.mymangareader.cache.Cache
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -30,33 +31,41 @@ interface UrlSelector {
     fun getLastKnownUrl(): String?
 }
 
+// One ActiveUrlSelector instance is shared across every group it's asked to resolve for (Server,
+// ExternalMetadataServer, ...) — the cache key must identify WHICH group's candidate set is being
+// resolved, not just "the last selection." Built from every candidate's own stable id
+// (ServerUrlEntity.id/ExternalMetadataUrlEntity.id), sorted so the same group always produces the
+// same key regardless of list ordering.
+private fun candidatesCacheKey(candidates: List<UrlCandidate>): String =
+    candidates.map { it.id }.sorted().joinToString(",")
+
 @Singleton
 class ActiveUrlSelector @Inject constructor(
     private val baseClient: OkHttpClient,
+    private val cache: Cache,
 ) : UrlSelector {
 
-    private var cachedUrl: String? = null
-    private var cacheTimestamp: Long = 0L
+    // A plain mirror of the last successful selection — never the cache's own source of truth
+    // (that's Cache.network below). Exists only because getLastKnownUrl() is a real, synchronous
+    // (non-suspend) function called outside any coroutine in several places today (e.g.
+    // SetupModule.kt) — Cache.network's own methods are all suspend (backed by a real Mutex), so
+    // they can't be called from there without a cascading suspend-ification this task doesn't
+    // need. @Volatile guarantees this simple reference read/write is safe across threads without
+    // needing a lock — there's no compound operation here that a Mutex would otherwise protect.
+    @Volatile
+    private var lastKnownUrl: String? = null
 
     override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> {
-        val now = System.currentTimeMillis()
-        val cached = cachedUrl
-        if (cached != null && (now - cacheTimestamp) < CACHE_TTL_MS) {
-            return Result.success(cached)
-        }
-        return selectFastest(candidates).also { result ->
-            result.onSuccess { url ->
-                cachedUrl = url
-                cacheTimestamp = System.currentTimeMillis()
-            }
-        }
+        val key = candidatesCacheKey(candidates)
+        val result = cache.network.run(key, CACHE_TTL_MS) { selectFastest(candidates) }
+        result.onSuccess { lastKnownUrl = it }
+        return result
     }
 
-    override fun getLastKnownUrl(): String? = cachedUrl
+    override fun getLastKnownUrl(): String? = lastKnownUrl
 
     override suspend fun invalidateAndReselect(candidates: List<UrlCandidate>): Result<String> {
-        cachedUrl = null
-        cacheTimestamp = 0L
+        cache.network.invalidate(candidatesCacheKey(candidates))
         return getActiveUrl(candidates)
     }
 

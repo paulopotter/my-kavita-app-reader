@@ -166,7 +166,7 @@ class PageDigestTest {
         groupDao = FakeServerGroupDao()
         urlDao = FakeServerUrlDao()
         plugin = FakePlugin(urlResult = Result.success("$baseUrl/page/c1/0"))
-        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
+        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()))
     }
 
     @After

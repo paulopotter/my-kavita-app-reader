@@ -1,5 +1,8 @@
 package com.mymangareader.server
 
+import com.mymangareader.cache.Cache
+import com.mymangareader.core.database.CacheDao
+import com.mymangareader.core.database.CacheEntity
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
@@ -81,6 +84,31 @@ private class FakeServerUrlDao : ServerUrlDao {
 
     override suspend fun deleteByGroupId(groupId: String) {
         rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) }
+    }
+}
+
+// In-memory CacheDao — just enough for a real Cache() to construct against; ActiveUrlSelector's
+// own Cache.network behavior is already covered by :cache's own NetworkCacheTest.
+private class FakeCacheDao : CacheDao {
+    private data class MapKey(val key: String, val variant: String)
+
+    private val entities = mutableMapOf<MapKey, CacheEntity>()
+
+    override suspend fun getByKey(key: String, variant: String): CacheEntity? = entities[MapKey(key, variant)]
+    override suspend fun upsert(entity: CacheEntity) { entities[MapKey(entity.key, entity.variant)] = entity }
+    override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) = Unit
+    override suspend fun deleteByKey(key: String, variant: String) { entities.remove(MapKey(key, variant)) }
+    override suspend fun deleteByDomain(domain: String) {
+        entities.values.filter { it.domain == domain }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun deleteByVariant(domain: String, variant: String) {
+        entities.values.filter { it.domain == domain && it.variant == variant }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
+    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
+        entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+    override suspend fun deleteExpired(entries: List<CacheEntity>) {
+        entries.forEach { entities.remove(MapKey(it.key, it.variant)) }
     }
 }
 
@@ -220,7 +248,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration()),
-            ActiveUrlSelector(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
             RequestTool(OkHttpClient()),
         )
     }
@@ -445,7 +473,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
             RequestTool(OkHttpClient()),
         )
 
@@ -467,7 +495,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
             RequestTool(OkHttpClient()),
         )
         // Same Server/UrlSelector instance throughout — one health check response covers every
@@ -496,7 +524,7 @@ class ServerTest {
             groupDao,
             urlDao,
             mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
             RequestTool(OkHttpClient()),
         )
         mockServer.enqueue(MockResponse().setResponseCode(200)) // health check
@@ -580,7 +608,7 @@ class ServerTest {
                 groupDao,
                 urlDao,
                 mapOf("fake" to fakeRegistration(onFactory = { _, _, _, plugin -> instances += plugin })),
-                ActiveUrlSelector(OkHttpClient()),
+                ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
                 RequestTool(OkHttpClient()),
             )
         }

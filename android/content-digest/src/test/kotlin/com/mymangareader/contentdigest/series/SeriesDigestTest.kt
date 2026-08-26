@@ -226,7 +226,7 @@ class SeriesDigestTest {
         groupDao = FakeServerGroupDao()
         urlDao = FakeServerUrlDao()
         plugin = FakePlugin()
-        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()))
+        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()))
     }
 
     @After
@@ -565,7 +565,7 @@ class SeriesDigestTest {
             extGroupDao,
             extUrlDao,
             mapOf("fake-m3" to fakeExternalMetadataRegistration(externalPlugin)),
-            ActiveUrlSelector(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient(), cache),
             RequestTool(OkHttpClient()),
             cache,
         )
@@ -621,7 +621,7 @@ class SeriesDigestTest {
         val externalMetadataServer = ExternalMetadataServer(
             extGroupDao, extUrlDao,
             mapOf("fake-m3" to fakeExternalMetadataRegistration(externalPlugin)),
-            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()), cache,
+            ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()), cache,
         )
         val explicitGroup = externalMetadataServer.groups.add(NewExternalMetadataGroup("Explicit", "fake-m3", "{}", "/health"))
         mockServer.enqueue(MockResponse().setResponseCode(200))
@@ -644,7 +644,7 @@ class SeriesDigestTest {
         val extUrlDao = FakeExternalMetadataUrlDao()
         val emptyExternalMetadataServer = ExternalMetadataServer(
             extGroupDao, extUrlDao, emptyMap(),
-            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()), cache,
+            ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()), cache,
         )
 
         val digest = buildSeriesDigest(

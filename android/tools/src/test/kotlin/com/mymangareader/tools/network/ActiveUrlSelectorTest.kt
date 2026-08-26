@@ -1,5 +1,8 @@
 package com.mymangareader.tools.network
 
+import com.mymangareader.cache.Cache
+import com.mymangareader.core.database.CacheDao
+import com.mymangareader.core.database.CacheEntity
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -10,6 +13,32 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+// In-memory CacheDao — just enough for a real Cache() to construct against; ActiveUrlSelector
+// only ever exercises Cache.network, whose own behavior is already covered by :cache's own
+// NetworkCacheTest.
+private class FakeCacheDao : CacheDao {
+    private data class MapKey(val key: String, val variant: String)
+
+    private val entities = mutableMapOf<MapKey, CacheEntity>()
+
+    override suspend fun getByKey(key: String, variant: String): CacheEntity? = entities[MapKey(key, variant)]
+    override suspend fun upsert(entity: CacheEntity) { entities[MapKey(entity.key, entity.variant)] = entity }
+    override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) = Unit
+    override suspend fun deleteByKey(key: String, variant: String) { entities.remove(MapKey(key, variant)) }
+    override suspend fun deleteByDomain(domain: String) {
+        entities.values.filter { it.domain == domain }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun deleteByVariant(domain: String, variant: String) {
+        entities.values.filter { it.domain == domain && it.variant == variant }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
+    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
+        entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+    override suspend fun deleteExpired(entries: List<CacheEntity>) {
+        entries.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+}
 
 class ActiveUrlSelectorTest {
 
@@ -23,7 +52,7 @@ class ActiveUrlSelectorTest {
         server2 = MockWebServer()
         server1.start()
         server2.start()
-        selector = ActiveUrlSelector(OkHttpClient())
+        selector = ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao()))
     }
 
     @After
