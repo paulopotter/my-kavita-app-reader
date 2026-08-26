@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kover)
 }
 
@@ -25,11 +26,13 @@ android {
 dependencies {
     implementation(project(":server"))
     implementation(project(":tools"))
+    implementation(project(":cache"))
     // Same-layer composition (R1) — SeriesDigest (Layer 3) asks ExternalMetadataServer (Layer 2,
     // same layer as Server) for its part, per Task 028's decision for syncBff.
     implementation(project(":external-metadata-server"))
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(project(":core"))
     testImplementation(project(":tools"))
