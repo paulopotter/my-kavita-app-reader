@@ -1,5 +1,9 @@
 package com.mymangareader.contentdigest.series
 
+import com.mymangareader.cache.Cache
+import com.mymangareader.cache.CacheDescriptor
+import com.mymangareader.cache.CacheEntry
+import com.mymangareader.cache.CacheMode
 import com.mymangareader.contentdigest.chapter.ChapterDigest
 import com.mymangareader.contentdigest.chapter.ChapterFields
 import com.mymangareader.contentdigest.chapter.ChapterNeighborDigest
@@ -17,8 +21,15 @@ import com.mymangareader.server.plugins.PluginGenreOrTag
 import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.tools.datetime.parseIsoUtcToEpochMs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.Json
 
 interface SeriesFields {
     val id: String
@@ -34,14 +45,20 @@ interface SeriesFields {
     val metadata: Metadata?            // Aggregating — null on any getMetadata() failure, never escalates
     val resolvedAtEpochMs: Long        // R11 — only reflects this Series' OWN calls (get/getCoverImage), never chapters.list's or metadata's
     val server: ServerActiveInfo
-    val cache: Nothing?
+    val cache: CacheDescriptor?        // null only until the first successful cache write completes
 
+    @Serializable
     data class Library(val id: String, val name: String?)
+    @Serializable
     data class LastUpdatesUTC(val series: Long?, val chapterAdded: Long?, val readDate: Long?)
+    @Serializable
     data class OtherNames(val original: String?, val localized: String?)
+    @Serializable
     data class OtherIds(val aniListId: Int?, val malId: Long?)
+    @Serializable
     data class Colors(val primary: String?, val secondary: String?)
 
+    @Serializable
     data class Metadata(
         val description: String?,
         val genres: List<PluginGenreOrTag>,
@@ -53,8 +70,10 @@ interface SeriesFields {
         val external: ExternalMetadataDigest?, // null when SeriesDigestOptions.includeExternalMetadata was false — SeriesDigest never even called buildExternalMetadataDigest; non-null (Success/Failure) once it did — see ExternalMetadataDigest's own doc
     )
 
+    @Serializable
     enum class ChaptersStatus { SUCCESS, PARTIAL, ERROR }
 
+    @Serializable
     data class Chapters(
         val status: ChaptersStatus,
         val readCount: Int?,    // count of chapters.list entries whose ChapterDigest.Success.readStatus == READ
@@ -63,8 +82,10 @@ interface SeriesFields {
         val list: List<ChapterDigest>,
     )
 
+    @Serializable
     enum class ResumePointStatus { IN_PROGRESS, UNREAD }
 
+    @Serializable
     data class ResumePoint(
         val stoppedAtChapterId: String,
         val stoppedAtChapterIndex: Int,
@@ -73,7 +94,9 @@ interface SeriesFields {
     )
 }
 
+@Serializable
 sealed interface SeriesDigest {
+    @Serializable
     data class Success(
         override val id: String,
         override val name: String,
@@ -88,9 +111,11 @@ sealed interface SeriesDigest {
         override val metadata: SeriesFields.Metadata?,
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
-        override val cache: Nothing?,
+        // Never part of the JSON persisted in Cache — see PageDigest.Success.cache's own doc.
+        @Transient override val cache: CacheDescriptor? = null,
     ) : SeriesDigest, SeriesFields
 
+    @Serializable
     data class Failure(val error: ErrorDigest) : SeriesDigest
 }
 
@@ -126,6 +151,63 @@ data class SeriesDigestOptions(
     val externalMetadataGroupId: String? = null,
 )
 
+private const val SERIES_CACHE_DOMAIN = "series"
+private val seriesDigestJson = Json { ignoreUnknownKeys = true }
+private val seriesDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+private fun seriesDigestCacheKey(seriesId: String, options: SeriesDigestOptions) =
+    "$seriesId:${options.full}:${options.includeExternalMetadata}"
+
+private fun CacheEntry.toSeriesCacheDescriptor(key: String) = CacheDescriptor(
+    key = key,
+    variant = "full:external",
+    domain = SERIES_CACHE_DOMAIN,
+    mode = CacheMode.PERSISTENT,
+    cachedAtEpochMs = cachedAtEpochMs,
+    expiresAtEpochMs = cachedAtEpochMs + ttlMs,
+)
+
+/**
+ * Cache-first entry point — same shape as [buildPageDigest]/[buildChapterDigest]. `key` includes
+ * both `options.full` and `options.includeExternalMetadata` (`variant = "full:external"`) since
+ * either one changes the payload shape — a `full=true` cache entry is never confused with a
+ * `full=false` one, same for includeExternalMetadata.
+ *
+ * `force` propagates all the way down: a forced Series refresh forces every chapter it builds
+ * (via [buildChaptersBlock]), which in turn forces every page each of those chapters builds —
+ * a manual "refresh everything" action from the Series level should never leave a stale Chapter
+ * or Page underneath a freshly-refreshed Series.
+ */
+suspend fun buildSeriesDigest(
+    server: Server,
+    seriesId: String,
+    cache: Cache,
+    options: SeriesDigestOptions = SeriesDigestOptions(),
+    force: Boolean = false,
+): SeriesDigest {
+    val key = seriesDigestCacheKey(seriesId, options)
+
+    if (!force) {
+        val cached = cache.persistent.get(key, variant = "full:external")
+        if (cached != null) {
+            val digest = seriesDigestJson.decodeFromString<SeriesDigest.Success>(cached.value)
+                .copy(cache = cached.toSeriesCacheDescriptor(key))
+            if (cached.isExpired) {
+                seriesDigestBackgroundScope.launch {
+                    buildSeriesDigest(server, seriesId, cache, options, force = true)
+                }
+            }
+            return digest
+        }
+    }
+
+    val fresh = fetchSeriesDigest(server, seriesId, cache, options, force)
+    if (fresh !is SeriesDigest.Success) return fresh
+
+    val descriptor = cache.persistent.put(key, seriesDigestJson.encodeToString(SeriesDigest.Success.serializer(), fresh), SERIES_CACHE_DOMAIN, variant = "full:external")
+    return fresh.copy(cache = descriptor)
+}
+
 // Assembly order (R11): serial.get() first — vital, its failure makes the whole result a
 // Failure. getCoverImage() second — never fails on its own (no network call), but only sets
 // server/resolvedAtEpochMs when get() left them unset (mirrors buildChapterDigest's own
@@ -134,7 +216,13 @@ data class SeriesDigestOptions(
 // corresponding field stays null, doesn't escalate, and doesn't touch server/resolvedAtEpochMs
 // (those only reflect THIS Series' own get()/getCoverImage() calls, never metadata's,
 // chapters'', or the external sync's).
-suspend fun buildSeriesDigest(server: Server, seriesId: String, options: SeriesDigestOptions = SeriesDigestOptions()): SeriesDigest {
+private suspend fun fetchSeriesDigest(
+    server: Server,
+    seriesId: String,
+    cache: Cache,
+    options: SeriesDigestOptions,
+    force: Boolean,
+): SeriesDigest {
     val full = options.full
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
@@ -179,7 +267,7 @@ suspend fun buildSeriesDigest(server: Server, seriesId: String, options: SeriesD
     }
 
     val chapters: SeriesFields.Chapters? = try {
-        buildChaptersBlock(server, seriesId, server.serial(seriesId).chapters.list().data, full)
+        buildChaptersBlock(server, seriesId, cache, server.serial(seriesId).chapters.list().data, full, force)
     } catch (e: Exception) {
         null
     }
@@ -215,11 +303,18 @@ suspend fun buildSeriesDigest(server: Server, seriesId: String, options: SeriesD
 // supersedes the decimalNumber-truncated fallback buildChapterDigest used when built in
 // isolation) and prevChapter/nextChapter (from the already-built neighbors, converted to
 // ChapterNeighborDigest — no additional network calls).
-private suspend fun buildChaptersBlock(server: Server, seriesId: String, rawChapters: List<PluginChapter>, full: Boolean): SeriesFields.Chapters {
+private suspend fun buildChaptersBlock(
+    server: Server,
+    seriesId: String,
+    cache: Cache,
+    rawChapters: List<PluginChapter>,
+    full: Boolean,
+    force: Boolean,
+): SeriesFields.Chapters {
     val sorted = rawChapters.sortedBy { it.decimalNumber ?: Double.MAX_VALUE }
 
     val digests = coroutineScope {
-        sorted.map { raw -> async { buildChapterDigest(server, seriesId, raw.id, knownChapter = raw, full = full) } }
+        sorted.map { raw -> async { buildChapterDigest(server, seriesId, raw.id, cache, knownChapter = raw, full = full, force = force) } }
             .map { it.await() }
     }
 

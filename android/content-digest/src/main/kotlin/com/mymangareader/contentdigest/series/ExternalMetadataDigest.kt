@@ -6,6 +6,7 @@ import com.mymangareader.externalmetadataserver.ExternalMetadataActiveInfo
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
+import kotlinx.serialization.Serializable
 
 // Same 2-state shape ChapterDigest/PageDigest already use for a tolerated-failure field.
 // "Never asked for this at all" is deliberately NOT a 3rd state here — that decision belongs to
@@ -14,13 +15,16 @@ import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRe
 // real outcomes: it worked (Success — match itself may still be null, meaning the provider has no
 // entry for this series) or it didn't (Failure — including "no ExternalMetadataServer group is
 // configured at all," which surfaces as a Failure with a stable error code, not a bare null).
+@Serializable
 sealed interface ExternalMetadataDigest {
+    @Serializable
     data class Success(
         val match: ExternalMetadataMatch?,
         val server: ExternalMetadataActiveInfo,
         val resolvedAtEpochMs: Long,
     ) : ExternalMetadataDigest
 
+    @Serializable
     data class Failure(val error: ErrorDigest) : ExternalMetadataDigest
 }
 
