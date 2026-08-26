@@ -28,6 +28,7 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":tools"))
+    implementation(project(":cache"))
     // Same-layer composition (R1) — Server and ExternalMetadataServer are both Layer 2.
     // syncMatchByServerId/syncMatchByServerUrl take a Server instance by parameter (never stored,
     // never Hilt-injected into this module's own constructor) to resolve which BFF group is

@@ -195,7 +195,7 @@ private fun fakeExternalMetadataRegistration(plugin: FakeExternalMetadataPlugin)
         override val displayName = "Fake M3"
         override val version = "0.0.0"
         override val credentialFields: List<ExternalMetadataCredentialField> = emptyList()
-        override val factory = { _: RequestTool, _: String, _: String -> plugin as ExternalMetadataPlugin }
+        override val factory = { _: RequestTool, _: com.mymangareader.cache.Cache, _: String, _: String -> plugin as ExternalMetadataPlugin }
     }
 
 private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = object : ServerPluginRegistration {
@@ -567,6 +567,7 @@ class SeriesDigestTest {
             mapOf("fake-m3" to fakeExternalMetadataRegistration(externalPlugin)),
             ActiveUrlSelector(OkHttpClient()),
             RequestTool(OkHttpClient()),
+            cache,
         )
         val group = externalMetadataServer.groups.add(
             NewExternalMetadataGroup("Fake M3", "fake-m3", "{}", "/health", linkedServerGroupId),
@@ -620,7 +621,7 @@ class SeriesDigestTest {
         val externalMetadataServer = ExternalMetadataServer(
             extGroupDao, extUrlDao,
             mapOf("fake-m3" to fakeExternalMetadataRegistration(externalPlugin)),
-            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()), cache,
         )
         val explicitGroup = externalMetadataServer.groups.add(NewExternalMetadataGroup("Explicit", "fake-m3", "{}", "/health"))
         mockServer.enqueue(MockResponse().setResponseCode(200))
@@ -643,7 +644,7 @@ class SeriesDigestTest {
         val extUrlDao = FakeExternalMetadataUrlDao()
         val emptyExternalMetadataServer = ExternalMetadataServer(
             extGroupDao, extUrlDao, emptyMap(),
-            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()),
+            ActiveUrlSelector(OkHttpClient()), RequestTool(OkHttpClient()), cache,
         )
 
         val digest = buildSeriesDigest(

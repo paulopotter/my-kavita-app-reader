@@ -1,5 +1,8 @@
 package com.mymangareader.externalmetadataserver
 
+import com.mymangareader.cache.Cache
+import com.mymangareader.core.database.CacheDao
+import com.mymangareader.core.database.CacheEntity
 import com.mymangareader.core.database.ExternalMetadataGroupDao
 import com.mymangareader.core.database.ExternalMetadataGroupEntity
 import com.mymangareader.core.database.ExternalMetadataUrlDao
@@ -177,6 +180,31 @@ private class FakePlugin(
     )
 }
 
+// In-memory CacheDao — just enough for a real Cache() to construct against in these tests, none
+// of which exercise Cache.network/M3Plugin's own cache behavior directly.
+private class FakeCacheDao : CacheDao {
+    private data class MapKey(val key: String, val variant: String)
+
+    private val entities = mutableMapOf<MapKey, CacheEntity>()
+
+    override suspend fun getByKey(key: String, variant: String): CacheEntity? = entities[MapKey(key, variant)]
+    override suspend fun upsert(entity: CacheEntity) { entities[MapKey(entity.key, entity.variant)] = entity }
+    override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) = Unit
+    override suspend fun deleteByKey(key: String, variant: String) { entities.remove(MapKey(key, variant)) }
+    override suspend fun deleteByDomain(domain: String) {
+        entities.values.filter { it.domain == domain }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun deleteByVariant(domain: String, variant: String) {
+        entities.values.filter { it.domain == domain && it.variant == variant }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
+    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
+        entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+    override suspend fun deleteExpired(entries: List<CacheEntity>) {
+        entries.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+}
+
 private fun fakeRegistration(
     id: String = "fake",
     credentialFields: List<CredentialField> = emptyList(),
@@ -189,7 +217,7 @@ private fun fakeRegistration(
     override val displayName = "Fake $id"
     override val version = "0.0.0"
     override val credentialFields = credentialFields
-    override val factory = { requestTool: RequestTool, baseUrl: String, authJson: String ->
+    override val factory = { requestTool: RequestTool, _: Cache, baseUrl: String, authJson: String ->
         val plugin = FakePlugin(authJson)
         onFactory(requestTool, baseUrl, authJson, plugin)
         plugin as ExternalMetadataPlugin
@@ -221,6 +249,7 @@ class ExternalMetadataServerTest {
             mapOf("fake" to fakeRegistration()),
             ActiveUrlSelector(OkHttpClient()),
             RequestTool(OkHttpClient()),
+            Cache(FakeCacheDao()),
         )
     }
 
@@ -700,6 +729,7 @@ class ExternalMetadataServerTest {
             ),
             urlSelector,
             RequestTool(OkHttpClient()),
+            Cache(FakeCacheDao()),
         )
         val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
         retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
@@ -726,6 +756,7 @@ class ExternalMetadataServerTest {
             ),
             urlSelector,
             RequestTool(OkHttpClient()),
+            Cache(FakeCacheDao()),
         )
         val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
         retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
@@ -742,7 +773,8 @@ class ExternalMetadataServerTest {
     @Test
     fun `group validateUrls returns the url the selector picked`() = runTest {
         val urlSelector = FakeUrlSelector(baseUrl)
-        val validatingServer = ExternalMetadataServer(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+        val validatingServer =
+            ExternalMetadataServer(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()), Cache(FakeCacheDao()))
         val group = validatingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
         validatingServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 

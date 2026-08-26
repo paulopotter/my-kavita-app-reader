@@ -1,5 +1,8 @@
 package com.mymangareader.externalmetadataserver.plugins.m3
 
+import com.mymangareader.cache.Cache
+import com.mymangareader.core.database.CacheDao
+import com.mymangareader.core.database.CacheEntity
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.tools.network.RequestTool
 import kotlin.test.assertFailsWith
@@ -14,6 +17,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+// In-memory CacheDao — just enough for a real Cache() to construct against; Cache.network's own
+// behavior is already covered by :cache's own NetworkCacheTest, these tests only need
+// fetchAllManga's single-flight/TTL memoization to work end to end through a real Cache instance.
+private class FakeCacheDao : CacheDao {
+    private data class MapKey(val key: String, val variant: String)
+
+    private val entities = mutableMapOf<MapKey, CacheEntity>()
+
+    override suspend fun getByKey(key: String, variant: String): CacheEntity? = entities[MapKey(key, variant)]
+    override suspend fun upsert(entity: CacheEntity) { entities[MapKey(entity.key, entity.variant)] = entity }
+    override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) = Unit
+    override suspend fun deleteByKey(key: String, variant: String) { entities.remove(MapKey(key, variant)) }
+    override suspend fun deleteByDomain(domain: String) {
+        entities.values.filter { it.domain == domain }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun deleteByVariant(domain: String, variant: String) {
+        entities.values.filter { it.domain == domain && it.variant == variant }.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+    override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
+    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
+        entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+    override suspend fun deleteExpired(entries: List<CacheEntity>) {
+        entries.forEach { entities.remove(MapKey(it.key, it.variant)) }
+    }
+}
+
 class M3PluginTest {
 
     private lateinit var server: MockWebServer
@@ -25,7 +54,7 @@ class M3PluginTest {
         server = MockWebServer()
         server.start()
         baseUrl = server.url("/").toString().trimEnd('/')
-        plugin = M3Plugin(baseUrl, RequestTool(OkHttpClient()))
+        plugin = M3Plugin(baseUrl, RequestTool(OkHttpClient()), Cache(FakeCacheDao()))
     }
 
     @After

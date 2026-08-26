@@ -1,5 +1,6 @@
 package com.mymangareader.externalmetadataserver.plugins
 
+import com.mymangareader.cache.Cache
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.Serializable
 
@@ -53,7 +54,7 @@ interface ExternalMetadataPluginRegistration {
     val displayName: String
     val version: String
     val credentialFields: List<CredentialField>
-    val factory: (requestTool: RequestTool, baseUrl: String, authJson: String) -> ExternalMetadataPlugin
+    val factory: (requestTool: RequestTool, cache: Cache, baseUrl: String, authJson: String) -> ExternalMetadataPlugin
 }
 
 /**

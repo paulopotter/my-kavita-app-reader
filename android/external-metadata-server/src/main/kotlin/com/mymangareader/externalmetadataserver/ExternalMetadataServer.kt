@@ -1,5 +1,6 @@
 package com.mymangareader.externalmetadataserver
 
+import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.ExternalMetadataGroupDao
 import com.mymangareader.core.database.ExternalMetadataGroupEntity
 import com.mymangareader.core.database.ExternalMetadataUrlDao
@@ -120,6 +121,7 @@ class ExternalMetadataServer @Inject constructor(
     private val pluginRegistrations: @JvmSuppressWildcards Map<String, ExternalMetadataPluginRegistration>,
     private val urlSelector: UrlSelector,
     private val requestTool: RequestTool,
+    private val cache: Cache,
 ) {
     private val activeMutex = Mutex()
     private var activeGroupId: String? = null
@@ -386,7 +388,7 @@ class ExternalMetadataServer @Inject constructor(
             lastActiveInfoByGroupId[groupId] = buildActiveInfo(group, it)
         }
 
-        return registration.factory(requestTool, activeUrl, group.credentialsJson)
+        return registration.factory(requestTool, cache, activeUrl, group.credentialsJson)
     }
 
     private fun buildActiveInfo(group: ExternalMetadataGroupEntity, url: ExternalMetadataUrlEntity) = ExternalMetadataActiveInfo(

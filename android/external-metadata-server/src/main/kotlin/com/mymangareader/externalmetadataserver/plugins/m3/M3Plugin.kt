@@ -1,5 +1,6 @@
 package com.mymangareader.externalmetadataserver.plugins.m3
 
+import com.mymangareader.cache.Cache
 import com.mymangareader.externalmetadataserver.plugins.CredentialField
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataPlugin
@@ -7,8 +8,6 @@ import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataPluginRe
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.tools.network.RequestTool
 import java.text.Normalizer
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -25,6 +24,12 @@ private const val MANGAS_PATH = "/manga" // endpoint returns a list despite the 
 // duration without serving data much staler than that.
 private const val M3_MANGA_LIST_CACHE_WINDOW_MS = 180_000L
 
+// Cache.network's key for this plugin's listing — keyed by baseUrl, not by plugin instance, since
+// resolvePlugin (ExternalMetadataServer) builds a fresh M3Plugin instance on every resolution;
+// keying by baseUrl lets the single-flight/TTL window survive that recreation instead of
+// resetting on every call, unlike the old instance-scoped Mutex/Map this replaced.
+private fun mangaListCacheKey(baseUrl: String) = "m3:manga-list:$baseUrl"
+
 private val m3Json = Json { ignoreUnknownKeys = true }
 
 /**
@@ -40,6 +45,7 @@ private val m3Json = Json { ignoreUnknownKeys = true }
 class M3Plugin(
     private val baseUrl: String,
     private val requestTool: RequestTool,
+    private val cache: Cache,
 ) : ExternalMetadataPlugin {
 
     override val id: String = Info.id
@@ -53,8 +59,8 @@ class M3Plugin(
 
         override val credentialFields: List<CredentialField> = emptyList()
 
-        override val factory = { requestTool: RequestTool, baseUrl: String, _: String ->
-            M3Plugin(baseUrl, requestTool) as ExternalMetadataPlugin
+        override val factory = { requestTool: RequestTool, cache: Cache, baseUrl: String, _: String ->
+            M3Plugin(baseUrl, requestTool, cache) as ExternalMetadataPlugin
         }
     }
 
@@ -107,26 +113,14 @@ class M3Plugin(
         return dto?.toExternalMetadataMatch(series.id)
     }
 
-    private val mangaMutex = Mutex()
-    private var cachedManga: List<MangaDto>? = null
-    private var mangaFetchedAtMs: Long = 0L
-
     // Memoized within M3_MANGA_LIST_CACHE_WINDOW_MS (180s — see its own doc for why this is much
-    // wider than ExternalMetadataPlugin.DEFAULT_READ_PROTECTION_WINDOW_MS). Single-flight via
-    // Mutex, same pattern as KavitaServerPlugin.KavitaSerial.volumes(): whichever caller gets the
-    // lock first fetches and stores the result, any concurrent caller within the window reuses it
-    // instead of firing its own request. No invalidation path — this plugin has no write
-    // operations that could make the cached listing stale.
-    private suspend fun fetchAllManga(): List<MangaDto> = mangaMutex.withLock {
-        val stillFresh = cachedManga != null &&
-            System.currentTimeMillis() - mangaFetchedAtMs < M3_MANGA_LIST_CACHE_WINDOW_MS
-        if (stillFresh) return@withLock cachedManga!!
-
-        fetchAllMangaFromNetwork().also {
-            cachedManga = it
-            mangaFetchedAtMs = System.currentTimeMillis()
-        }
-    }
+    // wider than ExternalMetadataPlugin.DEFAULT_READ_PROTECTION_WINDOW_MS). Single-flight + TTL
+    // via Cache.network — whichever caller gets there first fetches and stores the result, any
+    // concurrent caller within the window (across any M3Plugin instance keyed to this baseUrl)
+    // reuses it instead of firing its own request. No invalidation path — this plugin has no
+    // write operations that could make the cached listing stale.
+    private suspend fun fetchAllManga(): List<MangaDto> =
+        cache.network.run(mangaListCacheKey(baseUrl), ttlMs = M3_MANGA_LIST_CACHE_WINDOW_MS) { fetchAllMangaFromNetwork() }
 
     private suspend fun fetchAllMangaFromNetwork(): List<MangaDto> {
         val http = requestTool.request(
