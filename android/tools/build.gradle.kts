@@ -27,6 +27,10 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    // Layer 1 sibling — :cache is promoted to Layer 1 (as generic/domain-agnostic as :core
+    // itself), so this is same-layer, not a downward-to-upward inversion of core ← tools ←
+    // features. BackgroundExecute (below) is the only consumer today.
+    implementation(project(":cache"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)
