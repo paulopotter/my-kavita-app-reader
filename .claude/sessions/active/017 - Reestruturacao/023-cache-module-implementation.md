@@ -1,7 +1,6 @@
 # Task 023 — `Cache` (Kotlin) + `CacheManager` (RN) implementation (Phase 4 — Implementation)
 
-**Status:** todo (blocked by Task 021 — wires the RN Services built there to actually use
-`CacheManager` instead of calling `Server` directly)
+**Status:** done
 
 ## Objective
 
@@ -68,3 +67,54 @@ finalized. This task is where that deferred piece finally lands, closing the loo
 - Explicit user approval before `finalizar-task`.
 - Unblocks Task 028 (Library correction — its listing cache-then-network sequencing is finally
   owned by `CacheManager`, not an ad-hoc `@Volatile var`).
+
+## Result
+
+**Kotlin side** (`:cache`, `Cache`/`CacheStore`/`CacheDescriptor`/`PersistentCache`/
+`MemoryKotlinCache`/`NetworkCache`) was already implemented, tested, and committed before this
+session (see `af379bf`, `1794383`, `faf8e92`). This session's Kotlin work was narrower than the
+task originally scoped: `PageDigest`/`ChapterDigest`/`SeriesDigest` already carried a real
+`CacheDescriptor` internally, but `DigestBridgeMappers.kt` discarded it with an unconditional
+`putNull("cache")` before crossing the bridge. Fixed to send the real descriptor when present
+(commit `e4f74f0`); `CacheDescriptor.toWritableMap()`/`CacheEntry.toWritableMap()` were promoted
+from private (inside `CacheBridgeModule.kt`) to a shared `CacheBridgeMappers.kt`, reused by
+`DigestBridgeMappers.kt` instead of duplicated. `digest.ts` (TS) now types `cache:
+CacheDescriptorBridge | null` instead of a hardcoded `cache: null` on the three digest successes.
+
+**RN side** (`CacheManager`) diverges from the task's original 2-mode design
+(`PERSISTENT`/`VOLATILE`) — that shape predates the real Kotlin implementation, which ended up
+with 4 modes (`PERSISTENT`, `MEMORY_KOTLIN`, `MEMORY` [RN-only], `NETWORK`). `CacheManager`
+(`frontend/src/shared/managers/caches/`, commit `8817389`) mirrors that: a root hub
+(`get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/`purgeExpired`/`purgeOlderThan`)
+dispatching by `mode` via a `MODE_HANDLERS` lookup map, plus three mode modules (`persistent/`,
+`memory/`, `network/`), each following the same folder/file naming convention as
+`shared/services/` (plural folder, `<name>.<type>.ts`, `index.ts` aggregator, sibling test file).
+`persistent` and `memory.external` are thin passthroughs over the already-existing `CacheBridge`;
+`memory.local` (RN-only in-memory, no real consumer yet) and `network` (no RN bridge exists for
+`Cache.network` — its `block` param is a Kotlin function that can't cross the bridge) are declared
+as explicit-throw stubs, keeping the interface complete without inventing unused implementation.
+`Methods.requireArgs` (new, `shared/tools/methods/methods.tool.ts`) is a generic runtime guard —
+validates required object-argument fields with a dynamic error message, protecting a caller that
+bypasses TypeScript (plain JS, `any`, `// @ts-ignore`), reused by `PersistentMode`/
+`MemoryMode.external`.
+
+**Explicitly NOT done, and why:** Page/Chapter/Series RN Services were **not** updated to call
+`CacheManager` instead of `Server`, contrary to the task's original step 4/completion criteria.
+Investigating this in-session revealed the premise no longer held: `buildPageDigest`/
+`buildChapterDigest`/`buildSeriesDigest` (Kotlin, `:content-digest`) already do cache-first +
+stale-while-revalidate entirely inside Kotlin, before the RN Service ever sees a result — there
+is no cache-first decision left for a Service to make. `CacheManager` therefore has no real
+consumer yet; it exists as a ready, tested surface for whichever future need actually requires
+direct cache access from RN (manual invalidation, a settings-screen "clear cache" action, etc.).
+`purgeExpired`/`purgeOlderThan` on app startup — the task's other still-open item — was
+deliberately deferred to whenever the splash screen is rewritten for the new architecture (the
+user's call: the splash will interact heavily with cache/background requests, so wiring purge
+into the current splash now would likely be thrown away).
+
+**Versions:** no `versionar-build` bump — no APK/bundle change, TS/Kotlin-only.
+
+**Tests:** `make coverage` (Kotlin: `koverHtmlReport`/`koverXmlReport`/`koverVerify`, piso 76%,
+unchanged this session; JS: piso subiu de 46/46/71/87 para 47/47/73/88%
+statements/lines/functions/branches, refletindo cobertura nova real de `CacheManager` — 74 testes
+próprios, 489 no total). Não testado em dispositivo real — task não envolveu nenhum fluxo de UI
+visível, só módulos de infraestrutura sem consumidor ainda.
