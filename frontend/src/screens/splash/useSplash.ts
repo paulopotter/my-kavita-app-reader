@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { OtaEmitter, OtaModule, OtaPolicy } from '../../native/OtaModule';
 import { SetupBridge } from '../../shared/bridge/config';
 import { StartupBridge } from '../../shared/bridge/startup';
+import { activateFirstServerGroup } from './activateFirstServerGroup';
 
 export type SplashDestination = 'setup' | 'library' | 'following';
 
@@ -99,6 +100,12 @@ export function useSplash(): SplashState {
           navigate('setup');
           return;
         }
+
+        // See activateFirstServerGroup's own doc for why this is needed (Server's activeGroupId
+        // is never persisted) and why it lives in its own file. Best-effort — a failure here must
+        // never block the splash (the legacy KavitaSeriesFeature path doesn't need this at all,
+        // so a broken group doesn't have to mean a broken boot).
+        await activateFirstServerGroup();
 
         // Run sync and min-duration timer in parallel so the 5s is always
         // measured from when the RN splash became visible, not from when sync ends.
