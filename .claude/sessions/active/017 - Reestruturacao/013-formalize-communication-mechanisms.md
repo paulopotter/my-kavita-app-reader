@@ -87,3 +87,15 @@ motivou o modelo final onde Kotlin nunca decide propagar, só responde a quem pe
   concreta).
 - Task 029 (Reader) é a consumidora direta da correção do Mecanismo 1 — resolve o bug de
   corrida documentado ali.
+- **Candidato real para a implementação mínima do EventBus (Task 024, plano 017)**: hoje
+  `SeriesModule.markChaptersRead/Unread` (Kotlin, bridge legado) emite `seriesProgressChanged`
+  (evento nativo) sempre que um capítulo muda de status — `useLibrary` escuta esse evento pra
+  atualizar o card da série sem refetch. A nova `SerieScreen`/`ChapterTool.mark.read/unread`
+  usa um caminho Kotlin totalmente diferente (`ServerBridge.setChapterRead`, não `SeriesModule`)
+  que nunca emite esse evento — marcar um capítulo como lido pela tela nova não atualiza a
+  Library até um refresh manual. Resolver isso replicando `emitProgressChanged` no novo caminho
+  duplicaria a lógica de cálculo de progresso; um EventBus real (RN→RN) resolveria isso de
+  forma correta: `ChapterTool.mark.*` emite um evento tipado (`EventToken`) que `useLibrary`
+  passa a escutar, sem a Series (Kotlin ou RN) precisar saber que a Library existe. Discutido e
+  adiado explicitamente pelo usuário em 2026-08-28 — "anota na task do eventBus para ser um dos
+  candidatos a ser resolvido".
