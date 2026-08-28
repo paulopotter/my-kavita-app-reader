@@ -14,9 +14,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Routes } from '../../navigation/routes';
 import { ConfigRepository, SetupBridge } from '../../shared/bridge/config';
-import { ChapterSortMode, SeriesBridge } from '../../shared/bridge/series';
 import { AppVersions } from '../../shared/components/AppVersions';
 import { ChapterSortConfigFields } from '../../shared/components/ChapterSortConfigFields';
+import { ChaptersTool, type ChapterSortMode } from '../../shared/tools/chapters';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
 import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
 import { addBffServer, savePreferences, saveServer } from './ConfigService';
@@ -665,7 +665,8 @@ function ChapterSortSettingsScreen({ onBack }: { onBack: () => void }) {
   const [progressPercent, setProgressPercent] = useState(50);
 
   useEffect(() => {
-    SeriesBridge.getChapterSortPrefs()
+    ChaptersTool.sort
+      .get({ domain: 'global' })
       .then(prefs => {
         setMode(prefs.mode);
         setFixedThreshold(prefs.fixedThreshold);
@@ -679,7 +680,7 @@ function ChapterSortSettingsScreen({ onBack }: { onBack: () => void }) {
     setMode(nextMode);
     setFixedThreshold(nextThreshold);
     setProgressPercent(nextPercent);
-    SeriesBridge.setChapterSortPrefs(nextMode, nextThreshold, nextPercent).catch(() => {});
+    ChaptersTool.sort.put({ domain: 'global' }, { mode: nextMode, fixedThreshold: nextThreshold, progressPercent: nextPercent }).catch(() => {});
   }
 
   return (

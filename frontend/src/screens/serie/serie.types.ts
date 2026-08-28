@@ -1,5 +1,4 @@
-// Deliberately duplicated from shared/bridge/series.ts's ChapterSortMode (legacy — see
-// shared/index.ts's Legacy* re-exports) instead of reusing it: this screen never depends on
-// legacy code, even for a plain string-literal union that happens to share the same 4 values
-// today.
-export type ChapterSortMode = 'ASCENDING' | 'DESCENDING' | 'AUTO_FIXED' | 'AUTO_PROGRESS';
+// Re-exported from shared/tools/chapters/chapters.tool.ts (ChaptersTool's own domain) — the
+// canonical location now that ChaptersTool.sort (chapters.tool.ts) and screens/config's
+// ChapterSortSettingsScreen both need the same type, not just this screen.
+export type { ChapterSortMode, ChapterSortPrefs } from '../../shared/tools/chapters/chapters.tool';

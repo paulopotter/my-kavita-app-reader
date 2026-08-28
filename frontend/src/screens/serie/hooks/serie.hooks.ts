@@ -1,21 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ChapterTool, SerialService, SerieTool, useAction } from '../../../shared';
-import type { ChapterMarkUpdate, Serie, SerieChapter } from '../../../shared';
-import { PreferencesManager } from '../../../shared/managers/preferences';
+import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
+import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
 import type { NavOrigin } from '../../../navigation/routes';
 import type { ChapterSortMode } from '../serie.types';
 
 const SORT_CYCLE: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 'AUTO_PROGRESS'];
-
-const CHAPTER_SORT_PREFS_DOMAIN = 'chapterSortPrefs';
-const GLOBAL_SORT_PREFS_KEY = 'global';
-
-interface ChapterSortPrefs {
-  mode: ChapterSortMode;
-  fixedThreshold?: number;
-  progressPercent: number;
-}
 
 const DEFAULT_SORT_PREFS: ChapterSortPrefs = { mode: 'ASCENDING', progressPercent: 50 };
 
@@ -132,10 +122,11 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
 
   const refresh = useCallback(() => load(true), [load]);
 
-  // Loads persisted sort prefs — a per-series override (PreferencesManager key=seriesId) takes
-  // priority over the global default (key='global'); both share domain='chapterSortPrefs'. Runs
-  // once per seriesId, independent of load() above (series data and sort prefs are unrelated
-  // reads — no reason to block one on the other).
+  // Loads persisted sort prefs via ChaptersTool.sort.get({ domain: 'series' }) — it already
+  // resolves the per-series override vs. the global default internally (see its own doc): the
+  // presence of `isOverride` on the result is what tells us which one we got. Runs once per
+  // seriesId, independent of load() above (series data and sort prefs are unrelated reads — no
+  // reason to block one on the other).
   const applySortPrefs = useCallback((prefs: ChapterSortPrefs, hasOverride: boolean) => {
     setSortMode(prefs.mode);
     setSortFixedThreshold(prefs.fixedThreshold);
@@ -144,16 +135,9 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   }, []);
 
   useEffect(() => {
-    PreferencesManager.get({ key: seriesId })
-      .then(seriesEntry => {
-        if (seriesEntry) {
-          applySortPrefs(JSON.parse(seriesEntry.value), true);
-          return;
-        }
-        return PreferencesManager.get({ key: GLOBAL_SORT_PREFS_KEY }).then(globalEntry => {
-          applySortPrefs(globalEntry ? JSON.parse(globalEntry.value) : DEFAULT_SORT_PREFS, false);
-        });
-      })
+    ChaptersTool.sort
+      .get({ domain: 'series', seriesId })
+      .then(prefs => applySortPrefs(prefs, 'isOverride' in prefs))
       .catch(() => applySortPrefs(DEFAULT_SORT_PREFS, false));
   }, [seriesId, applySortPrefs]);
 
@@ -170,19 +154,16 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     ({ mode, fixedThreshold, progressPercent }: { mode: ChapterSortMode; fixedThreshold?: number; progressPercent?: number }) => {
       const prefs: ChapterSortPrefs = { mode, fixedThreshold, progressPercent: progressPercent ?? sortProgressPercent };
       applySortPrefs(prefs, true);
-      PreferencesManager.put({ key: seriesId, value: JSON.stringify(prefs), domain: CHAPTER_SORT_PREFS_DOMAIN });
+      ChaptersTool.sort.put({ domain: 'series', seriesId }, prefs);
     },
     [seriesId, sortProgressPercent, applySortPrefs],
   );
 
   // Removes the per-series override and falls back to the global default (or the hardcoded
-  // default if no global was ever saved either).
+  // default if no global was ever saved either) — ChaptersTool.sort.reset already returns exactly
+  // that resolved value.
   const resetSortPrefs = useCallback(() => {
-    PreferencesManager.delete({ key: seriesId })
-      .then(() => PreferencesManager.get({ key: GLOBAL_SORT_PREFS_KEY }))
-      .then(globalEntry => {
-        applySortPrefs(globalEntry ? JSON.parse(globalEntry.value) : DEFAULT_SORT_PREFS, false);
-      });
+    return ChaptersTool.sort.reset({ seriesId }).then(prefs => applySortPrefs(prefs, false));
   }, [seriesId, applySortPrefs]);
 
   const toggleSortOrder = useCallback(() => {

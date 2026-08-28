@@ -1,4 +1,4 @@
-import { ChapterTool } from './chapter.tool';
+import { ChapterTool, ChaptersTool } from './chapters.tool';
 
 jest.mock('../../services/chapters', () => ({
   ChapterService: {
@@ -7,11 +7,23 @@ jest.mock('../../services/chapters', () => ({
   },
 }));
 
+jest.mock('../../managers/preferences', () => ({
+  PreferencesManager: {
+    get: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
 import { ChapterService } from '../../services/chapters';
+import { PreferencesManager } from '../../managers/preferences';
 import type { ChapterDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
 const mockGet = ChapterService.get as jest.Mock;
 const mockStatusSet = ChapterService.status.set as jest.Mock;
+const mockPrefsGet = PreferencesManager.get as jest.Mock;
+const mockPrefsPut = PreferencesManager.put as jest.Mock;
+const mockPrefsDelete = PreferencesManager.delete as jest.Mock;
 
 // Lets a pending .then()/.catch() chain attached to a mock Promise settle before assertions run.
 const flushPromises = () => Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve());
@@ -207,5 +219,93 @@ describe('ChapterTool.mark.toggle', () => {
     const result = await ChapterTool.mark.toggle({ seriesId: 's1', chapterId: 'c1' });
     expect(mockStatusSet).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c1', isRead: true });
     expect(result).toEqual({ seriesId: 's1', chapterId: 'c1', readStatus: 'READ' });
+  });
+});
+
+describe('ChaptersTool.sort', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('get({ domain: "global" })', () => {
+    it('returns the plain prefs when a global default was saved', async () => {
+      mockPrefsGet.mockResolvedValue({ value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }) });
+      const result = await ChaptersTool.sort.get({ domain: 'global' });
+      expect(mockPrefsGet).toHaveBeenCalledWith({ key: 'global' });
+      expect(result).toEqual({ mode: 'DESCENDING', progressPercent: 50 });
+      expect('isOverride' in result).toBe(false);
+    });
+
+    it('falls back to the hardcoded default when no global was ever saved', async () => {
+      mockPrefsGet.mockResolvedValue(null);
+      const result = await ChaptersTool.sort.get({ domain: 'global' });
+      expect(result).toEqual({ mode: 'ASCENDING', progressPercent: 50 });
+    });
+  });
+
+  describe('get({ domain: "series" })', () => {
+    it('returns the override plus isOverride:true when a per-series override exists', async () => {
+      mockPrefsGet.mockResolvedValueOnce({ value: JSON.stringify({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50 }) });
+      const result = await ChaptersTool.sort.get({ domain: 'series', seriesId: 's1' });
+      expect(mockPrefsGet).toHaveBeenCalledWith({ key: 's1' });
+      expect(result).toEqual({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50, isOverride: true });
+    });
+
+    it('falls through to the exact same global read when no override exists, without isOverride', async () => {
+      mockPrefsGet
+        .mockResolvedValueOnce(null) // series lookup — no override
+        .mockResolvedValueOnce({ value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }) }); // global fallback
+      const result = await ChaptersTool.sort.get({ domain: 'series', seriesId: 's1' });
+      expect(mockPrefsGet).toHaveBeenNthCalledWith(1, { key: 's1' });
+      expect(mockPrefsGet).toHaveBeenNthCalledWith(2, { key: 'global' });
+      expect(result).toEqual({ mode: 'DESCENDING', progressPercent: 50 });
+      expect('isOverride' in result).toBe(false);
+    });
+
+    it('falls back to the hardcoded default when neither the series nor the global was ever saved', async () => {
+      mockPrefsGet.mockResolvedValue(null);
+      const result = await ChaptersTool.sort.get({ domain: 'series', seriesId: 's1' });
+      expect(result).toEqual({ mode: 'ASCENDING', progressPercent: 50 });
+    });
+  });
+
+  describe('put', () => {
+    it('writes to the global key when domain is "global"', async () => {
+      mockPrefsPut.mockResolvedValue({});
+      await ChaptersTool.sort.put({ domain: 'global' }, { mode: 'DESCENDING', progressPercent: 50 });
+      expect(mockPrefsPut).toHaveBeenCalledWith({
+        key: 'global',
+        value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }),
+        domain: 'chapterSortPrefs',
+      });
+    });
+
+    it('writes to the seriesId key when domain is "series"', async () => {
+      mockPrefsPut.mockResolvedValue({});
+      await ChaptersTool.sort.put({ domain: 'series', seriesId: 's1' }, { mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50 });
+      expect(mockPrefsPut).toHaveBeenCalledWith({
+        key: 's1',
+        value: JSON.stringify({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50 }),
+        domain: 'chapterSortPrefs',
+      });
+    });
+  });
+
+  describe('reset', () => {
+    it('deletes the series override and returns the global default that now applies', async () => {
+      mockPrefsDelete.mockResolvedValue(undefined);
+      mockPrefsGet.mockResolvedValue({ value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }) });
+      const result = await ChaptersTool.sort.reset({ seriesId: 's1' });
+      expect(mockPrefsDelete).toHaveBeenCalledWith({ key: 's1' });
+      expect(mockPrefsGet).toHaveBeenCalledWith({ key: 'global' });
+      expect(result).toEqual({ mode: 'DESCENDING', progressPercent: 50 });
+    });
+
+    it('falls back to the hardcoded default when no global was ever saved either', async () => {
+      mockPrefsDelete.mockResolvedValue(undefined);
+      mockPrefsGet.mockResolvedValue(null);
+      const result = await ChaptersTool.sort.reset({ seriesId: 's1' });
+      expect(result).toEqual({ mode: 'ASCENDING', progressPercent: 50 });
+    });
   });
 });

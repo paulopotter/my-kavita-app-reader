@@ -1,8 +1,11 @@
-import { ChapterTool, type SerieChapter } from '../chapters/chapter.tool';
+import { ChapterTool, type SerieChapter } from '../chapters/chapters.tool';
 import { FollowedSeriesBridge } from '../../bridge/followedSeries';
 import type { ChapterDigestSuccess, ImageDescriptor, SeriesDigestSuccess, SeriesResumePoint, ServerActiveInfo } from '../../bridge/digest';
 
-export type { SerieChapter };
+// SerieChapter is re-exported from chapters/ (its actual home — ChapterTool.normalize) via
+// shared/tools/index.ts already; not re-exported again from here to avoid the ambiguous-export
+// combination TypeScript otherwise flags on `export * from './chapters'` + `export * from
+// './series'` both naming it.
 
 // SerieTool — the normalizer for the "series" domain: turns SeriesDigest (or any future raw
 // source) into a stable, canonical shape every screen/component reads the same way, regardless

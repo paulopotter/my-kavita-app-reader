@@ -21,20 +21,18 @@ jest.mock('../../../shared', () => ({
       toggle: jest.fn(),
     },
   },
+  ChaptersTool: {
+    sort: {
+      get: jest.fn(),
+      put: jest.fn(),
+      reset: jest.fn(),
+    },
+  },
   useAction: () => ({ realize: jest.fn() }),
 }));
 
-jest.mock('../../../shared/managers/preferences', () => ({
-  PreferencesManager: {
-    get: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn(),
-  },
-}));
-
 import { useSerie } from './serie.hooks';
-import { ChapterTool, SerialService, SerieTool } from '../../../shared';
-import { PreferencesManager } from '../../../shared/managers/preferences';
+import { ChapterTool, ChaptersTool, SerialService, SerieTool } from '../../../shared';
 
 const mockGet = SerialService.get as jest.Mock;
 const mockNormalize = SerieTool.normalize as jest.Mock;
@@ -43,9 +41,9 @@ const mockToggleFollow = SerieTool.toggleFollow as jest.Mock;
 const mockMarkRead = ChapterTool.mark.read as jest.Mock;
 const mockMarkUnread = ChapterTool.mark.unread as jest.Mock;
 const mockMarkToggle = ChapterTool.mark.toggle as jest.Mock;
-const mockPrefsGet = PreferencesManager.get as jest.Mock;
-const mockPrefsPut = PreferencesManager.put as jest.Mock;
-const mockPrefsDelete = PreferencesManager.delete as jest.Mock;
+const mockSortGet = ChaptersTool.sort.get as jest.Mock;
+const mockSortPut = ChaptersTool.sort.put as jest.Mock;
+const mockSortReset = ChaptersTool.sort.reset as jest.Mock;
 
 const digestSuccess = { isSuccess: true, id: 's1', name: 'Series One' };
 const serie = {
@@ -63,9 +61,9 @@ describe('useSerie', () => {
     mockGet.mockResolvedValue(digestSuccess);
     mockNormalize.mockReturnValue(serie);
     mockIsFollowed.mockResolvedValue(false);
-    mockPrefsGet.mockResolvedValue(null);
-    mockPrefsPut.mockResolvedValue(undefined);
-    mockPrefsDelete.mockResolvedValue(undefined);
+    mockSortGet.mockResolvedValue({ mode: 'ASCENDING', progressPercent: 50 });
+    mockSortPut.mockResolvedValue(undefined);
+    mockSortReset.mockResolvedValue({ mode: 'ASCENDING', progressPercent: 50 });
   });
 
   it('starts in loading state', async () => {
@@ -305,31 +303,22 @@ describe('useSerie — sort', () => {
     expect(result.current.sortProgressPercent).toBe(50);
   });
 
-  it('loads default sort prefs when neither a series override nor a global default was ever saved', async () => {
+  it('loads default sort prefs when ChaptersTool.sort.get resolves the plain global default', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
-    await waitFor(() => expect(mockPrefsGet).toHaveBeenCalledWith({ key: 's1' }));
-    await waitFor(() => expect(mockPrefsGet).toHaveBeenCalledWith({ key: 'global' }));
+    await waitFor(() => expect(mockSortGet).toHaveBeenCalledWith({ domain: 'series', seriesId: 's1' }));
     expect(result.current.sortMode).toBe('ASCENDING');
     expect(result.current.hasSeriesSortOverride).toBe(false);
   });
 
-  it('falls back to the global default when no series override was saved', async () => {
-    mockPrefsGet.mockImplementation(({ key }: { key: string }) =>
-      Promise.resolve(key === 'global' ? { value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }) } : null),
-    );
+  it('applies the global default as-is when ChaptersTool.sort.get returns no isOverride', async () => {
+    mockSortGet.mockResolvedValue({ mode: 'DESCENDING', progressPercent: 50 });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.sortMode).toBe('DESCENDING'));
     expect(result.current.hasSeriesSortOverride).toBe(false);
   });
 
-  it('prefers a series override over the global default when both exist', async () => {
-    mockPrefsGet.mockImplementation(({ key }: { key: string }) =>
-      Promise.resolve(
-        key === 's1'
-          ? { value: JSON.stringify({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50 }) }
-          : { value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }) },
-      ),
-    );
+  it('marks hasSeriesSortOverride true when ChaptersTool.sort.get returns isOverride', async () => {
+    mockSortGet.mockResolvedValue({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50, isOverride: true });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.sortMode).toBe('AUTO_FIXED'));
     expect(result.current.sortFixedThreshold).toBe(3);
@@ -337,7 +326,7 @@ describe('useSerie — sort', () => {
   });
 
   it('falls back to defaults when reading persisted sort prefs rejects', async () => {
-    mockPrefsGet.mockRejectedValue(new Error('boom'));
+    mockSortGet.mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.sortMode).toBe('ASCENDING'));
     expect(result.current.hasSeriesSortOverride).toBe(false);
@@ -347,46 +336,25 @@ describe('useSerie — sort', () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.updateSortPrefs({ mode: 'DESCENDING', progressPercent: 75 }));
-    expect(mockPrefsPut).toHaveBeenCalledWith({
-      key: 's1',
-      value: JSON.stringify({ mode: 'DESCENDING', fixedThreshold: undefined, progressPercent: 75 }),
-      domain: 'chapterSortPrefs',
-    });
+    expect(mockSortPut).toHaveBeenCalledWith(
+      { domain: 'series', seriesId: 's1' },
+      { mode: 'DESCENDING', fixedThreshold: undefined, progressPercent: 75 },
+    );
     expect(result.current.hasSeriesSortOverride).toBe(true);
   });
 
-  it('resetSortPrefs deletes the series override and reapplies the global default', async () => {
-    mockPrefsGet.mockImplementation(({ key }: { key: string }) =>
-      Promise.resolve(
-        key === 's1'
-          ? { value: JSON.stringify({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50 }) }
-          : { value: JSON.stringify({ mode: 'DESCENDING', progressPercent: 50 }) },
-      ),
-    );
+  it('resetSortPrefs deletes the series override and reapplies whatever ChaptersTool.sort.reset resolves', async () => {
+    mockSortGet.mockResolvedValue({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50, isOverride: true });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.hasSeriesSortOverride).toBe(true));
 
-    mockPrefsDelete.mockResolvedValue(undefined);
+    mockSortReset.mockResolvedValue({ mode: 'DESCENDING', progressPercent: 50 });
     await act(async () => {
       await result.current.resetSortPrefs();
     });
 
-    expect(mockPrefsDelete).toHaveBeenCalledWith({ key: 's1' });
+    expect(mockSortReset).toHaveBeenCalledWith({ seriesId: 's1' });
     expect(result.current.sortMode).toBe('DESCENDING');
-    expect(result.current.hasSeriesSortOverride).toBe(false);
-  });
-
-  it('resetSortPrefs falls back to the hardcoded default when no global was ever saved either', async () => {
-    mockPrefsGet.mockResolvedValueOnce({ value: JSON.stringify({ mode: 'AUTO_FIXED', fixedThreshold: 3, progressPercent: 50 }) });
-    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
-    await waitFor(() => expect(result.current.hasSeriesSortOverride).toBe(true));
-
-    mockPrefsGet.mockResolvedValue(null);
-    await act(async () => {
-      await result.current.resetSortPrefs();
-    });
-
-    expect(result.current.sortMode).toBe('ASCENDING');
     expect(result.current.hasSeriesSortOverride).toBe(false);
   });
 

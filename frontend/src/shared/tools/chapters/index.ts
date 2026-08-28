@@ -1,1 +1,1 @@
-export * from './chapter.tool';
+export * from './chapters.tool';
