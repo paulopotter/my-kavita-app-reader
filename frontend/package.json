@@ -96,8 +96,8 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 54,
-        "lines": 54,
+        "statements": 56,
+        "lines": 56,
         "functions": 76,
         "branches": 90
       }

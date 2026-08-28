@@ -1,40 +1,13 @@
-import { createNavigateAction, type ActionContract } from '../actions/action.tool';
-import { Routes } from '../../../navigation/routes';
+import { ChapterTool, type SerieChapter } from '../chapters/chapter.tool';
 import { FollowedSeriesBridge } from '../../bridge/followedSeries';
-import type {
-  ChapterDigestSuccess,
-  ImageDescriptor,
-  SeriesDigestSuccess,
-  SeriesResumePoint,
-  ServerActiveInfo,
-} from '../../bridge/digest';
+import type { ChapterDigestSuccess, ImageDescriptor, SeriesDigestSuccess, SeriesResumePoint, ServerActiveInfo } from '../../bridge/digest';
+
+export type { SerieChapter };
 
 // SerieTool — the normalizer for the "series" domain: turns SeriesDigest (or any future raw
 // source) into a stable, canonical shape every screen/component reads the same way, regardless
-// of where the data actually came from. Chapter/action handling here is deliberately temporary —
-// it belongs to the chapter domain (Domain Composition: Series delegates downward to Chapter),
-// and will move to a future shared/tools/chapters/chapter.tool.ts once it exists; Series has no
-// substitute today, so it's absorbed here rather than blocking on a task not yet started.
-
-// Deliberately duplicated from SeriesDigestSuccess/ChapterDigestSuccess (bridge/digest.ts)
-// instead of re-exporting those types: this is a normalizer's own contract, free to evolve
-// independently of whatever shape the raw digest happens to have.
-export interface SerieChapter {
-  id: string;
-  seriesId: string;
-  decimalNumber?: number;
-  number?: number;
-  specialLabel?: string;
-  isSpecial?: boolean;
-  title: string;
-  createdUtc?: string;
-  coverImage: ImageDescriptor;
-  readStatus: ChapterDigestSuccess['readStatus'];
-  pages: ChapterDigestSuccess['pages'];
-  resolvedAtEpochMs: number;
-  server: ServerActiveInfo;
-  action: ActionContract; // not present on ChapterDigestSuccess — added by this normalizer
-}
+// of where the data actually came from. Each chapter is normalized by ChapterTool (chapter's own
+// domain — Domain Composition: Series delegates downward to Chapter), never re-implemented here.
 
 export interface Serie {
   id: string;
@@ -56,30 +29,6 @@ export interface Serie {
   server: ServerActiveInfo;
 }
 
-// Private to this module — SerieTool exposes only `normalize`, the single public entry point for
-// this domain (no sub-composition of unrelated concerns here, unlike CacheManager's
-// persistent/memory/network namespaces — everything below is the same "series" subject).
-function normalizeChapter({ chapter, seriesId }: { chapter: ChapterDigestSuccess; seriesId: string }): SerieChapter {
-  return {
-    id: chapter.id,
-    seriesId: chapter.seriesId,
-    decimalNumber: chapter.decimalNumber,
-    number: chapter.number,
-    specialLabel: chapter.specialLabel,
-    isSpecial: chapter.isSpecial,
-    title: chapter.title,
-    createdUtc: chapter.createdUtc,
-    coverImage: chapter.coverImage,
-    readStatus: chapter.readStatus,
-    pages: chapter.pages,
-    resolvedAtEpochMs: chapter.resolvedAtEpochMs,
-    server: chapter.server,
-    // `origin` is navigation state, not domain data — useAction() merges it in at realize time,
-    // this action never carries it.
-    action: createNavigateAction({ route: Routes.READER, params: { seriesId, chapterId: chapter.id } }),
-  };
-}
-
 export const SerieTool = {
   // Discards a chapter that failed to resolve (isSuccess: false) instead of surfacing it in the
   // canonical list — the screen never needs to know a specific chapter failed, at least for now.
@@ -92,7 +41,7 @@ export const SerieTool = {
       coverImage: digest.coverImage,
       chapters: (digest.chapters?.list ?? [])
         .filter((c): c is ChapterDigestSuccess => c.isSuccess)
-        .map(chapter => normalizeChapter({ chapter, seriesId: digest.id })),
+        .map(chapter => ChapterTool.normalize({ chapter, seriesId: digest.id })),
       resumePoint: digest.chapters?.resumePoint,
       otherNames: digest.otherNames,
       sortName: digest.sortName,

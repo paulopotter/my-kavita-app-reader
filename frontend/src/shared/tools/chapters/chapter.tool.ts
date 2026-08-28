@@ -1,14 +1,37 @@
+import { createNavigateAction, type ActionContract } from '../actions/action.tool';
+import { Routes } from '../../../navigation/routes';
 import { ChapterService } from '../../services/chapters';
-import type { ChapterReadStatus } from '../../bridge/digest';
+import type { ChapterDigestSuccess, ChapterReadStatus, ImageDescriptor, ServerActiveInfo } from '../../bridge/digest';
 
-// ChapterTool — normalizer/facade for the "chapter" domain. Minimal today: only the read/unread/
-// toggle mark actions, absorbed here (not inside serie.tool.ts) because marking a chapter read is
-// chapter's own concern (Domain Composition: Series delegates downward to Chapter).
+// ChapterTool — normalizer/facade for the "chapter" domain: turns a ChapterDigestSuccess into the
+// canonical shape SerieTool (and any future caller) reads, plus the read/unread/toggle mark
+// actions. Absorbed here, not inside serie.tool.ts — normalizing/marking a chapter is chapter's
+// own concern (Domain Composition: Series delegates downward to Chapter).
 
 export interface ChapterMarkUpdate {
   seriesId: string;
   chapterId: string;
   readStatus: ChapterReadStatus;
+}
+
+// Deliberately duplicated from ChapterDigestSuccess (bridge/digest.ts) instead of re-exporting it:
+// this is a normalizer's own contract, free to evolve independently of whatever shape the raw
+// digest happens to have.
+export interface SerieChapter {
+  id: string;
+  seriesId: string;
+  decimalNumber?: number;
+  number?: number;
+  specialLabel?: string;
+  isSpecial?: boolean;
+  title: string;
+  createdUtc?: string;
+  coverImage: ImageDescriptor;
+  readStatus: ChapterDigestSuccess['readStatus'];
+  pages: ChapterDigestSuccess['pages'];
+  resolvedAtEpochMs: number;
+  server: ServerActiveInfo;
+  action: ActionContract; // not present on ChapterDigestSuccess — added by this normalizer
 }
 
 // `onUpdate` is the one channel every value — optimistic, confirmed, or reverted — flows through;
@@ -21,6 +44,27 @@ export interface ChapterMarkUpdate {
 // wires it to local React state today or to EventBus.emit(...) once that exists (Task 013);
 // nothing here needs to change either way.
 export const ChapterTool = {
+  // `origin` is navigation state, not domain data — useAction() merges it in at realize time,
+  // this action never carries it.
+  normalize({ chapter, seriesId }: { chapter: ChapterDigestSuccess; seriesId: string }): SerieChapter {
+    return {
+      id: chapter.id,
+      seriesId: chapter.seriesId,
+      decimalNumber: chapter.decimalNumber,
+      number: chapter.number,
+      specialLabel: chapter.specialLabel,
+      isSpecial: chapter.isSpecial,
+      title: chapter.title,
+      createdUtc: chapter.createdUtc,
+      coverImage: chapter.coverImage,
+      readStatus: chapter.readStatus,
+      pages: chapter.pages,
+      resolvedAtEpochMs: chapter.resolvedAtEpochMs,
+      server: chapter.server,
+      action: createNavigateAction({ route: Routes.READER, params: { seriesId, chapterId: chapter.id } }),
+    };
+  },
+
   mark: {
     read({
       seriesId,

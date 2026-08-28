@@ -8,12 +8,62 @@ jest.mock('../../services/chapters', () => ({
 }));
 
 import { ChapterService } from '../../services/chapters';
+import type { ChapterDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
 const mockGet = ChapterService.get as jest.Mock;
 const mockStatusSet = ChapterService.status.set as jest.Mock;
 
 // Lets a pending .then()/.catch() chain attached to a mock Promise settle before assertions run.
 const flushPromises = () => Promise.resolve().then(() => Promise.resolve()).then(() => Promise.resolve());
+
+const server: ServerActiveInfo = {
+  groupId: 'g1',
+  groupName: 'group',
+  providerId: 'kavita',
+  urlId: 'u1',
+  url: 'https://example.invalid',
+  timeoutMs: 5000,
+  priority: 0,
+};
+
+function makeChapter(overrides: Partial<ChapterDigestSuccess> = {}): ChapterDigestSuccess {
+  return {
+    isSuccess: true,
+    id: 'c1',
+    seriesId: 's1',
+    title: 'Chapter 1',
+    coverImage: { url: '', hasFetchedDimensions: false, resolvedAtEpochMs: 0, server, cache: null },
+    readStatus: 'UNREAD',
+    pages: { list: [] },
+    resolvedAtEpochMs: 1,
+    server,
+    cache: null,
+    ...overrides,
+  };
+}
+
+describe('ChapterTool.normalize', () => {
+  it('copies every digest field onto the canonical shape', () => {
+    const chapter = makeChapter({ id: 'c1', title: 'Chapter 1', decimalNumber: 1.5, number: 1 });
+    const result = ChapterTool.normalize({ chapter, seriesId: 's1' });
+    expect(result.id).toBe('c1');
+    expect(result.seriesId).toBe('s1');
+    expect(result.title).toBe('Chapter 1');
+    expect(result.decimalNumber).toBe(1.5);
+    expect(result.number).toBe(1);
+    expect(result.readStatus).toBe('UNREAD');
+  });
+
+  it('attaches a navigate action to the reader route, without the origin (added later by useAction)', () => {
+    const chapter = makeChapter({ id: 'c1' });
+    const result = ChapterTool.normalize({ chapter, seriesId: 's1' });
+    expect(result.action).toEqual({
+      method: 'navigate',
+      route: 'reader/:seriesId/:chapterId',
+      params: { seriesId: 's1', chapterId: 'c1' },
+    });
+  });
+});
 
 describe('ChapterTool.mark.read', () => {
   beforeEach(() => {
