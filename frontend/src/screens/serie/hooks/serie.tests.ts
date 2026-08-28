@@ -8,7 +8,7 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 jest.mock('../../../shared', () => ({
-  SerialService: { getFull: jest.fn() },
+  SerialService: { get: jest.fn() },
   SerieTool: {
     normalize: jest.fn(),
     isFollowed: jest.fn(),
@@ -36,7 +36,7 @@ import { useSerie } from './serie.hooks';
 import { ChapterTool, SerialService, SerieTool } from '../../../shared';
 import { PreferencesManager } from '../../../shared/managers/preferences';
 
-const mockGetFull = SerialService.getFull as jest.Mock;
+const mockGet = SerialService.get as jest.Mock;
 const mockNormalize = SerieTool.normalize as jest.Mock;
 const mockIsFollowed = SerieTool.isFollowed as jest.Mock;
 const mockToggleFollow = SerieTool.toggleFollow as jest.Mock;
@@ -60,7 +60,7 @@ const serie = {
 describe('useSerie', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetFull.mockResolvedValue(digestSuccess);
+    mockGet.mockResolvedValue(digestSuccess);
     mockNormalize.mockReturnValue(serie);
     mockIsFollowed.mockResolvedValue(false);
     mockPrefsGet.mockResolvedValue(null);
@@ -69,7 +69,7 @@ describe('useSerie', () => {
   });
 
   it('starts in loading state', async () => {
-    mockGetFull.mockReturnValue(new Promise(() => {})); // never settles — keeps this render in "loading"
+    mockGet.mockReturnValue(new Promise(() => {})); // never settles — keeps this render in "loading"
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     expect(result.current.loading).toBe(true);
     expect(result.current.serie).toBeNull();
@@ -79,7 +79,7 @@ describe('useSerie', () => {
   it('loads the series on mount, ending with loading false and the normalized serie', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(mockGetFull).toHaveBeenCalledWith({ seriesId: 's1' });
+    expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1' });
     expect(mockNormalize).toHaveBeenCalledWith({ digest: digestSuccess });
     expect(result.current.serie).toBe(serie);
     expect(result.current.error).toBeNull();
@@ -94,21 +94,21 @@ describe('useSerie', () => {
   });
 
   it('sets error and stops loading when the digest fails', async () => {
-    mockGetFull.mockResolvedValue({ isSuccess: false, error: { message: 'not found' } });
+    mockGet.mockResolvedValue({ isSuccess: false, error: { message: 'not found' } });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe('not found');
   });
 
   it('falls back to a default message when the digest failure has none', async () => {
-    mockGetFull.mockResolvedValue({ isSuccess: false, error: {} });
+    mockGet.mockResolvedValue({ isSuccess: false, error: {} });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe('unknown error');
   });
 
   it('surfaces a thrown error message as-is', async () => {
-    mockGetFull.mockRejectedValue(new Error('boom'));
+    mockGet.mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe('boom');
@@ -116,7 +116,7 @@ describe('useSerie', () => {
   });
 
   it('falls back to a default message when the rejection has no message at all', async () => {
-    mockGetFull.mockRejectedValue({} as Error);
+    mockGet.mockRejectedValue({} as Error);
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe('unknown error');
@@ -125,11 +125,11 @@ describe('useSerie', () => {
   it('refresh re-triggers the same load sequence', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    mockGetFull.mockClear();
+    mockGet.mockClear();
     await act(async () => {
       await result.current.refresh();
     });
-    expect(mockGetFull).toHaveBeenCalledWith({ seriesId: 's1' });
+    expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1' });
   });
 
   it('markRead delegates to ChapterTool.mark.read with an onUpdate that applies to local state', async () => {
@@ -198,7 +198,7 @@ describe('useSerie', () => {
 describe('useSerie — continueChapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetFull.mockResolvedValue(digestSuccess);
+    mockGet.mockResolvedValue(digestSuccess);
     mockIsFollowed.mockResolvedValue(false);
   });
 
@@ -233,7 +233,7 @@ describe('useSerie — continueChapter', () => {
 describe('useSerie — sort', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetFull.mockResolvedValue(digestSuccess);
+    mockGet.mockResolvedValue(digestSuccess);
     mockIsFollowed.mockResolvedValue(false);
   });
 
@@ -528,7 +528,7 @@ describe('useSerie — sort', () => {
 describe('useSerie — selection mode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetFull.mockResolvedValue(digestSuccess);
+    mockGet.mockResolvedValue(digestSuccess);
     mockNormalize.mockReturnValue(serie);
     mockIsFollowed.mockResolvedValue(false);
     mockMarkRead.mockResolvedValue({ seriesId: 's1', chapterId: 'c1', readStatus: 'READ' });

@@ -43,6 +43,15 @@ export interface SerieChapter {
 // parameter — not a hard EventBus dependency — so this stays the same call whether the caller
 // wires it to local React state today or to EventBus.emit(...) once that exists (Task 013);
 // nothing here needs to change either way.
+//
+// Known gap: ChapterService.status.set writes straight to the Kavita server (ServerBridge,
+// Layer 2) and never invalidates the SeriesDigest/ChapterDigest entries Cache.persistent (Kotlin)
+// already holds for this series/chapter. The optimistic onUpdate covers the UI while this screen
+// stays mounted, but leaving and reopening the series within the digest's TTL (~15min default)
+// can show the pre-mark status again until it expires — the legacy screen avoided this via its
+// own local cache (replaceCachedChapters), which this tool has no equivalent of. Deliberately not
+// solved here — would mean ChapterTool reaching into CacheManager.persistent.invalidate*
+// (key/domain conventions it otherwise has no reason to know) right after a successful mark.
 export const ChapterTool = {
   // `origin` is navigation state, not domain data — useAction() merges it in at realize time,
   // this action never carries it.

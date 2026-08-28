@@ -78,19 +78,24 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { realize } = useAction({ origin });
 
-  // SerialService.getFull already returns SeriesDigest cache-first (the decision lives entirely
-  // in Kotlin's digest builders — see architecture.md's Cache Guideline) — this never re-fetches
-  // "because a refresh window elapsed" the way the legacy useSeriesDetail.ts did; every call here
-  // just asks again and lets Kotlin decide whether that means a cache hit or a real network call.
-  // `isRefresh` only decides which flag (loading vs. refreshing) reflects this call — the fetch
-  // sequence itself is identical either way (SerialService.getFull is already cache-first, so
-  // there's no separate "lighter" path for a manual pull-to-refresh).
+  // SerialService.get (full=false) already returns SeriesDigest cache-first (the decision lives
+  // entirely in Kotlin's digest builders — see architecture.md's Cache Guideline) — this never
+  // re-fetches "because a refresh window elapsed" the way the legacy useSeriesDetail.ts did; every
+  // call here just asks again and lets Kotlin decide whether that means a cache hit or a real
+  // network call. `isRefresh` only decides which flag (loading vs. refreshing) reflects this call.
+  //
+  // Deliberately full=false, not getFull — full=true propagates to every chapter's own digest,
+  // fetching that chapter's entire page list over the network (buildChapterDigest's full=true
+  // path). A chapter list screen only needs title/number/readStatus, never each chapter's pages;
+  // asking for full=true here turned into one network round trip per chapter, all in parallel,
+  // taking minutes on a series with many chapters. The reader screen is what actually needs
+  // full=true, one chapter at a time.
   const load = useCallback(
     (isRefresh = false) => {
       if (isRefresh) {setRefreshing(true);}
       else {setLoading(true);}
       setError(null);
-      return SerialService.getFull({ seriesId })
+      return SerialService.get({ seriesId })
         .then(digest => {
           if (!digest.isSuccess) {throw new Error(digest.error.message ?? 'unknown error');}
           return SerieTool.normalize({ digest });
