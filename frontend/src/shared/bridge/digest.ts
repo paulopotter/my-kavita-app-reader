@@ -224,18 +224,28 @@ export type SeriesDigest = SeriesDigestSuccess | DigestFailure;
 // ── bridge module ────────────────────────────────────────────────────────
 
 // Mirrors DigestBridgeModule.getSeriesDigest's own ReadableMap options parameter — full/
-// includeExternalMetadata/externalMetadataGroupId, all optional (native side defaults each to
-// false/undefined when the key is absent). includeExternalMetadata is what actually turns on the
-// BFF/M3 enrichment for this call; externalMetadataGroupId is only ever a specific override.
+// includeExternalMetadata/externalMetadataGroupId/force, all optional (native side defaults each
+// to false/undefined when the key is absent). includeExternalMetadata is what actually turns on
+// the BFF/M3 enrichment for this call; externalMetadataGroupId is only ever a specific override.
+// force skips the cache entirely and re-fetches from the server — a manual pull-to-refresh, never
+// a plain mount/focus load.
 export interface SeriesDigestOptions {
   full?: boolean;
   includeExternalMetadata?: boolean;
   externalMetadataGroupId?: string;
+  force?: boolean;
+}
+
+// Mirrors DigestBridgeModule.getChapterDigest's own ReadableMap options parameter — full/force,
+// same meaning as SeriesDigestOptions' own fields of the same name.
+export interface ChapterDigestOptions {
+  full?: boolean;
+  force?: boolean;
 }
 
 interface DigestBridgeModuleInterface {
   getPageDigest(seriesId: string, chapterId: string, pageIndex: number): Promise<PageDigest>;
-  getChapterDigest(seriesId: string, chapterId: string, full: boolean): Promise<ChapterDigest>;
+  getChapterDigest(seriesId: string, chapterId: string, options: ChapterDigestOptions): Promise<ChapterDigest>;
   getSeriesDigest(seriesId: string, options: SeriesDigestOptions): Promise<SeriesDigest>;
 }
 

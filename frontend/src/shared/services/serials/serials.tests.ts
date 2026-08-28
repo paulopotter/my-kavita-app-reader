@@ -121,7 +121,13 @@ describe('SerialService', () => {
     it('calls DigestBridge.getSeriesDigest with full=false', async () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       await SerialService.get({ seriesId: 'series-1' });
-      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: false });
+      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: false, force: undefined });
+    });
+
+    it('forwards force to DigestBridge.getSeriesDigest', async () => {
+      mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
+      await SerialService.get({ seriesId: 'series-1', force: true });
+      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: false, force: true });
     });
 
     it('returns the SeriesDigest exactly as the bridge resolved it', async () => {
@@ -136,7 +142,13 @@ describe('SerialService', () => {
     it('calls DigestBridge.getSeriesDigest with full=true', async () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       await SerialService.getFull({ seriesId: 'series-1' });
-      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: true });
+      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: true, force: undefined });
+    });
+
+    it('forwards force to DigestBridge.getSeriesDigest', async () => {
+      mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
+      await SerialService.getFull({ seriesId: 'series-1', force: true });
+      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: true, force: true });
     });
 
     it('returns the SeriesDigest exactly as the bridge resolved it (failure)', async () => {
@@ -242,8 +254,8 @@ describe('SerialService', () => {
       const serial = SerialService.bound({ seriesId: 'series-1' });
       await serial.get();
       await serial.getFull();
-      expect(mockGetSeriesDigest).toHaveBeenNthCalledWith(1, 'series-1', { full: false });
-      expect(mockGetSeriesDigest).toHaveBeenNthCalledWith(2, 'series-1', { full: true });
+      expect(mockGetSeriesDigest).toHaveBeenNthCalledWith(1, 'series-1', { full: false, force: undefined });
+      expect(mockGetSeriesDigest).toHaveBeenNthCalledWith(2, 'series-1', { full: true, force: undefined });
     });
 
     it('pre-fills seriesId on nested chapters.status.set/read/unread', async () => {
@@ -278,7 +290,7 @@ describe('SerialService', () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       const serial = SerialService.bound({ seriesId: 'series-1' });
       await serial.get({ seriesId: 'series-2' });
-      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-2', { full: false });
+      expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-2', { full: false, force: undefined });
     });
 
     it('does not expose a nested bound of its own', () => {

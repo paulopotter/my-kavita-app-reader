@@ -33,7 +33,13 @@ describe('ChapterService', () => {
     it('calls DigestBridge.getChapterDigest with full=false', async () => {
       mockGetChapterDigest.mockResolvedValue({ isSuccess: true });
       await ChapterService.get({ seriesId: 'series-1', chapterId: 'chapter-1' });
-      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-1', false);
+      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-1', { full: false, force: undefined });
+    });
+
+    it('forwards force to DigestBridge.getChapterDigest', async () => {
+      mockGetChapterDigest.mockResolvedValue({ isSuccess: true });
+      await ChapterService.get({ seriesId: 'series-1', chapterId: 'chapter-1', force: true });
+      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-1', { full: false, force: true });
     });
 
     it('returns the ChapterDigest exactly as the bridge resolved it', async () => {
@@ -48,7 +54,13 @@ describe('ChapterService', () => {
     it('calls DigestBridge.getChapterDigest with full=true', async () => {
       mockGetChapterDigest.mockResolvedValue({ isSuccess: true });
       await ChapterService.getFull({ seriesId: 'series-1', chapterId: 'chapter-1' });
-      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-1', true);
+      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-1', { full: true, force: undefined });
+    });
+
+    it('forwards force to DigestBridge.getChapterDigest', async () => {
+      mockGetChapterDigest.mockResolvedValue({ isSuccess: true });
+      await ChapterService.getFull({ seriesId: 'series-1', chapterId: 'chapter-1', force: true });
+      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-1', { full: true, force: true });
     });
 
     it('returns the ChapterDigest exactly as the bridge resolved it (failure)', async () => {
@@ -123,8 +135,8 @@ describe('ChapterService', () => {
       const chapter = ChapterService.bound({ seriesId: 'series-1', chapterId: 'chapter-1' });
       await chapter.get();
       await chapter.getFull();
-      expect(mockGetChapterDigest).toHaveBeenNthCalledWith(1, 'series-1', 'chapter-1', false);
-      expect(mockGetChapterDigest).toHaveBeenNthCalledWith(2, 'series-1', 'chapter-1', true);
+      expect(mockGetChapterDigest).toHaveBeenNthCalledWith(1, 'series-1', 'chapter-1', { full: false, force: undefined });
+      expect(mockGetChapterDigest).toHaveBeenNthCalledWith(2, 'series-1', 'chapter-1', { full: true, force: undefined });
     });
 
     it('pre-fills seriesId/chapterId on raw.get, progress.get/set and status.set', async () => {
@@ -151,7 +163,7 @@ describe('ChapterService', () => {
       mockGetChapterDigest.mockResolvedValue({ isSuccess: true });
       const chapter = ChapterService.bound({ seriesId: 'series-1', chapterId: 'chapter-1' });
       await chapter.get({ chapterId: 'chapter-2' });
-      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-2', false);
+      expect(mockGetChapterDigest).toHaveBeenCalledWith('series-1', 'chapter-2', { full: false, force: undefined });
     });
 
     it('does not expose a nested bound of its own', () => {

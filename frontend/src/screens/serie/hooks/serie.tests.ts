@@ -79,7 +79,7 @@ describe('useSerie', () => {
   it('loads the series on mount, ending with loading false and the normalized serie', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1' });
+    expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1', force: false });
     expect(mockNormalize).toHaveBeenCalledWith({ digest: digestSuccess });
     expect(result.current.serie).toBe(serie);
     expect(result.current.error).toBeNull();
@@ -122,14 +122,14 @@ describe('useSerie', () => {
     expect(result.current.error).toBe('unknown error');
   });
 
-  it('refresh re-triggers the same load sequence', async () => {
+  it('refresh re-triggers the same load sequence, forcing past the cache', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockGet.mockClear();
     await act(async () => {
       await result.current.refresh();
     });
-    expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1' });
+    expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1', force: true });
   });
 
   it('markRead delegates to ChapterTool.mark.read with an onUpdate that applies to local state', async () => {

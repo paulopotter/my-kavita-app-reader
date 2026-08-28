@@ -96,25 +96,35 @@ class DigestBridgeModule @Inject constructor(
         }
     }
 
+    // [options] carries full/force — a ReadableMap instead of separate parameters, same "2+
+    // fields → one named object" shape getSeriesDigest already uses. force (default false) skips
+    // the cache entirely and re-fetches from the server, same meaning as buildChapterDigest's own
+    // force parameter — used by a manual pull-to-refresh, never by a plain mount/focus load.
     @ReactMethod
-    fun getChapterDigest(seriesId: String, chapterId: String, full: Boolean, promise: Promise) {
+    fun getChapterDigest(seriesId: String, chapterId: String, options: ReadableMap, promise: Promise) {
         scope.launch {
-            runCatching { buildChapterDigest(server, seriesId, chapterId, cache, full = full) }
+            val full = if (options.hasKey("full")) options.getBoolean("full") else false
+            val force = if (options.hasKey("force")) options.getBoolean("force") else false
+
+            runCatching { buildChapterDigest(server, seriesId, chapterId, cache, full = full, force = force) }
                 .resolveOrReject(promise, "GET_CHAPTER_DIGEST_ERROR") { it.toWritableMap() }
         }
     }
 
-    // [options] carries full/includeExternalMetadata/externalMetadataGroupId — a ReadableMap
+    // [options] carries full/includeExternalMetadata/externalMetadataGroupId/force — a ReadableMap
     // instead of separate parameters since this already mirrors SeriesDigestOptions' own
     // "2+ fields → one named object" shape on the Kotlin side. includeExternalMetadata (default
     // false) is what actually turns on the BFF/M3 enrichment — omitting it keeps today's
     // behavior (no extra network call to ExternalMetadataServer) unchanged for existing callers.
+    // force (default false) skips the cache entirely and re-fetches from the server — used by a
+    // manual pull-to-refresh, never by a plain mount/focus load.
     @ReactMethod
     fun getSeriesDigest(seriesId: String, options: ReadableMap, promise: Promise) {
         scope.launch {
             val full = if (options.hasKey("full")) options.getBoolean("full") else false
             val includeExternalMetadata = if (options.hasKey("includeExternalMetadata")) options.getBoolean("includeExternalMetadata") else false
             val externalMetadataGroupId = if (options.hasKey("externalMetadataGroupId")) options.getString("externalMetadataGroupId") else null
+            val force = if (options.hasKey("force")) options.getBoolean("force") else false
 
             runCatching {
                 buildSeriesDigest(
@@ -127,6 +137,7 @@ class DigestBridgeModule @Inject constructor(
                         externalMetadataServer = if (includeExternalMetadata) externalMetadataServer else null,
                         externalMetadataGroupId = externalMetadataGroupId,
                     ),
+                    force = force,
                 )
             }.resolveOrReject(promise, "GET_SERIES_DIGEST_ERROR") { it.toWritableMap() }
         }

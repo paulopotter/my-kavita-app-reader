@@ -7,14 +7,16 @@ import { Methods } from '../../tools/methods';
 // aggregates). No cache, no transformation: reads get exactly what the bridge produced. get()
 // always asks for the light Digest payload (full=false); getFull() asks for the complete one
 // (pages.list, prev/next chapter) — the caller decides which one it needs, never a boolean flag.
-// Every method takes a single named-argument object (never positional params) — this is what
-// lets bound() merge in fixed ids without needing to know each method's parameter order.
+// `force` (default false) skips the cache entirely and re-fetches from the server — a manual
+// pull-to-refresh, never a plain mount/focus load. Every method takes a single named-argument
+// object (never positional params) — this is what lets bound() merge in fixed ids without needing
+// to know each method's parameter order.
 export const ChapterService = {
-  get({ seriesId, chapterId }: { seriesId: string; chapterId: string }): Promise<ChapterDigest> {
-    return DigestBridge.getChapterDigest(seriesId, chapterId, false);
+  get({ seriesId, chapterId, force }: { seriesId: string; chapterId: string; force?: boolean }): Promise<ChapterDigest> {
+    return DigestBridge.getChapterDigest(seriesId, chapterId, { full: false, force });
   },
-  getFull({ seriesId, chapterId }: { seriesId: string; chapterId: string }): Promise<ChapterDigest> {
-    return DigestBridge.getChapterDigest(seriesId, chapterId, true);
+  getFull({ seriesId, chapterId, force }: { seriesId: string; chapterId: string; force?: boolean }): Promise<ChapterDigest> {
+    return DigestBridge.getChapterDigest(seriesId, chapterId, { full: true, force });
   },
   // Raw plugin-level chapter data (title, number, pageCount, pagesRead, isSpecial), straight
   // from ServerBridge.getChapter — no Digest involved, no computed fields (e.g. no readStatus

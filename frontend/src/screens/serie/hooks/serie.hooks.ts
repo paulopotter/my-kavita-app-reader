@@ -79,10 +79,12 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   const { realize } = useAction({ origin });
 
   // SerialService.get (full=false) already returns SeriesDigest cache-first (the decision lives
-  // entirely in Kotlin's digest builders — see architecture.md's Cache Guideline) — this never
-  // re-fetches "because a refresh window elapsed" the way the legacy useSeriesDetail.ts did; every
-  // call here just asks again and lets Kotlin decide whether that means a cache hit or a real
-  // network call. `isRefresh` only decides which flag (loading vs. refreshing) reflects this call.
+  // entirely in Kotlin's digest builders — see architecture.md's Cache Guideline) — a plain mount/
+  // focus load never forces a network call, it just asks and lets Kotlin decide whether that means
+  // a cache hit or a real fetch. `isRefresh` (pull-to-refresh) is different: it passes force=true,
+  // skipping the cache entirely — otherwise a manual "pull to refresh" inside the digest's TTL
+  // (~15min default) would silently just hand back the same cached value, never actually reaching
+  // the server.
   //
   // Deliberately full=false, not getFull — full=true propagates to every chapter's own digest,
   // fetching that chapter's entire page list over the network (buildChapterDigest's full=true
@@ -95,7 +97,7 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
       if (isRefresh) {setRefreshing(true);}
       else {setLoading(true);}
       setError(null);
-      return SerialService.get({ seriesId })
+      return SerialService.get({ seriesId, force: isRefresh })
         .then(digest => {
           if (!digest.isSuccess) {throw new Error(digest.error.message ?? 'unknown error');}
           return SerieTool.normalize({ digest });

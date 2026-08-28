@@ -86,15 +86,17 @@ export const SerialsService = {
 // it. get() always asks for the light payload (full=false, no external metadata); getFull() asks
 // for the complete one (full=true) — external metadata is opted into separately via
 // includeExternalMetadata, never bundled into "full" (a caller wanting chapters+pages but not the
-// BFF/M3 round trip shouldn't have to pay for it). Every method that takes an argument uses a
-// single named-argument object (never positional params) — this is what lets bound() merge in
-// the fixed seriesId without needing to know each method's parameter order.
+// BFF/M3 round trip shouldn't have to pay for it). `force` (default false) skips the cache
+// entirely and re-fetches from the server — a manual pull-to-refresh, never a plain mount/focus
+// load. Every method that takes an argument uses a single named-argument object (never positional
+// params) — this is what lets bound() merge in the fixed seriesId without needing to know each
+// method's parameter order.
 export const SerialService = {
-  get({ seriesId }: { seriesId: string }): Promise<SeriesDigest> {
-    return DigestBridge.getSeriesDigest(seriesId, { full: false });
+  get({ seriesId, force }: { seriesId: string; force?: boolean }): Promise<SeriesDigest> {
+    return DigestBridge.getSeriesDigest(seriesId, { full: false, force });
   },
-  getFull({ seriesId }: { seriesId: string }): Promise<SeriesDigest> {
-    return DigestBridge.getSeriesDigest(seriesId, { full: true });
+  getFull({ seriesId, force }: { seriesId: string; force?: boolean }): Promise<SeriesDigest> {
+    return DigestBridge.getSeriesDigest(seriesId, { full: true, force });
   },
   // Raw plugin-level reads, straight from ServerBridge — no Digest involved, no computed fields.
   raw: {
