@@ -13,7 +13,7 @@ plugins {
 kover {
     merge {
         subprojects {
-            it.name in listOf("core", "tools", "features", "server", "content-digest")
+            it.name in listOf("core", "tools", "features", "server", "content-digest", "cache", "preferences")
         }
     }
     reports {
@@ -42,21 +42,15 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=76 — bump this value whenever coverage improves.
-            // Was 77, lowered here: ActiveUrlSelector's migration to Cache.network (Task 023)
-            // removed real (tested) code (the old manual cachedUrl/cacheTimestamp fields) and
-            // added a new constructor dependency (Cache) — every line of ActiveUrlSelector's own
-            // logic remains fully covered (verified directly), but the Hilt-generated
-            // ActiveUrlSelector_Factory grew by ~6 always-uncovered lines (DI factory code never
-            // exercised by a plain unit test) to account for the new parameter, and the
-            // kotlinx.serialization-generated write$Self methods on the newly-@Serializable types
-            // this same task added (PluginAgeRating, PluginGenreOrTag, ...) contribute the same
-            // way — none of this is a real test gap, koverVerify's own measured value dropped to
-            // ~76.97%, floor set slightly below that to leave headroom.
+            // COVERAGE_FLOOR_KOTLIN=77 — bump this value whenever coverage improves.
+            // Bumped from 76: :cache and :preferences joined the merged subprojects list (they
+            // already had — or, for :preferences, gained — full test coverage of their own but
+            // were never included in this aggregate before), pushing the measured value to
+            // ~77.92%. Floor set slightly below that to leave headroom.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 76
+                        minValue = 77
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

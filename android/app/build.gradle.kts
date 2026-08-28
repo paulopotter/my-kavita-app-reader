@@ -71,7 +71,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount
-        versionName = "0.7.0-rc7"
+        versionName = "0.7.0-rc8"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
@@ -113,6 +113,7 @@ dependencies {
     implementation(project(":content-digest"))
     implementation(project(":external-metadata-server"))
     implementation(project(":cache"))
+    implementation(project(":preferences"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)
