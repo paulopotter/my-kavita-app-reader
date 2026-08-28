@@ -11,8 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Routes } from '../../navigation/routes';
 import { ConfigRepository, SetupBridge } from '../../shared/bridge/config';
 import { AppVersions } from '../../shared/components/AppVersions';
 import { ChapterSortConfigFields } from '../../shared/components/ChapterSortConfigFields';
@@ -789,7 +787,6 @@ function SmokeTestSection({
 }
 
 function DebugScreen({ onBack }: { onBack: () => void }) {
-  const navigation = useNavigation<any>();
   const [groupId, setGroupId] = useState('');
   const [seriesId, setSeriesId] = useState('');
   const [chapterId, setChapterId] = useState('');
@@ -904,20 +901,6 @@ function DebugScreen({ onBack }: { onBack: () => void }) {
           }}
         />
 
-        <TouchableOpacity
-          style={styles.debugNavButton}
-          disabled={!seriesId}
-          onPress={async () => {
-            let id = seriesId;
-            if (!id) {
-              const discovered = await discoverFirstSeriesId();
-              if (discovered) { id = discovered; setSeriesId(discovered); }
-            }
-            if (!id) { return; }
-            navigation.navigate(Routes.SERIES_DETAIL_LEGACY, { seriesId: id, origin: 'LIBRARY' });
-          }}>
-          <Text style={styles.debugNavButtonText}>Abrir SeriesDetailScreen (legada)</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -939,17 +922,6 @@ const styles = StyleSheet.create({
   backBtnArea: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   backChevron: { color: RED, fontSize: 32, fontWeight: '300', lineHeight: 40 },
   subTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
-
-  debugNavButton: {
-    backgroundColor: RED,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  debugNavButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 
   scroll: { padding: 16, paddingBottom: 48 },
 

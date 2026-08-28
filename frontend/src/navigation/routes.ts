@@ -6,13 +6,9 @@ export const Routes = {
   SEARCH: 'search',
   CONFIG: 'config',
   NOTIFICATIONS: 'notifications',
-  // Now serves SerieScreen (screens/serie) — SeriesDetailScreen no longer registered here.
+  // Serves SerieScreen (screens/serie) — the legacy SeriesDetailScreen has been deleted.
   SERIES_DETAIL: 'series/:seriesId',
   READER: 'reader/:seriesId/:chapterId',
-  // Temporary — the legacy SeriesDetailScreen (screens/series-detail), kept reachable only from
-  // the debug screen for comparison while SerieScreen (now the real SERIES_DETAIL) is validated.
-  // Remove once SeriesDetailScreen is deleted for good.
-  SERIES_DETAIL_LEGACY: 'series-detail-legacy/:seriesId',
 } as const;
 
 export type RouteName = (typeof Routes)[keyof typeof Routes];
