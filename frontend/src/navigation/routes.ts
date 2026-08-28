@@ -8,6 +8,10 @@ export const Routes = {
   NOTIFICATIONS: 'notifications',
   SERIES_DETAIL: 'series/:seriesId',
   READER: 'reader/:seriesId/:chapterId',
+  // Temporary — the new SerieScreen (screens/serie), still being validated alongside the legacy
+  // SeriesDetailScreen (Routes.SERIES_DETAIL) it will eventually replace. Only reachable today
+  // from the debug screen. Remove this once SerieScreen takes over SERIES_DETAIL for real.
+  SERIE_NEW: 'serie-new/:seriesId',
 } as const;
 
 export type RouteName = (typeof Routes)[keyof typeof Routes];

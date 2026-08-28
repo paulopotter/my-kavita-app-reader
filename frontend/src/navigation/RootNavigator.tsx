@@ -4,6 +4,7 @@ import { Routes } from './routes';
 import { MainNavigator } from './MainNavigator';
 import { SetupScreen } from '../screens/setup/SetupScreen';
 import { SeriesDetailScreen } from '../screens/series-detail/SeriesDetailScreen';
+import { SerieScreen } from '../screens/serie';
 import { ReaderScreen } from '../screens/reader/ReaderScreen';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
@@ -35,6 +36,13 @@ export function RootNavigator({ initialRoute, onSetupComplete }: Props) {
         options={{
           // Deep links: mykavita://series/:seriesId and mymangas://...
         }}
+        getId={({ params }) => (params as any)?.seriesId}
+      />
+
+      {/* Temporary — see Routes.SERIE_NEW's own comment. */}
+      <Stack.Screen
+        name={Routes.SERIE_NEW}
+        component={SerieScreen}
         getId={({ params }) => (params as any)?.seriesId}
       />
 
