@@ -6,12 +6,13 @@ export const Routes = {
   SEARCH: 'search',
   CONFIG: 'config',
   NOTIFICATIONS: 'notifications',
+  // Now serves SerieScreen (screens/serie) — SeriesDetailScreen no longer registered here.
   SERIES_DETAIL: 'series/:seriesId',
   READER: 'reader/:seriesId/:chapterId',
-  // Temporary — the new SerieScreen (screens/serie), still being validated alongside the legacy
-  // SeriesDetailScreen (Routes.SERIES_DETAIL) it will eventually replace. Only reachable today
-  // from the debug screen. Remove this once SerieScreen takes over SERIES_DETAIL for real.
-  SERIE_NEW: 'serie-new/:seriesId',
+  // Temporary — the legacy SeriesDetailScreen (screens/series-detail), kept reachable only from
+  // the debug screen for comparison while SerieScreen (now the real SERIES_DETAIL) is validated.
+  // Remove once SeriesDetailScreen is deleted for good.
+  SERIES_DETAIL_LEGACY: 'series-detail-legacy/:seriesId',
 } as const;
 
 export type RouteName = (typeof Routes)[keyof typeof Routes];

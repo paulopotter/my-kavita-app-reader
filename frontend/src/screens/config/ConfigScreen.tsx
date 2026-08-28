@@ -914,9 +914,9 @@ function DebugScreen({ onBack }: { onBack: () => void }) {
               if (discovered) { id = discovered; setSeriesId(discovered); }
             }
             if (!id) { return; }
-            navigation.navigate(Routes.SERIE_NEW, { seriesId: id, origin: 'LIBRARY' });
+            navigation.navigate(Routes.SERIES_DETAIL_LEGACY, { seriesId: id, origin: 'LIBRARY' });
           }}>
-          <Text style={styles.debugNavButtonText}>Abrir SerieScreen (nova)</Text>
+          <Text style={styles.debugNavButtonText}>Abrir SeriesDetailScreen (legada)</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

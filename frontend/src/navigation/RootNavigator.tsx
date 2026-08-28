@@ -32,17 +32,17 @@ export function RootNavigator({ initialRoute, onSetupComplete }: Props) {
 
       <Stack.Screen
         name={Routes.SERIES_DETAIL}
-        component={SeriesDetailScreen}
+        component={SerieScreen}
         options={{
           // Deep links: mykavita://series/:seriesId and mymangas://...
         }}
         getId={({ params }) => (params as any)?.seriesId}
       />
 
-      {/* Temporary — see Routes.SERIE_NEW's own comment. */}
+      {/* Temporary — see Routes.SERIES_DETAIL_LEGACY's own comment. */}
       <Stack.Screen
-        name={Routes.SERIE_NEW}
-        component={SerieScreen}
+        name={Routes.SERIES_DETAIL_LEGACY}
+        component={SeriesDetailScreen}
         getId={({ params }) => (params as any)?.seriesId}
       />
 
