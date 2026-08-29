@@ -77,14 +77,42 @@ processo: (1) que a chamada via `ref` seria um shape válido para RN→Kotlin �
 de sempre usar `@ReactMethod`+`Promise`; (2) confirmou que não há broadcast Kotlin→Kotlin, o que
 motivou o modelo final onde Kotlin nunca decide propagar, só responde a quem pediu.
 
+## Result — implementation follow-up (2026-08-29, durante a Task 025)
+
+O Mecanismo 3 (RN→RN `EventBus`), que esta task modelou mas deixou sem implementação de
+referência, foi **implementado e colocado em uso real** durante a Task 025 — exatamente o caso
+de uso que a nota abaixo apontava como candidato.
+
+- **`frontend/src/shared/managers/events/`** (novo) — `EventBus` singleton (pub/sub em memória,
+  emit síncrono), `createEvent<TPayload>(name)`, hook `useEvent(token, handler)`. Fica em
+  `managers/` (infra de comunicação, irmã de `caches`/`preferences`), **não** em
+  `shared/tools/` — correção explícita do usuário sobre a natureza do módulo. A modelagem desta
+  task falava em "Layer-3 tool"; na taxonomia real do RN isso é um manager.
+- **`EventToken<TPayload>`** implementado como `{ readonly name: string; readonly __payload?:
+  TPayload }` — o campo phantom carrega o tipo do payload só no sistema de tipos, sem custo em
+  runtime. Mantido minimal como a task pedia (sem auto-id, sem registry central). Payload é
+  livre por token; não há contrato comum entre eventos.
+- **Proteção contra ciclo de cadeia** (não estava no design original — pedido do usuário ao
+  revisar): `emit` rastreia a pilha de emits síncronos; reentrância do mesmo token (`X→X` /
+  `X→Y→X`) lança na hora com o trail; cadeia sem repetir token além de `MAX_CHAIN_DEPTH = 50`
+  lança um erro de backstop. Cadeia assíncrona não é rastreada (sai da pilha) — intencional.
+- **Convenção de nome** — resolvida como a task previa ("deferida pro caso real"): o módulo
+  emissor exporta um objeto `XEvents` const com seus tokens; quem escuta importa
+  `XEvents.token` (autocomplete, sem string solta). A string interna do `createEvent('...')` é
+  escolha do módulo dono, sem regra global.
+- **1º caso de uso real**: `ChapterTool.mark.*` emite `ChapterEvents.readStatusChanged`;
+  `useLibrary` escuta. Substitui o `NativeEventEmitter` `seriesProgressChanged` legado (que só
+  o caminho antigo disparava). Ver `completions/2026-08-29_025-fix-chapter.md`.
+
+Mecanismos 1 e 2 permanecem só formalizados (sem código) — o Mecanismo 1 tem consumidor
+concreto pendente na Task 029 (fix do scroll do Reader).
+
 ## Notas
 
-- Nenhum código de produção escrito — apenas design/contrato. `architecture.md` não atualizado,
-  mesma decisão já registrada nas demais tasks de contrato (só na implementação real).
-- `EventBus` (RN→RN) ainda não tem implementação mínima funcional — a task pedia isso como
-  critério de conclusão, mas ficou definido como design/contrato apenas, sem caso de uso real
-  para implementar agora (decisão explícita do usuário de não superdesenhar sem necessidade
-  concreta).
+- Nenhum código de produção escrito **nesta task** — apenas design/contrato. `architecture.md`
+  não atualizado, mesma decisão já registrada nas demais tasks de contrato (só na implementação
+  real). A implementação de referência do EventBus veio depois, na Task 025 (ver seção acima).
+- ~~`EventBus` (RN→RN) ainda não tem implementação mínima funcional~~ — **feito na Task 025.**
 - Task 029 (Reader) é a consumidora direta da correção do Mecanismo 1 — resolve o bug de
   corrida documentado ali.
 - **Candidato real para a implementação mínima do EventBus (Task 024, plano 017)**: hoje

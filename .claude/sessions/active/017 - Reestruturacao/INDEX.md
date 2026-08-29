@@ -25,7 +25,7 @@ changelog entry by hand.
 | [010](010-contract-series.md) | 2 — Contracts | Contract — Series | done (base contract, `architecture.md` update deferred) |
 | [011](011-contract-library.md) | 2 — Contracts | Contract — Library | done (decision: no Layer 3 Library contract; see task file) |
 | [012](012-contract-additional-datasources.md) | 2 — Contracts | Contract — additional DataSources (conditional on Task 007 findings) | done (no new DataSource — see task file) |
-| [013](013-formalize-communication-mechanisms.md) | 2 — Contracts | Formalize the 3 communication mechanisms (Kotlin→RN, RN→Kotlin, RN→RN) | done (design only, no EventBus implementation yet) |
+| [013](013-formalize-communication-mechanisms.md) | 2 — Contracts | Formalize the 3 communication mechanisms (Kotlin→RN, RN→Kotlin, RN→RN) | done (design 2026-08-21; EventBus reference implementation + cycle guard + first real use case shipped 2026-08-29 in Task 025 — see task file's "Result — implementation follow-up" + `completions/2026-08-29_013-...`) |
 | [014](014-plugin-manager-module.md) | 2 — Contracts | Plugin manager module design | done (design only, no reference implementation yet) |
 | [015](015-cache-guideline.md) | 3 — Cache guideline | Local cache guideline (Room vs. memory, who orchestrates cache→network) | done |
 | [016](016-relocate-kavita-plugin.md) | 4 — Implementation | Relocate the raw Kavita plugin to `Server/plugins/kavita/` (pure repositioning) | done (diverged from plan — see task file's Result section) |
