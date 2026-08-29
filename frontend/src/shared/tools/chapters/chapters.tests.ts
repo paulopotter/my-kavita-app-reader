@@ -1,4 +1,4 @@
-import { ChapterTool, ChaptersTool } from './chapters.tool';
+import { ChapterEvents, ChapterTool, ChaptersTool, type ChapterReadStatusChangedPayload } from './chapters.tool';
 
 jest.mock('../../services/chapters', () => ({
   ChapterService: {
@@ -16,6 +16,7 @@ jest.mock('../../managers/preferences', () => ({
 }));
 
 import { ChapterService } from '../../services/chapters';
+import { EventBus } from '../../managers/events';
 import { PreferencesManager } from '../../managers/preferences';
 import type { ChapterDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
@@ -219,6 +220,86 @@ describe('ChapterTool.mark.toggle', () => {
     const result = await ChapterTool.mark.toggle({ seriesId: 's1', chapterId: 'c1' });
     expect(mockStatusSet).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c1', isRead: true });
     expect(result).toEqual({ seriesId: 's1', chapterId: 'c1', readStatus: 'READ' });
+  });
+});
+
+describe('ChapterTool.mark.* — ChapterEvents.readStatusChanged emissions', () => {
+  let received: ChapterReadStatusChangedPayload[];
+  let off: () => void;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    received = [];
+    off = EventBus.on(ChapterEvents.readStatusChanged, p => received.push(p));
+  });
+
+  afterEach(() => off());
+
+  it('mark.read emits optimistic then confirmed, carrying prevStatus when given', async () => {
+    mockStatusSet.mockResolvedValue(undefined);
+    ChapterTool.mark.read({ seriesId: 's1', chapterId: 'c1', prevStatus: 'UNREAD' });
+    await flushPromises();
+
+    expect(received).toEqual([
+      { chapter: { id: 'c1', seriesId: 's1' }, changed: { readStatus: 'READ', prevStatus: 'UNREAD' }, phase: 'optimistic' },
+      { chapter: { id: 'c1', seriesId: 's1' }, changed: { readStatus: 'READ', prevStatus: 'UNREAD' }, phase: 'confirmed' },
+    ]);
+  });
+
+  it('mark.read emits prevStatus undefined when the caller did not supply it', () => {
+    mockStatusSet.mockReturnValue(new Promise(() => {}));
+    ChapterTool.mark.read({ seriesId: 's1', chapterId: 'c1' });
+
+    expect(received[0]).toEqual({
+      chapter: { id: 'c1', seriesId: 's1' },
+      changed: { readStatus: 'READ', prevStatus: undefined },
+      phase: 'optimistic',
+    });
+  });
+
+  it('mark.read emits reverted with prevStatus READ so a listener can undo its optimistic +1', async () => {
+    mockStatusSet.mockRejectedValue(new Error('network down'));
+    ChapterTool.mark.read({ seriesId: 's1', chapterId: 'c1', prevStatus: 'IN_PROGRESS' });
+    await flushPromises();
+
+    expect(received[0].phase).toBe('optimistic');
+    expect(received[1]).toEqual({
+      chapter: { id: 'c1', seriesId: 's1' },
+      changed: { readStatus: 'IN_PROGRESS', prevStatus: 'READ' },
+      phase: 'reverted',
+    });
+  });
+
+  it('mark.unread emits optimistic then confirmed', async () => {
+    mockStatusSet.mockResolvedValue(undefined);
+    ChapterTool.mark.unread({ seriesId: 's1', chapterId: 'c1', prevStatus: 'READ' });
+    await flushPromises();
+
+    expect(received.map(p => p.phase)).toEqual(['optimistic', 'confirmed']);
+    expect(received[0].changed).toEqual({ readStatus: 'UNREAD', prevStatus: 'READ' });
+  });
+
+  it('mark.unread emits reverted with prevStatus UNREAD on write failure', async () => {
+    mockStatusSet.mockRejectedValue(new Error('network down'));
+    ChapterTool.mark.unread({ seriesId: 's1', chapterId: 'c1', prevStatus: 'READ' });
+    await flushPromises();
+
+    expect(received[1]).toEqual({
+      chapter: { id: 'c1', seriesId: 's1' },
+      changed: { readStatus: 'READ', prevStatus: 'UNREAD' },
+      phase: 'reverted',
+    });
+  });
+
+  it('mark.toggle forwards the real prior status (read from the digest) into the payload', async () => {
+    mockGet.mockResolvedValue({ isSuccess: true, readStatus: 'IN_PROGRESS' });
+    mockStatusSet.mockResolvedValue(undefined);
+    await ChapterTool.mark.toggle({ seriesId: 's1', chapterId: 'c1' });
+    await flushPromises();
+
+    // IN_PROGRESS → toggle marks READ; every emission carries prevStatus: 'IN_PROGRESS'
+    expect(received.every(p => p.changed.prevStatus === 'IN_PROGRESS')).toBe(true);
+    expect(received[0].changed.readStatus).toBe('READ');
   });
 });
 

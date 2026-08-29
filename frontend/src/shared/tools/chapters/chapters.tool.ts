@@ -1,6 +1,7 @@
 import { createNavigateAction, type ActionContract } from '../actions/action.tool';
 import { Routes } from '../../../navigation/routes';
 import { ChapterService } from '../../services/chapters';
+import { EventBus, createEvent } from '../../managers/events';
 import { PreferencesManager } from '../../managers/preferences';
 import type { ChapterDigestSuccess, ChapterReadStatus, ImageDescriptor, ServerActiveInfo } from '../../bridge/digest';
 
@@ -13,6 +14,45 @@ export interface ChapterMarkUpdate {
   seriesId: string;
   chapterId: string;
   readStatus: ChapterReadStatus;
+}
+
+// ── ChapterEvents — EventBus tokens this module emits (plano 017, Task 013) ─────────────────
+// Declared here, next to the emitter (ChapterTool.mark.*), per Task 013: an event lives with
+// whichever module raises it. A listener imports `ChapterEvents.x` (autocomplete, no typo) and
+// never writes the event-name string. The bus imposes no shared payload shape — this one is
+// chapter's own.
+
+// `phase` maps ChapterTool.mark.*'s optimistic/confirm/revert flow: the tool emits once
+// immediately ('optimistic'), then again when ChapterService.status.set resolves ('confirmed')
+// or rejects ('reverted' — readStatus is then the value it fell back to). A listener that only
+// cares about the visible outcome can act on 'optimistic' + 'reverted' and ignore 'confirmed'.
+//
+// `changed.prevStatus` is the chapter's status right before this change, when the caller knew it:
+// mark.toggle always supplies it (it reads the digest first); mark.read/unread carry it only when
+// their own caller passed `prevStatus`. A listener keeping a running aggregate (e.g. the Library's
+// readChapters count) uses it to decide whether this change actually crosses the READ boundary
+// (prev !== 'READ' && next === 'READ' → +1, and the mirror for −1); when it's absent, the
+// listener falls back to an optimistic ±1 with a clamp and lets a background refetch reconcile.
+export interface ChapterReadStatusChangedPayload {
+  chapter: { id: string; seriesId: string };
+  changed: { readStatus: ChapterReadStatus; prevStatus?: ChapterReadStatus };
+  phase: 'optimistic' | 'confirmed' | 'reverted';
+}
+
+export const ChapterEvents = {
+  readStatusChanged: createEvent<ChapterReadStatusChangedPayload>('chapterReadStatusChanged'),
+} as const;
+
+function emitReadStatusChanged(
+  update: ChapterMarkUpdate,
+  phase: ChapterReadStatusChangedPayload['phase'],
+  prevStatus?: ChapterReadStatus,
+): void {
+  EventBus.emit(ChapterEvents.readStatusChanged, {
+    chapter: { id: update.chapterId, seriesId: update.seriesId },
+    changed: { readStatus: update.readStatus, prevStatus },
+    phase,
+  });
 }
 
 // Deliberately duplicated from ChapterDigestSuccess (bridge/digest.ts) instead of re-exporting it:
@@ -35,15 +75,19 @@ export interface SerieChapter {
   action: ActionContract; // not present on ChapterDigestSuccess — added by this normalizer
 }
 
-// `onUpdate` is the one channel every value — optimistic, confirmed, or reverted — flows through;
-// the returned Promise is a convenience for a caller that only wants the immediate (optimistic)
-// value, resolving right away without waiting for the real network call. `onUpdate` fires once
-// immediately with that same optimistic value, then again later when ChapterService.status.set
-// actually resolves (confirming it) or rejects (reverting to `prevStatus`, or the mark's own
-// natural opposite when the caller doesn't know the real prior status). Kept as a plain callback
-// parameter — not a hard EventBus dependency — so this stays the same call whether the caller
-// wires it to local React state today or to EventBus.emit(...) once that exists (Task 013);
-// nothing here needs to change either way.
+// Two channels, on purpose, one not replacing the other:
+//  - `onUpdate` (callback param) — the LOCAL channel: the caller wires it to its own React state
+//    (e.g. SerieScreen updating its chapter list in place). Every value — optimistic, confirmed,
+//    reverted — flows through it. The returned Promise is a convenience for a caller that only
+//    wants the immediate optimistic value without awaiting the network call.
+//  - ChapterEvents.readStatusChanged (EventBus) — the CROSS-SCREEN channel: any part of the app
+//    not in this component tree (e.g. the Library, mounted in the nav stack) reacts without the
+//    emitter knowing it exists. Emitted at the same three moments, with the same `phase`.
+//
+// Reader still marks read/unread through the legacy SeriesBridge path (ReaderService →
+// SeriesModule), NOT through this tool — so a mark from the Reader does not emit this event yet.
+// That closes when the Reader migrates onto ChapterTool (Task 029/030); doing it now would mean
+// the emit lived in two places, the exact duplication this whole correction removed.
 //
 // Known gap: ChapterService.status.set writes straight to the Kavita server (ServerBridge,
 // Layer 2) and never invalidates the SeriesDigest/ChapterDigest entries Cache.persistent (Kotlin)
@@ -89,10 +133,20 @@ export const ChapterTool = {
     }): Promise<ChapterMarkUpdate> {
       const optimistic: ChapterMarkUpdate = { seriesId, chapterId, readStatus: 'READ' };
       onUpdate?.(optimistic);
+      emitReadStatusChanged(optimistic, 'optimistic', prevStatus);
 
       ChapterService.status.set({ seriesId, chapterId, isRead: true })
-        .then(() => onUpdate?.(optimistic))
-        .catch(() => onUpdate?.({ seriesId, chapterId, readStatus: prevStatus ?? 'UNREAD' }));
+        .then(() => {
+          onUpdate?.(optimistic);
+          emitReadStatusChanged(optimistic, 'confirmed', prevStatus);
+        })
+        .catch(() => {
+          const reverted: ChapterMarkUpdate = { seriesId, chapterId, readStatus: prevStatus ?? 'UNREAD' };
+          onUpdate?.(reverted);
+          // On revert the "previous" state, from the aggregate's point of view, is the optimistic
+          // READ it already applied — so it can undo exactly that.
+          emitReadStatusChanged(reverted, 'reverted', 'READ');
+        });
 
       return Promise.resolve(optimistic);
     },
@@ -110,10 +164,20 @@ export const ChapterTool = {
     }): Promise<ChapterMarkUpdate> {
       const optimistic: ChapterMarkUpdate = { seriesId, chapterId, readStatus: 'UNREAD' };
       onUpdate?.(optimistic);
+      emitReadStatusChanged(optimistic, 'optimistic', prevStatus);
 
       ChapterService.status.set({ seriesId, chapterId, isRead: false })
-        .then(() => onUpdate?.(optimistic))
-        .catch(() => onUpdate?.({ seriesId, chapterId, readStatus: prevStatus ?? 'READ' }));
+        .then(() => {
+          onUpdate?.(optimistic);
+          emitReadStatusChanged(optimistic, 'confirmed', prevStatus);
+        })
+        .catch(() => {
+          const reverted: ChapterMarkUpdate = { seriesId, chapterId, readStatus: prevStatus ?? 'READ' };
+          onUpdate?.(reverted);
+          // On revert the "previous" state, from the aggregate's point of view, is the optimistic
+          // UNREAD it already applied — so it can undo exactly that.
+          emitReadStatusChanged(reverted, 'reverted', 'UNREAD');
+        });
 
       return Promise.resolve(optimistic);
     },
