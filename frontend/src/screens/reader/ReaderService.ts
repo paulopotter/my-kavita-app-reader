@@ -42,6 +42,9 @@ export async function saveLocalProgress(
   return ReaderChapterBridge.saveLocalProgress(chapterId, seriesId, page, scrollFraction);
 }
 
+// Nota (plano 017, Task 025): não notifica mais a Library reativamente — o evento nativo
+// 'seriesProgressChanged' que ReaderChapterModule emitia foi removido. A notificação de
+// progresso volta pelo EventBus RN→RN (Task 013): emitir aqui após o sucesso.
 export async function saveServerProgress(chapterId: string, seriesId: string, page: number): Promise<void> {
   return ReaderChapterBridge.saveReadingProgress(chapterId, seriesId, page);
 }
@@ -66,6 +69,9 @@ export async function setImmersiveMode(enabled: boolean): Promise<void> {
   return ScreenControlBridge.setImmersiveMode(enabled);
 }
 
+// Nota (plano 017, Task 025): não notifica mais a Library reativamente — o evento nativo
+// 'seriesProgressChanged' que SeriesModule.markChaptersRead/Unread emitia foi removido. A
+// notificação de progresso volta pelo EventBus RN→RN (Task 013): emitir aqui após o sucesso.
 export async function markChapterRead(seriesId: string, chapterId: string): Promise<void> {
   return SeriesBridge.markChaptersRead(seriesId, [chapterId]);
 }

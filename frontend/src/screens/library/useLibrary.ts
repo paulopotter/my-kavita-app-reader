@@ -130,9 +130,13 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     return () => sub.remove();
   }, []);
 
-  // Mesma ideia do listener de follow acima: progresso de leitura muda em outra tela (Series
-  // Detail, Reader) enquanto esta continua montada — reage in-place ao invés de esperar o TTL do
-  // cache em memória do lado nativo expirar ou depender de um refetch completo.
+  // DESATIVADO (plano 017, Task 025): o lado nativo (SeriesModule/ReaderChapterModule) parou de
+  // emitir 'seriesProgressChanged' — aquela lógica derivava progresso de dado local (Room), sem
+  // origem no servidor, e estava duplicada entre as duas bridges. A notificação de progresso vai
+  // voltar pelo EventBus RN→RN (Task 013), emitida por quem marca o progresso no RN (ChapterTool
+  // / ReaderService), não por uma bridge Kotlin. Quando o EventBus existir, trocar
+  // SeriesProgressChangedEmitter por `eventBus.on(ProgressChanged, ...)` aqui — o reducer
+  // 'PROGRESS_CHANGED' abaixo já está pronto para receber o mesmo payload.
   useEffect(() => {
     const sub = SeriesProgressChangedEmitter.addListener(
       'seriesProgressChanged',

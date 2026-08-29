@@ -43,8 +43,11 @@ export interface SeriesProgressChangedEvent {
   chapterCount: number;
 }
 
-// Emitido pelo lado nativo sempre que o progresso de leitura de uma série muda localmente
-// (markChaptersRead/Unread no Series Detail, saveReadingProgress no Reader) — permite que a
-// Library confie no dado local mais recente sem esperar o TTL do seu cache em memória expirar,
-// mesmo padrão de SeriesFollowedEmitter para follow/unfollow.
+// DESATIVADO (plano 017, Task 025): SeriesModule/ReaderChapterModule não emitem mais
+// 'seriesProgressChanged' — a derivação de progresso era feita de dado local (Room), sem origem
+// no servidor, e estava duplicada byte-a-byte entre as duas bridges. A notificação volta pelo
+// EventBus RN→RN (Task 013), emitida por quem marca o progresso no RN. Este emitter e o tipo
+// acima ficam como esqueleto até lá; o listener vivo está comentado em useLibrary.ts.
+// (SeriesFollowedEmitter permanece ativo — sua origem, Room observando followedSeriesDao, é
+// genuinamente nativa.)
 export const SeriesProgressChangedEmitter = new NativeEventEmitter(NativeModules.SeriesModule);
