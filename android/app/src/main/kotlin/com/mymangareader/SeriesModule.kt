@@ -20,7 +20,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val EVENT_FOLLOWED_IDS = "seriesFollowedIds"
-private const val EVENT_PROGRESS_CHANGED = "seriesProgressChanged"
 
 // Task 024 — the methods this module used to expose beyond what's kept here (getSeriesMetadata,
 // getCachedSeriesDetail/Metadata, getChapters, replaceCachedChapters, toggleFollow/
@@ -78,7 +77,6 @@ class SeriesModule @Inject constructor(
         scope.launch {
             val ids = (0 until chapterIds.size()).map { chapterIds.getString(it) }
             kavitaChapterFeature.markChaptersRead(seriesId, ids)
-                .onSuccess { runCatching { emitProgressChanged(seriesId) } }
                 .resolveOrReject(promise, "MARK_READ_ERROR")
         }
     }
@@ -88,31 +86,17 @@ class SeriesModule @Inject constructor(
         scope.launch {
             val ids = (0 until chapterIds.size()).map { chapterIds.getString(it) }
             kavitaChapterFeature.markChaptersUnread(seriesId, ids)
-                .onSuccess { runCatching { emitProgressChanged(seriesId) } }
                 .resolveOrReject(promise, "MARK_UNREAD_ERROR")
         }
     }
 
-    // Notifica telas montadas (ex: Library, mantida viva na pilha de navegação) que o progresso de
-    // leitura de uma série mudou, sem elas precisarem esperar o TTL do cache em memória do
-    // LibraryModule expirar nem fazer um refetch completo — mesmo padrão do EVENT_FOLLOWED_IDS.
-    // readChapters/chapterCount usam a mesma lógica de KavitaSeriesFeature.resolveProgress (cache
-    // local como fonte de verdade de progresso), evitando duplicar o cálculo de readStatus aqui.
-    // Best-effort: uma falha aqui nunca deve impedir a Promise de markChaptersRead/Unread de
-    // resolver — ver os runCatching nos call sites acima.
-    private suspend fun emitProgressChanged(seriesId: String) {
-        val chapters = chapterCacheDao.getBySeriesId(seriesId)
-        if (chapters.isEmpty()) return
-        val readCount = chapters.count { it.readStatus == "READ" }
-        val progressFraction = readCount.toFloat() / chapters.size
-        val payload = Arguments.createMap().apply {
-            putString("seriesId", seriesId)
-            putDouble("progressFraction", progressFraction.toDouble())
-            putInt("readChapters", readCount)
-            putInt("chapterCount", chapters.size)
-        }
-        reactApplicationContext.emitEvent(EVENT_PROGRESS_CHANGED, payload)
-    }
+    // Nota (plano 017, Task 025): markChaptersRead/Unread emitiam um evento nativo
+    // `seriesProgressChanged` (lógica duplicada byte-a-byte com ReaderChapterModule) para a
+    // Library reagir ao progresso sem refetch. Derivava tudo do cache LOCAL (Room), sem origem
+    // no servidor — não é responsabilidade de uma bridge Kotlin. Removido daqui e de
+    // ReaderChapterModule; a notificação volta pelo EventBus RN→RN (Task 013), emitida no RN
+    // por quem dispara a marcação. O emitter EVENT_FOLLOWED_IDS abaixo permanece porque a
+    // origem dele (Room observando followedSeriesDao) é genuinamente nativa.
 
     @ReactMethod
     fun addListener(eventName: String) = Unit // required by RN event emitter contract

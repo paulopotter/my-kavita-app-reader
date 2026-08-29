@@ -68,7 +68,7 @@ class AppReactPackage(
                 followedSeriesDao,
                 context,
             ),
-            ReaderChapterModule(chapterDataSource, chapterCacheDao, context),
+            ReaderChapterModule(chapterDataSource, context),
             ScreenControlModule(uiPreferencesDao, context),
             NetworkStatusModule(activeUrlWatcher, context),
             ServerBridgeModule(server, context),
