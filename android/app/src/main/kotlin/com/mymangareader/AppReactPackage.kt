@@ -10,7 +10,6 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
-import com.mymangareader.core.database.SeriesSortPrefsDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
@@ -45,7 +44,6 @@ class AppReactPackage(
     private val splashSyncCoordinator: SplashSyncCoordinator,
     private val chapterCacheDao: ChapterCacheDao,
     private val uiPreferencesDao: UiPreferencesDao,
-    private val seriesSortPrefsDao: SeriesSortPrefsDao,
     private val activeUrlWatcher: ActiveUrlWatcher,
     private val server: Server,
     private val externalMetadataServer: ExternalMetadataServer,
@@ -68,8 +66,6 @@ class AppReactPackage(
                 kavitaChapterFeature,
                 chapterCacheDao,
                 followedSeriesDao,
-                uiPreferencesDao,
-                seriesSortPrefsDao,
                 context,
             ),
             ReaderChapterModule(chapterDataSource, chapterCacheDao, context),

@@ -15,7 +15,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BffMatchEntity::class,
         BffServerConfigEntity::class,
         FollowedSeriesEntity::class,
-        SeriesSortPrefsEntity::class,
         PageCacheEntity::class,
         SeriesDetailCacheEntity::class,
         ServerGroupEntity::class,
@@ -25,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CacheEntity::class,
         PreferenceEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,7 +36,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun bffMatchDao(): BffMatchDao
     abstract fun bffServerConfigDao(): BffServerConfigDao
     abstract fun followedSeriesDao(): FollowedSeriesDao
-    abstract fun seriesSortPrefsDao(): SeriesSortPrefsDao
     abstract fun pageCacheDao(): PageCacheDao
     abstract fun seriesDetailCacheDao(): SeriesDetailCacheDao
     abstract fun serverGroupDao(): ServerGroupDao
@@ -137,5 +135,7 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_11_10 = com.mymangareader.core.database.migrations.Migration_11_10
         val MIGRATION_11_12 = com.mymangareader.core.database.migrations.Migration_11_12
         val MIGRATION_12_11 = com.mymangareader.core.database.migrations.Migration_12_11
+        val MIGRATION_12_13 = com.mymangareader.core.database.migrations.Migration_12_13
+        val MIGRATION_13_12 = com.mymangareader.core.database.migrations.Migration_13_12
     }
 }

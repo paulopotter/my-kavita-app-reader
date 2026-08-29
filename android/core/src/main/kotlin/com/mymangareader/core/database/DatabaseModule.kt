@@ -33,6 +33,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_11_10,
                 AppDatabase.MIGRATION_11_12,
                 AppDatabase.MIGRATION_12_11,
+                AppDatabase.MIGRATION_12_13,
+                AppDatabase.MIGRATION_13_12,
             )
             .build()
 
@@ -65,9 +67,6 @@ object DatabaseModule {
 
     @Provides
     fun provideFollowedSeriesDao(db: AppDatabase): FollowedSeriesDao = db.followedSeriesDao()
-
-    @Provides
-    fun provideSeriesSortPrefsDao(db: AppDatabase): SeriesSortPrefsDao = db.seriesSortPrefsDao()
 
     @Provides
     fun providePageCacheDao(db: AppDatabase): PageCacheDao = db.pageCacheDao()

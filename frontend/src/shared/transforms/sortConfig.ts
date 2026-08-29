@@ -1,4 +1,4 @@
-import { ChapterSortMode } from '../bridge/series';
+import { ChapterSortMode } from '../tools/chapters/chapters.tool';
 import { Strings } from '../i18n/strings';
 
 export function sortModeLabel(

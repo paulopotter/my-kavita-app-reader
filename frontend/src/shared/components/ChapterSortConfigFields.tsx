@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChapterSortMode } from '../bridge/series';
+import { ChapterSortMode } from '../tools/chapters/chapters.tool';
 import { Strings } from '../i18n/strings';
 import { parseSortConfigInput, sortModeLabel } from '../transforms/sortConfig';
 

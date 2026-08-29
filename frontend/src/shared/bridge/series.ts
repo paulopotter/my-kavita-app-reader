@@ -6,12 +6,6 @@ export interface SeriesDetail {
   coverImageUrl: string;
 }
 
-export interface SeriesMetadata {
-  summary: string | null;
-  genres: string[];
-  tags: string[];
-}
-
 export type ChapterReadStatus = 'UNREAD' | 'IN_PROGRESS' | 'READ';
 
 export interface Chapter {
@@ -26,40 +20,16 @@ export interface Chapter {
   updatedAtLocalMs: number | null;
 }
 
-export type ChapterSortMode = 'ASCENDING' | 'DESCENDING' | 'AUTO_FIXED' | 'AUTO_PROGRESS';
-
-export interface ChapterSortPrefs {
-  mode: ChapterSortMode;
-  fixedThreshold?: number;
-  progressPercent: number;
-}
-
+// Task 024 — getSeriesMetadata/getCachedSeriesDetail/getCachedSeriesMetadata/getChapters/
+// replaceCachedChapters/toggleFollow/isSeriesFollowed/the 3 chapter-sort-prefs methods were
+// removed from SeriesModule (Kotlin) once the legacy SeriesDetailScreen (their only real caller)
+// was deleted — SerieScreen's own tools (SerieTool/ChapterTool/ChaptersTool) already cover the
+// same concerns through DigestBridge/FollowedSeriesBridgeModule/PreferencesBridgeModule instead.
 interface SeriesModuleInterface {
   getSeriesDetail(seriesId: string): Promise<SeriesDetail>;
-  getSeriesMetadata(seriesId: string): Promise<SeriesMetadata>;
-  getCachedSeriesDetail(seriesId: string): Promise<SeriesDetail | null>;
-  getCachedSeriesMetadata(seriesId: string): Promise<SeriesMetadata | null>;
-  getChapters(seriesId: string): Promise<Chapter[]>;
   getCachedChapters(seriesId: string): Promise<Chapter[]>;
-  replaceCachedChapters(seriesId: string, chapters: Chapter[]): Promise<void>;
   markChaptersRead(seriesId: string, chapterIds: string[]): Promise<void>;
   markChaptersUnread(seriesId: string, chapterIds: string[]): Promise<void>;
-  toggleFollow(seriesId: string): Promise<void>;
-  isSeriesFollowed(seriesId: string): Promise<boolean>;
-  getChapterSortPrefs(): Promise<ChapterSortPrefs>;
-  setChapterSortPrefs(
-    mode: ChapterSortMode,
-    fixedThreshold: number | undefined,
-    progressPercent: number,
-  ): Promise<void>;
-  getSeriesSortPrefs(seriesId: string): Promise<ChapterSortPrefs | null>;
-  setSeriesSortPrefs(
-    seriesId: string,
-    mode: ChapterSortMode,
-    fixedThreshold: number | undefined,
-    progressPercent: number,
-  ): Promise<void>;
-  resetSeriesSortPrefs(seriesId: string): Promise<void>;
 }
 
 export const SeriesBridge: SeriesModuleInterface = NativeModules.SeriesModule;

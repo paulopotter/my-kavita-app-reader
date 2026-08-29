@@ -18,7 +18,6 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
-import com.mymangareader.core.database.SeriesSortPrefsDao
 import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
@@ -59,7 +58,6 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     @Inject lateinit var splashSyncCoordinator: SplashSyncCoordinator
     @Inject lateinit var chapterCacheDao: ChapterCacheDao
     @Inject lateinit var uiPreferencesDao: UiPreferencesDao
-    @Inject lateinit var seriesSortPrefsDao: SeriesSortPrefsDao
     @Inject lateinit var activeUrlWatcher: ActiveUrlWatcher
     @Inject lateinit var server: Server
     @Inject lateinit var externalMetadataServer: ExternalMetadataServer
@@ -84,7 +82,6 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
                     splashSyncCoordinator = splashSyncCoordinator,
                     chapterCacheDao = chapterCacheDao,
                     uiPreferencesDao = uiPreferencesDao,
-                    seriesSortPrefsDao = seriesSortPrefsDao,
                     activeUrlWatcher = activeUrlWatcher,
                     server = server,
                     externalMetadataServer = externalMetadataServer,

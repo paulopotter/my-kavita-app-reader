@@ -1,24 +1,17 @@
 package com.mymangareader
 
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.Dynamic
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
-import com.facebook.react.bridge.ReadableType
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
 import com.mymangareader.core.database.FollowedSeriesDao
-import com.mymangareader.core.database.SeriesSortPrefsDao
-import com.mymangareader.core.database.SeriesSortPrefsEntity
-import com.mymangareader.core.database.UiPreferencesDao
-import com.mymangareader.core.database.UiPreferencesEntity
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.features.kavita.series.SeriesDetail
-import com.mymangareader.features.kavita.series.SeriesMetadata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,14 +22,20 @@ import javax.inject.Singleton
 private const val EVENT_FOLLOWED_IDS = "seriesFollowedIds"
 private const val EVENT_PROGRESS_CHANGED = "seriesProgressChanged"
 
+// Task 024 — the methods this module used to expose beyond what's kept here (getSeriesMetadata,
+// getCachedSeriesDetail/Metadata, getChapters, replaceCachedChapters, toggleFollow/
+// isSeriesFollowed, and the 3 chapter-sort-prefs methods) had no real RN caller left once the
+// legacy SeriesDetailScreen was deleted — SerieScreen's own tools (SerieTool/ChapterTool/
+// ChaptersTool) already cover the same concerns through DigestBridge/FollowedSeriesBridgeModule/
+// PreferencesBridgeModule instead. What's left here (getSeriesDetail/getCachedChapters/
+// markChaptersRead/Unread, plus the 2 emitters) is what ReaderService/useReader/useLibrary still
+// genuinely depend on.
 @Singleton
 class SeriesModule @Inject constructor(
     private val kavitaSeriesFeature: KavitaSeriesFeature,
     private val kavitaChapterFeature: KavitaChapterFeature,
     private val chapterCacheDao: ChapterCacheDao,
     private val followedSeriesDao: FollowedSeriesDao,
-    private val uiPreferencesDao: UiPreferencesDao,
-    private val seriesSortPrefsDao: SeriesSortPrefsDao,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
@@ -67,67 +66,10 @@ class SeriesModule @Inject constructor(
     }
 
     @ReactMethod
-    fun getSeriesMetadata(seriesId: String, promise: Promise) {
-        scope.launch {
-            kavitaSeriesFeature.getSeriesMetadata(seriesId).resolveOrReject(promise, "SERIES_METADATA_ERROR") { it.toWritableMap() }
-        }
-    }
-
-    @ReactMethod
-    fun getCachedSeriesDetail(seriesId: String, promise: Promise) {
-        scope.launch {
-            runCatching { kavitaSeriesFeature.getCachedSeriesDetail(seriesId) }
-                .resolveOrReject(promise, "CACHED_SERIES_DETAIL_ERROR") { it?.toWritableMap() }
-        }
-    }
-
-    @ReactMethod
-    fun getCachedSeriesMetadata(seriesId: String, promise: Promise) {
-        scope.launch {
-            runCatching { kavitaSeriesFeature.getCachedSeriesMetadata(seriesId) }
-                .resolveOrReject(promise, "CACHED_SERIES_METADATA_ERROR") { it?.toWritableMap() }
-        }
-    }
-
-    @ReactMethod
-    fun getChapters(seriesId: String, promise: Promise) {
-        scope.launch {
-            kavitaChapterFeature.listChaptersForSeries(seriesId).resolveOrReject(promise, "CHAPTERS_ERROR") { it.toWritableArray() }
-        }
-    }
-
-    @ReactMethod
     fun getCachedChapters(seriesId: String, promise: Promise) {
         scope.launch {
             runCatching { chapterCacheDao.getBySeriesId(seriesId) }
                 .resolveOrReject(promise, "CACHED_CHAPTERS_ERROR") { it.toWritableArray() }
-        }
-    }
-
-    @ReactMethod
-    fun replaceCachedChapters(seriesId: String, chapters: ReadableArray, promise: Promise) {
-        scope.launch {
-            runCatching {
-                val entities = (0 until chapters.size()).map { i ->
-                    val map = chapters.getMap(i)
-                    ChapterCacheEntity(
-                        id = map.getString("id") ?: "",
-                        seriesId = seriesId,
-                        title = map.getString("title") ?: "",
-                        number = map.getString("number") ?: "",
-                        pageCount = if (map.hasKey("pageCount")) map.getInt("pageCount") else 0,
-                        sortOrder = if (map.hasKey("sortOrder")) map.getDouble("sortOrder") else 0.0,
-                        readStatus = map.getString("readStatus") ?: "UNREAD",
-                        pagesRead = if (map.hasKey("pagesRead")) map.getInt("pagesRead") else 0,
-                        updatedAtLocalMs = if (map.hasKey("updatedAtLocalMs") && !map.isNull("updatedAtLocalMs")) {
-                            map.getDouble("updatedAtLocalMs").toLong()
-                        } else {
-                            null
-                        },
-                    )
-                }
-                chapterCacheDao.replaceForSeries(seriesId, entities)
-            }.resolveOrReject(promise, "REPLACE_CHAPTERS_ERROR")
         }
     }
 
@@ -173,93 +115,6 @@ class SeriesModule @Inject constructor(
     }
 
     @ReactMethod
-    fun toggleFollow(seriesId: String, promise: Promise) {
-        scope.launch {
-            runCatching { followedSeriesDao.toggle(seriesId) }.resolveOrReject(promise, "FOLLOW_ERROR")
-        }
-    }
-
-    @ReactMethod
-    fun isSeriesFollowed(seriesId: String, promise: Promise) {
-        scope.launch {
-            runCatching { followedSeriesDao.isFollowed(seriesId) }.resolveOrReject(promise, "FOLLOW_ERROR")
-        }
-    }
-
-    @ReactMethod
-    fun getChapterSortPrefs(promise: Promise) {
-        scope.launch {
-            runCatching { uiPreferencesDao.get() ?: UiPreferencesEntity() }
-                .resolveOrReject(promise, "SORT_PREFS_ERROR") { prefs ->
-                    Arguments.createMap().apply {
-                        putString("mode", prefs.chapterSortMode)
-                        prefs.chapterSortFixedThreshold?.let { putDouble("fixedThreshold", it) }
-                        putInt("progressPercent", prefs.chapterSortProgressPercent)
-                    }
-                }
-        }
-    }
-
-    @ReactMethod
-    fun setChapterSortPrefs(mode: String, fixedThreshold: Dynamic, progressPercent: Int, promise: Promise) {
-        val threshold = if (fixedThreshold.type == ReadableType.Number) fixedThreshold.asDouble() else null
-        fixedThreshold.recycle()
-        scope.launch {
-            runCatching {
-                val current = uiPreferencesDao.get() ?: UiPreferencesEntity()
-                uiPreferencesDao.upsert(
-                    current.copy(
-                        chapterSortMode = mode,
-                        chapterSortFixedThreshold = threshold,
-                        chapterSortProgressPercent = progressPercent,
-                    ),
-                )
-            }.resolveOrReject(promise, "SORT_PREFS_ERROR")
-        }
-    }
-
-    @ReactMethod
-    fun getSeriesSortPrefs(seriesId: String, promise: Promise) {
-        scope.launch {
-            runCatching { seriesSortPrefsDao.get(seriesId) }
-                .resolveOrReject(promise, "SERIES_SORT_PREFS_ERROR") { prefs ->
-                    prefs?.let {
-                        Arguments.createMap().apply {
-                            putString("mode", it.chapterSortMode)
-                            it.chapterSortFixedThreshold?.let { threshold -> putDouble("fixedThreshold", threshold) }
-                            putInt("progressPercent", it.chapterSortProgressPercent)
-                        }
-                    }
-                }
-        }
-    }
-
-    @ReactMethod
-    fun setSeriesSortPrefs(seriesId: String, mode: String, fixedThreshold: Dynamic, progressPercent: Int, promise: Promise) {
-        val threshold = if (fixedThreshold.type == ReadableType.Number) fixedThreshold.asDouble() else null
-        fixedThreshold.recycle()
-        scope.launch {
-            runCatching {
-                seriesSortPrefsDao.upsert(
-                    SeriesSortPrefsEntity(
-                        seriesId = seriesId,
-                        chapterSortMode = mode,
-                        chapterSortFixedThreshold = threshold,
-                        chapterSortProgressPercent = progressPercent,
-                    ),
-                )
-            }.resolveOrReject(promise, "SERIES_SORT_PREFS_ERROR")
-        }
-    }
-
-    @ReactMethod
-    fun resetSeriesSortPrefs(seriesId: String, promise: Promise) {
-        scope.launch {
-            runCatching { seriesSortPrefsDao.delete(seriesId) }.resolveOrReject(promise, "SERIES_SORT_PREFS_ERROR")
-        }
-    }
-
-    @ReactMethod
     fun addListener(eventName: String) = Unit // required by RN event emitter contract
 
     @ReactMethod
@@ -269,12 +124,6 @@ class SeriesModule @Inject constructor(
         putString("id", id)
         putString("name", name)
         putString("coverImageUrl", coverImageUrl)
-    }
-
-    private fun SeriesMetadata.toWritableMap() = Arguments.createMap().apply {
-        summary?.let { putString("summary", it) }
-        putArray("genres", Arguments.createArray().also { arr -> genres.forEach { arr.pushString(it) } })
-        putArray("tags", Arguments.createArray().also { arr -> tags.forEach { arr.pushString(it) } })
     }
 
     private fun List<ChapterCacheEntity>.toWritableArray() = Arguments.createArray().also { array ->

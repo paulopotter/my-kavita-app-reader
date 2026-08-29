@@ -16,18 +16,17 @@ export * from './preferences';
 export * from './server';
 export * from './startup';
 
-// series.ts is the legacy SeriesBridge (screens/series-detail's own data source, being migrated
-// away from) — its own SeriesMetadata/ChapterReadStatus collide by name with digest.ts's real,
-// current versions of the same concepts. Renamed on the way out so both can be imported from this
-// single index without ambiguity; new code should reach for digest.ts's SeriesMetadata/
-// ChapterReadStatus, never the Legacy* ones.
+// series.ts is the legacy SeriesBridge — still needed by ReaderService/useReader
+// (getSeriesDetail/getCachedChapters/markChaptersRead/Unread) and useLibrary (the two emitters);
+// every other method it used to expose was removed once the legacy SeriesDetailScreen (their only
+// real caller) was deleted (Task 024). Its own Chapter/ChapterReadStatus collide by name with
+// digest.ts's real, current versions of the same concepts — renamed on the way out so both can be
+// imported from this single index without ambiguity; new code should reach for digest.ts's
+// ChapterReadStatus, never LegacyChapterReadStatus.
 export type {
   Chapter as LegacyChapter,
   ChapterReadStatus as LegacyChapterReadStatus,
-  ChapterSortMode as LegacyChapterSortMode,
-  ChapterSortPrefs as LegacyChapterSortPrefs,
   SeriesDetail as LegacySeriesDetail,
-  SeriesMetadata as LegacySeriesMetadata,
 } from './series';
 export { SeriesBridge, SeriesFollowedEmitter, SeriesProgressChangedEmitter } from './series';
 export type { SeriesProgressChangedEvent } from './series';

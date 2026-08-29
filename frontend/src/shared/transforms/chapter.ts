@@ -1,4 +1,5 @@
-import { Chapter, ChapterSortMode } from '../bridge/series';
+import { Chapter } from '../bridge/series';
+import { ChapterSortMode } from '../tools/chapters/chapters.tool';
 import { LocalProgress } from '../bridge/chapter';
 import { Strings } from '../i18n/strings';
 
