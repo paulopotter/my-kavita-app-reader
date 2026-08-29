@@ -22,23 +22,60 @@ export function createEvent<TPayload>(name: string): EventToken<TPayload> {
   return { name };
 }
 
+// A legitimate chain (mark read → recompute total → announce total) nests a handful of emits
+// deep and unwinds. A cycle (A→B→A…) never unwinds — it would blow the call stack silently.
+// MAX_CHAIN_DEPTH is the backstop for a long non-repeating chain (A→B→C→D→…); same-token
+// re-entrancy is caught earlier and more precisely by the dispatch-stack check below.
+const MAX_CHAIN_DEPTH = 50;
+
+const CYCLE_ERROR_PREFIX = 'EventBus:';
+
 class EventBusImpl implements EventBusManagerContract {
   private readonly handlers = new Map<string, Set<EventHandler<unknown>>>();
+  // Names of the emits currently open on the synchronous call stack. Empty between top-level
+  // emits; each nested emit (a handler emitting during its own dispatch) pushes/pops one entry.
+  private readonly dispatchStack: string[] = [];
 
   emit<TPayload>(event: EventToken<TPayload>, payload: TPayload): void {
+    // Direct or indirect cycle of the SAME token: a handler of X emitted X again (X→X, or
+    // X→Y→X). Reported at depth 2, with the full trail, instead of waiting to hit MAX_CHAIN_DEPTH.
+    if (this.dispatchStack.includes(event.name)) {
+      const trail = [...this.dispatchStack, event.name].join(' -> ');
+      this.dispatchStack.length = 0; // reset so the next top-level emit starts clean
+      throw new Error(`${CYCLE_ERROR_PREFIX} ciclo de eventos detectado — ${trail}`);
+    }
+    // Long chain that never repeats a token — the backstop against runaway propagation.
+    if (this.dispatchStack.length >= MAX_CHAIN_DEPTH) {
+      const trail = [...this.dispatchStack, event.name].join(' -> ');
+      this.dispatchStack.length = 0;
+      throw new Error(
+        `${CYCLE_ERROR_PREFIX} cadeia de eventos excedeu ${MAX_CHAIN_DEPTH} níveis — ${trail}`,
+      );
+    }
+
     const set = this.handlers.get(event.name);
     if (!set) {
       return;
     }
-    // Snapshot before iterating: a handler that unsubscribes (or subscribes) during its own run
-    // must not corrupt the loop.
-    for (const handler of [...set]) {
-      try {
-        handler(payload);
-      } catch {
-        // One handler throwing never stops the rest — the bus has no way to surface the error
-        // and swallowing it is safer than aborting the fan-out mid-way.
+
+    this.dispatchStack.push(event.name);
+    try {
+      // Snapshot before iterating: a handler that unsubscribes (or subscribes) during its own run
+      // must not corrupt the loop.
+      for (const handler of [...set]) {
+        try {
+          handler(payload);
+        } catch (err) {
+          // A cycle/depth error raised by a NESTED emit must propagate up to whoever built the
+          // chain — swallowing it here would defeat the guard. Any other error (a bug in a
+          // normal handler) stays contained: one handler throwing never stops the rest.
+          if (err instanceof Error && err.message.startsWith(CYCLE_ERROR_PREFIX)) {
+            throw err;
+          }
+        }
       }
+    } finally {
+      this.dispatchStack.pop();
     }
   }
 

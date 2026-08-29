@@ -97,6 +97,96 @@ describe('EventBus', () => {
   });
 });
 
+describe('EventBus — chain/cycle guard', () => {
+  it('a legitimate 3-deep chain (A -> B -> C, no repeat) runs fully and unwinds', () => {
+    const a = createEvent<void>('chain/a');
+    const b = createEvent<void>('chain/b');
+    const c = createEvent<void>('chain/c');
+    const seen: string[] = [];
+
+    EventBus.on(a, () => {
+      seen.push('a');
+      EventBus.emit(b, undefined);
+    });
+    EventBus.on(b, () => {
+      seen.push('b');
+      EventBus.emit(c, undefined);
+    });
+    EventBus.on(c, () => seen.push('c'));
+
+    expect(() => EventBus.emit(a, undefined)).not.toThrow();
+    expect(seen).toEqual(['a', 'b', 'c']);
+
+    // Stack fully unwound: a plain emit right after still works.
+    const after = jest.fn();
+    EventBus.on(c, after);
+    EventBus.emit(c, undefined);
+    expect(after).toHaveBeenCalledTimes(1);
+  });
+
+  it('a direct cycle (X handler emits X) throws with the trail', () => {
+    const x = createEvent<void>('cycle/direct');
+    EventBus.on(x, () => EventBus.emit(x, undefined));
+
+    expect(() => EventBus.emit(x, undefined)).toThrow(/ciclo de eventos detectado/);
+    expect(() => EventBus.emit(x, undefined)).toThrow(/cycle\/direct -> cycle\/direct/);
+  });
+
+  it('an indirect cycle (A -> B -> A) throws', () => {
+    const a = createEvent<void>('cycle/a');
+    const b = createEvent<void>('cycle/b');
+    EventBus.on(a, () => EventBus.emit(b, undefined));
+    EventBus.on(b, () => EventBus.emit(a, undefined));
+
+    expect(() => EventBus.emit(a, undefined)).toThrow(
+      /ciclo de eventos detectado — cycle\/a -> cycle\/b -> cycle\/a/,
+    );
+  });
+
+  it('after a cycle error, a fresh unrelated emit works (stack was reset)', () => {
+    const loop = createEvent<void>('cycle/reset-loop');
+    const ok = createEvent<number>('cycle/reset-ok');
+    EventBus.on(loop, () => EventBus.emit(loop, undefined));
+    const handler = jest.fn();
+    EventBus.on(ok, handler);
+
+    expect(() => EventBus.emit(loop, undefined)).toThrow();
+
+    EventBus.emit(ok, 7);
+    expect(handler).toHaveBeenCalledWith(7);
+  });
+
+  it('a long non-repeating chain past MAX_CHAIN_DEPTH throws the backstop error', () => {
+    // 60 distinct tokens, each handler emitting the next — no token ever repeats, so only the
+    // depth backstop can catch it.
+    const tokens = Array.from({ length: 60 }, (_, i) => createEvent<void>(`depth/${i}`));
+    tokens.forEach((tok, i) => {
+      EventBus.on(tok, () => {
+        if (i + 1 < tokens.length) {
+          EventBus.emit(tokens[i + 1], undefined);
+        }
+      });
+    });
+
+    expect(() => EventBus.emit(tokens[0], undefined)).toThrow(/excedeu 50 níveis/);
+  });
+
+  it('a normal handler error inside a chain stays contained (not treated as a guard error)', () => {
+    const a = createEvent<void>('chain/contained-a');
+    const b = createEvent<void>('chain/contained-b');
+    const afterBoom = jest.fn();
+
+    EventBus.on(a, () => EventBus.emit(b, undefined));
+    EventBus.on(b, () => {
+      throw new Error('handler bug');
+    });
+    EventBus.on(b, afterBoom);
+
+    expect(() => EventBus.emit(a, undefined)).not.toThrow();
+    expect(afterBoom).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('useEvent', () => {
   it('subscribes on mount and unsubscribes on unmount', () => {
     const event = createEvent<number>('test/hook-lifecycle');
