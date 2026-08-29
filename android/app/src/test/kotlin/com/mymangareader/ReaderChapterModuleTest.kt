@@ -1,7 +1,6 @@
 package com.mymangareader
 
 import com.facebook.react.bridge.ReactApplicationContext
-import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -15,10 +14,9 @@ class ReaderChapterModuleTest {
 
     private fun makeModule(
         dataSource: ChapterDataSource = mock(),
-        chapterCacheDao: ChapterCacheDao = mock(),
     ): ReaderChapterModule {
         val context = mock<ReactApplicationContext>()
-        return ReaderChapterModule(dataSource, chapterCacheDao, context)
+        return ReaderChapterModule(dataSource, context)
     }
 
     @Test
@@ -55,32 +53,16 @@ class ReaderChapterModuleTest {
     }
 
     @Test
-    fun `saveReadingProgress bem sucedido consulta o cache de capitulos para notificar progresso`() = runTest {
-        val dataSource: ChapterDataSource = mock()
-        whenever(dataSource.saveReadingProgress("c1", "s1", 5)).thenReturn(Result.success(Unit))
-        val chapterCacheDao: ChapterCacheDao = mock()
-        whenever(chapterCacheDao.getBySeriesId("s1")).thenReturn(emptyList())
-        val module = makeModule(dataSource = dataSource, chapterCacheDao = chapterCacheDao)
-        val promise = FakePromise()
-
-        module.saveReadingProgress("c1", "s1", 5, promise)
-        promise.awaitResolved()
-
-        verify(chapterCacheDao).getBySeriesId("s1")
-    }
-
-    @Test
-    fun `saveReadingProgress com falha nao consulta o cache de capitulos`() = runTest {
+    fun `saveReadingProgress com falha rejeita com o codigo do erro`() = runTest {
         val dataSource: ChapterDataSource = mock()
         whenever(dataSource.saveReadingProgress("c1", "s1", 5)).thenReturn(Result.failure(IllegalStateException("boom")))
-        val chapterCacheDao: ChapterCacheDao = mock()
-        val module = makeModule(dataSource = dataSource, chapterCacheDao = chapterCacheDao)
+        val module = makeModule(dataSource = dataSource)
         val promise = FakePromise()
 
         module.saveReadingProgress("c1", "s1", 5, promise)
         promise.awaitResolved()
 
-        verify(chapterCacheDao, org.mockito.kotlin.never()).getBySeriesId(org.mockito.kotlin.any())
+        assertEquals("SAVE_READING_PROGRESS_ERROR", promise.rejectedCode)
     }
 
     @Test
