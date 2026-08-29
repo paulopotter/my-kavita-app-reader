@@ -13,6 +13,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 // migration has no access to kotlinx.serialization; the shape is small and stable enough that
 // this is safe.
 //
+// INSERT OR IGNORE, not a plain INSERT: ChaptersTool.sort was already writing into `preferences`
+// (domain='chapterSortPrefs') before this migration existed — a device that already used the new
+// sort UI (e.g. via ConfigScreen or SerieScreen, ahead of upgrading past this version) already has
+// a ('global', '') row (and possibly per-series ones), and a plain INSERT collides on the
+// (key, variant) primary key with SQLITE_CONSTRAINT_PRIMARYKEY, crashing the whole migration.
+// Silently skipping when a row already exists is correct here — whatever the app itself already
+// wrote through ChaptersTool.sort is more current than the legacy tables being migrated away from.
+//
 // No data migration on the way back (downgrade just recreates the empty tables/columns) —
 // Migration_11_12's own precedent for the same asymmetry.
 val Migration_12_13 = object : Migration(12, 13) {
@@ -22,7 +30,7 @@ val Migration_12_13 = object : Migration(12, 13) {
         // Per-series override → preferences (key = seriesId, domain = 'chapterSortPrefs').
         db.execSQL(
             """
-            INSERT INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
+            INSERT OR IGNORE INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
             SELECT
                 seriesId,
                 '',
@@ -41,7 +49,7 @@ val Migration_12_13 = object : Migration(12, 13) {
         // ui_preferences row (id = 'prefs') ever exists.
         db.execSQL(
             """
-            INSERT INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
+            INSERT OR IGNORE INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
             SELECT
                 'global',
                 '',
