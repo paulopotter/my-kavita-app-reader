@@ -36,18 +36,8 @@ export const SeriesBridge: SeriesModuleInterface = NativeModules.SeriesModule;
 
 export const SeriesFollowedEmitter = new NativeEventEmitter(NativeModules.SeriesModule);
 
-export interface SeriesProgressChangedEvent {
-  seriesId: string;
-  progressFraction: number;
-  readChapters: number;
-  chapterCount: number;
-}
-
-// DESATIVADO (plano 017, Task 025): SeriesModule/ReaderChapterModule não emitem mais
-// 'seriesProgressChanged' — a derivação de progresso era feita de dado local (Room), sem origem
-// no servidor, e estava duplicada byte-a-byte entre as duas bridges. A notificação volta pelo
-// EventBus RN→RN (Task 013), emitida por quem marca o progresso no RN. Este emitter e o tipo
-// acima ficam como esqueleto até lá; o listener vivo está comentado em useLibrary.ts.
-// (SeriesFollowedEmitter permanece ativo — sua origem, Room observando followedSeriesDao, é
-// genuinamente nativa.)
-export const SeriesProgressChangedEmitter = new NativeEventEmitter(NativeModules.SeriesModule);
+// Nota (plano 017, Tasks 025/013): não existe mais um SeriesProgressChangedEmitter nativo. O
+// evento de progresso de leitura vive agora no EventBus RN→RN como ChapterEvents.readStatusChanged
+// (shared/tools/chapters), emitido pelo ChapterTool.mark.* e consumido pela useLibrary.
+// SeriesFollowedEmitter permanece porque sua origem — Room observando followedSeriesDao — é
+// genuinamente nativa.

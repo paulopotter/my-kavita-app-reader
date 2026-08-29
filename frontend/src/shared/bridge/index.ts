@@ -28,5 +28,4 @@ export type {
   ChapterReadStatus as LegacyChapterReadStatus,
   SeriesDetail as LegacySeriesDetail,
 } from './series';
-export { SeriesBridge, SeriesFollowedEmitter, SeriesProgressChangedEmitter } from './series';
-export type { SeriesProgressChangedEvent } from './series';
+export { SeriesBridge, SeriesFollowedEmitter } from './series';
