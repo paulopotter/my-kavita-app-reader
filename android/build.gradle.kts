@@ -42,15 +42,14 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=77 — bump this value whenever coverage improves.
-            // Bumped from 76: :cache and :preferences joined the merged subprojects list (they
-            // already had — or, for :preferences, gained — full test coverage of their own but
-            // were never included in this aggregate before), pushing the measured value to
-            // ~77.92%. Floor set slightly below that to leave headroom.
+            // COVERAGE_FLOOR_KOTLIN=78 — bump this value whenever coverage improves.
+            // Bumped from 77: Migration_10_11/11_12/12_13 gained dedicated tests (none of the
+            // migrations 10-13 had any before — the Migration_12_13 PK-collision crash would have
+            // been caught by one), pushing the measured value to ~78.29%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 77
+                        minValue = 78
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
