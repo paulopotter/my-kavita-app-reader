@@ -56,6 +56,60 @@ function emitReadStatusChanged(
   });
 }
 
+// Shared body of ChapterTool.mark.readMany / unreadMany — see readMany's doc. One
+// ChapterService.status.setMany for the whole list; optimistic/confirm/revert applied per id.
+function markMany(
+  {
+    seriesId,
+    chapterIds,
+    prevStatusById,
+    onUpdate,
+  }: {
+    seriesId: string;
+    chapterIds: string[];
+    prevStatusById?: Record<string, ChapterReadStatus>;
+    onUpdate?: (update: ChapterMarkUpdate) => void;
+  },
+  isRead: boolean,
+): Promise<ChapterMarkUpdate[]> {
+  const targetStatus: ChapterReadStatus = isRead ? 'READ' : 'UNREAD';
+  const fallbackStatus: ChapterReadStatus = isRead ? 'UNREAD' : 'READ';
+  const optimistic: ChapterMarkUpdate[] = chapterIds.map(chapterId => ({
+    seriesId,
+    chapterId,
+    readStatus: targetStatus,
+  }));
+
+  optimistic.forEach(update => {
+    onUpdate?.(update);
+    emitReadStatusChanged(update, 'optimistic', prevStatusById?.[update.chapterId]);
+  });
+
+  ChapterService.status
+    .setMany({ seriesId, chapterIds, isRead })
+    .then(() => {
+      optimistic.forEach(update => {
+        onUpdate?.(update);
+        emitReadStatusChanged(update, 'confirmed', prevStatusById?.[update.chapterId]);
+      });
+    })
+    .catch(() => {
+      chapterIds.forEach(chapterId => {
+        const reverted: ChapterMarkUpdate = {
+          seriesId,
+          chapterId,
+          readStatus: prevStatusById?.[chapterId] ?? fallbackStatus,
+        };
+        onUpdate?.(reverted);
+        // From an aggregate listener's POV the "previous" state is the optimistic one it already
+        // applied — so it can undo exactly that.
+        emitReadStatusChanged(reverted, 'reverted', targetStatus);
+      });
+    });
+
+  return Promise.resolve(optimistic);
+}
+
 // Raw chapter fields needed to compose the displayed label. Own interface (not Pick<SerieChapter>)
 // so any shape carrying these raw fields — SerieChapter, the reader screen's ReaderChapter, or a
 // future one — is structurally compatible.
@@ -218,6 +272,27 @@ export const ChapterTool = {
 
       return Promise.resolve(optimistic);
     },
+
+    // Batch mark — ONE ChapterService.status.setMany call for the whole list (Kavita's
+    // mark-multiple-read), not a loop of `read`/`unread`. Same optimistic → confirmed/reverted
+    // shape, applied to every id: emit + onUpdate the optimistic value for each chapter now, one
+    // network call, then on success re-emit 'confirmed' for each / on failure emit 'reverted'
+    // (readStatus falls back to `prevStatusById[id] ?? UNREAD/READ`) for each. Looping the
+    // single-chapter mark instead fires N parallel POSTs that saturate the server — the failures
+    // then get optimistically reverted, which shows up as "marked chapters unmark themselves".
+    readMany: (args: {
+      seriesId: string;
+      chapterIds: string[];
+      prevStatusById?: Record<string, ChapterReadStatus>;
+      onUpdate?: (update: ChapterMarkUpdate) => void;
+    }): Promise<ChapterMarkUpdate[]> => markMany(args, true),
+
+    unreadMany: (args: {
+      seriesId: string;
+      chapterIds: string[];
+      prevStatusById?: Record<string, ChapterReadStatus>;
+      onUpdate?: (update: ChapterMarkUpdate) => void;
+    }): Promise<ChapterMarkUpdate[]> => markMany(args, false),
 
     // Reads the real current status first (so it can pass a real prevStatus down, instead of
     // read/unread's own binary-opposite default), then delegates — never re-implements the

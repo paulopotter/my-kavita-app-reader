@@ -3,7 +3,7 @@ import { ChapterEvents, ChapterTool, ChaptersTool, type ChapterReadStatusChanged
 jest.mock('../../services/chapters', () => ({
   ChapterService: {
     get: jest.fn(),
-    status: { set: jest.fn() },
+    status: { set: jest.fn(), setMany: jest.fn() },
   },
 }));
 
@@ -24,6 +24,7 @@ import type { ChapterDigestSuccess, ServerActiveInfo } from '../../bridge/digest
 
 const mockGet = ChapterService.get as jest.Mock;
 const mockStatusSet = ChapterService.status.set as jest.Mock;
+const mockStatusSetMany = ChapterService.status.setMany as jest.Mock;
 const mockPrefsGet = PreferencesManager.get as jest.Mock;
 const mockPrefsPut = PreferencesManager.put as jest.Mock;
 const mockPrefsDelete = PreferencesManager.delete as jest.Mock;
@@ -252,6 +253,90 @@ describe('ChapterTool.mark.unread', () => {
     ChapterTool.mark.unread({ seriesId: 's1', chapterId: 'c1', prevStatus: 'IN_PROGRESS', onUpdate });
     await flushPromises();
     expect(onUpdate).toHaveBeenNthCalledWith(2, { seriesId: 's1', chapterId: 'c1', readStatus: 'IN_PROGRESS' });
+  });
+});
+
+describe('ChapterTool.mark.readMany / unreadMany — batch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('makes ONE setMany call for the whole list, not one per chapter', async () => {
+    mockStatusSetMany.mockResolvedValue(undefined);
+    await ChapterTool.mark.readMany({ seriesId: 's1', chapterIds: ['c1', 'c2', 'c3'] });
+    expect(mockStatusSetMany).toHaveBeenCalledTimes(1);
+    expect(mockStatusSetMany).toHaveBeenCalledWith({ seriesId: 's1', chapterIds: ['c1', 'c2', 'c3'], isRead: true });
+    expect(mockStatusSet).not.toHaveBeenCalled();
+  });
+
+  it('fires the optimistic READ for every chapter immediately, then confirmed on success', async () => {
+    mockStatusSetMany.mockResolvedValue(undefined);
+    const onUpdate = jest.fn();
+    ChapterTool.mark.readMany({ seriesId: 's1', chapterIds: ['c1', 'c2'], onUpdate });
+    // optimistic: one call per chapter, synchronously
+    expect(onUpdate.mock.calls.slice(0, 2)).toEqual([
+      [{ seriesId: 's1', chapterId: 'c1', readStatus: 'READ' }],
+      [{ seriesId: 's1', chapterId: 'c2', readStatus: 'READ' }],
+    ]);
+    await flushPromises();
+    // confirmed: same values again, per chapter
+    expect(onUpdate.mock.calls.slice(2)).toEqual([
+      [{ seriesId: 's1', chapterId: 'c1', readStatus: 'READ' }],
+      [{ seriesId: 's1', chapterId: 'c2', readStatus: 'READ' }],
+    ]);
+  });
+
+  it('reverts EVERY chapter to its prevStatusById on a failed batch write', async () => {
+    mockStatusSetMany.mockRejectedValue(new Error('server 500'));
+    const onUpdate = jest.fn();
+    ChapterTool.mark.readMany({
+      seriesId: 's1',
+      chapterIds: ['c1', 'c2'],
+      prevStatusById: { c1: 'IN_PROGRESS', c2: 'UNREAD' },
+      onUpdate,
+    });
+    await flushPromises();
+    expect(onUpdate.mock.calls.slice(2)).toEqual([
+      [{ seriesId: 's1', chapterId: 'c1', readStatus: 'IN_PROGRESS' }],
+      [{ seriesId: 's1', chapterId: 'c2', readStatus: 'UNREAD' }],
+    ]);
+  });
+
+  it('revert falls back to UNREAD (readMany) / READ (unreadMany) when a chapter has no prevStatus', async () => {
+    mockStatusSetMany.mockRejectedValue(new Error('down'));
+    const onRead = jest.fn();
+    ChapterTool.mark.readMany({ seriesId: 's1', chapterIds: ['c1'], onUpdate: onRead });
+    await flushPromises();
+    expect(onRead).toHaveBeenNthCalledWith(2, { seriesId: 's1', chapterId: 'c1', readStatus: 'UNREAD' });
+
+    const onUnread = jest.fn();
+    mockStatusSetMany.mockRejectedValue(new Error('down'));
+    ChapterTool.mark.unreadMany({ seriesId: 's1', chapterIds: ['c1'], onUpdate: onUnread });
+    await flushPromises();
+    expect(onUnread).toHaveBeenNthCalledWith(2, { seriesId: 's1', chapterId: 'c1', readStatus: 'READ' });
+  });
+
+  it('emits readStatusChanged optimistic + confirmed per chapter', async () => {
+    mockStatusSetMany.mockResolvedValue(undefined);
+    const events: ChapterReadStatusChangedPayload[] = [];
+    const unsub = EventBus.on(ChapterEvents.readStatusChanged, p => events.push(p as ChapterReadStatusChangedPayload));
+    ChapterTool.mark.unreadMany({ seriesId: 's1', chapterIds: ['c1', 'c2'], prevStatusById: { c1: 'READ', c2: 'READ' } });
+    await flushPromises();
+    unsub();
+    expect(events.map(e => `${e.chapter.id}:${e.phase}:${e.changed.readStatus}`)).toEqual([
+      'c1:optimistic:UNREAD',
+      'c2:optimistic:UNREAD',
+      'c1:confirmed:UNREAD',
+      'c2:confirmed:UNREAD',
+    ]);
+  });
+
+  it('resolves with the optimistic array', async () => {
+    mockStatusSetMany.mockReturnValue(new Promise(() => {}));
+    await expect(ChapterTool.mark.readMany({ seriesId: 's1', chapterIds: ['c1', 'c2'] })).resolves.toEqual([
+      { seriesId: 's1', chapterId: 'c1', readStatus: 'READ' },
+      { seriesId: 's1', chapterId: 'c2', readStatus: 'READ' },
+    ]);
   });
 });
 

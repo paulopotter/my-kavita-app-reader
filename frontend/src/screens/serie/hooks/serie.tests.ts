@@ -22,6 +22,8 @@ jest.mock('../../../shared', () => ({
       read: jest.fn(),
       unread: jest.fn(),
       toggle: jest.fn(),
+      readMany: jest.fn(),
+      unreadMany: jest.fn(),
     },
     // real impl — pure; useSerie's actionLabel formats continueChapter through it
     format: jest.requireActual('../../../shared/tools/chapters/chapters.tool').ChapterTool.format,
@@ -47,6 +49,8 @@ const mockToggleFollow = SerieTool.toggleFollow as jest.Mock;
 const mockMarkRead = ChapterTool.mark.read as jest.Mock;
 const mockMarkUnread = ChapterTool.mark.unread as jest.Mock;
 const mockMarkToggle = ChapterTool.mark.toggle as jest.Mock;
+const mockMarkReadMany = ChapterTool.mark.readMany as jest.Mock;
+const mockMarkUnreadMany = ChapterTool.mark.unreadMany as jest.Mock;
 const mockSortGet = ChaptersTool.sort.get as jest.Mock;
 const mockSortPut = ChaptersTool.sort.put as jest.Mock;
 const mockSortReset = ChaptersTool.sort.reset as jest.Mock;
@@ -659,23 +663,48 @@ describe('useSerie — selection mode', () => {
     expect(result.current.selectedIds.size).toBe(0);
   });
 
-  it('markSelectedRead marks every selected chapter read and exits selection mode', async () => {
+  it('markSelectedRead makes ONE batch readMany call for the whole selection, then exits', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.onChapterLongPress('c1'));
     act(() => result.current.onChapterClick('c2'));
     act(() => result.current.markSelectedRead());
-    expect(mockMarkRead).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c1' }));
-    expect(mockMarkRead).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c2' }));
+    expect(mockMarkReadMany).toHaveBeenCalledTimes(1);
+    expect(mockMarkReadMany).toHaveBeenCalledWith(
+      expect.objectContaining({ seriesId: 's1', chapterIds: expect.arrayContaining(['c1', 'c2']) }),
+    );
+    // NOT a loop of the single-chapter mark (that's what saturated the server)
+    expect(mockMarkRead).not.toHaveBeenCalled();
     expect(result.current.selectionMode).toBe(false);
   });
 
-  it('markSelectedUnread marks every selected chapter unread and exits selection mode', async () => {
+  it('markSelectedRead passes prevStatusById from the chapters in hand', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.onChapterLongPress('c1'));
+    act(() => result.current.markSelectedRead());
+    const arg = mockMarkReadMany.mock.calls[0][0];
+    expect(arg.prevStatusById).toHaveProperty('c1');
+  });
+
+  it('markSelectedUnread makes ONE batch unreadMany call, then exits', async () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.onChapterLongPress('c1'));
     act(() => result.current.markSelectedUnread());
-    expect(mockMarkUnread).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c1' }));
+    expect(mockMarkUnreadMany).toHaveBeenCalledTimes(1);
+    expect(mockMarkUnreadMany).toHaveBeenCalledWith(expect.objectContaining({ chapterIds: ['c1'] }));
+    expect(mockMarkUnread).not.toHaveBeenCalled();
     expect(result.current.selectionMode).toBe(false);
+  });
+
+  it('an empty selection does not call the batch mark at all', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // selectionMode on but nothing selected
+    act(() => result.current.onChapterLongPress('c1'));
+    act(() => result.current.onChapterClick('c1')); // deselect -> empty
+    act(() => result.current.markSelectedRead());
+    expect(mockMarkReadMany).not.toHaveBeenCalled();
   });
 });

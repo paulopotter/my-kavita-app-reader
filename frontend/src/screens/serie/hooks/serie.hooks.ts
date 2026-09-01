@@ -239,10 +239,6 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     return SerieTool.toggleFollow({ seriesId, prevValue: isFollowed, onUpdate: setIsFollowed });
   }, [seriesId, isFollowed]);
 
-  // Selection mode is real (a plain Set of chapter ids), but the batch actions below are
-  // deliberately thin: they just loop the same single-chapter markRead/markUnread this hook
-  // already exposes, rather than a dedicated batch call — see chapters.services.ts's own
-  // ChapterService (no batch endpoint today).
   const onChapterLongPress = useCallback((chapterId: string) => {
     setSelectionMode(true);
     setSelectedIds(new Set([chapterId]));
@@ -272,15 +268,39 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     setSelectedIds(new Set());
   }, []);
 
+  // Batch mark — ONE request for the whole selection (ChapterTool.mark.readMany → Kavita's
+  // mark-multiple-read). Looping the single-chapter mark fired N parallel POSTs that saturated
+  // the server; the failures were then optimistically reverted, so most of the selection
+  // unmarked itself and only one chapter stuck. `prevStatusById` is captured from the chapters
+  // in hand so a revert restores the real prior status, not a UNREAD default.
+  const prevStatusOf = useCallback(
+    (ids: Set<string>): Record<string, SerieChapter['readStatus']> => {
+      const byId = new Map((serie?.chapters ?? []).map(c => [c.id, c.readStatus] as const));
+      const out: Record<string, SerieChapter['readStatus']> = {};
+      ids.forEach(id => {
+        const s = byId.get(id);
+        if (s) {out[id] = s;}
+      });
+      return out;
+    },
+    [serie],
+  );
+
   const markSelectedRead = useCallback(() => {
-    selectedIds.forEach(chapterId => markRead({ chapterId }));
+    const ids = [...selectedIds];
+    if (ids.length > 0) {
+      ChapterTool.mark.readMany({ seriesId, chapterIds: ids, prevStatusById: prevStatusOf(selectedIds), onUpdate: applyMarkUpdate });
+    }
     exitSelectionMode();
-  }, [selectedIds, markRead, exitSelectionMode]);
+  }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdate, exitSelectionMode]);
 
   const markSelectedUnread = useCallback(() => {
-    selectedIds.forEach(chapterId => markUnread({ chapterId }));
+    const ids = [...selectedIds];
+    if (ids.length > 0) {
+      ChapterTool.mark.unreadMany({ seriesId, chapterIds: ids, prevStatusById: prevStatusOf(selectedIds), onUpdate: applyMarkUpdate });
+    }
     exitSelectionMode();
-  }, [selectedIds, markUnread, exitSelectionMode]);
+  }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdate, exitSelectionMode]);
 
   return {
     loading,

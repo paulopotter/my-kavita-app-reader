@@ -56,6 +56,21 @@ export const ChapterService = {
     }): Promise<void> {
       return ServerBridge.setChapterRead(seriesId, chapterId, isRead);
     },
+    // Kavita's /api/Reader/mark-multiple-read — ONE request for N chapters. Use this instead of
+    // looping `set` per chapter: N parallel POSTs saturate the server, some fail, and an
+    // optimistic-mark caller then reverts the failures (observed as "marked chapters unmark
+    // themselves, only one sticks").
+    setMany({
+      seriesId,
+      chapterIds,
+      isRead,
+    }: {
+      seriesId: string;
+      chapterIds: string[];
+      isRead: boolean;
+    }): Promise<void> {
+      return ServerBridge.setChaptersRead(seriesId, isRead, chapterIds);
+    },
   },
   read({ seriesId, chapterId }: { seriesId: string; chapterId: string }): Promise<void> {
     return ChapterService.status.set({ seriesId, chapterId, isRead: true });
