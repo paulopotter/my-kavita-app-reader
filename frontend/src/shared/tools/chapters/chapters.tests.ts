@@ -18,6 +18,8 @@ jest.mock('../../managers/preferences', () => ({
 import { ChapterService } from '../../services/chapters';
 import { EventBus } from '../../managers/events';
 import { PreferencesManager } from '../../managers/preferences';
+import { getStrings } from '../../i18n/strings';
+import type { ChapterTitleFields } from './chapters.tool';
 import type { ChapterDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
 const mockGet = ChapterService.get as jest.Mock;
@@ -54,6 +56,83 @@ function makeChapter(overrides: Partial<ChapterDigestSuccess> = {}): ChapterDige
     ...overrides,
   };
 }
+
+describe('ChapterTool.format.title', () => {
+  const t = getStrings('pt-BR');
+  const fields = (o: Partial<ChapterTitleFields> = {}): ChapterTitleFields => ({ title: 'A Chegada', number: 1, ...o });
+
+  it('prefixes a real title with the number', () => {
+    expect(ChapterTool.format.title(fields({ number: 1, title: 'A Chegada' }), t)).toBe('1. A Chegada');
+  });
+
+  it('uses "Capítulo N" when the title is just the number', () => {
+    expect(ChapterTool.format.title(fields({ number: 3, title: '3' }), t)).toBe('Capítulo 3');
+  });
+
+  it('uses "Capítulo N" when the title is a number in any shape ("6.0", "06", "6.00")', () => {
+    expect(ChapterTool.format.title(fields({ number: 6, title: '6.0' }), t)).toBe('Capítulo 6');
+    expect(ChapterTool.format.title(fields({ number: 6, title: '06' }), t)).toBe('Capítulo 6');
+    expect(ChapterTool.format.title(fields({ number: 6, title: '6.00' }), t)).toBe('Capítulo 6');
+  });
+
+  it('uses "Capítulo N" even when the numeric title is a DIFFERENT number (Kavita off-by-one)', () => {
+    // real cases seen on device: "105. 104", "6. 5" — the title is a bare number, so it's not a
+    // real title regardless of which number it holds; show "Capítulo N" from the chapter's own num
+    expect(ChapterTool.format.title(fields({ number: 105, title: '104' }), t)).toBe('Capítulo 105');
+    expect(ChapterTool.format.title(fields({ number: 6, title: '5' }), t)).toBe('Capítulo 6');
+  });
+
+  it('uses "Capítulo N" for a fractional chapter whose title is also a number ("10.5")', () => {
+    expect(
+      ChapterTool.format.title(fields({ number: undefined, decimalNumber: 10.5, title: '10.5' }), t),
+    ).toBe('Capítulo 10.5');
+  });
+
+  it('keeps a real title that merely starts with a number ("6: The Arrival", "12 Angry Men")', () => {
+    expect(ChapterTool.format.title(fields({ number: 6, title: '6: The Arrival' }), t)).toBe('6. 6: The Arrival');
+    expect(ChapterTool.format.title(fields({ number: 12, title: '12 Angry Men' }), t)).toBe('12. 12 Angry Men');
+  });
+
+  it('uses "Capítulo N" when the title is empty', () => {
+    expect(ChapterTool.format.title(fields({ number: 7, title: '' }), t)).toBe('Capítulo 7');
+  });
+
+  it('shows the raw title when there is a real title but no number', () => {
+    expect(
+      ChapterTool.format.title(fields({ number: undefined, decimalNumber: undefined, title: 'A Chegada' }), t),
+    ).toBe('A Chegada');
+  });
+
+  it('falls back to the untitled label when there is no title and no number', () => {
+    expect(
+      ChapterTool.format.title(fields({ number: undefined, decimalNumber: undefined, title: '' }), t),
+    ).toBe('Sem título');
+  });
+
+  it('shows specialLabel when the chapter is special', () => {
+    expect(
+      ChapterTool.format.title(fields({ isSpecial: true, specialLabel: 'Extra', title: 'ignored' }), t),
+    ).toBe('Extra');
+  });
+
+  it('falls back to the normal path when isSpecial is true but there is no specialLabel', () => {
+    expect(
+      ChapterTool.format.title(fields({ isSpecial: true, specialLabel: undefined, number: 1, title: 'A Chegada' }), t),
+    ).toBe('1. A Chegada');
+  });
+
+  it('prefers number over decimalNumber', () => {
+    expect(
+      ChapterTool.format.title(fields({ number: 2, decimalNumber: 2.5, title: 'A Chegada' }), t),
+    ).toBe('2. A Chegada');
+  });
+
+  it('falls back to decimalNumber when number is absent (fractional chapter)', () => {
+    expect(
+      ChapterTool.format.title(fields({ number: undefined, decimalNumber: 10.5, title: 'A Chegada' }), t),
+    ).toBe('10.5. A Chegada');
+  });
+});
 
 describe('ChapterTool.normalize', () => {
   it('copies every digest field onto the canonical shape', () => {

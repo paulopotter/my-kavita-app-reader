@@ -3,6 +3,7 @@ import { Routes } from '../../../navigation/routes';
 import { ChapterService } from '../../services/chapters';
 import { EventBus, createEvent } from '../../managers/events';
 import { PreferencesManager } from '../../managers/preferences';
+import type { Strings } from '../../i18n/strings';
 import type { ChapterDigestSuccess, ChapterReadStatus, ImageDescriptor, ServerActiveInfo } from '../../bridge/digest';
 
 // ChapterTool — normalizer/facade for the "chapter" domain: turns a ChapterDigestSuccess into the
@@ -55,6 +56,17 @@ function emitReadStatusChanged(
   });
 }
 
+// Raw chapter fields needed to compose the displayed label. Own interface (not Pick<SerieChapter>)
+// so any shape carrying these raw fields — SerieChapter, the reader screen's ReaderChapter, or a
+// future one — is structurally compatible.
+export interface ChapterTitleFields {
+  title: string;
+  number?: number;
+  decimalNumber?: number;
+  specialLabel?: string;
+  isSpecial?: boolean;
+}
+
 // Deliberately duplicated from ChapterDigestSuccess (bridge/digest.ts) instead of re-exporting it:
 // this is a normalizer's own contract, free to evolve independently of whatever shape the raw
 // digest happens to have.
@@ -84,19 +96,19 @@ export interface SerieChapter {
 //    not in this component tree (e.g. the Library, mounted in the nav stack) reacts without the
 //    emitter knowing it exists. Emitted at the same three moments, with the same `phase`.
 //
-// Reader still marks read/unread through the legacy SeriesBridge path (ReaderService →
-// SeriesModule), NOT through this tool — so a mark from the Reader does not emit this event yet.
-// That closes when the Reader migrates onto ChapterTool (Task 029/030); doing it now would mean
-// the emit lived in two places, the exact duplication this whole correction removed.
+// Reader (Task 029 Fase 2) now marks through this tool too, so a mark from the Reader also emits
+// the event.
 //
-// Known gap: ChapterService.status.set writes straight to the Kavita server (ServerBridge,
-// Layer 2) and never invalidates the SeriesDigest/ChapterDigest entries Cache.persistent (Kotlin)
-// already holds for this series/chapter. The optimistic onUpdate covers the UI while this screen
-// stays mounted, but leaving and reopening the series within the digest's TTL (~15min default)
-// can show the pre-mark status again until it expires — the legacy screen avoided this via its
-// own local cache (replaceCachedChapters), which this tool has no equivalent of. Deliberately not
-// solved here — would mean ChapterTool reaching into CacheManager.persistent.invalidate*
-// (key/domain conventions it otherwise has no reason to know) right after a successful mark.
+// KNOWN GAP — cache not invalidated after a mark. ChapterService.status.set writes to the server
+// but the ChapterDigest / SeriesDigest entries in Cache.persistent (Kotlin) still hold the
+// pre-mark readStatus until their TTL (~15min) expires. A screen that mounts AFTER the mark
+// (e.g. the Reader opened from the series screen right after marking there) reads that stale
+// cache. The EventBus covers screens already mounted; it does not cover this. A per-key
+// invalidation was tried and reverted — invalidating by domain was too broad (dropped every
+// series/chapter for one mark), and invalidating by key would couple RN to the Kotlin key
+// format. The fix is a scoped invalidation/patch of exactly the two affected entries, its own
+// task — and per the user's call it must live in RN, not Kotlin (Kotlin stays "dumb"). See
+// _freshness-principles.md § "Consequences for open work".
 export const ChapterTool = {
   // `origin` is navigation state, not domain data — useAction() merges it in at realize time,
   // this action never carries it.
@@ -117,6 +129,31 @@ export const ChapterTool = {
       server: chapter.server,
       action: createNavigateAction({ route: Routes.READER, params: { seriesId, chapterId: chapter.id } }),
     };
+  },
+
+  format: {
+    // Displayed label for a chapter, the single source of truth for how a chapter is named
+    // anywhere in the app (the list, the "continue reading" button, …). Early-return cascade:
+    //   1. a special's own label
+    //   2. "<number>. <title>" when there's a REAL title — a title is not real when it's empty
+    //      or it's just a number (int or decimal), regardless of which number: Kavita fills it
+    //      with a bare number in many shapes ("6", "6.0", "06", "104" on chapter 105 via an
+    //      off-by-one). Anything with a non-numeric char ("Chapter 6", "6: The Arrival") is real.
+    //   3. "Capítulo <number>" (i18n)
+    //   4. "Sem título" (i18n)
+    // `t` is injected because this tool is pure — it has no language context of its own. Moved
+    // here out of chapter-list-item.component.tsx (a dumb component holds no logic).
+    title(chapter: ChapterTitleFields, t: Strings): string {
+      if (chapter.isSpecial && chapter.specialLabel) {return chapter.specialLabel;}
+
+      const num = chapter.number ?? chapter.decimalNumber;
+      const trimmed = chapter.title.trim();
+      const isJustANumber = trimmed.length === 0 || /^\d+(\.\d+)?$/.test(trimmed);
+
+      if (!isJustANumber) {return num != null ? `${num}. ${trimmed}` : trimmed;}
+      if (num != null) {return t.seriesDetailChapterNumberLabel.replace('{0}', String(num));}
+      return t.seriesDetailChapterUntitled;
+    },
   },
 
   mark: {
