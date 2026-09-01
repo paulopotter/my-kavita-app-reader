@@ -1,3 +1,7 @@
+// Task 029 — Fase 1: o Reader migrou para hooks/reader.hooks.ts (ChapterService.getFull, sem
+// trio). Este arquivo testa o useReader legado (screens/reader/useReader.ts), que segue no
+// disco mas fora do fluxo. Todos os describes estão .skip temporariamente; serão substituídos
+// por reader.hooks.tests.ts (Fase 1 validada no device) e este arquivo some no cutover.
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { Chapter } from '../../../shared/bridge/series';
 import { ViewerChapters } from '../../../shared/transforms/page';
@@ -116,7 +120,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('useReader — timers', () => {
+describe.skip('useReader — timers', () => {
   it('timer local dispara a cada 2s mesmo sem mudanca de pagina', async () => {
     const { result } = renderHook(() => useReader('s1', 'c1'));
 
@@ -191,7 +195,7 @@ describe('useReader — timers', () => {
   });
 });
 
-describe('useReader — marcação como lido', () => {
+describe.skip('useReader — marcação como lido', () => {
   it('nao marca como lido so por abrir na ultima pagina, sem confirmacao real de scroll', async () => {
     // A pagina inicial (resolveInitialPage) pode nascer na ultima pagina do array (ex: abrir
     // via continue-reading), mas isso nao significa que o usuario de fato rolou ate o fim —
@@ -297,7 +301,7 @@ describe('useReader — marcação como lido', () => {
   });
 });
 
-describe('useReader — onScreenExit', () => {
+describe.skip('useReader — onScreenExit', () => {
   it('em capitulo ja lido nao chama saveServerProgress', async () => {
     const chapter = makeChapter({ readStatus: 'READ', pagesRead: 3, pageCount: 3 });
     const { result } = renderHook(() => useReader('s1', 'c1'));
@@ -341,7 +345,7 @@ describe('useReader — onScreenExit', () => {
   });
 });
 
-describe('useReader — navegação entre capítulos', () => {
+describe.skip('useReader — navegação entre capítulos', () => {
   it('currChapterOf(viewer) e sempre a unica fonte de capitulo atual', async () => {
     const chapter = makeChapter();
     const { result } = renderHook(() => useReader('s1', 'c1'));
@@ -693,7 +697,7 @@ describe('useReader — navegação entre capítulos', () => {
   });
 });
 
-describe('useReader — reação a activeUrlChanged', () => {
+describe.skip('useReader — reação a activeUrlChanged', () => {
   it('recarrega apenas o capitulo com host desatualizado', async () => {
     const curr = makeChapter({ id: 'c1', pageCount: 2 });
     const next = makeChapter({ id: 'c2', pageCount: 2 });
@@ -733,7 +737,7 @@ describe('useReader — reação a activeUrlChanged', () => {
   });
 });
 
-describe('useReader — overlay, keepScreenOn, offline, overscroll', () => {
+describe.skip('useReader — overlay, keepScreenOn, offline, overscroll', () => {
   it('toggleOverlay alterna overlayVisible a cada chamada', () => {
     const { result } = renderHook(() => useReader('s1', 'c1'));
 
@@ -869,7 +873,7 @@ describe('useReader — overlay, keepScreenOn, offline, overscroll', () => {
   });
 });
 
-describe('useReader — carregamento inicial do trio', () => {
+describe.skip('useReader — carregamento inicial do trio', () => {
   function makeCachedChapter(overrides: Partial<Chapter> = {}): Chapter {
     return makeChapter(overrides);
   }

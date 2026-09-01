@@ -367,6 +367,14 @@ export function useReader(seriesId: string, chapterId: string) {
       dispatch({ type: 'LOADING' });
       try {
         const unsortedChapters = await SeriesBridge.getCachedChapters(seriesId);
+        // [Reader][diag] TEMP (Task 029): confirmar hipótese da tela preta — getCachedChapters
+        // (Room legado chapter_cache) volta vazio para série só aberta pela SerieScreen nova
+        // (que roda no digest stack e não popula chapter_cache).
+        console.log(
+          `[Reader][diag] getCachedChapters seriesId=${seriesId} count=${unsortedChapters.length} ids=${JSON.stringify(
+            unsortedChapters.slice(0, 10).map(c => c.id),
+          )} targetChapterId=${targetChapterId}`,
+        );
         // getCachedChapters não garante ordem por número — o cache local é ordenado por
         // rowid/inserção, não pela sequência de leitura. Vizinhos prev/next só fazem sentido
         // calculados sobre a lista ordenada por número de capítulo.
@@ -375,6 +383,12 @@ export function useReader(seriesId: string, chapterId: string) {
         const currIndex = chapters.findIndex(c => c.id === targetChapterId);
         if (currIndex === -1) {
           console.log(`[Reader] loadInitialViewer: chapter not found in cached list (len=${chapters.length})`);
+          // [Reader][diag] TEMP (Task 029): este é o caminho da tela preta — dispara ERROR,
+          // e ReaderScreen só olha reader.viewer (nunca reader.error), então renderiza <View>
+          // com backgroundColor #000 sem nenhuma mensagem.
+          console.log(
+            `[Reader][diag] CHAPTER NOT FOUND -> dispatch ERROR (tela preta). cachedCount=${chapters.length} targetChapterId=${targetChapterId} seriesId=${seriesId}`,
+          );
           if (latestRequestedChapterIdRef.current === targetChapterId) {
             dispatch({ type: 'ERROR', error: 'Chapter not found' });
           }
@@ -435,6 +449,11 @@ export function useReader(seriesId: string, chapterId: string) {
         if (latestRequestedChapterIdRef.current !== targetChapterId) {return;}
         const message = e instanceof Error ? e.message : 'Unknown error';
         console.log(`[Reader] loadInitialViewer error: ${message}`);
+        // [Reader][diag] TEMP (Task 029): outra rota possível para a tela preta — exceção
+        // (ex: getCachedChapters/fetchPageUrls rejeitando) também vira dispatch ERROR silencioso.
+        console.log(
+          `[Reader][diag] loadInitialViewer THREW -> dispatch ERROR (tela preta). message=${message} seriesId=${seriesId} targetChapterId=${targetChapterId}`,
+        );
         dispatch({ type: 'ERROR', error: message });
       }
     },

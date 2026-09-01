@@ -1,58 +1,52 @@
 import React from 'react';
-import { act, render, waitFor } from '@testing-library/react-native';
-import { Chapter } from '../../../shared/bridge/series';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import type { ReaderChapter } from '../reader.types';
+
+// Task 029 — Fase 1: ReaderScreen consumes hooks/reader.hooks.ts (ChapterService.getFull). The
+// trio (prev/next) is out of scope for Fase 1, so `viewer` only ever carries `curr`.
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
-const mockCanGoBack = jest.fn().mockReturnValue(true);
-const mockReset = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({
-    goBack: mockGoBack,
-    canGoBack: mockCanGoBack,
-    reset: mockReset,
-    navigate: mockNavigate,
-  }),
+  useNavigation: () => ({ goBack: mockGoBack, navigate: mockNavigate }),
   useRoute: () => ({ params: { seriesId: 's1', chapterId: 'c1', origin: 'LIBRARY' } }),
 }));
 
 const mockOnScreenExit = jest.fn().mockResolvedValue(undefined);
 const mockToggleOverlay = jest.fn();
 const mockScrollToPage = jest.fn();
-const mockGoToPrevChapterManual = jest.fn();
-const mockGoToNextChapterManual = jest.fn();
 const mockSetCurrentPage = jest.fn();
-const mockAdvanceToNextChapter = jest.fn();
-const mockRetreatToPrevChapter = jest.fn();
+const mockOnNativePosition = jest.fn();
 const mockHandleScrollToPageHandled = jest.fn();
+const mockLoadChapter = jest.fn();
+const noop = jest.fn();
 
-function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
+let mockReaderState: any;
+
+jest.mock('../hooks/reader.hooks', () => ({ useReader: () => mockReaderState }));
+
+import { ReaderScreen } from '../ReaderScreen';
+
+function makeChapter(overrides: Partial<ReaderChapter> = {}): ReaderChapter {
   return {
     id: 'c1',
     seriesId: 's1',
+    number: 1,
     title: 'A Chegada',
-    number: '1',
-    pageCount: 2,
-    sortOrder: 1,
     readStatus: 'UNREAD',
+    pageCount: 2,
     pagesRead: 0,
-    updatedAtLocalMs: null,
+    pageUrls: ['url0', 'url1'],
+    pageAspectRatios: [1.5, 1.5],
+    serverResume: null,
+    hasPages: true,
     ...overrides,
   };
 }
 
-let mockReaderState: any;
-
-jest.mock('../useReader', () => ({
-  useReader: () => mockReaderState,
-}));
-
-import { ReaderScreen } from '../ReaderScreen';
-
 beforeEach(() => {
   jest.clearAllMocks();
-  mockCanGoBack.mockReturnValue(true);
   mockReaderState = {
     loading: true,
     error: null,
@@ -60,318 +54,142 @@ beforeEach(() => {
     overlayVisible: false,
     currentVisiblePage: 0,
     scrollFraction: 0,
+    chapterFraction: 0,
     offline: false,
-    isAdvancing: false,
+    scrollToPageRequest: null,
+    scrollToChapterId: null,
+    isSwitching: false,
     onScreenExit: mockOnScreenExit,
     toggleOverlay: mockToggleOverlay,
     scrollToPage: mockScrollToPage,
-    goToPrevChapterManual: mockGoToPrevChapterManual,
-    goToNextChapterManual: mockGoToNextChapterManual,
     setCurrentPage: mockSetCurrentPage,
-    advanceToNextChapter: mockAdvanceToNextChapter,
-    retreatToPrevChapter: mockRetreatToPrevChapter,
-    scrollToPageRequest: null,
+    onNativePosition: mockOnNativePosition,
     handleScrollToPageHandled: mockHandleScrollToPageHandled,
+    loadChapter: mockLoadChapter,
+    goToAdjacent: noop,
   };
 });
 
-describe('ReaderScreen', () => {
-  it('monta sem crash com viewer inicial vazio (loading)', () => {
-    expect(() => render(<ReaderScreen />)).not.toThrow();
+function withViewer(over: Partial<ReaderChapter> = {}) {
+  mockReaderState = {
+    ...mockReaderState,
+    loading: false,
+    viewer: { prev: null, curr: makeChapter(over), next: null },
+  };
+}
+
+describe('ReaderScreen — loading / error', () => {
+  it('mounts without crashing while loading and shows the loading label', () => {
+    const { getByText } = render(<ReaderScreen />);
+    expect(getByText('Carregando...')).toBeTruthy();
   });
 
-  it('dispara onScreenExit no unmount', () => {
+  it('shows the error state (message + retry) instead of a black screen when the chapter failed', () => {
+    mockReaderState = { ...mockReaderState, loading: false, error: 'Chapter not found' };
+    const { getByText } = render(<ReaderScreen />);
+    expect(getByText('Erro ao carregar o capítulo')).toBeTruthy();
+    expect(getByText('Tentar novamente')).toBeTruthy();
+  });
+
+  it('retry calls loadChapter with the route chapterId', () => {
+    mockReaderState = { ...mockReaderState, loading: false, error: 'boom' };
+    const { getByText } = render(<ReaderScreen />);
+    fireEvent.press(getByText('Tentar novamente'));
+    expect(mockLoadChapter).toHaveBeenCalledWith('c1');
+  });
+
+  it('fires onScreenExit on unmount', () => {
     const { unmount } = render(<ReaderScreen />);
-
     unmount();
-
     expect(mockOnScreenExit).toHaveBeenCalledTimes(1);
   });
+});
 
-  it('renderiza um bloco com as páginas do capítulo atual quando o viewer está pronto', async () => {
-    const chapter = makeChapter();
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: { prev: null, curr: { chapter, pages: ['url0', 'url1'] }, next: null },
-    };
-
+describe('ReaderScreen — blocks', () => {
+  it('renders a single block for the current chapter (Fase 1: no trio)', () => {
+    withViewer();
     const { getByTestId } = render(<ReaderScreen />);
-
-    await waitFor(() => expect(getByTestId('reader-page-list-view')).toBeTruthy());
     const blocks = getByTestId('reader-page-list-view').props.blocks;
     expect(blocks).toHaveLength(1);
     expect(blocks[0]).toMatchObject({ chapterId: 'c1', pageUrls: ['url0', 'url1'] });
   });
 
-  it('inclui um segundo bloco com as páginas do próximo capítulo quando ele já foi carregado', async () => {
-    const chapter = makeChapter();
-    const nextChapter = makeChapter({ id: 'c2', number: '2' });
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: {
-        prev: null,
-        curr: { chapter, pages: ['url0', 'url1'] },
-        next: { chapter: nextChapter, pages: ['url2'] },
-      },
-    };
-
+  it('maps null aspect ratios to 0 for the native side', () => {
+    withViewer({ pageAspectRatios: [1.5, null] });
     const { getByTestId } = render(<ReaderScreen />);
-
-    const blocks = getByTestId('reader-page-list-view').props.blocks;
-    expect(blocks).toHaveLength(2);
-    expect(blocks[1]).toMatchObject({ chapterId: 'c2', pageUrls: ['url2'] });
+    expect(getByTestId('reader-page-list-view').props.blocks[0].pageAspectRatios).toEqual([1.5, 0]);
   });
 
-  it('inclui os tres blocos do trio (prev, curr, next) na ordem correta quando todos estao carregados', async () => {
-    const prevChapter = makeChapter({ id: 'c0', number: '0' });
-    const chapter = makeChapter();
-    const nextChapter = makeChapter({ id: 'c2', number: '2' });
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: {
-        prev: { chapter: prevChapter, pages: ['url_prev'] },
-        curr: { chapter, pages: ['url0', 'url1'] },
-        next: { chapter: nextChapter, pages: ['url2'] },
-      },
-    };
-
+  it('scrollToChapterId is null when there is no pending scroll request', () => {
+    withViewer();
+    mockReaderState.scrollToPageRequest = null;
     const { getByTestId } = render(<ReaderScreen />);
-
-    const blocks = getByTestId('reader-page-list-view').props.blocks;
-    expect(blocks.map((b: { chapterId: string }) => b.chapterId)).toEqual(['c0', 'c1', 'c2']);
-  });
-
-  it('passa scrollToChapterId nulo quando nao ha pedido de scroll pendente', async () => {
-    const chapter = makeChapter();
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      scrollToPageRequest: null,
-    };
-
-    const { getByTestId } = render(<ReaderScreen />);
-
     expect(getByTestId('reader-page-list-view').props.scrollToChapterId).toBeNull();
   });
 
-  it('aponta scrollToChapterId/scrollToPageIndex para o capitulo atual quando ha um pedido de scroll pendente', async () => {
-    const chapter = makeChapter();
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: { prev: null, curr: { chapter, pages: ['url0', 'url1', 'url2'] }, next: null },
-      scrollToPageRequest: 2,
-    };
-
+  it('scrollToChapterId/scrollToPageIndex reflect a pending scroll request for a chapter', () => {
+    withViewer({ pageUrls: ['u0', 'u1', 'u2'] });
+    mockReaderState.scrollToPageRequest = 2;
+    mockReaderState.scrollToChapterId = 'c1';
     const { getByTestId } = render(<ReaderScreen />);
-
-    const nativeList = getByTestId('reader-page-list-view');
-    expect(nativeList.props.scrollToChapterId).toBe('c1');
-    expect(nativeList.props.scrollToPageIndex).toBe(2);
+    const list = getByTestId('reader-page-list-view');
+    expect(list.props.scrollToChapterId).toBe('c1');
+    expect(list.props.scrollToPageIndex).toBe(2);
   });
 
-  it('repassa onScrollToChapterHandled para limpar o pedido de scroll pendente', async () => {
-    const chapter = makeChapter();
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      scrollToPageRequest: 0,
-    };
-
+  it('forwards the native position payload verbatim to the hook (no decision in the screen)', () => {
+    withViewer();
     const { getByTestId } = render(<ReaderScreen />);
-    const nativeList = getByTestId('reader-page-list-view');
-
     act(() => {
-      nativeList.props.onScrollToChapterHandled();
-    });
-
-    expect(mockHandleScrollToPageHandled).toHaveBeenCalledTimes(1);
-  });
-
-  it('atualiza a posicao de leitura quando a view nativa reporta a pagina visivel do capitulo atual', async () => {
-    const chapter = makeChapter({ pageCount: 1 });
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-    };
-
-    const { getByTestId } = render(<ReaderScreen />);
-    const nativeList = getByTestId('reader-page-list-view');
-
-    act(() => {
-      nativeList.props.onVisiblePageChanged({
-        nativeEvent: { chapterId: 'c1', pageIndex: 0, pageFraction: 0.4, chapterFraction: 0.1 },
+      getByTestId('reader-page-list-view').props.onVisiblePageChanged({
+        nativeEvent: { chapterId: 'c9', pageIndex: 1, pageFraction: 0.4, chapterFraction: 0.1 },
       });
     });
-
-    await waitFor(() => expect(mockSetCurrentPage).toHaveBeenCalledWith(0, 0.4, 0.1));
+    // chapterId 'c9' is neither curr nor a neighbour — the screen still just forwards it; the hook
+    // decides what to do (here: nothing). The point is the screen made no comparison of its own.
+    expect(mockOnNativePosition).toHaveBeenCalledWith('c9', 1, 0.4, 0.1);
   });
+});
 
-  it('avanca para o proximo capitulo quando a view nativa reporta uma pagina do capitulo seguinte', async () => {
-    const chapter = makeChapter();
-    const nextChapter = makeChapter({ id: 'c2', number: '2' });
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: {
-        prev: null,
-        curr: { chapter, pages: ['url0'] },
-        next: { chapter: nextChapter, pages: ['url1'] },
-      },
-    };
-
+describe('ReaderScreen — SDU firstNode/lastNode', () => {
+  it('includes the chapter title in firstNode', () => {
+    withViewer({ title: 'A Chegada', number: 1 });
     const { getByTestId } = render(<ReaderScreen />);
-    const nativeList = getByTestId('reader-page-list-view');
-
-    act(() => {
-      nativeList.props.onVisiblePageChanged({
-        nativeEvent: { chapterId: 'c2', pageIndex: 3, pageFraction: 0.2, chapterFraction: 0.15 },
-      });
-    });
-
-    await waitFor(() => expect(mockAdvanceToNextChapter).toHaveBeenCalledWith(3, 0.2, 0.15));
-    expect(mockSetCurrentPage).not.toHaveBeenCalled();
+    const block = getByTestId('reader-page-list-view').props.blocks[0];
+    expect(JSON.stringify(block.firstNode)).toContain('A Chegada');
   });
 
-  it('retrocede para o capitulo anterior quando a view nativa reporta uma pagina do capitulo anterior', async () => {
-    const chapter = makeChapter();
-    const prevChapter = makeChapter({ id: 'c0', number: '0' });
-    mockReaderState = {
-      ...mockReaderState,
-      loading: false,
-      viewer: {
-        prev: { chapter: prevChapter, pages: ['url_prev'] },
-        curr: { chapter, pages: ['url0'] },
-        next: null,
-      },
-    };
-
+  it('uses "Capítulo N" in firstNode when the title is just the number', () => {
+    withViewer({ title: '1', number: 1 });
     const { getByTestId } = render(<ReaderScreen />);
-    const nativeList = getByTestId('reader-page-list-view');
-
-    act(() => {
-      nativeList.props.onVisiblePageChanged({
-        nativeEvent: { chapterId: 'c0', pageIndex: 4, pageFraction: 0.9, chapterFraction: 0.95 },
-      });
-    });
-
-    await waitFor(() => expect(mockRetreatToPrevChapter).toHaveBeenCalledWith(4, 0.9, 0.95));
+    const block = getByTestId('reader-page-list-view').props.blocks[0];
+    expect(JSON.stringify(block.firstNode)).toContain('Capítulo 1');
   });
 
-  describe('montagem SDU de firstNode/lastNode', () => {
-    it('inclui o titulo do capitulo dentro de firstNode', async () => {
-      const chapter = makeChapter({ title: 'A Chegada', number: '1' });
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      };
+  it('lastNode carries the bare chapter number as a bold text node', () => {
+    withViewer({ number: 1 });
+    const { getByTestId } = render(<ReaderScreen />);
+    const block = getByTestId('reader-page-list-view').props.blocks[0];
+    const numberNode = block.lastNode.children.find(
+      (c: { type: string; text?: string }) => c.type === 'text' && c.text === '1',
+    );
+    expect(numberNode).toBeDefined();
+    expect(numberNode.bold).toBe(true);
+  });
+});
 
-      const { getByTestId } = render(<ReaderScreen />);
-      const block = getByTestId('reader-page-list-view').props.blocks[0];
-
-      expect(JSON.stringify(block.firstNode)).toContain('A Chegada');
-    });
-
-    it('nao inclui um Gap em firstNode quando e o primeiro bloco do trio (sem prev)', async () => {
-      const chapter = makeChapter();
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      };
-
-      const { getByTestId } = render(<ReaderScreen />);
-      const block = getByTestId('reader-page-list-view').props.blocks[0];
-
-      // Sem prev, firstNode é só o container do título (um único filho de texto), não um
-      // container aninhado [gap, header] — ver buildFirstNode/hasGapAbove em ReaderScreen.tsx.
-      expect(block.firstNode.children.every((child: { type: string }) => child.type !== 'container')).toBe(true);
-    });
-
-    it('inclui um Gap em firstNode quando ha um capitulo anterior no trio', async () => {
-      const prevChapter = makeChapter({ id: 'c0', number: '0' });
-      const chapter = makeChapter();
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        viewer: { prev: { chapter: prevChapter, pages: ['url_prev'] }, curr: { chapter, pages: ['url0'] }, next: null },
-      };
-
-      const { getByTestId } = render(<ReaderScreen />);
-      // blocks[1] é o bloco 'curr' — o que tem prev antes dele, logo hasGapAbove=true.
-      const block = getByTestId('reader-page-list-view').props.blocks[1];
-
-      expect(block.firstNode.children.some((child: { type: string }) => child.type === 'container')).toBe(true);
-    });
-
-    it('lastNode nao inclui a previa do proximo capitulo mesmo quando ha um next carregado (oculto por enquanto)', async () => {
-      const chapter = makeChapter();
-      const nextChapter = makeChapter({ id: 'c2', number: '2', title: 'A Jornada' });
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: { chapter: nextChapter, pages: ['url2'] } },
-      };
-
-      const { getByTestId } = render(<ReaderScreen />);
-      const block = getByTestId('reader-page-list-view').props.blocks[0];
-
-      expect(JSON.stringify(block.lastNode)).not.toContain('A Jornada');
-    });
-
-    it('lastNode inclui o numero do capitulo atual como texto separado em negrito', async () => {
-      const chapter = makeChapter({ number: '1' });
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      };
-
-      const { getByTestId } = render(<ReaderScreen />);
-      const block = getByTestId('reader-page-list-view').props.blocks[0];
-
-      const numberNode = block.lastNode.children.find(
-        (child: { type: string; text?: string }) => child.type === 'text' && child.text === '1',
-      );
-      expect(numberNode).toBeDefined();
-      expect(numberNode.bold).toBe(true);
-    });
+describe('ReaderScreen — offline banner', () => {
+  it('shows the banner when offline', () => {
+    withViewer();
+    mockReaderState.offline = true;
+    const { getByText } = render(<ReaderScreen />);
+    expect(getByText('Sem conexão')).toBeTruthy();
   });
 
-  describe('banner offline', () => {
-    it('mostra o banner quando reader.offline e verdadeiro', async () => {
-      const chapter = makeChapter();
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        offline: true,
-        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      };
-
-      const { getByText } = render(<ReaderScreen />);
-
-      expect(getByText('Sem conexão')).toBeTruthy();
-    });
-
-    it('nao mostra o banner quando reader.offline e falso', async () => {
-      const chapter = makeChapter();
-      mockReaderState = {
-        ...mockReaderState,
-        loading: false,
-        offline: false,
-        viewer: { prev: null, curr: { chapter, pages: ['url0'] }, next: null },
-      };
-
-      const { queryByText } = render(<ReaderScreen />);
-
-      expect(queryByText('Sem conexão')).toBeNull();
-    });
+  it('hides the banner when online', () => {
+    withViewer();
+    mockReaderState.offline = false;
+    const { queryByText } = render(<ReaderScreen />);
+    expect(queryByText('Sem conexão')).toBeNull();
   });
 });
