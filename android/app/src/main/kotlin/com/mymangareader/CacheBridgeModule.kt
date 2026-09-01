@@ -39,8 +39,11 @@ class CacheBridgeModule @Inject constructor(
     @ReactMethod
     fun persistentGet(key: String, variant: String, promise: Promise) = get(cache.persistent, key, variant, "PERSISTENT_GET_ERROR", promise)
 
+    // ttlMs is a plain Double, never nullable: the non-TurboModule RN bridge throws
+    // NativeArgumentsParseException reading a trailing `undefined`/`null` for a boxed Double arg.
+    // The RN side always sends a number; <= 0 means "no TTL" (see put()).
     @ReactMethod
-    fun persistentPut(key: String, value: String, domain: String, variant: String, ttlMs: Double?, promise: Promise) =
+    fun persistentPut(key: String, value: String, domain: String, variant: String, ttlMs: Double, promise: Promise) =
         put(cache.persistent, key, value, domain, variant, ttlMs, "PERSISTENT_PUT_ERROR", promise)
 
     @ReactMethod
@@ -69,7 +72,7 @@ class CacheBridgeModule @Inject constructor(
         get(cache.memoryKotlin, key, variant, "MEMORY_KOTLIN_GET_ERROR", promise)
 
     @ReactMethod
-    fun memoryKotlinPut(key: String, value: String, domain: String, variant: String, ttlMs: Double?, promise: Promise) =
+    fun memoryKotlinPut(key: String, value: String, domain: String, variant: String, ttlMs: Double, promise: Promise) =
         put(cache.memoryKotlin, key, value, domain, variant, ttlMs, "MEMORY_KOTLIN_PUT_ERROR", promise)
 
     @ReactMethod
@@ -100,10 +103,11 @@ class CacheBridgeModule @Inject constructor(
         }
     }
 
-    private fun put(store: CacheStore, key: String, value: String, domain: String, variant: String, ttlMs: Double?, errorCode: String, promise: Promise) {
+    private fun put(store: CacheStore, key: String, value: String, domain: String, variant: String, ttlMs: Double, errorCode: String, promise: Promise) {
         scope.launch {
             runCatching {
-                if (ttlMs != null) store.put(key, value, domain, variant, ttlMs.toLong()) else store.put(key, value, domain, variant)
+                // <= 0 → no TTL (the RN side sends 0 when a caller like ReadingProgress has none).
+                if (ttlMs > 0) store.put(key, value, domain, variant, ttlMs.toLong()) else store.put(key, value, domain, variant)
             }.resolveOrReject(promise, errorCode) { it.toWritableMap() }
         }
     }

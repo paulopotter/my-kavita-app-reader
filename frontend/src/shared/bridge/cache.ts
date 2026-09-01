@@ -89,9 +89,15 @@ const native: {
   memoryKotlinPurgeOlderThan(cutoffEpochMs: number): Promise<void>;
 } = NativeModules.CacheBridgeModule;
 
+// The non-TurboModule RN bridge throws NativeArgumentsParseException reading a trailing
+// `undefined`/`null` for a Double arg — `ttlMs` must always be a real number. `0` means "no TTL"
+// (CacheBridgeModule.put treats ttlMs <= 0 that way).
+const ttlOrZero = (ttlMs: number | undefined): number => ttlMs ?? 0;
+
 export const CacheBridge: CacheBridgeModuleInterface = {
   persistentGet: ({ key, variant }) => native.persistentGet(key, variant),
-  persistentPut: ({ key, value, domain, variant, ttlMs }) => native.persistentPut(key, value, domain, variant, ttlMs),
+  persistentPut: ({ key, value, domain, variant, ttlMs }) =>
+    native.persistentPut(key, value, domain, variant, ttlOrZero(ttlMs)),
   persistentInvalidate: ({ key, variant }) => native.persistentInvalidate(key, variant),
   persistentInvalidateDomain: ({ domain }) => native.persistentInvalidateDomain(domain),
   persistentInvalidateVariant: ({ domain, variant }) => native.persistentInvalidateVariant(domain, variant),
@@ -99,7 +105,8 @@ export const CacheBridge: CacheBridgeModuleInterface = {
   persistentPurgeOlderThan: ({ cutoffEpochMs }) => native.persistentPurgeOlderThan(cutoffEpochMs),
 
   memoryKotlinGet: ({ key, variant }) => native.memoryKotlinGet(key, variant),
-  memoryKotlinPut: ({ key, value, domain, variant, ttlMs }) => native.memoryKotlinPut(key, value, domain, variant, ttlMs),
+  memoryKotlinPut: ({ key, value, domain, variant, ttlMs }) =>
+    native.memoryKotlinPut(key, value, domain, variant, ttlOrZero(ttlMs)),
   memoryKotlinInvalidate: ({ key, variant }) => native.memoryKotlinInvalidate(key, variant),
   memoryKotlinInvalidateDomain: ({ domain }) => native.memoryKotlinInvalidateDomain(domain),
   memoryKotlinInvalidateVariant: ({ domain, variant }) => native.memoryKotlinInvalidateVariant(domain, variant),
