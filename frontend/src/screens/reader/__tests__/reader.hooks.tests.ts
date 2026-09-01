@@ -67,6 +67,16 @@ jest.mock('@react-native-community/netinfo', () => ({
   default: { addEventListener: jest.fn(() => jest.fn()) },
 }));
 
+// Controllable AppState — appStateChange(state) fires whatever the hook registered.
+let appStateHandler: ((s: string) => void) | null = null;
+jest.mock('react-native/Libraries/AppState/AppState', () => ({
+  addEventListener: (_type: string, handler: (s: string) => void) => {
+    appStateHandler = handler;
+    return { remove: jest.fn() };
+  },
+  currentState: 'active',
+}));
+
 import { useReader } from '../hooks/reader.hooks';
 
 // ── digest fixtures ─────────────────────────────────────────────────────
@@ -123,6 +133,7 @@ function seriesDigest(ids: string[]) {
 beforeEach(() => {
   jest.clearAllMocks();
   readStatusChangedHandler = null;
+  appStateHandler = null;
   mockProgressGet.mockResolvedValue(null);
   mockReadingModeGet.mockResolvedValue({ mode: 'webtoon' });
   mockSerialGet.mockResolvedValue(seriesDigest(['c1', 'c2', 'c3', 'c4', 'c5']));
@@ -329,5 +340,93 @@ describe('useReader V2 — arrow enablement', () => {
 
     expect(result.current.hasPrevChapter).toBe(true);
     expect(result.current.hasNextChapter).toBe(false);
+  });
+});
+
+describe('useReader V2 — progress flush (Task 030 gaps)', () => {
+  it('onScreenExit flushes the focused chapter to BOTH stores', async () => {
+    mockGetFull.mockResolvedValue(chapterDigest('c3', 3, { next: 'c4' }));
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    mockProgressSetLocal.mockClear();
+    mockProgressSet.mockClear();
+
+    act(() => result.current.onScreenExit());
+
+    expect(mockProgressSetLocal).toHaveBeenCalledWith('c3', expect.objectContaining({ seriesId: 's1' }));
+    expect(mockProgressSet).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c3', seriesId: 's1' }));
+  });
+
+  it('GAP 1: backgrounding the app flushes the focused chapter', async () => {
+    mockGetFull.mockResolvedValue(chapterDigest('c3', 3, { next: 'c4' }));
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    expect(appStateHandler).toBeInstanceOf(Function);
+    mockProgressSetLocal.mockClear();
+    mockProgressSet.mockClear();
+
+    act(() => appStateHandler!('background'));
+
+    expect(mockProgressSetLocal).toHaveBeenCalledWith('c3', expect.any(Object));
+    expect(mockProgressSet).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c3' }));
+  });
+
+  it('GAP 1: an "active" AppState change does NOT flush', async () => {
+    mockGetFull.mockResolvedValue(chapterDigest('c3', 3, { next: 'c4' }));
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    mockProgressSetLocal.mockClear();
+    mockProgressSet.mockClear();
+
+    act(() => appStateHandler!('active'));
+
+    expect(mockProgressSetLocal).not.toHaveBeenCalled();
+    expect(mockProgressSet).not.toHaveBeenCalled();
+  });
+
+  it('GAP 2: an arrow to the next chapter flushes the chapter being left', async () => {
+    mockGetFull.mockImplementation(({ chapterId }: { chapterId: string }) =>
+      Promise.resolve(chapterDigest(chapterId, Number(chapterId.slice(1)), { next: 'c4' })),
+    );
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window!.entries[result.current.window!.focusedIndex].chapter.id).toBe('c3'));
+    mockProgressSetLocal.mockClear();
+    mockProgressSet.mockClear();
+
+    act(() => result.current.goToAdjacent('next'));
+
+    // c3 (the outgoing chapter) is flushed before the window rebuilds to c4
+    expect(mockProgressSetLocal).toHaveBeenCalledWith('c3', expect.any(Object));
+    expect(mockProgressSet).toHaveBeenCalledWith(expect.objectContaining({ chapterId: 'c3' }));
+  });
+
+  it('GAP 2: reopening the SAME chapter does not flush it', async () => {
+    mockGetFull.mockResolvedValue(chapterDigest('c3', 3, { next: 'c4' }));
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    mockProgressSetLocal.mockClear();
+    mockProgressSet.mockClear();
+
+    act(() => result.current.loadChapter('c3'));
+
+    expect(mockProgressSetLocal).not.toHaveBeenCalled();
+    expect(mockProgressSet).not.toHaveBeenCalled();
+  });
+
+  it('does not hit the server for a chapter that is already effectively read', async () => {
+    mockGetFull.mockResolvedValue({
+      ...chapterDigest('c3', 3, { next: 'c4' }),
+      readStatus: 'READ',
+      pages: { count: 5, readCount: 5, list: pages(5).list },
+    });
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    mockProgressSetLocal.mockClear();
+    mockProgressSet.mockClear();
+
+    act(() => result.current.onScreenExit());
+
+    expect(mockProgressSetLocal).toHaveBeenCalledWith('c3', expect.any(Object)); // local always
+    expect(mockProgressSet).not.toHaveBeenCalled(); // server skipped for a read chapter
   });
 });

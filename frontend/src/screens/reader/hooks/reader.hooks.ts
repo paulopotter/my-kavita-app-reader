@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { PixelRatio } from 'react-native';
+import { AppState, PixelRatio } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
@@ -84,6 +84,9 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
 
   const localTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Last { page, scrollFraction } written locally per chapter — lets the 2s timer skip a write
+  // when nothing moved since its previous tick (GAP 3).
+  const lastLocalSavedRef = useRef<Map<string, { page: number; scrollFraction: number }>>(new Map());
 
   // ── mark read / unread (via ChapterTool — emits ChapterEvents) ─────
   const applyMarkUpdate = useCallback(
@@ -184,10 +187,49 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     }
   }, [state.window, loadEntry]);
 
+  // Flush one chapter's reading position to BOTH stores at once — local (always) and server
+  // (only while the chapter isn't effectively read, same rule the 20s timer's mark handling
+  // uses). The single place all the "save now" callers go through: screen unmount
+  // (onScreenExit), app backgrounding (AppState), and leaving a chapter via an arrow/jump
+  // (openChapter). Best-effort, never awaited.
+  const flushProgress = useCallback(
+    (chapter: ReaderChapter, position: { page: number; scrollFraction: number }) => {
+      ReadingProgressManager.set(chapter.id, {
+        seriesId: chapter.seriesId,
+        page: position.page,
+        scrollFraction: position.scrollFraction,
+      }).catch(() => {});
+      lastLocalSavedRef.current.set(chapter.id, position);
+      if (!isChapterEffectivelyRead(chapter)) {
+        ChapterService.progress
+          .set({ seriesId: chapter.seriesId, chapterId: chapter.id, pageIndex: position.page })
+          .then(() => {
+            lastSyncedPageRef.current.set(chapter.id, position.page);
+            EventBus.emit(ReaderEvents.progressChanged, {
+              seriesId: chapter.seriesId,
+              chapterId: chapter.id,
+              pageIndex: position.page,
+            });
+          })
+          .catch(() => {});
+      }
+    },
+    [],
+  );
+
   // ── open the screen (or a non-adjacent jump-to-chapter) ────────────
   const openChapter = useCallback(
     (targetChapterId: string, opts?: { startAtBeginning?: boolean }) => {
       const gen = ++openGenRef.current;
+
+      // GAP 2: an arrow / jump reloads a new chapter without going through onScreenExit, so the
+      // chapter being left never gets its final position flushed — the [state.window] timers
+      // effect only clearInterval()s on teardown, it doesn't save. Flush the outgoing chapter
+      // here, before the window is rebuilt, unless we're reopening the very same chapter.
+      const leaving = stateRef.current.window?.entries[stateRef.current.window.focusedIndex]?.chapter;
+      if (leaving && leaving.id !== targetChapterId) {
+        flushProgress(leaving, { page: currentPageRef.current, scrollFraction: scrollFractionRef.current });
+      }
 
       dispatch({ type: 'LOADING' });
 
@@ -251,7 +293,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
           dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' });
         });
     },
-    [seriesId],
+    [seriesId, flushProgress],
   );
 
   // Back-compat alias used by the screen's retry button.
@@ -484,6 +526,11 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     }
   }, [state.window]);
 
+  // Flush one chapter's reading position to BOTH stores at once — local (always) and server
+  // (only while the chapter isn't effectively read, same rule the 20s timer's mark handling
+  // uses). The single place all the "save now" callers go through: screen unmount
+  // (onScreenExit), app backgrounding (AppState), and leaving a chapter via an arrow/jump
+  // (openChapter). Best-effort, never awaited.
   // ── progress timers: local every 2s, server every 20s ───────────
   useEffect(() => {
     const window = state.window;
@@ -493,11 +540,13 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     const { id: chId, seriesId: chSeriesId } = focused;
 
     localTimerRef.current = setInterval(() => {
-      ReadingProgressManager.set(chId, {
-        seriesId: chSeriesId,
-        page: currentPageRef.current,
-        scrollFraction: scrollFractionRef.current,
-      }).catch(() => {});
+      const page = currentPageRef.current;
+      const scrollFraction = scrollFractionRef.current;
+      // GAP 3: skip the Room write when nothing moved since the previous tick.
+      const last = lastLocalSavedRef.current.get(chId);
+      if (last && last.page === page && last.scrollFraction === scrollFraction) {return;}
+      lastLocalSavedRef.current.set(chId, { page, scrollFraction });
+      ReadingProgressManager.set(chId, { seriesId: chSeriesId, page, scrollFraction }).catch(() => {});
     }, LOCAL_SAVE_INTERVAL_MS);
 
     syncTimerRef.current = setInterval(() => {
@@ -543,17 +592,23 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     if (!window) {return;}
     const curr = window.entries[window.focusedIndex]?.chapter;
     if (!curr) {return;}
-    ReadingProgressManager.set(curr.id, {
-      seriesId: curr.seriesId,
-      page: currentPageRef.current,
-      scrollFraction: scrollFractionRef.current,
-    }).catch(() => {});
-    if (!isChapterEffectivelyRead(curr)) {
-      ChapterService.progress
-        .set({ seriesId: curr.seriesId, chapterId: curr.id, pageIndex: currentPageRef.current })
-        .catch(() => {});
-    }
-  }, []);
+    flushProgress(curr, { page: currentPageRef.current, scrollFraction: scrollFractionRef.current });
+  }, [flushProgress]);
+
+  // GAP 1: the reader is only unmounted on a "back" press. Backgrounding the app (home button)
+  // or the OS killing it never runs onScreenExit — so the same flush has to happen when the app
+  // goes inactive/background, or the server can sit up to a full 20s sync interval behind.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next !== 'background' && next !== 'inactive') {return;}
+      const window = stateRef.current.window;
+      const curr = window?.entries[window.focusedIndex]?.chapter;
+      if (curr) {
+        flushProgress(curr, { page: currentPageRef.current, scrollFraction: scrollFractionRef.current });
+      }
+    });
+    return () => sub.remove();
+  }, [flushProgress]);
 
   // ── keep screen on / immersive / offline ───────────────────────
   useEffect(() => {
