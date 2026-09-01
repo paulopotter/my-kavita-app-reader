@@ -328,10 +328,11 @@ path, follow the same shape this screen uses, in this order:
 
 1. **RN owns every decision, Kotlin only draws.** Which items are loaded,
    when to advance/retreat, all business logic — stays in the hook
-   (`useReader.ts`). The native view is a dumb renderer: it receives a list
-   of data and reports back what's visible (`onVisiblePageChanged`) or what
-   happened (`onTap`, `onScrollToChapterHandled`). Kotlin never decides
-   navigation, never fetches data on its own.
+   (`screens/reader/hooks/reader.hooks.ts`). The native view is a dumb
+   renderer: it receives a list of data and reports back what's visible
+   (`onVisiblePageChanged`) or what happened (`onTap`,
+   `onScrollToChapterHandled`). Kotlin never decides navigation, never
+   fetches data on its own.
 2. **Server-Driven UI (SDU) for anything besides the raw content itself.**
    Don't hardcode headers/footers/labels/spacing as fixed Kotlin
    Composables — RN sends a small generic node tree (`SduNode.kt`:
@@ -352,14 +353,80 @@ path, follow the same shape this screen uses, in this order:
    One-shot requests (e.g. "scroll to this chapter") are cleared back to
    null by RN once handled (`onScrollToChapterHandled`), so a natural
    forward scroll is never fought by a stale programmatic jump.
+
+### Chapter-switch contract (`ReaderWindow` + `moveFocus`)
+
+The reader had a class of recurring navigation bugs (documented: pressing
+"next" on chapter 26 jumped straight to 28) caused by **two uncoordinated
+mechanisms writing the same chapter-navigation state** — the native list's
+continuous scroll (`onVisiblePageChanged`) and the manual overlay arrow —
+racing through a read-modify-write on a named `{prev, curr, next}` trio.
+The rewrite (`screens/reader/`) replaces that with one model and one path:
+
+- **`ReaderWindow { entries: LoadedChapterEntry[]; focusedIndex: number }`** —
+  a position-indexed window (a ruler + a pointer), a contiguous slice of the
+  series' canonical reading order. `focusedIndex` is the *only* source of
+  truth for "where the user is"; there is no separate `curr` that can
+  desync. Moving chapter = moving the index, one atomic assignment in the
+  reducer. The window is **append-only** on natural scroll
+  (`computeWindowAfterFocusMove` only ever moves `focusedIndex` or grows an
+  end) — it never reorders or drops an entry, so the native list's scroll
+  position stays valid across a crossing.
+
+- **One path for a scroll crossing: `moveFocus(trigger)`** in
+  `reader.hooks.ts`. The screen forwards the native payload verbatim
+  (`onNativePosition`); the hook decides. `moveFocus` just dispatches
+  `MOVE_FOCUS { trigger, order }` and the **reducer** computes the
+  transition against its own `state.window`, so two reports in the same
+  React batch serialize (the 2nd builds on the 1st's result) — no settling
+  timer, no parallel window copy in a ref.
+
+- **Arrows / jump reload, they don't scroll.** The overlay arrows call
+  `openChapter(targetId, { startAtBeginning: true })` — the same flow that
+  opens the screen — which builds a fresh `[prev?, target, next?]` window
+  and bumps `State.nativeListKey`. The screen passes `nativeListKey` as the
+  `key` of `<ReaderPageListView>`, so React unmounts the native view and
+  mounts a new one: the Compose `LazyColumn` is created fresh on the target
+  chapter with no inherited scroll offset. This is deliberate —
+  `listState.scrollToItem` / `LinearLayoutManager.scrollToPositionWithOffset`
+  both proved unreliable across many device builds when the `blocks` list
+  changed and an old block survived (the list stayed anchored on the
+  survivor). Remounting sidesteps programmatic scroll entirely for a switch.
+  A natural-scroll crossing does **not** bump `nativeListKey` (no remount
+  mid-scroll).
+
+- **Cold-open prev.** A bare `ChapterService.getFull` carries no embedded
+  `prevChapter`/`nextChapter` (those are only attached by a Series-driven
+  fetch), and on the first open the canonical series order hasn't loaded
+  yet — so `buildWindow` can't include the prev. `reconcileWindow` (run once
+  the order lands) prepends it. Without the prev in the window there is no
+  block above the opened chapter and backward scroll has nowhere to go.
+
+- **`scrollRequest`** is a one-shot `{ chapterId, page }` used only for
+  "continue reading" (initial page != 0) — never set by a native-scroll
+  report. Consumed via `onScrollToChapterHandled` → `SCROLL_REQUEST_HANDLED`.
+
+The Kotlin side is unchanged by this contract: all of it — window,
+`moveFocus`, the reducer, the remount trigger — is RN. If it ever looks
+easier to solve a piece of this in Kotlin, that is a design error in the RN
+model, not a justified exception.
 5. **Decoupled from any specific data provider.** The View's props
    (`ChapterBlock`: `chapterId`, `pageUrls`, `pageAspectRatios`, `firstNode`,
    `lastNode`) carry plain data, not Kavita-specific types — the Kotlin
    rendering layer has no idea what "Kavita" is. Provider-specific logic
-   stays entirely in the data layer feeding the hook (`ReaderService.ts` →
-   `ChapterDataSource`, see below), never in the native view.
+   stays entirely in the data layer feeding the hook
+   (`shared/services/chapters` / `shared/services/serials` → the Kotlin
+   `:content-digest` layer, see below), never in the native view.
 
 ### `ChapterDataSource` — the swappable-provider boundary
+
+> The **reader's own** chapter/page data now comes through
+> `shared/services/chapters` (`ChapterService.getFull` →
+> `DigestBridge.getChapterDigest`) backed by the Kotlin `:content-digest`
+> layer, not through `ReaderChapterModule`/`ChapterDataSource`. The section
+> below still describes `ChapterDataSource` because it remains the boundary
+> for its other consumers (`SplashSyncCoordinator`, and the concrete
+> `KavitaChapterFeature` calls from `LibraryModule`/`SeriesModule`).
 
 The Kotlin *data* side of the reader (not the rendering side above) follows
 the interface+impl+binding pattern already used for `KavitaUrlSource`/
@@ -438,4 +505,4 @@ recreated on every `make build-bundle`.
 
 ---
 
-**Last Updated**: 2026-08-19
+**Last Updated**: 2026-09-01
