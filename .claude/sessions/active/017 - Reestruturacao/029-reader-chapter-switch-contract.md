@@ -1,9 +1,12 @@
 # Task 029 — Reader: chapter-switch contract + 3-mechanism consumption (Phase 6 — Reader)
 
-**Status:** todo (blocked by 008, 013, and Tasks 016-023 — this task consumes the real Chapter
-Service (Task 021) and the real `Server`/`CacheManager` (Tasks 017/023), not just their design —
-was `doing` while scoped as standalone; now waits on the Chapter contract and the formalized
-communication mechanisms)
+**Status:** doing — core done (2026-09-01). The dual-mechanism root cause is resolved by the
+reader rewrite (`screens/reader/`): the `{prev, curr, next}` trio + parallel scroll/arrow flows
+were replaced by a single `ReaderWindow { entries[], focusedIndex }` and one `moveFocus(trigger)`
+path (reducer owns the transition; arrows reload + remount via `nativeListKey`). Validated on a
+real device across rc42–rc45. Remaining: (1) the chapter-order reflow — root cause found, fix
+deferred (see below); (2) `architecture.md` updated (done, commit `docs(architecture): contrato
+de troca de capítulo do leitor`).
 
 > This task is the original plan 017 "Task 001 — Contrato único de troca de capítulo +
 > modelagem dos 3 mecanismos de comunicação", reslotted into Phase 6 and updated per Task 001
@@ -111,19 +114,59 @@ real-device testing). Needs to be reopened and confirmed whether the earlier fix
 whether there is a second point (e.g. re-sort on the RN side after the cache already comes
 sorted, causing a visible re-sort again) still uncovered.
 
+### Investigation result (2026-09-01) — RESOLVED (root cause found, fix deferred)
+
+Not a Room `ORDER BY` issue. It's an RN double-sort on the SerieScreen mount:
+
+- `frontend/src/screens/serie/hooks/serie.hooks.ts:64-66` — `sortMode` /
+  `sortFixedThreshold` / `sortProgressPercent` `useState` all start at
+  `DEFAULT_SORT_PREFS` (`mode = 'ASCENDING'`).
+- `serie.hooks.ts:87-113` (`load`) resolves **cache-first and fast** →
+  `setSerie(normalized)`. At that instant `sortMode` is still the default.
+- `serie.hooks.ts:146-149` — `const chapters = useMemo(() => sortChapters(serie.chapters, sortMode, …), [serie, sortMode, …])`.
+  First paint therefore renders the list **ascending** (the default).
+- `serie.hooks.ts:139-144` — a *separate* effect calls
+  `ChaptersTool.sort.get({ domain: 'series', seriesId })` (async, goes to
+  `PreferencesManager` → native bridge, no sync path) → `applySortPrefs` →
+  `setSortMode(prefs.mode)`. When the series' saved sort is `DESCENDING` (or
+  an `AUTO_*` mode that resolves to reverse), `sortMode` changes and the
+  `useMemo` re-runs → the list **re-sorts on screen, one frame later**.
+
+So on every entry into a series the user reads in `DESCENDING`, the list
+flashes ascending → descending. `PreferencesManager.get` is always a
+Promise (native bridge), so there is no "read the saved sort synchronously
+on first paint" option.
+
+**Fix options (not implemented — user decision pending):**
+- (A) Gate the list: keep `chapters` empty (or a spinner) until a
+  `sortPrefsLoaded` flag flips. Simplest; adds a brief empty state.
+- (B) Persist the last-used `sortMode` somewhere readable synchronously and
+  seed the `useState` with it. More moving parts.
+- (C) Have `ChaptersTool.sort.get` serve a warm in-memory value on first
+  call. Needs a `PreferencesManager` change beyond this screen.
+
+Recommend (A). This is a SerieScreen bug, not a reader bug — it can move to
+its own task if preferred.
+
 ## Steps
 
-1. Get the finished Chapter contract (Task 008) and the finished 3-mechanisms formalization
-   (Task 013, including the RN→RN design and the "one-shot state" fate decision).
-2. Reconcile the draft chapter-switch contract above with Task 008/013's output — adjust as
-   needed, do not assume the draft survives unchanged.
-3. Decide, with the user, whether the full unification refactor (merging `loadInitialViewer` and
-   `advanceToNextChapter`/`retreatToPrevChapter` into a single flow) lands in this task or is
-   split further — depends on real size once modeled against Task 008/013.
-4. Update `.claude/docs/architecture.md` with the finalized contract, once approved.
-5. Fix the `loadNeighbor`/`loadMissingNeighbor` race (guard by `targetChapterId`) and reopen the
-   chapter-order reflow investigation — both can be fixed as point corrections ahead of the full
-   contract unification, since both already have an identified root cause.
+1. ~~Get the finished Chapter contract (Task 008) and 3-mechanisms formalization (Task 013).~~ —
+   consumed: the reader now uses `ChapterService.getFull` / `SerialService.get` (over the
+   `:content-digest` Kotlin layer) and `EventBus.emit(ReaderEvents.progressChanged)` for RN→RN.
+2. ~~Reconcile the draft chapter-switch contract.~~ — the draft `switchChapter(chapterId,
+   options?)` was superseded, not adjusted: there is no `switchChapter` — a scroll crossing goes
+   through `moveFocus(trigger)` + the reducer; an arrow goes through `openChapter(id,
+   {startAtBeginning:true})` + `nativeListKey` remount. The two are deliberately different flows
+   with no shared mutable state to race over (the whole point).
+3. ~~Decide whether the full unification refactor lands here.~~ — the rewrite replaced both
+   `loadInitialViewer` and `advanceToNextChapter`/`retreatToPrevChapter` outright; there is
+   nothing left to "unify".
+4. ~~Update `architecture.md`.~~ — done (§ "Chapter-switch contract (`ReaderWindow` +
+   `moveFocus`)").
+5. ~~Fix the `loadNeighbor`/`loadMissingNeighbor` race.~~ — those functions no longer exist; the
+   window is append-only and the reducer owns the transition, so there is no read-modify-write
+   to guard. **Chapter-order reflow: investigated, root cause found, fix deferred** (see
+   above) — it is a SerieScreen double-sort, not a reader or Room issue.
 
 ## Completion criteria
 
