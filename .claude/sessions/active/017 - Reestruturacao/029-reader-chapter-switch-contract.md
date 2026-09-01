@@ -137,16 +137,25 @@ flashes ascending → descending. `PreferencesManager.get` is always a
 Promise (native bridge), so there is no "read the saved sort synchronously
 on first paint" option.
 
-**Fix options (not implemented — user decision pending):**
-- (A) Gate the list: keep `chapters` empty (or a spinner) until a
-  `sortPrefsLoaded` flag flips. Simplest; adds a brief empty state.
-- (B) Persist the last-used `sortMode` somewhere readable synchronously and
-  seed the `useState` with it. More moving parts.
-- (C) Have `ChaptersTool.sort.get` serve a warm in-memory value on first
-  call. Needs a `PreferencesManager` change beyond this screen.
+**User check (2026-09-01): not reproducible in practice** — the existing
+loading gate (`serie.screen.tsx:147`, `loading && chapters.length === 0 &&
+!serie`) usually holds long enough for `ChaptersTool.sort.get` to resolve
+before `setSerie`, so the first painted list already uses the right sort.
+The flash is still *possible* on a hot cache (where `SerialService.get`
+returns instantly and can win the race against the sort-prefs read), but
+the user isn't seeing it. **Fix deferred as optional.**
 
-Recommend (A). This is a SerieScreen bug, not a reader bug — it can move to
-its own task if preferred.
+**Fix options if it resurfaces (not implemented):**
+- (A) Gate the list on a `sortPrefsLoaded` flag — don't render chapters
+  until the saved sort is known. Simplest; the loading spinner already
+  shown covers it.
+- (B) Seed the `sortMode` `useState` from a synchronously-readable
+  last-used value. More moving parts.
+- (C) Warm in-memory value from `ChaptersTool.sort.get` on first call.
+  Needs a `PreferencesManager` change beyond this screen.
+
+This is a SerieScreen concern, not a reader one — if pursued it belongs in
+its own task.
 
 ## Steps
 

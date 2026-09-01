@@ -1,8 +1,7 @@
 # Task 030 — Reader: progress sync audit local↔server (Phase 6 — Reader)
 
-**Status:** doing — audit done (2026-09-01). Report below. Two real gaps found (app
-background/kill, chapter switch via arrow). User decision pending on which to fix here vs. spin
-off.
+**Status:** doing — audit done + all 3 gaps fixed (2026-09-01, commit `fix(rn): fecha os 3 gaps
+de sync de progresso do leitor`). Report below. Pending: device validation + `finalizar-task`.
 
 > This task is the original plan 017 "Task 002 — Auditoria de sincronização de progresso
 > local↔servidor", reslotted into Phase 6 unchanged.
@@ -89,20 +88,37 @@ guards on `lastSyncedPageRef`). Cheap, but worth a `lastLocalSavedRef` guard if 
   a separate task** (Splash refactor), noted in `reading-progress.manager.ts:6-9`. Its absence
   is known, not a finding here.
 
-### Recommended fixes (user decision — this task or spin off)
+### Fixes applied (2026-09-01, `reader.hooks.ts`)
 
-1. **GAP 1** — add an `AppState` listener in the reader hook: on `change` to `background`/
-   `inactive`, run the same flush `onScreenExit` does (local + conditional server). Small,
-   self-contained, closes the biggest gap.
-2. **GAP 2** — make `openChapter` (and `moveFocus`'s focus-moved branch) flush the chapter being
-   left before rebuilding the window — factor the `onScreenExit` body into a
-   `flushProgress(chapter)` helper and call it from all three (unmount, background, chapter
-   switch).
-3. **GAP 3** — optional `lastLocalSavedRef` guard on timer #1.
+All three, in one commit. A single `flushProgress(chapter, { page, scrollFraction })` helper
+writes both stores at once (local always; server only while `!isChapterEffectivelyRead`, mirroring
+the 20s timer's mark handling) and updates `lastSyncedPageRef` / `lastLocalSavedRef` +
+`EventBus.emit(ReaderEvents.progressChanged)`. Every "save now" caller goes through it.
+
+1. **GAP 1** — new `useEffect` registering `AppState.addEventListener('change', …)`: a change to
+   `'background'` or `'inactive'` runs `flushProgress` for the focused chapter. Cleaned up with
+   `sub.remove()`.
+2. **GAP 2** — `openChapter` now flushes the outgoing chapter (`stateRef.current.window`'s
+   focused entry) before `dispatch({ type: 'LOADING' })`, unless it's reopening the same
+   chapter id. Covers the overlay arrow and any future jump (both route through `openChapter`).
+   `onScreenExit` rewritten to just clear the timers + call `flushProgress`.
+3. **GAP 3** — the 2s local timer keeps a `lastLocalSavedRef` per chapter and skips the Room
+   write when `page` + `scrollFraction` are unchanged since its previous tick.
+
+Tests: `reader.hooks.tests.ts` gained a `describe('progress flush (Task 030 gaps)')` block — 6
+cases (onScreenExit both stores, background flush, `'active'` does NOT flush, arrow flushes the
+left chapter, reopening the same chapter does NOT flush, a read chapter skips the server). JS
+branch coverage 90.22% → 90.46% (floor 90); `yarn test:coverage` exits 0.
+
+**Not addressed here (out of scope, own task):** the boot-time reconciliation that pushes newer
+local entries to the server and prunes caught-up ones (Splash refactor) — its absence is noted
+in `reading-progress.manager.ts:6-9`, not a finding of this audit.
 
 ## Completion criteria
 
 - [x] Audit report presented to the user, with exact points (file:line) where progress is or
   should be synced.
-- [ ] User decision on which gaps to fix, and whether that happens in this task or becomes a
-  separate task.
+- [x] User decision on which gaps to fix — user approved fixing all three; done in this task.
+- [ ] Device validation (background the app mid-chapter → reopen on another client shows the
+  right resume point; arrow to next chapter → the left chapter's server progress is current).
+- [ ] `finalizar-task`.
