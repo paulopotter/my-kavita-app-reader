@@ -13,6 +13,9 @@ jest.mock('../../../shared', () => ({
     normalize: jest.fn(),
     isFollowed: jest.fn(),
     toggleFollow: jest.fn(),
+    // real impl — pure function, no deps; useSerie derives continueChapter through it
+    resolveResumeChapterId: jest.requireActual('../../../shared/tools/series/serie.tool').SerieTool
+      .resolveResumeChapterId,
   },
   ChapterTool: {
     mark: {
@@ -20,6 +23,8 @@ jest.mock('../../../shared', () => ({
       unread: jest.fn(),
       toggle: jest.fn(),
     },
+    // real impl — pure; useSerie's actionLabel formats continueChapter through it
+    format: jest.requireActual('../../../shared/tools/chapters/chapters.tool').ChapterTool.format,
   },
   ChaptersTool: {
     sort: {
@@ -33,6 +38,7 @@ jest.mock('../../../shared', () => ({
 
 import { useSerie } from './serie.hooks';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool } from '../../../shared';
+import { getStrings } from '../../../shared/i18n/strings';
 
 const mockGet = SerialService.get as jest.Mock;
 const mockNormalize = SerieTool.normalize as jest.Mock;
@@ -81,6 +87,60 @@ describe('useSerie', () => {
     expect(mockNormalize).toHaveBeenCalledWith({ digest: digestSuccess });
     expect(result.current.serie).toBe(serie);
     expect(result.current.error).toBeNull();
+  });
+
+  describe('actionLabel / readCount (moved out of header.component.tsx)', () => {
+    it('readCount counts READ chapters', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        chapters: [
+          { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+          { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'UNREAD' },
+        ],
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.readCount).toBe(1);
+    });
+
+    it('actionLabel is "start reading" when nothing is read yet', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.actionLabel).toBe(getStrings('pt-BR').seriesDetailStartReading);
+    });
+
+    it('actionLabel is "reread from start" when every chapter is read and there is no resumePoint', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        resumePoint: undefined,
+        chapters: [
+          { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+          { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'READ' },
+        ],
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.actionLabel).toBe(getStrings('pt-BR').seriesDetailRereadFromStart);
+    });
+
+    it('actionLabel formats the resume chapter through ChapterTool.format.title (same as the list)', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        chapters: [
+          { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+          // bare-number title on a fractional chapter → "Capítulo 2.5", not "2. 2"
+          { id: 'c2', number: undefined, decimalNumber: 2.5, title: '2', readStatus: 'IN_PROGRESS' },
+        ],
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.actionLabel).toBe(
+        getStrings('pt-BR').seriesDetailContinueReading.replace(
+          '{0}',
+          getStrings('pt-BR').seriesDetailChapterNumberLabel.replace('{0}', '2.5'),
+        ),
+      );
+    });
   });
 
   it('reads isFollowed after loading the series', async () => {
@@ -193,38 +253,75 @@ describe('useSerie', () => {
   });
 });
 
-describe('useSerie — continueChapter', () => {
+describe('useSerie — continueChapter (derived via SerieTool.resolveResumeChapterId)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGet.mockResolvedValue(digestSuccess);
     mockIsFollowed.mockResolvedValue(false);
   });
 
-  it('is null when the digest has no resumePoint', async () => {
-    mockNormalize.mockReturnValue(serie);
-    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.continueChapter).toBeNull();
-  });
-
-  it('looks up the chapter named by resumePoint.stoppedAtChapterId', async () => {
+  it('is the first IN_PROGRESS chapter in reading order', async () => {
     mockNormalize.mockReturnValue({
       ...serie,
-      resumePoint: { stoppedAtChapterId: 'c2', stoppedAtChapterIndex: 1, status: 'IN_PROGRESS' },
+      chapters: [
+        { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+        { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'IN_PROGRESS' },
+        { id: 'c3', number: 3, title: 'Chapter 3', readStatus: 'UNREAD' },
+      ],
     });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.continueChapter?.id).toBe('c2');
   });
 
-  it('is null when resumePoint names a chapter no longer present', async () => {
+  it('falls back to the first UNREAD chapter in reading order when none is IN_PROGRESS', async () => {
     mockNormalize.mockReturnValue({
       ...serie,
-      resumePoint: { stoppedAtChapterId: 'missing', stoppedAtChapterIndex: 0, status: 'UNREAD' },
+      chapters: [
+        { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+        { id: 'c3', number: 3, title: 'Chapter 3', readStatus: 'UNREAD' },
+        { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'UNREAD' },
+      ],
+    });
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // reading order (by number ascending) — c2 comes before c3 even though the list is unsorted
+    expect(result.current.continueChapter?.id).toBe('c2');
+  });
+
+  it('is null when every chapter is read', async () => {
+    mockNormalize.mockReturnValue({
+      ...serie,
+      chapters: [
+        { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+        { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'READ' },
+      ],
     });
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.continueChapter).toBeNull();
+  });
+
+  it('recomputes immediately after an optimistic mark (no refetch)', async () => {
+    mockNormalize.mockReturnValue({
+      ...serie,
+      chapters: [
+        { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+        { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'UNREAD' },
+        { id: 'c3', number: 3, title: 'Chapter 3', readStatus: 'UNREAD' },
+      ],
+    });
+    mockMarkRead.mockImplementation(({ chapterId, seriesId, onUpdate }: any) => {
+      onUpdate?.({ chapterId, seriesId, readStatus: 'READ' });
+      return Promise.resolve({ chapterId, seriesId, readStatus: 'READ' });
+    });
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.continueChapter?.id).toBe('c2');
+    await act(async () => {
+      await result.current.markRead({ chapterId: 'c2' });
+    });
+    expect(result.current.continueChapter?.id).toBe('c3');
   });
 });
 

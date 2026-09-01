@@ -23,6 +23,7 @@ import { ChapterListItem, ChapterSortConfigModal, Header, SelectionBottomBar } f
 import { useSerie } from './hooks';
 import { styles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
+import { ChapterTool } from '../../shared/tools/chapters';
 import type { ChapterSortMode } from './serie.types';
 
 const ICON_COLOR = '#FFFFFF';
@@ -71,6 +72,7 @@ export function SerieScreen() {
     serie,
     chapters,
     continueChapter,
+    actionLabel,
     isFollowed,
     sortMode,
     sortFixedThreshold,
@@ -123,13 +125,15 @@ export function SerieScreen() {
       onChapterClick(chapter.id);
       return;
     }
-    navigation.navigate(Routes.READER, { seriesId, chapterId: chapter.id, origin });
+    // seriesName is a fast-path hint so the reader's top bar doesn't flash empty while it would
+    // otherwise fetch the name — the reader falls back to fetching it when opened without this.
+    navigation.navigate(Routes.READER, { seriesId, chapterId: chapter.id, origin, seriesName: serie?.name });
   }
 
   function handleActionPress() {
     const target = continueChapter ?? chapters[0];
     if (!target) {return;}
-    navigation.navigate(Routes.READER, { seriesId, chapterId: target.id, origin });
+    navigation.navigate(Routes.READER, { seriesId, chapterId: target.id, origin, seriesName: serie?.name });
   }
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -198,7 +202,7 @@ export function SerieScreen() {
             onLayout={e => {
               headerHeightRef.current = e.nativeEvent.layout.height;
             }}>
-            {serie && <Header serie={serie} continueChapter={continueChapter} t={t} onActionPress={handleActionPress} />}
+            {serie && <Header serie={serie} actionLabel={actionLabel} onActionPress={handleActionPress} />}
             <View style={styles.sortBar}>
               <Text style={styles.chapterCount}>
                 {chapters.filter(c => c.readStatus === 'READ').length}/{chapters.length}
@@ -212,10 +216,10 @@ export function SerieScreen() {
         renderItem={({ item, index }) => (
           <ChapterListItem
             chapter={item}
+            title={ChapterTool.format.title(item, t)}
             index={index}
             selectionMode={selectionMode}
             selected={selectedIds.has(item.id)}
-            t={t}
             onPress={() => handleChapterPress(item)}
             onLongPress={() => onChapterLongPress(item.id)}
           />

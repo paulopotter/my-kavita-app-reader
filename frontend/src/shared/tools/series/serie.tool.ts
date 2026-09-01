@@ -33,6 +33,29 @@ export interface Serie {
 }
 
 export const SerieTool = {
+  // Which chapter is "continue from" — the same 2-level cascade the Kotlin digest builder uses
+  // (SeriesDigest.chapters.resumePoint, see _contract-design-notes.md): first IN_PROGRESS chapter
+  // in reading order → else first UNREAD chapter in reading order → else null (everything read,
+  // "reread" state). The Kotlin resumePoint is authoritative on a real fetch; this recomputes it
+  // locally between fetches so an optimistic mark (single or batch) reflects immediately without
+  // a round trip. Sorts by decimalNumber ?? number ascending internally — READING order, never
+  // the display sort (which the user may have set to DESCENDING).
+  resolveResumeChapterId(chapters: SerieChapter[]): string | null {
+    const ordered = [...chapters].sort((a, b) => {
+      const na = a.decimalNumber ?? a.number;
+      const nb = b.decimalNumber ?? b.number;
+      if (na != null && nb != null && na !== nb) {return na - nb;}
+      if (na != null && nb == null) {return -1;}
+      if (na == null && nb != null) {return 1;}
+      return a.title.localeCompare(b.title);
+    });
+    return (
+      ordered.find(c => c.readStatus === 'IN_PROGRESS')?.id ??
+      ordered.find(c => c.readStatus === 'UNREAD')?.id ??
+      null
+    );
+  },
+
   // Discards a chapter that failed to resolve (isSuccess: false) instead of surfacing it in the
   // canonical list — the screen never needs to know a specific chapter failed, at least for now.
   normalize({ digest }: { digest: SeriesDigestSuccess }): Serie {

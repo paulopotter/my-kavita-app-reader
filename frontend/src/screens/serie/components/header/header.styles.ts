@@ -15,7 +15,10 @@ export const styles = StyleSheet.create({
     backgroundColor: '#E94560',
     borderRadius: 8,
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignSelf: 'stretch',
     alignItems: 'center',
   },
-  actionButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  // flexShrink lets the ellipsis kick in instead of the text forcing the button wider.
+  actionButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600', flexShrink: 1 },
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
+import { useStrings } from '../../../shared/i18n/useStrings';
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
 import type { NavOrigin } from '../../../navigation/routes';
 import type { ChapterSortMode } from '../serie.types';
@@ -67,6 +68,7 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { realize } = useAction({ origin });
+  const t = useStrings();
 
   // SerialService.get (full=false) already returns SeriesDigest cache-first (the decision lives
   // entirely in Kotlin's digest builders — see architecture.md's Cache Guideline) — a plain mount/
@@ -170,14 +172,34 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     setSortMode(current => SORT_CYCLE[(SORT_CYCLE.indexOf(current) + 1) % SORT_CYCLE.length]);
   }, []);
 
-  // Which chapter to resume at — already decided by the Kotlin digest builder (serie.resumePoint,
-  // copied verbatim by SerieTool.normalize); this only looks the chapter up, never recomputes
-  // "in progress > first unread > first unfinished" itself.
+  // Which chapter to resume at. Derived from the chapters in hand via SerieTool.resolveResumeChapterId
+  // (the same 2-level cascade the Kotlin digest uses), NOT from the static serie.resumePoint —
+  // so an optimistic mark (single or batch, in this screen) updates the "continue" button
+  // immediately, without waiting for a refetch. A real load() still overwrites `serie.chapters`
+  // with fresh Kotlin data, and the cascade re-runs on that.
   const continueChapter = useMemo(() => {
-    if (!serie?.resumePoint) {return null;}
-    const stoppedAtChapterId = serie.resumePoint.stoppedAtChapterId;
-    return serie.chapters.find(c => c.id === stoppedAtChapterId) ?? null;
+    if (!serie) {return null;}
+    const resumeId = SerieTool.resolveResumeChapterId(serie.chapters);
+    return resumeId ? serie.chapters.find(c => c.id === resumeId) ?? null : null;
   }, [serie]);
+
+  const readCount = useMemo(
+    () => (serie ? serie.chapters.filter(c => c.readStatus === 'READ').length : 0),
+    [serie],
+  );
+
+  // Action-button label for the Header — moved out of header.component.tsx (dumb component holds
+  // no logic). Kept in the serie domain (this hook), not promoted to a tool. The resume-chapter
+  // decision lives in SerieTool.resolveResumeChapterId (via continueChapter above) — this only
+  // picks the wording.
+  const actionLabel = useMemo(() => {
+    const total = serie?.chapters.length ?? 0;
+    if (total === 0 || readCount === 0) {return t.seriesDetailStartReading;}
+    if (continueChapter === null) {return t.seriesDetailRereadFromStart;}
+    // Same label the chapter list shows for this chapter — never a second, divergent formula.
+    // The button clamps this to one line with an ellipsis (see header.component.tsx).
+    return t.seriesDetailContinueReading.replace('{0}', ChapterTool.format.title(continueChapter, t));
+  }, [serie, readCount, continueChapter, t]);
 
   // The one place a ChapterMarkUpdate (optimistic, confirmed, or reverted — see
   // ChapterTool.mark's own doc) is applied to local state, same channel regardless of which
@@ -267,6 +289,8 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     serie,
     chapters,
     continueChapter,
+    readCount,
+    actionLabel,
     isFollowed,
     sortMode,
     sortFixedThreshold,

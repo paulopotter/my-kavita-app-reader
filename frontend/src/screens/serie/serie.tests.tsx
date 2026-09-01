@@ -87,6 +87,8 @@ beforeEach(() => {
     serie: null,
     chapters: [],
     continueChapter: null,
+    readCount: 0,
+    actionLabel: t.seriesDetailStartReading,
     isFollowed: false,
     sortMode: 'ASCENDING',
     sortFixedThreshold: undefined,
@@ -152,7 +154,9 @@ describe('SerieScreen', () => {
     mockSerieState.chapters = chapters;
     const { getByText } = render(<SerieScreen />);
     fireEvent.press(getByText('1. A Chegada'));
-    expect(mockNavigate).toHaveBeenCalledWith('reader/:seriesId/:chapterId', { seriesId: 's1', chapterId: 'c1', origin: 'LIBRARY' });
+    expect(mockNavigate).toHaveBeenCalledWith('reader/:seriesId/:chapterId', {
+      seriesId: 's1', chapterId: 'c1', origin: 'LIBRARY', seriesName: 'One Piece',
+    });
   });
 
   it('delegates to onChapterClick when a chapter is pressed in selection mode', () => {
@@ -246,9 +250,12 @@ describe('SerieScreen', () => {
     mockSerieState.serie = makeSerie({ chapters });
     mockSerieState.chapters = chapters;
     mockSerieState.continueChapter = chapters[1];
+    mockSerieState.actionLabel = t.seriesDetailContinueReading.replace('{0}', '2');
     const { getByText } = render(<SerieScreen />);
     fireEvent.press(getByText(t.seriesDetailContinueReading.replace('{0}', '2')));
-    expect(mockNavigate).toHaveBeenCalledWith('reader/:seriesId/:chapterId', { seriesId: 's1', chapterId: 'c2', origin: 'LIBRARY' });
+    expect(mockNavigate).toHaveBeenCalledWith('reader/:seriesId/:chapterId', {
+      seriesId: 's1', chapterId: 'c2', origin: 'LIBRARY', seriesName: 'One Piece',
+    });
   });
 
   it('does nothing on header action press when there is no continueChapter and no chapters', () => {

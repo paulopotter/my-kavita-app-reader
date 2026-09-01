@@ -54,6 +54,53 @@ function makeSeriesDigest(overrides: Partial<SeriesDigestSuccess> = {}): SeriesD
   };
 }
 
+describe('SerieTool.resolveResumeChapterId', () => {
+  type C = { id: string; number?: number; decimalNumber?: number; title: string; readStatus: 'READ' | 'IN_PROGRESS' | 'UNREAD' };
+  const c = (o: Partial<C> & { id: string; readStatus: C['readStatus'] }): C => ({ number: 1, title: 't', ...o });
+
+  it('returns the first IN_PROGRESS chapter in reading order', () => {
+    expect(
+      SerieTool.resolveResumeChapterId([
+        c({ id: 'a', number: 1, readStatus: 'READ' }),
+        c({ id: 'b', number: 2, readStatus: 'IN_PROGRESS' }),
+        c({ id: 'd', number: 3, readStatus: 'IN_PROGRESS' }),
+      ] as never),
+    ).toBe('b');
+  });
+
+  it('falls back to the first UNREAD in reading order when none is IN_PROGRESS', () => {
+    expect(
+      SerieTool.resolveResumeChapterId([
+        c({ id: 'a', number: 1, readStatus: 'READ' }),
+        c({ id: 'd', number: 3, readStatus: 'UNREAD' }),
+        c({ id: 'b', number: 2, readStatus: 'UNREAD' }),
+      ] as never),
+    ).toBe('b'); // sorted by number ascending, not list order
+  });
+
+  it('orders by decimalNumber when number is absent (fractional chapters)', () => {
+    expect(
+      SerieTool.resolveResumeChapterId([
+        c({ id: 'x', number: undefined, decimalNumber: 10.5, readStatus: 'UNREAD' }),
+        c({ id: 'y', number: undefined, decimalNumber: 10.1, readStatus: 'UNREAD' }),
+      ] as never),
+    ).toBe('y');
+  });
+
+  it('returns null when every chapter is READ', () => {
+    expect(
+      SerieTool.resolveResumeChapterId([
+        c({ id: 'a', number: 1, readStatus: 'READ' }),
+        c({ id: 'b', number: 2, readStatus: 'READ' }),
+      ] as never),
+    ).toBeNull();
+  });
+
+  it('returns null for an empty list', () => {
+    expect(SerieTool.resolveResumeChapterId([])).toBeNull();
+  });
+});
+
 describe('SerieTool.normalize', () => {
   it('copies the series-level fields onto the canonical shape', () => {
     const digest = makeSeriesDigest({ name: 'One Piece', sortName: 'one piece' });
