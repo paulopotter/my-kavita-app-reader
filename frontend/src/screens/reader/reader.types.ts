@@ -1,22 +1,37 @@
-// Types for the reader screen's local state machine (useReader / reader.hooks.ts).
+// Types for Reader V2 — the ground-up rewrite (plano 017, Task 029 successor).
 //
-// Plano 017, Task 029:
-//  - Fase 1: reads the current chapter from the new stack (ChapterService.getFull → ChapterDigest).
-//  - Fase 2: mark via ChapterTool, server progress via ChapterService.progress, series name.
-//  - Fase 4: local reading position via ReadingProgressManager, "newest of {local, server}" wins.
-//  - Fase 3: the trio (prev/curr/next) + infinite chapter navigation + the unified switchChapter
-//    contract. `prev`/`next` are real ReaderChapters now.
+// Why a rewrite: the previous reader (screens/reader/) had TWO parallel mechanisms mutating the
+// same chapter-navigation state — the native LazyColumn's continuous scroll (reported via
+// onVisiblePageChanged) and the manual arrow — with no coordination. When they raced, the second
+// write clobbered the first (real log: pressing "next" on chapter 26 jumped straight to 28).
+// Every fix so far was time-based (a 1200ms "settling window") and only lowered the odds.
+//
+// Reader V2's core idea:
+//   - Data model: a POSITION-INDEXED window (a ruler + a pointer), not a named {prev, curr, next}
+//     trio. Moving chapter = moving `focusedIndex`, one atomic reducer assignment. No named slot
+//     for two writes to fight over.
+//   - Flow: ONE function `moveFocus(trigger)` — every trigger (native scroll, arrow, overscroll,
+//     future "jump") enters through it. No settling timer.
+//   - Coordination: one AbortController per moveFocus call — aborts the previous metadata fetch
+//     (bandwidth) AND is the identity token that discards a result that outran the abort.
+//
+// The rendering layer (webtoon LazyColumn / future horizontal / future paginated) is a SEPARATE
+// concern — see modes/reading-mode.types.ts. This file (and the reducer) stay 100% mode-agnostic.
 
-// A chapter normalized for the reader — a subset of ChapterDigestSuccess/ChapterNeighborDigest
-// plus what the screen needs already materialized (page URLs as a flat array, aspect ratios).
+// ── ReaderChapter — a chapter normalized for the reader ───────────────────
 //
-// Deliberately NOT reusing SerieChapter (shared/tools/chapters): that shape carries an
-// `action: ActionContract` (navigation intent) the reader never uses, and does not materialize
-// `pages` into URLs. This is the reader screen's own shape.
+// A subset of ChapterDigestSuccess / ChapterNeighborDigestSuccess plus what the screen needs
+// already materialized (page URLs as a flat array, aspect ratios). Deliberately NOT reusing
+// SerieChapter (shared/tools/chapters): that shape carries an `action: ActionContract` the reader
+// never uses and doesn't materialize `pages` into URLs.
+//
+// Note vs. the legacy reader.types.ts: there's no `hasPages: boolean` here — that state is
+// LoadedChapterEntry.status ('placeholder' | 'loading' | 'ready' | 'error'), which is explicit
+// about the three real cases instead of one overloaded boolean.
 export interface ReaderChapter {
   id: string;
   seriesId: string;
-  number?: number; // from ChapterDigest.number (numeric — the legacy Chapter.number was a string)
+  number?: number; // ChapterDigest.number — the series-order 1-indexed position (what the series screen shows)
   decimalNumber?: number; // ChapterDigest.decimalNumber — for ChapterTool.format.title
   specialLabel?: string; // ChapterDigest.specialLabel — for ChapterTool.format.title
   isSpecial?: boolean; // ChapterDigest.isSpecial — for ChapterTool.format.title
@@ -24,106 +39,143 @@ export interface ReaderChapter {
   readStatus: 'READ' | 'IN_PROGRESS' | 'UNREAD';
   pageCount: number; // ChapterDigest.pages.count ?? pages.list.length
   pagesRead: number; // ChapterDigest.pages.readCount ?? 0
-  // From ChapterDigest.pages.list[].url — a page that failed to resolve (PageDigest.Failure, R8:
-  // a failed page is never dropped from the array) becomes '' here, keeping index alignment.
+  // From ChapterDigest.pages.list[].url — a page that failed to resolve becomes '' here, keeping
+  // index alignment with pageAspectRatios.
   pageUrls: string[];
-  // height / width per page, index-aligned with pageUrls — the ratio the native list expects
-  // (see ReaderChapterBlock.pageAspectRatios). null means the dimension wasn't available; the
-  // native side falls back to measuring that page once it's decoded on-device.
+  // height / width per page, index-aligned with pageUrls — null means the dimension wasn't
+  // available; the native side measures that page once it's decoded on-device.
   pageAspectRatios: (number | null)[];
   // Server-tracked resume point (ChapterDigest.pages.resumePoint): the page the Kavita server
   // thinks the user stopped at, plus WHEN it recorded that. `recordedAtEpochMs` is what
   // resolveInitialPage compares against the local progress's own updatedAtEpochMs — newest wins.
   serverResume: { page: number; recordedAtEpochMs: number | null } | null;
-  // Whether this chapter's `pageUrls`/`pageAspectRatios` are actually populated. A neighbor added
-  // from orderedChaptersRef alone (no getFull yet) is `false` — the reader still renders its
-  // block, just without pages, until loadNeighbor fills it in.
-  hasPages: boolean;
 }
 
-// The trio. `prev`/`next` are null only at the true ends of the series (no chapter that side) or
-// briefly while a neighbor is being fetched.
-export interface ViewerState {
-  prev: ReaderChapter | null;
-  curr: ReaderChapter;
-  next: ReaderChapter | null;
+// ── The window — a position-indexed ruler, not a named trio ───────────────
+
+export type LoadedChapterStatus = 'placeholder' | 'loading' | 'ready' | 'error';
+// placeholder = only series-order metadata known, no getFull fetch dispatched yet
+// loading     = ChapterService.getFull in flight
+// ready       = pageUrls / pageAspectRatios populated
+// error       = fetch failed; the block still renders (no pages), retry possible
+
+export interface LoadedChapterEntry {
+  chapter: ReaderChapter;
+  status: LoadedChapterStatus;
 }
+
+// A CONTIGUOUS subsequence of the series' canonical reading order (same order as
+// SeriesDigest.chapters.list). `focusedIndex` is the ONE source of truth for "where the user is"
+// — there is no separate `curr` field that could desync from the index.
+//
+// Today the window stays ~3 entries wide (same memory as the old trio). Growing it (free ±100
+// navigation) and jumping to a distant chapter are the SAME structural operation: replace
+// `entries` with a new subsequence centered on X, `focusedIndex` = X's position in it. Only the
+// width policy changes later — never this shape.
+export interface ReaderWindow {
+  entries: LoadedChapterEntry[];
+  focusedIndex: number;
+}
+
+// ── Series reading order ─────────────────────────────────────────────────
+
+// Reading order (ascending by number) — the sequence prev/next depend on, not the display sort.
+export interface OrderedChapter {
+  id: string;
+  seriesId: string;
+  number?: number;
+  decimalNumber?: number;
+  specialLabel?: string;
+  isSpecial?: boolean;
+  title: string;
+  readStatus: ReaderChapter['readStatus'];
+}
+
+// ── moveFocus — for NATURAL SCROLL crossings only ───────────────────────
+//
+// The overlay arrows / overscroll do NOT go through here — they reload the target chapter from
+// scratch via openChapter (a "location.replace": the LazyColumn remounts on a fresh short
+// `blocks` list starting at the target, no programmatic scroll — listState.scrollToItem proved
+// unreliable across 8 device builds). moveFocus only handles the continuous webtoon scroll
+// between chapters that are ALREADY loaded in the window, where the native list is already
+// physically positioned and RN just slides its focus pointer to match.
+export type FocusMoveTrigger = {
+  source: 'native-scroll';
+  reportedChapterId: string;
+  page: number;
+  pageFraction: number;
+  chapterFraction: number;
+};
+
+// ── reducer state / actions ─────────────────────────────────────────────
 
 export interface State {
   loading: boolean;
   error: string | null;
-  viewer: ViewerState | null;
+  window: ReaderWindow | null;
   // Series name for the top bar. Seeded from the route param when the reader was opened from the
   // series screen (fast-path); otherwise fetched via SerialService.get. Empty until resolved.
   seriesName: string;
   overlayVisible: boolean;
+  // reading position (same fields the native list reports atomically)
   currentVisiblePage: number;
-  // One-shot "scroll to this page" request — consumed by ReaderScreen and cleared via
-  // SCROLL_TO_PAGE_HANDLED. Used for "continue reading" on open, progress-bar jumps, and the
-  // overlay arrows / overscroll (which force the target chapter's first page) — never for
-  // natural scroll crossing a chapter boundary (the native list is already positioned there).
-  scrollToPageRequest: number | null;
-  // Which chapter the pending scrollToPageRequest belongs to. The native list scrolls only when
-  // this matches a block it's showing — so a request seeded for the new `curr` after a manual
-  // switch lands on the right chapter, not whatever was visible before.
-  scrollToChapterId: string | null;
-  // Fraction within the current page (0..1) — what ReadingProgressManager.set persists.
-  scrollFraction: number;
-  // Continuous fraction across the whole chapter (0..1) — progress bar only, never persisted.
-  chapterFraction: number;
+  scrollFraction: number; // fraction within the current page (0..1) — what ReadingProgressManager.set persists
+  chapterFraction: number; // continuous fraction across the whole chapter (0..1) — progress bar only, never persisted
+  // One-shot ABSOLUTE scroll request — used on open / arrow-reload to jump to the resolved
+  // initial page (only matters when it's not page 0; the fresh short `blocks` list already starts
+  // at the target chapter's top). Consumed via onScrollToChapterHandled → SCROLL_REQUEST_HANDLED.
+  // NEVER set by native-scroll.
+  scrollRequest: { chapterId: string; page: number } | null;
   offline: boolean;
-  // True while a switchChapter is in flight — mutual exclusion so natural-scroll boundary
-  // crossings and the overlay arrows can't both drive a switch at the same time (the legacy
-  // dual-mechanism race, plan 017 Task 029's documented root cause).
-  isSwitching: boolean;
+  // Bumped on every openChapter → WINDOW_READY (screen open, arrow reload, jump). The screen
+  // passes it as the `key` of the native list component, so a chapter switch UNMOUNTS the old
+  // native View and mounts a fresh one — the new LazyColumn starts at the target chapter's top
+  // with no stale scroll offset to fight. NOT bumped by MOVE_FOCUS (natural scroll crossings
+  // must NOT remount — that would jank mid-scroll).
+  nativeListKey: number;
 }
 
-// The useReducer message type. Named ReaderAction (not the bare `Action`) to avoid colliding
-// with the new model's ActionContract / createNavigateAction (UI interaction intent), which is a
-// different concept — this is a reducer message, local to the reader screen.
 export type ReaderAction =
   | { type: 'LOADING' }
   | { type: 'ERROR'; error: string }
   | {
-      type: 'VIEWER_READY';
-      viewer: ViewerState;
+      // Fresh open / non-adjacent jump landed — the whole window is (re)built and the native list
+      // must scroll to `scrollTo`.
+      type: 'WINDOW_READY';
+      window: ReaderWindow;
       initialPage: number;
       initialScrollFraction: number;
       initialChapterFraction: number;
-      // Present for a fresh open / manual switch (scroll the native list to initialPage of
-      // viewer.curr); absent for a natural-scroll boundary crossing (the list is already there).
-      scrollToChapterId?: string;
+      scrollTo: { chapterId: string; page: number };
     }
   | {
-      // Natural-scroll boundary crossing — the native list already scrolled into the neighbour.
-      // Slide the trio, keep the position the atomic native payload reported, NEVER emit a
-      // programmatic scroll.
-      type: 'SET_VIEWER';
-      viewer: ViewerState;
-      page: number;
-      scrollFraction: number;
-      chapterFraction: number;
+      // A focus transition. The reducer runs computeWindowAfterFocusMove against ITS OWN
+      // state.window + `order` — so two of these dispatched in the same React batch serialize
+      // correctly (the 2nd sees the 1st's result), instead of both being computed against a
+      // stale snapshot in the hook. `order` is the canonical reading order (from the hook's ref).
+      type: 'MOVE_FOCUS';
+      trigger: FocusMoveTrigger;
+      order: OrderedChapter[];
     }
   | {
-      // Overlay arrow / overscroll — the target chapter is already in `blocks`. Slide the trio
-      // AND ask the native list to scroll to `page` of `chapterId`.
-      type: 'SCROLL_TO_CHAPTER';
-      viewer: ViewerState;
+      // A wholesale window replacement (openChapter, jump, order-reconcile rebuild) — not a
+      // relative move, so it carries the window directly.
+      type: 'SET_WINDOW';
+      window: ReaderWindow;
+      scrollTo: { chapterId: string; page: number } | null;
+    }
+  | {
+      // A chapter's getFull resolved — merge its pages into whichever window slot still holds that
+      // id. Guarded at the call site by the AbortController identity check.
+      type: 'ENTRY_LOADED';
       chapterId: string;
-      page: number;
+      chapter: ReaderChapter;
     }
-  // A chapter's pages finished loading — merge them into whichever trio slot it now occupies
-  // (prev/curr/next). Doesn't move the reading position.
-  | { type: 'SET_TRIO_SLOT'; slot: 'prev' | 'curr' | 'next'; chapter: ReaderChapter }
-  // Re-apply the series-order `number` to every chapter in the trio — used once the order lands
-  // after the trio was already built with the isolated (wrong) number.
-  | { type: 'PATCH_NUMBERS'; numberById: Record<string, number> }
+  | { type: 'ENTRY_ERROR'; chapterId: string }
   | { type: 'SET_CURRENT_PAGE'; page: number; scrollFraction: number; chapterFraction: number }
   | { type: 'SCROLL_TO_PAGE'; page: number }
-  | { type: 'SCROLL_TO_PAGE_HANDLED' }
+  | { type: 'SCROLL_REQUEST_HANDLED' }
   | { type: 'SERIES_NAME_LOADED'; seriesName: string }
   | { type: 'TOGGLE_OVERLAY' }
   | { type: 'SET_OFFLINE'; offline: boolean }
-  | { type: 'SET_SWITCHING'; isSwitching: boolean }
-  | { type: 'OPTIMISTIC_MARK_READ'; chapterId: string }
-  | { type: 'OPTIMISTIC_MARK_UNREAD'; chapterId: string };
+  | { type: 'OPTIMISTIC_MARK'; chapterId: string; readStatus: ReaderChapter['readStatus'] };

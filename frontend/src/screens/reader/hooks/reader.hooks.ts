@@ -4,330 +4,56 @@ import NetInfo from '@react-native-community/netinfo';
 import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
 import { ChapterEvents, ChapterTool } from '../../../shared/tools/chapters';
-import { useEvent, EventBus } from '../../../shared/managers/events';
-import { ReadingProgressManager, type ReadingProgressRecord } from '../../../shared/managers/reading-progress';
-import type { ChapterDigestSuccess, ChapterNeighborDigestSuccess, SeriesDigestSuccess } from '../../../shared/bridge/digest';
-import { ReaderChapter, ReaderAction, State, ViewerState } from '../reader.types';
+import { EventBus, useEvent } from '../../../shared/managers/events';
+import { ReadingProgressManager } from '../../../shared/managers/reading-progress';
+import type {
+  FocusMoveTrigger,
+  OrderedChapter,
+  ReaderChapter,
+  State,
+} from '../reader.types';
 import { ReaderEvents } from '../reader.events';
+import { ReaderScreenControl } from '../reader.screen-control';
+import { ReadingModeTool, type ReadingMode } from '../reading-mode.tool';
 import {
-  allowScreenOff,
-  fetchImmersiveModePref,
-  fetchKeepScreenOnPref,
-  keepScreenOn as keepScreenOnBridge,
-  setImmersiveMode,
-} from '../ReaderService';
+  READ_THRESHOLD_FRACTION,
+  adjacentChapterId,
+  buildWindow,
+  chapterFromDigest,
+  computeWindowAfterFocusMove,
+  isChapterEffectivelyRead,
+  reconcileWindow,
+  resolveInitialPage,
+  shouldUnmarkOnReread,
+  toOrderedChapters,
+  webtoonReportToTrigger,
+  withOrderNumber,
+} from '../transforms/reader.transform';
+import { initialState, reducer } from './reader.reducer';
 
-// Task 029 — the reader, on the new stack (ChapterService/SerialService/ChapterTool):
-//  - Fase 1: reads the current chapter from ChapterService.getFull → ChapterDigest.
-//  - Fase 2: mark via ChapterTool (emits ChapterEvents), server progress via ChapterService.progress,
-//    reacts to ChapterEvents from other screens, emits ReaderEvents.progressChanged, series name.
-//  - Fase 4: local reading position on ReadingProgressManager; resolveInitialPage picks the newest
-//    of {local, server} by timestamp.
-//  - Fase 3: the trio (prev/curr/next) + infinite chapter navigation.
+// Reader V2 hook — owns ALL reader state. The screen is dumb: it forwards the native payload
+// verbatim and renders what this hook exposes.
 //
-// Navigation model (matches ReaderPageList.kt): the native list is handed the whole trio as
-// `blocks` and scrolls CONTINUOUSLY between them on its own. When the user scrolls into a
-// neighbour it reports `onVisiblePageChanged(neighbourChapterId, pageIndex, ...)` — an atomic,
-// self-consistent payload (chapterId/pageIndex/fraction all from the same chapter; on a crossing
-// pageIndex is 0 going forward, the last page going back). The hook just BELIEVES that: it slides
-// the "logical curr" (curr→prev, next→curr) using the ReaderChapters ALREADY in the trio (no
-// re-fetch), and loads only the new edge neighbour. The overlay arrows do the exact same slide,
-// plus a one-shot scroll to the target's first page. switchChapter (a real ChapterService.getFull)
-// is only for opening the screen.
+// Chapter switching goes through ONE function, moveFocus(trigger). It just dispatches
+// MOVE_FOCUS { trigger, order } — the REDUCER computes the transition against its own window, so
+// two reports in the same React batch serialize correctly (the 2nd builds on the 1st). No
+// settling timer, no parallel copy of the window in the hook. Placeholder prefetch is a single
+// effect keyed on state.window; a stale open is dropped via openGenRef.
 
 const LOCAL_SAVE_INTERVAL_MS = 2_000;
 const SERVER_SYNC_INTERVAL_MS = 20_000;
-const READ_THRESHOLD_FRACTION = 0.98;
 const OVERSCROLL_TRIGGER_DP = 72;
-
-// ── digest → ReaderChapter ───────────────────────────────────────────────
-
-function chapterFromDigest(
-  digest: ChapterDigestSuccess | ChapterNeighborDigestSuccess,
-): ReaderChapter {
-  const list = digest.pages.list;
-  return {
-    id: digest.id,
-    seriesId: digest.seriesId,
-    number: digest.number,
-    decimalNumber: digest.decimalNumber,
-    specialLabel: digest.specialLabel,
-    isSpecial: digest.isSpecial,
-    title: digest.title,
-    readStatus: digest.readStatus,
-    pageCount: digest.pages.count ?? list.length,
-    pagesRead: digest.pages.readCount ?? 0,
-    pageUrls: list.map(p => (p.isSuccess ? p.url : '')),
-    pageAspectRatios: list.map(p =>
-      p.isSuccess && p.width && p.height && p.width > 0 ? p.height / p.width : null,
-    ),
-    serverResume:
-      digest.pages.resumePoint?.stoppedAtPageIndex != null
-        ? {
-            page: digest.pages.resumePoint.stoppedAtPageIndex,
-            recordedAtEpochMs: digest.pages.resumePoint.recordedAtEpochMs ?? null,
-          }
-        : null,
-    hasPages: list.length > 0,
-  };
-}
-
-export const toReaderChapter = chapterFromDigest as (d: ChapterDigestSuccess) => ReaderChapter;
-
-// A placeholder chapter from the series-order list alone — no pages yet, filled by loadPages.
-function placeholderChapterFromOrder(o: OrderedChapter): ReaderChapter {
-  return {
-    id: o.id,
-    seriesId: o.seriesId,
-    number: o.number,
-    decimalNumber: o.decimalNumber,
-    specialLabel: o.specialLabel,
-    isSpecial: o.isSpecial,
-    title: o.title,
-    readStatus: o.readStatus,
-    pageCount: 0,
-    pagesRead: 0,
-    pageUrls: [],
-    pageAspectRatios: [],
-    serverResume: null,
-    hasPages: false,
-  };
-}
-
-// The chapter's `number` from the series order (SerieDigest.chapters.list, 1-indexed position) —
-// the SAME value the series screen shows. ChapterService.getFull called in isolation gives a
-// DIFFERENT `number` (decimalNumber truncated), so anywhere the reader shows "Capítulo N" it must
-// use this, not the digest's own. Falls back to the chapter's own number when the order isn't
-// loaded yet or the chapter isn't in it.
-function withOrderNumber(c: ReaderChapter, order: OrderedChapter[]): ReaderChapter {
-  const o = order.find(x => x.id === c.id);
-  return o && o.number != null && o.number !== c.number ? { ...c, number: o.number } : c;
-}
-
-export function isChapterEffectivelyRead(c: ReaderChapter): boolean {
-  if (c.readStatus === 'READ') {return true;}
-  if (c.pageCount <= 0) {return false;}
-  return c.pagesRead / c.pageCount >= READ_THRESHOLD_FRACTION;
-}
-
-// Where to open the chapter. Priority: read-status → newest of (local, server) → start.
-//  1. Effectively read → page 0 ("marking it read means 'reread from the start'").
-//  2. Otherwise local progress vs the server resume point compete by timestamp — newest wins.
-//     Missing timestamps: a local record with no server timestamp wins; a server point with no
-//     local record wins.
-//  3. Nothing → page 0.
-export function resolveInitialPage(
-  c: ReaderChapter,
-  local: ReadingProgressRecord | null,
-): { page: number; scrollFraction: number } {
-  if (isChapterEffectivelyRead(c)) {return { page: 0, scrollFraction: 0 };}
-
-  const server = c.serverResume;
-  if (local && server) {
-    const localWins =
-      server.recordedAtEpochMs == null || local.updatedAtEpochMs >= server.recordedAtEpochMs;
-    return localWins
-      ? { page: local.page, scrollFraction: local.scrollFraction }
-      : { page: server.page, scrollFraction: 0 };
-  }
-  if (local) {return { page: local.page, scrollFraction: local.scrollFraction };}
-  if (server) {return { page: server.page, scrollFraction: 0 };}
-  return { page: 0, scrollFraction: 0 };
-}
-
-export function shouldUnmarkOnReread(
-  wasReadOnOpen: boolean,
-  currentPage: number,
-  totalPages: number,
-  alreadyUnmarkedThisSession: boolean,
-): boolean {
-  if (!wasReadOnOpen || alreadyUnmarkedThisSession) {return false;}
-  return currentPage < totalPages - 1;
-}
-
-// Reading order (ascending by number) — the sequence prev/next depend on, not the display sort.
-export interface OrderedChapter {
-  id: string;
-  seriesId: string;
-  number?: number;
-  decimalNumber?: number;
-  specialLabel?: string;
-  isSpecial?: boolean;
-  title: string;
-  readStatus: ReaderChapter['readStatus'];
-}
-
-// Pure: the ids immediately before/after `id` in a reading-ordered list (or null at the ends).
-export function neighborsOfIn(
-  list: OrderedChapter[],
-  id: string,
-): { prevId: string | null; nextId: string | null } {
-  const i = list.findIndex(c => c.id === id);
-  if (i === -1) {return { prevId: null, nextId: null };}
-  return {
-    prevId: i > 0 ? list[i - 1].id : null,
-    nextId: i < list.length - 1 ? list[i + 1].id : null,
-  };
-}
-
-export function toOrderedChapters(digest: SeriesDigestSuccess): OrderedChapter[] {
-  const list = (digest.chapters?.list ?? [])
-    .filter((c): c is ChapterDigestSuccess => c.isSuccess)
-    .map(c => ({
-      id: c.id,
-      seriesId: c.seriesId,
-      number: c.number,
-      decimalNumber: c.decimalNumber,
-      specialLabel: c.specialLabel,
-      isSpecial: c.isSpecial,
-      title: c.title,
-      readStatus: c.readStatus,
-    }));
-  return list.sort((a, b) => {
-    const na = a.number ?? a.decimalNumber;
-    const nb = b.number ?? b.decimalNumber;
-    if (na != null && nb != null && na !== nb) {return na - nb;}
-    if (na != null && nb == null) {return -1;}
-    if (na == null && nb != null) {return 1;}
-    return a.title.localeCompare(b.title);
-  });
-}
-
-// ── reducer ──────────────────────────────────────────────────────────────
-
-export const initial: State = {
-  loading: true,
-  error: null,
-  viewer: null,
-  seriesName: '',
-  overlayVisible: false,
-  currentVisiblePage: 0,
-  scrollToPageRequest: null,
-  scrollToChapterId: null,
-  scrollFraction: 0,
-  chapterFraction: 0,
-  offline: false,
-  isSwitching: false,
-};
-
-export function reducer(state: State, action: ReaderAction): State {
-  switch (action.type) {
-    case 'LOADING':
-      return { ...state, loading: true, error: null };
-    case 'ERROR':
-      return { ...state, loading: false, error: action.error, isSwitching: false };
-    case 'VIEWER_READY':
-      return {
-        ...state,
-        loading: false,
-        error: null,
-        isSwitching: false,
-        viewer: action.viewer,
-        currentVisiblePage: action.initialPage,
-        scrollToPageRequest: action.scrollToChapterId != null ? action.initialPage : null,
-        scrollToChapterId: action.scrollToChapterId ?? null,
-        scrollFraction: action.initialScrollFraction,
-        chapterFraction: action.initialChapterFraction,
-      };
-    case 'SET_VIEWER':
-      return {
-        ...state,
-        viewer: action.viewer,
-        currentVisiblePage: action.page,
-        scrollFraction: action.scrollFraction,
-        chapterFraction: action.chapterFraction,
-        isSwitching: false,
-      };
-    case 'SET_TRIO_SLOT': {
-      if (!state.viewer) {return state;}
-      // A placeholder being installed into an empty slot (reconcile) OR real pages replacing a
-      // placeholder already there (loadPages). Skip only if a different chapter now holds the slot
-      // (a fast slide moved things) — but always allow filling an empty slot.
-      const held = state.viewer[action.slot];
-      if (held && held.id !== action.chapter.id) {return state;}
-      return { ...state, viewer: { ...state.viewer, [action.slot]: action.chapter } };
-    }
-    case 'PATCH_NUMBERS': {
-      if (!state.viewer) {return state;}
-      const patch = (c: ReaderChapter | null): ReaderChapter | null => {
-        if (!c) {return c;}
-        const n = action.numberById[c.id];
-        return n != null && n !== c.number ? { ...c, number: n } : c;
-      };
-      return {
-        ...state,
-        viewer: {
-          prev: patch(state.viewer.prev),
-          curr: patch(state.viewer.curr) ?? state.viewer.curr,
-          next: patch(state.viewer.next),
-        },
-      };
-    }
-    case 'SET_CURRENT_PAGE':
-      return {
-        ...state,
-        currentVisiblePage: action.page,
-        scrollFraction: action.scrollFraction,
-        chapterFraction: action.chapterFraction,
-      };
-    case 'SCROLL_TO_PAGE':
-      return {
-        ...state,
-        currentVisiblePage: action.page,
-        scrollToPageRequest: action.page,
-        scrollToChapterId: state.viewer?.curr.id ?? null,
-      };
-    case 'SCROLL_TO_CHAPTER':
-      // Overlay arrow: the target chapter is already in `blocks` — just ask the native list to
-      // scroll to its page, and (via `viewer`) make it the logical curr.
-      return {
-        ...state,
-        viewer: action.viewer,
-        currentVisiblePage: action.page,
-        scrollToPageRequest: action.page,
-        scrollToChapterId: action.chapterId,
-        scrollFraction: 0,
-      };
-    case 'SCROLL_TO_PAGE_HANDLED':
-      return { ...state, scrollToPageRequest: null, scrollToChapterId: null };
-    case 'SERIES_NAME_LOADED':
-      return { ...state, seriesName: action.seriesName };
-    case 'TOGGLE_OVERLAY':
-      return { ...state, overlayVisible: !state.overlayVisible };
-    case 'SET_OFFLINE':
-      return { ...state, offline: action.offline };
-    case 'SET_SWITCHING':
-      return { ...state, isSwitching: action.isSwitching };
-    case 'OPTIMISTIC_MARK_READ':
-    case 'OPTIMISTIC_MARK_UNREAD': {
-      if (!state.viewer) {return state;}
-      const readStatus = action.type === 'OPTIMISTIC_MARK_READ' ? 'READ' : 'UNREAD';
-      const applyTo = (c: ReaderChapter | null): ReaderChapter | null =>
-        c && c.id === action.chapterId
-          ? { ...c, readStatus, pagesRead: readStatus === 'READ' ? c.pageCount : 0 }
-          : c;
-      return {
-        ...state,
-        viewer: {
-          prev: applyTo(state.viewer.prev),
-          curr: applyTo(state.viewer.curr) ?? state.viewer.curr,
-          next: applyTo(state.viewer.next),
-        },
-      };
-    }
-  }
-}
-
-// ── hook ─────────────────────────────────────────────────────────────────
 
 export function useReader(seriesId: string, chapterId: string, seriesNameHint?: string) {
   const [state, dispatch] = useReducer(
     reducer,
-    seriesNameHint ? { ...initial, seriesName: seriesNameHint } : initial,
+    seriesNameHint ? { ...initialState, seriesName: seriesNameHint } : initialState,
   );
 
-  const viewerRef = useRef<ViewerState | null>(null);
-  viewerRef.current = state.viewer;
+  // ── live mirrors of state, for callbacks that must read the freshest committed value ──
+  const stateRef = useRef<State>(state);
+  stateRef.current = state;
+
   const currentPageRef = useRef(0);
   currentPageRef.current = state.currentVisiblePage;
   const scrollFractionRef = useRef(0);
@@ -335,10 +61,21 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   const chapterFractionRef = useRef(0);
   chapterFractionRef.current = state.chapterFraction;
 
-  const orderedChaptersRef = useRef<OrderedChapter[]>([]);
-  const orderReadyRef = useRef(false);
-  const [orderReadyTick, setOrderReadyTick] = useState(0);
+  // ── series canonical order ──────────────────────────────────────────
+  const orderRef = useRef<OrderedChapter[]>([]);
+  const [orderTick, setOrderTick] = useState(0);
 
+  // Bumped on every open — a stale openChapter response (a newer open started) checks this and
+  // drops its result.
+  const openGenRef = useRef(0);
+
+  // ── reading mode ───────────────────────────────────────────────────
+  // Only webtoon is implemented. The value is resolved (series → global → default) and exposed so
+  // the screen can pick a renderer; the hook's own logic (onNativePosition) is webtoon-shaped for
+  // now via the pure webtoonReportToTrigger, deliberately NOT via a mode-adapter object.
+  const [readingMode, setReadingMode] = useState<ReadingMode>('webtoon');
+
+  // ── mark bookkeeping ───────────────────────────────────────────────
   const lastSyncedPageRef = useRef<Map<string, number>>(new Map());
   const suppressServerSyncRef = useRef<Set<string>>(new Set());
   const sessionMarkedReadRef = useRef<Set<string>>(new Set());
@@ -348,23 +85,20 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   const localTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── mark read / unread (via ChapterTool — emits ChapterEvents) ─────────
+  // ── mark read / unread (via ChapterTool — emits ChapterEvents) ─────
   const applyMarkUpdate = useCallback(
     (update: { chapterId: string; readStatus: 'READ' | 'IN_PROGRESS' | 'UNREAD' }) => {
-      dispatch({
-        type: update.readStatus === 'READ' ? 'OPTIMISTIC_MARK_READ' : 'OPTIMISTIC_MARK_UNREAD',
-        chapterId: update.chapterId,
-      });
+      dispatch({ type: 'OPTIMISTIC_MARK', chapterId: update.chapterId, readStatus: update.readStatus });
     },
     [],
   );
 
   const markAsReadIfNeeded = useCallback(
-    async (chapter: ReaderChapter) => {
+    (chapter: ReaderChapter) => {
       if (sessionMarkedReadRef.current.has(chapter.id)) {return;}
       sessionMarkedReadRef.current.add(chapter.id);
       suppressServerSyncRef.current.add(chapter.id);
-      await ChapterTool.mark.read({
+      ChapterTool.mark.read({
         seriesId: chapter.seriesId,
         chapterId: chapter.id,
         prevStatus: chapter.readStatus,
@@ -375,7 +109,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   );
 
   const unmarkIfRereading = useCallback(
-    async (chapter: ReaderChapter, currentPage: number, totalPages: number) => {
+    (chapter: ReaderChapter, currentPage: number, totalPages: number) => {
       const wasReadOnOpen = wasReadOnOpenRef.current.get(chapter.id) ?? false;
       if (
         !shouldUnmarkOnReread(
@@ -388,7 +122,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
         return;
       }
       sessionUnmarkedRef.current.add(chapter.id);
-      await ChapterTool.mark.unread({
+      ChapterTool.mark.unread({
         seriesId: chapter.seriesId,
         chapterId: chapter.id,
         prevStatus: chapter.readStatus,
@@ -398,33 +132,296 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     [applyMarkUpdate],
   );
 
+  // React to a mark from another screen (e.g. the series chapter list) while the reader is open.
   useEvent(ChapterEvents.readStatusChanged, payload => {
-    const viewer = viewerRef.current;
-    if (!viewer) {return;}
-    const inTrio =
-      viewer.curr.id === payload.chapter.id ||
-      viewer.prev?.id === payload.chapter.id ||
-      viewer.next?.id === payload.chapter.id;
-    if (!inTrio) {return;}
-    dispatch({
-      type: payload.changed.readStatus === 'READ' ? 'OPTIMISTIC_MARK_READ' : 'OPTIMISTIC_MARK_UNREAD',
-      chapterId: payload.chapter.id,
-    });
+    const window = stateRef.current.window;
+    if (!window) {return;}
+    if (!window.entries.some(e => e.chapter.id === payload.chapter.id)) {return;}
+    dispatch({ type: 'OPTIMISTIC_MARK', chapterId: payload.chapter.id, readStatus: payload.changed.readStatus });
   });
 
-  // ── series order (SerialService.get, light) ──────────────────────────
+  // ── fetch one chapter's pages, merge into its window slot ──────────
+  // Idempotent per id (inFlightRef) so the placeholder-prefetch effect can call it freely on
+  // every window change. A result whose chapter has since left the window is dropped.
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const loadEntry = useCallback(
+    (chapterIdToLoad: string) => {
+      if (inFlightRef.current.has(chapterIdToLoad)) {return;}
+      inFlightRef.current.add(chapterIdToLoad);
+      ChapterService.getFull({ seriesId, chapterId: chapterIdToLoad })
+        .then(digest => {
+          inFlightRef.current.delete(chapterIdToLoad);
+          const window = stateRef.current.window;
+          if (!window || !window.entries.some(e => e.chapter.id === chapterIdToLoad)) {return;}
+          if (!digest.isSuccess) {
+            dispatch({ type: 'ENTRY_ERROR', chapterId: chapterIdToLoad });
+            return;
+          }
+          dispatch({
+            type: 'ENTRY_LOADED',
+            chapterId: chapterIdToLoad,
+            chapter: withOrderNumber(chapterFromDigest(digest), orderRef.current),
+          });
+        })
+        .catch(() => {
+          inFlightRef.current.delete(chapterIdToLoad);
+          const window = stateRef.current.window;
+          if (window && window.entries.some(e => e.chapter.id === chapterIdToLoad)) {
+            dispatch({ type: 'ENTRY_ERROR', chapterId: chapterIdToLoad });
+          }
+        });
+    },
+    [seriesId],
+  );
+
+  // Prefetch pages for every placeholder entry, whenever the window changes. This is the ONLY
+  // place that reacts to the window shape for loading — the reducer owns the window, the hook
+  // just fills its holes.
+  useEffect(() => {
+    if (!state.window) {return;}
+    for (const entry of state.window.entries) {
+      if (entry.status === 'placeholder') {loadEntry(entry.chapter.id);}
+    }
+  }, [state.window, loadEntry]);
+
+  // ── open the screen (or a non-adjacent jump-to-chapter) ────────────
+  const openChapter = useCallback(
+    (targetChapterId: string, opts?: { startAtBeginning?: boolean }) => {
+      const gen = ++openGenRef.current;
+
+      dispatch({ type: 'LOADING' });
+
+      Promise.all([
+        ChapterService.getFull({ seriesId, chapterId: targetChapterId }),
+        opts?.startAtBeginning ? Promise.resolve(null) : ReadingProgressManager.get(targetChapterId),
+      ])
+        .then(([digest, local]) => {
+          if (openGenRef.current !== gen) {return;} // a newer open superseded this
+          if (!digest.isSuccess) {
+            dispatch({ type: 'ERROR', error: digest.error.message ?? 'Failed to load chapter' });
+            return;
+          }
+          const order = orderRef.current;
+          const curr = withOrderNumber(chapterFromDigest(digest), order);
+          const known: ReaderChapter[] = [curr];
+          let prevId: string | null = null;
+          let nextId: string | null = null;
+          if (digest.prevChapter?.isSuccess) {
+            const prev = withOrderNumber(chapterFromDigest(digest.prevChapter), order);
+            known.push(prev);
+            prevId = prev.id;
+          }
+          if (digest.nextChapter?.isSuccess) {
+            const next = withOrderNumber(chapterFromDigest(digest.nextChapter), order);
+            known.push(next);
+            nextId = next.id;
+          }
+
+          // Pass the neighbor ids explicitly: on the FIRST open the canonical series order
+          // hasn't loaded yet, so buildWindow can't derive the prev from it — without this the
+          // window would be [opened, next] and backward scroll would have no block to reach
+          // (device bug: open on 104, can't scroll to 103 until you navigate away and back).
+          const window = buildWindow(curr.id, order, known, { prevId, nextId });
+
+          const initial = opts?.startAtBeginning
+            ? { page: 0, scrollFraction: 0 }
+            : resolveInitialPage(curr, local);
+
+          const initialChapterFraction =
+            curr.pageUrls.length > 1
+              ? Math.min(0.9, (initial.page + initial.scrollFraction) / (curr.pageUrls.length - 1))
+              : 0;
+
+          if (!wasReadOnOpenRef.current.has(curr.id)) {
+            wasReadOnOpenRef.current.set(curr.id, isChapterEffectivelyRead(curr));
+          }
+
+          dispatch({
+            type: 'WINDOW_READY',
+            window,
+            initialPage: initial.page,
+            initialScrollFraction: initial.scrollFraction,
+            initialChapterFraction,
+            scrollTo: { chapterId: curr.id, page: initial.page },
+          });
+          // placeholder prefetch is handled by the [state.window] effect
+        })
+        .catch((e: unknown) => {
+          if (openGenRef.current !== gen) {return;}
+          dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' });
+        });
+    },
+    [seriesId],
+  );
+
+  // Back-compat alias used by the screen's retry button.
+  const loadChapter = useCallback(
+    (targetChapterId: string, startAtBeginning = false) =>
+      openChapter(targetChapterId, startAtBeginning ? { startAtBeginning: true } : undefined),
+    [openChapter],
+  );
+
+  useEffect(() => {
+    openChapter(chapterId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterId]);
+
+  // ── moveFocus — natural-scroll crossings ONLY ─────────────────────
+  // The overlay arrows reload the target chapter via openChapter (below) — they do NOT come here.
+  // moveFocus dispatches MOVE_FOCUS and the REDUCER computes the transition against its own
+  // window, so two reports in the same React batch serialize (the 2nd sees the 1st's move).
+  const moveFocus = useCallback(
+    (trigger: FocusMoveTrigger) => {
+      // While a chapter (re)load is in flight the native list is about to be UNMOUNTED and rebuilt
+      // (nativeListKey bump) — any native-scroll report right now is from the old, dying View.
+      // Ignore until WINDOW_READY clears `loading`.
+      if (stateRef.current.loading) {
+        // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
+        // console.log(`[Reader v2][diag] moveFocus ignored (loading) ${trigger.reportedChapterId}`);
+        return;
+      }
+      const window = stateRef.current.window;
+      if (!window) {return;}
+
+      // Reject an internally-inconsistent native-scroll report. During a scroll the Kotlin side
+      // can emit `page` (computeBottomVisiblePageIndex) and `chapterFraction`
+      // (computeChapterFraction) that grossly disagree — e.g. page=43 of 44 with
+      // chapterFraction=0.009 (device log rc35). Adopting it splits the overlay: dots jump to the
+      // end while the progress bar stays empty. Drop it and wait for a stable one.
+      const focusedChapter = window.entries[window.focusedIndex]?.chapter;
+      const pageCount = focusedChapter?.pageUrls.length ?? 0;
+      if (pageCount > 1 && trigger.reportedChapterId === focusedChapter?.id) {
+        const pageImpliedFraction = trigger.page / (pageCount - 1);
+        if (Math.abs(pageImpliedFraction - trigger.chapterFraction) > 0.5) {
+          // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
+          // console.log(
+          //   `[Reader v2][diag] dropping inconsistent report p=${trigger.page}/${pageCount} chFrac=${trigger.chapterFraction.toFixed(3)}`,
+          // );
+          return;
+        }
+      }
+
+      // Peek at the outcome only to fire the "leaving a scrolled-through chapter" mark — the
+      // reducer will recompute it as the real state transition.
+      const preview = computeWindowAfterFocusMove(window, orderRef.current, trigger);
+      // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
+      // console.log(
+      //   `[Reader v2][diag] moveFocus -> ${preview.kind}${preview.kind === 'focus-moved' ? ` newFocus=${preview.window.entries[preview.window.focusedIndex].chapter.id}` : ''}`,
+      // );
+      if (preview.kind === 'noop') {return;}
+      if (preview.kind === 'focus-moved' && chapterFractionRef.current >= READ_THRESHOLD_FRACTION) {
+        const leaving = window.entries[window.focusedIndex];
+        if (leaving) {markAsReadIfNeeded(leaving.chapter);}
+      }
+      if (preview.kind === 'position-only' && preview.chapterFraction >= READ_THRESHOLD_FRACTION) {
+        const focused = window.entries[window.focusedIndex];
+        if (focused) {markAsReadIfNeeded(focused.chapter);}
+      }
+
+      dispatch({ type: 'MOVE_FOCUS', trigger, order: orderRef.current });
+    },
+    [markAsReadIfNeeded],
+  );
+
+  // ── re-fire a deferred scroll once its target chapter has pages ────
+  // openChapter / an arrow may set scrollRequest against a chapter that's still a placeholder
+  // (fast tap outran the fetch). The native LaunchedEffect can't scroll to a block with no pages
+  // and clears the request. We remember it here ONLY while its target is not ready, and re-issue
+  // once loadEntry fills that slot. A request whose target is already ready is handled by the
+  // native list directly — never armed here, so it can't re-fire after being consumed.
+  const pendingScrollRef = useRef<{ chapterId: string; page: number } | null>(null);
+  useEffect(() => {
+    if (state.scrollRequest && state.window) {
+      const target = state.window.entries.find(e => e.chapter.id === state.scrollRequest!.chapterId);
+      pendingScrollRef.current = target && target.status !== 'ready' ? state.scrollRequest : null;
+      return;
+    }
+    const pending = pendingScrollRef.current;
+    if (!pending || !state.window) {return;}
+    const entry = state.window.entries.find(e => e.chapter.id === pending.chapterId);
+    if (entry && entry.status === 'ready') {
+      // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
+      // console.log(`[Reader v2][diag] deferred scroll re-fire ch=${pending.chapterId} p=${pending.page}`);
+      pendingScrollRef.current = null;
+      dispatch({ type: 'SCROLL_TO_PAGE', page: pending.page });
+    }
+  }, [state.scrollRequest, state.window]);
+
+  // ── native list -> hook. Screen forwards this verbatim; the hook owns the decision. ──
+  // Uses the pure webtoonReportToTrigger from reader.transform, NOT the adapter — this runs on
+  // the very first native scroll event, and depending on the adapter module graph here risks a
+  // module-init ordering crash that takes the whole app down (seen on device, rc30). When a
+  // non-webtoon mode ships, this becomes a per-mode dispatch that still resolves to a plain
+  // function, never an object deref.
+  const onNativePosition = useCallback(
+    (chapterId_: string, page: number, pageFraction: number, chapterFraction: number) => {
+      // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
+      // console.log(
+      //   `[Reader v2][diag] nativePos ch=${chapterId_} p=${page} chFrac=${chapterFraction.toFixed(3)} | win=[${stateRef.current.window?.entries.map(e => `${e.chapter.id}:${e.status[0]}`).join(',')}] focus=${stateRef.current.window?.focusedIndex}`,
+      // );
+      const trigger = webtoonReportToTrigger({
+        chapterId: chapterId_,
+        pageIndex: page,
+        pageFraction,
+        chapterFraction,
+      });
+      if (trigger) {moveFocus(trigger);}
+    },
+    [moveFocus],
+  );
+
+  // ── overlay arrows / overscroll — RELOAD the target chapter ────────
+  // "location.replace": pick the next/prev chapter id from the canonical order relative to the
+  // CURRENT focus, then run the exact open flow (getFull → WINDOW_READY → nativeListKey bump →
+  // the native list UNMOUNTS and a fresh one mounts straight onto the target chapter). No
+  // programmatic scroll — remounting is what makes the jump reliable; scrollToItem /
+  // scrollToPositionWithOffset both proved unreliable across 9 device builds (the list consumed
+  // the request but stayed anchored on a surviving block).
+  const goToAdjacent = useCallback(
+    (direction: 'next' | 'prev') => {
+      const window = stateRef.current.window;
+      if (!window) {return;}
+      const focusedId = window.entries[window.focusedIndex]?.chapter.id;
+      if (!focusedId) {return;}
+      const targetId = adjacentChapterId(orderRef.current, focusedId, direction);
+      // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
+      // console.log(`[Reader v2][diag] goToAdjacent ${direction} from=${focusedId} -> reload ${targetId ?? 'null (series end)'}`);
+      if (targetId) {
+        openChapter(targetId, { startAtBeginning: true });
+      }
+    },
+    [openChapter],
+  );
+  const goToNextChapterManual = useCallback(() => goToAdjacent('next'), [goToAdjacent]);
+  const goToPrevChapterManual = useCallback(() => goToAdjacent('prev'), [goToAdjacent]);
+
+  const overscrollArmedRef = useRef(true);
+  const overscrollTriggerPx = PixelRatio.getPixelSizeForLayoutSize(OVERSCROLL_TRIGGER_DP);
+  const handleScroll = useCallback(
+    (contentOffsetY: number, isFirstItemChapterHeader: boolean) => {
+      if (
+        contentOffsetY < -overscrollTriggerPx &&
+        isFirstItemChapterHeader &&
+        overscrollArmedRef.current
+      ) {
+        overscrollArmedRef.current = false;
+        goToAdjacent('prev');
+      }
+    },
+    [overscrollTriggerPx, goToAdjacent],
+  );
+  const handleScrollEndDrag = useCallback((contentOffsetY: number) => {
+    if (contentOffsetY >= 0) {overscrollArmedRef.current = true;}
+  }, []);
+
+  // ── series canonical order (SerialService.get, light) ──────────────
   useEffect(() => {
     let cancelled = false;
     SerialService.get({ seriesId })
       .then(digest => {
-        // [Reader][diag] candidato a task de debug (nav Fase 3): confirmar que a lista de
-        // capítulos da série carrega (isSuccess + chapters.list). orderedLen=0 mata prev/next.
-        // eslint-disable-next-line no-console
-        console.log(`[Reader][diag] SerialService.get isSuccess=${digest.isSuccess} chapters=${digest.isSuccess ? (digest.chapters ? `list(${digest.chapters.list?.length ?? 'undef'})` : 'null') : 'n/a'}`);
         if (cancelled || !digest.isSuccess) {return;}
-        orderedChaptersRef.current = toOrderedChapters(digest);
-        orderReadyRef.current = true;
-        setOrderReadyTick(t => t + 1);
+        orderRef.current = toOrderedChapters(digest);
+        setOrderTick(t => t + 1);
       })
       .catch(() => {});
     return () => {
@@ -432,280 +429,23 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     };
   }, [seriesId]);
 
-  // ── loadPages — fetch a chapter's pages and merge them into whatever trio slot it now occupies ──
-  // (`prev`, `curr` or `next` — a fast arrow tap can promote a placeholder straight to curr before
-  // its prefetch lands). No-op if the id has left the trio, or already has pages.
-  // `baseViewer` is the trio slideTrio just computed but hasn't rendered yet — viewerRef still holds
-  // the pre-slide trio, so without it a load kicked off from slideTrio for the new EDGE would see
-  // that id in no slot and bail.
-  const loadPages = useCallback(
-    async (chapterIdToLoad: string, baseViewer?: ViewerState) => {
-      const before = baseViewer ?? viewerRef.current;
-      if (!before) {return;}
-      const slotOf = (v: ViewerState): 'prev' | 'curr' | 'next' | null =>
-        v.prev?.id === chapterIdToLoad ? 'prev' : v.curr.id === chapterIdToLoad ? 'curr' : v.next?.id === chapterIdToLoad ? 'next' : null;
-      const slot = slotOf(before);
-      if (!slot || before[slot]?.hasPages) {return;}
-      try {
-        const digest = await ChapterService.getFull({ seriesId, chapterId: chapterIdToLoad });
-        if (!digest.isSuccess) {return;}
-        const after = viewerRef.current;
-        if (!after) {return;}
-        const nowSlot = slotOf(after);
-        if (!nowSlot) {return;} // left the trio while loading
-        dispatch({
-          type: 'SET_TRIO_SLOT',
-          slot: nowSlot,
-          chapter: withOrderNumber(chapterFromDigest(digest), orderedChaptersRef.current),
-        });
-      } catch {
-        /* leave the placeholder — its block still renders */
-      }
-    },
-    [seriesId],
-  );
-
-  // Given the current chapter id and a direction, the neighbour id one further out (or null).
-  const edgeNeighborId = useCallback(
-    (currId: string, dir: 'prev' | 'next'): string | null => {
-      const { prevId, nextId } = neighborsOfIn(orderedChaptersRef.current, currId);
-      return dir === 'prev' ? prevId : nextId;
-    },
-    [],
-  );
-
-  const placeholderById = useCallback((id: string | null): ReaderChapter | null => {
-    if (!id) {return null;}
-    const o = orderedChaptersRef.current.find(c => c.id === id);
-    return o ? placeholderChapterFromOrder(o) : null;
-  }, []);
-
-  // ── switchChapter — opening the screen (or a non-adjacent jump) ──────
-  // The ONLY path that does a ChapterService.getFull for a brand-new curr. Natural scroll and the
-  // arrows never come here — they slide the trio (below) using chapters already loaded.
-  const latestOpenTargetRef = useRef<string | null>(null);
-  // The logical curr id — the single source of truth for "which chapter the user is in", set
-  // synchronously by switchChapter/slideTrio (before the next render).
-  const logicalCurrIdRef = useRef<string | null>(null);
-  // A slide (arrow or crossing) just happened. The native list keeps reporting the chapter we
-  // LEFT for a bit while it repositions — and that chapter is now a neighbour of the new trio, so
-  // acting on it would slide straight back (the ida-e-volta bug). While a slide is settling, IGNORE
-  // every report except the one confirming the new logical curr. Time-boxed so a native list that
-  // never sends that exact id (fast successive arrows) can't wedge navigation forever.
-  const slideSettlingUntilRef = useRef(0);
-  const SLIDE_SETTLE_MS = 1200;
-
-  const switchChapter = useCallback(
-    async (targetChapterId: string, opts?: { startAtBeginning?: boolean }) => {
-      latestOpenTargetRef.current = targetChapterId;
-      dispatch({ type: 'SET_SWITCHING', isSwitching: true });
-      dispatch({ type: 'LOADING' });
-      try {
-        const digest = await ChapterService.getFull({ seriesId, chapterId: targetChapterId });
-        if (latestOpenTargetRef.current !== targetChapterId) {return;}
-        if (!digest.isSuccess) {
-          dispatch({ type: 'ERROR', error: digest.error.message ?? 'Failed to load chapter' });
-          return;
-        }
-        const order = orderedChaptersRef.current;
-        const curr = withOrderNumber(chapterFromDigest(digest), order);
-
-        const local = opts?.startAtBeginning ? null : await ReadingProgressManager.get(curr.id);
-        if (latestOpenTargetRef.current !== targetChapterId) {return;}
-
-        const initialProgress = opts?.startAtBeginning
-          ? { page: 0, scrollFraction: 0 }
-          : resolveInitialPage(curr, local);
-
-        const embeddedPrev = digest.prevChapter?.isSuccess ? chapterFromDigest(digest.prevChapter) : null;
-        const embeddedNext = digest.nextChapter?.isSuccess ? chapterFromDigest(digest.nextChapter) : null;
-        const { prevId, nextId } = neighborsOfIn(order, curr.id);
-        const prev = (embeddedPrev && withOrderNumber(embeddedPrev, order)) ?? placeholderById(prevId);
-        const next = (embeddedNext && withOrderNumber(embeddedNext, order)) ?? placeholderById(nextId);
-
-        const initialChapterFraction =
-          curr.pageUrls.length > 1
-            ? Math.min(
-                0.9,
-                (initialProgress.page + initialProgress.scrollFraction) / (curr.pageUrls.length - 1),
-              )
-            : 0;
-
-        logicalCurrIdRef.current = curr.id;
-        slideSettlingUntilRef.current = 0;
-        dispatch({
-          type: 'VIEWER_READY',
-          viewer: { prev, curr, next },
-          initialPage: initialProgress.page,
-          initialScrollFraction: initialProgress.scrollFraction,
-          initialChapterFraction,
-          scrollToChapterId: curr.id,
-        });
-
-        if (prev && !prev.hasPages) {loadPages(prev.id);}
-        if (next && !next.hasPages) {loadPages(next.id);}
-      } catch (e: unknown) {
-        if (latestOpenTargetRef.current !== targetChapterId) {return;}
-        dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' });
-      }
-    },
-    [seriesId, placeholderById, loadPages],
-  );
-
-  const loadChapter = useCallback(
-    (targetChapterId: string, startAtBeginning = false) =>
-      switchChapter(targetChapterId, startAtBeginning ? { startAtBeginning: true } : undefined),
-    [switchChapter],
-  );
-
+  // Reconcile the window once BOTH the series order and the window exist (either can land first):
+  // re-apply each entry's series-order `number` and grow both ends so the focused chapter has a
+  // neighbour on each side — this is where the prev chapter enters on a cold open (the bare
+  // getFull carries no embedded neighbors). The [state.window] effect prefetches any new
+  // placeholders. Runs again whenever the window identity changes so a post-open order arrival
+  // still reconciles.
   useEffect(() => {
-    switchChapter(chapterId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterId]);
-
-  // ── slide the trio: curr→prev + next→curr (dir 'next'), mirror for 'prev' ──
-  // Uses the ReaderChapters ALREADY in the trio — no re-fetch of the chapter that becomes curr
-  // (it was `next`, fully loaded when it entered the trio). Only the new edge is fetched. Takes
-  // the CURRENT viewer explicitly (never reads viewerRef, which lags a render behind and would
-  // make two quick slides compound the wrong trio — the "[curr,next] loses prev" bug).
-  const slideTrio = useCallback(
-    (from: ViewerState, dir: 'next' | 'prev'): ViewerState | null => {
-      const incoming = dir === 'next' ? from.next : from.prev;
-      if (!incoming) {return null;}
-
-      const leaving = from.curr;
-      if (chapterFractionRef.current >= READ_THRESHOLD_FRACTION) {
-        markAsReadIfNeeded(leaving);
-      }
-
-      const newEdge = placeholderById(edgeNeighborId(incoming.id, dir));
-      const newViewer: ViewerState =
-        dir === 'next'
-          ? { prev: leaving, curr: incoming, next: newEdge }
-          : { prev: newEdge, curr: incoming, next: leaving };
-
-      // The chapter becoming curr may still be a placeholder (fast arrow taps outrun its
-      // prefetch) — fetch its pages too, on the same side it sits. Pass newViewer: viewerRef still
-      // holds the pre-slide trio until the dispatch below renders.
-      if (!incoming.hasPages) {loadPages(incoming.id, newViewer);}
-      if (newEdge && !newEdge.hasPages) {loadPages(newEdge.id, newViewer);}
-      return newViewer;
-    },
-    [markAsReadIfNeeded, edgeNeighborId, placeholderById, loadPages],
-  );
-
-  // ── the native list reports where the user is (atomic payload — see ReaderPageList.kt) ──
-  // The hook OWNS the decision. ReaderScreen is dumb: it forwards this verbatim.
-  const onNativePosition = useCallback(
-    (chapterId_: string, page: number, pageFraction: number, chapterFraction: number) => {
-      const v = viewerRef.current;
-      if (!v) {return;}
-      const logicalCurrId = logicalCurrIdRef.current ?? v.curr.id;
-
-      // The report is for the chapter the user is logically in → just update position, and clear
-      // any settling window (the native list has caught up).
-      if (chapterId_ === logicalCurrId) {
-        slideSettlingUntilRef.current = 0;
-        dispatch({ type: 'SET_CURRENT_PAGE', page, scrollFraction: pageFraction, chapterFraction });
-        return;
-      }
-
-      // A slide is still settling — the native list is repositioning and keeps reporting the
-      // chapter we left (now a neighbour). Ignore everything until it confirms the new curr.
-      if (Date.now() < slideSettlingUntilRef.current) {
-        // eslint-disable-next-line no-console
-        console.log(`[Reader][diag] onNativePosition IGNORED (settling) ch=${chapterId_} logicalCurr=${logicalCurrId}`);
-        return;
-      }
-
-      // Not settling → this is a real natural-scroll crossing into a trio neighbour.
-      const dir: 'next' | 'prev' | null =
-        v.next && chapterId_ === v.next.id ? 'next' : v.prev && chapterId_ === v.prev.id ? 'prev' : null;
-      if (!dir) {return;} // not a trio neighbour — ignore
-      const nv = slideTrio(v, dir);
-      if (!nv) {return;}
-      // eslint-disable-next-line no-console
-      console.log(`[Reader][diag] onNativePosition CROSSED dir=${dir} report=${chapterId_} newTrio=[${nv.prev?.id ?? 'null'},${nv.curr.id},${nv.next?.id ?? 'null'}]`);
-      logicalCurrIdRef.current = nv.curr.id;
-      slideSettlingUntilRef.current = Date.now() + SLIDE_SETTLE_MS;
-      dispatch({ type: 'SET_VIEWER', viewer: nv, page: 0, scrollFraction: 0, chapterFraction: 0 });
-    },
-    [slideTrio],
-  );
-
-  // ── overlay arrows / overscroll — same slide, plus a scroll to the target's first page ──
-  // The switch happens IMMEDIATELY even when the new curr has no pages yet: the trio slides (header
-  // updates on the spot), ReaderScreen shows a spinner over the reading area while loadPages fills
-  // it in, and a one-shot SCROLL_TO_CHAPTER lands the native list on that chapter's first page.
-  // pendingScrollToRef re-fires the scroll once the pages arrive, because the very first
-  // SCROLL_TO_CHAPTER hits a block with no ListEntry.Page (native LaunchedEffect finds -1, clears
-  // the request without scrolling).
-  const pendingScrollToRef = useRef<string | null>(null);
-
-  const goToAdjacent = useCallback(
-    (dir: 'next' | 'prev') => {
-      const v = viewerRef.current;
-      if (!v) {return;}
-      const nv = slideTrio(v, dir);
-      if (!nv) {return;}
-      // eslint-disable-next-line no-console
-      console.log(`[Reader][diag] goToAdjacent dir=${dir} from=${v.curr.id} newTrio=[${nv.prev?.id ?? 'null'},${nv.curr.id},${nv.next?.id ?? 'null'}] hasPages=${nv.curr.hasPages}`);
-      logicalCurrIdRef.current = nv.curr.id;
-      slideSettlingUntilRef.current = Date.now() + SLIDE_SETTLE_MS;
-      pendingScrollToRef.current = nv.curr.hasPages ? null : nv.curr.id;
-      dispatch({ type: 'SCROLL_TO_CHAPTER', viewer: nv, chapterId: nv.curr.id, page: 0 });
-    },
-    [slideTrio],
-  );
-
-  // Re-fire SCROLL_TO_CHAPTER once the pending chapter (new curr) gets its pages — the first
-  // dispatch above ran against a placeholder block the native list couldn't scroll to.
-  useEffect(() => {
-    const pendingId = pendingScrollToRef.current;
-    if (!pendingId) {return;}
-    const v = state.viewer;
-    if (!v || v.curr.id !== pendingId || !v.curr.hasPages) {return;}
-    // eslint-disable-next-line no-console
-    console.log(`[Reader][diag] deferred SCROLL_TO_CHAPTER now firing for ${pendingId}`);
-    pendingScrollToRef.current = null;
-    dispatch({ type: 'SCROLL_TO_CHAPTER', viewer: v, chapterId: pendingId, page: 0 });
-  }, [state.viewer]);
-
-  const goToNextChapterManual = useCallback(async () => goToAdjacent('next'), [goToAdjacent]);
-  const goToPrevChapterManual = useCallback(async () => goToAdjacent('prev'), [goToAdjacent]);
-
-  // ── reconcile the trio once the series order lands (mount race) ──────
-  useEffect(() => {
-    if (!orderReadyRef.current) {return;}
-    const v = viewerRef.current;
-    if (!v) {return;}
-    // The trio may have been built with the isolated (wrong) `number`; re-apply the series-order
-    // one so "Capítulo N" matches the series screen.
-    const numberById: Record<string, number> = {};
-    for (const o of orderedChaptersRef.current) {
-      if (o.number != null) {numberById[o.id] = o.number;}
+    if (orderTick === 0) {return;}
+    const window = stateRef.current.window;
+    if (!window) {return;}
+    const reconciled = reconcileWindow(window, orderRef.current);
+    if (reconciled !== window) {
+      dispatch({ type: 'SET_WINDOW', window: reconciled, scrollTo: null });
     }
-    dispatch({ type: 'PATCH_NUMBERS', numberById });
+  }, [orderTick, state.window]);
 
-    const { prevId, nextId } = neighborsOfIn(orderedChaptersRef.current, v.curr.id);
-    if (!v.prev && prevId) {
-      const ph = placeholderById(prevId);
-      if (ph) {
-        dispatch({ type: 'SET_TRIO_SLOT', slot: 'prev', chapter: ph });
-        loadPages(prevId);
-      }
-    }
-    if (!v.next && nextId) {
-      const ph = placeholderById(nextId);
-      if (ph) {
-        dispatch({ type: 'SET_TRIO_SLOT', slot: 'next', chapter: ph });
-        loadPages(nextId);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderReadyTick, state.viewer?.curr.id]);
-
-  // ── series name (fast-path hint or fallback fetch) ───────────────────
+  // ── series name (fast-path hint or fallback fetch) ────────────────
   useEffect(() => {
     if (seriesNameHint) {return;}
     let cancelled = false;
@@ -721,21 +461,36 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     };
   }, [seriesId, seriesNameHint]);
 
-  // ── wasReadOnOpen per chapter ────────────────────────────────────────
+  // ── reading mode ─────────────────────────────────────────────────
   useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) {return;}
-    const curr = viewer.curr;
-    if (!wasReadOnOpenRef.current.has(curr.id)) {
+    let cancelled = false;
+    ReadingModeTool.get({ domain: 'series', seriesId })
+      .then(prefs => {
+        if (!cancelled) {setReadingMode(prefs.mode);}
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesId]);
+
+  // ── wasReadOnOpen per focused chapter ────────────────────────────
+  useEffect(() => {
+    const window = state.window;
+    if (!window) {return;}
+    const curr = window.entries[window.focusedIndex]?.chapter;
+    if (curr && !wasReadOnOpenRef.current.has(curr.id)) {
       wasReadOnOpenRef.current.set(curr.id, isChapterEffectivelyRead(curr));
     }
-  }, [state.viewer]);
+  }, [state.window]);
 
-  // ── progress timers: local every 2s, server every 20s ──────────────
+  // ── progress timers: local every 2s, server every 20s ───────────
   useEffect(() => {
-    const viewer = state.viewer;
-    if (!viewer) {return undefined;}
-    const { id: chId, seriesId: chSeriesId } = viewer.curr;
+    const window = state.window;
+    if (!window) {return undefined;}
+    const focused = window.entries[window.focusedIndex]?.chapter;
+    if (!focused) {return undefined;}
+    const { id: chId, seriesId: chSeriesId } = focused;
 
     localTimerRef.current = setInterval(() => {
       ReadingProgressManager.set(chId, {
@@ -762,36 +517,32 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
       if (localTimerRef.current) {clearInterval(localTimerRef.current);}
       if (syncTimerRef.current) {clearInterval(syncTimerRef.current);}
     };
-  }, [state.viewer]);
+  }, [state.window]);
 
-  // ── mark-as-read at 98% / unmark on reread ────────────────────────
-  const lastProcessedPageChapterIdRef = useRef<string | null>(null);
+  // ── mark-as-read at 98% / unmark on reread ──────────────────────
+  const lastProcessedChapterIdRef = useRef<string | null>(null);
   useEffect(() => {
-    const viewer = state.viewer;
-    if (!viewer) {return;}
-    const curr = viewer.curr;
-    const isFirstRenderOfChapter = lastProcessedPageChapterIdRef.current !== curr.id;
-    lastProcessedPageChapterIdRef.current = curr.id;
+    const window = state.window;
+    if (!window) {return;}
+    const curr = window.entries[window.focusedIndex]?.chapter;
+    if (!curr) {return;}
+    const isFirstRenderOfChapter = lastProcessedChapterIdRef.current !== curr.id;
+    lastProcessedChapterIdRef.current = curr.id;
     if (!isFirstRenderOfChapter) {
       unmarkIfRereading(curr, state.currentVisiblePage, curr.pageUrls.length);
     }
     if (curr.pageUrls.length > 0 && state.chapterFraction >= READ_THRESHOLD_FRACTION) {
       markAsReadIfNeeded(curr);
     }
-  }, [
-    state.viewer,
-    state.currentVisiblePage,
-    state.chapterFraction,
-    markAsReadIfNeeded,
-    unmarkIfRereading,
-  ]);
+  }, [state.window, state.currentVisiblePage, state.chapterFraction, markAsReadIfNeeded, unmarkIfRereading]);
 
-  const onScreenExit = useCallback(async () => {
+  const onScreenExit = useCallback(() => {
     if (localTimerRef.current) {clearInterval(localTimerRef.current);}
     if (syncTimerRef.current) {clearInterval(syncTimerRef.current);}
-    const viewer = viewerRef.current;
-    if (!viewer) {return;}
-    const curr = viewer.curr;
+    const window = stateRef.current.window;
+    if (!window) {return;}
+    const curr = window.entries[window.focusedIndex]?.chapter;
+    if (!curr) {return;}
     ReadingProgressManager.set(curr.id, {
       seriesId: curr.seriesId,
       page: currentPageRef.current,
@@ -804,30 +555,30 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     }
   }, []);
 
-  // ── keep screen on / immersive / offline ──────────────────────────
+  // ── keep screen on / immersive / offline ───────────────────────
   useEffect(() => {
     let cancelled = false;
-    fetchKeepScreenOnPref()
+    ReaderScreenControl.fetchKeepScreenOnPref()
       .then(enabled => {
-        if (!cancelled && enabled) {keepScreenOnBridge().catch(() => {});}
+        if (!cancelled && enabled) {ReaderScreenControl.keepScreenOn().catch(() => {});}
       })
       .catch(() => {});
     return () => {
       cancelled = true;
-      allowScreenOff().catch(() => {});
+      ReaderScreenControl.allowScreenOff().catch(() => {});
     };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetchImmersiveModePref()
+    ReaderScreenControl.fetchImmersiveModePref()
       .then(enabled => {
-        if (!cancelled && enabled) {setImmersiveMode(true).catch(() => {});}
+        if (!cancelled && enabled) {ReaderScreenControl.setImmersiveMode(true).catch(() => {});}
       })
       .catch(() => {});
     return () => {
       cancelled = true;
-      setImmersiveMode(false).catch(() => {});
+      ReaderScreenControl.setImmersiveMode(false).catch(() => {});
     };
   }, []);
 
@@ -838,58 +589,40 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     return () => unsubscribe();
   }, []);
 
-  // ── overlay / scroll plumbing ────────────────────────────────────
+  // ── overlay / scroll plumbing ─────────────────────────────────
   const toggleOverlay = useCallback(() => dispatch({ type: 'TOGGLE_OVERLAY' }), []);
   const scrollToPage = useCallback((page: number) => dispatch({ type: 'SCROLL_TO_PAGE', page }), []);
-  const handleScrollToPageHandled = useCallback(
-    () => dispatch({ type: 'SCROLL_TO_PAGE_HANDLED' }),
+  const handleScrollRequestHandled = useCallback(
+    () => dispatch({ type: 'SCROLL_REQUEST_HANDLED' }),
     [],
   );
-  // Kept for back-compat with any caller still using the old name; forwards to onNativePosition.
-  const setCurrentPage = useCallback(
-    (page: number, scrollFraction: number, chapterFraction: number) => {
-      const v = viewerRef.current;
-      if (v) {onNativePosition(v.curr.id, page, scrollFraction, chapterFraction);}
-    },
-    [onNativePosition],
-  );
 
-  // ── overscroll at the top → previous chapter ─────────────────────
-  const overscrollArmedRef = useRef(true);
-  const overscrollTriggerPx = PixelRatio.getPixelSizeForLayoutSize(OVERSCROLL_TRIGGER_DP);
-  const handleScroll = useCallback(
-    (contentOffsetY: number, isFirstItemChapterHeader: boolean) => {
-      if (
-        contentOffsetY < -overscrollTriggerPx &&
-        isFirstItemChapterHeader &&
-        overscrollArmedRef.current
-      ) {
-        overscrollArmedRef.current = false;
-        goToAdjacent('prev');
-      }
-    },
-    [overscrollTriggerPx, goToAdjacent],
-  );
-  const handleScrollEndDrag = useCallback((contentOffsetY: number) => {
-    if (contentOffsetY >= 0) {overscrollArmedRef.current = true;}
-  }, []);
+  // Whether the overlay arrows should be enabled — based on the canonical series order relative
+  // to the FOCUSED chapter, NOT on whether the window has an entry that side (the window only
+  // grows toward `next`, so a window-based check would keep ▲ permanently disabled).
+  const focusedIdForArrows = state.window?.entries[state.window.focusedIndex]?.chapter.id ?? null;
+  const hasPrevChapter =
+    focusedIdForArrows != null && adjacentChapterId(orderRef.current, focusedIdForArrows, 'prev') != null;
+  const hasNextChapter =
+    focusedIdForArrows != null && adjacentChapterId(orderRef.current, focusedIdForArrows, 'next') != null;
 
   return {
     ...state,
+    readingMode,
+    order: orderRef.current,
+    hasPrevChapter,
+    hasNextChapter,
     dispatch,
     toggleOverlay,
     scrollToPage,
-    handleScrollToPageHandled,
-    setCurrentPage,
+    handleScrollRequestHandled,
     onNativePosition,
     onScreenExit,
-    markAsReadIfNeeded,
-    unmarkIfRereading,
-    loadChapter,
-    switchChapter,
+    moveFocus,
     goToAdjacent,
     goToNextChapterManual,
     goToPrevChapterManual,
+    loadChapter,
     handleScroll,
     handleScrollEndDrag,
   };

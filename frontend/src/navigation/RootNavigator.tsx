@@ -4,10 +4,7 @@ import { Routes } from './routes';
 import { MainNavigator } from './MainNavigator';
 import { SetupScreen } from '../screens/setup/SetupScreen';
 import { SerieScreen } from '../screens/serie';
-// Reader V2 — the ground-up rewrite (position-indexed window + single moveFocus path). The legacy
-// screens/reader/ tree stays on disk for reference/rollback until this is device-validated; the
-// final cut renames reader/ -> reader-legacy/ and reader-v2/ -> reader/.
-import { ReaderScreen } from '../screens/reader-v2';
+import { ReaderScreen } from '../screens/reader';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();

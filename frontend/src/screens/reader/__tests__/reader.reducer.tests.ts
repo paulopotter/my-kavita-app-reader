@@ -206,6 +206,44 @@ describe('reader.reducer', () => {
     expect(reducer(initialState, { type: 'SET_OFFLINE', offline: true }).offline).toBe(true);
   });
 
+  it('WINDOW_READY bumps nativeListKey so the screen remounts the native list', () => {
+    const w = windowOf(['c1', 'c2'], 0);
+    const s1 = reducer(initialState, {
+      type: 'WINDOW_READY',
+      window: w,
+      initialPage: 0,
+      initialScrollFraction: 0,
+      initialChapterFraction: 0,
+      scrollTo: { chapterId: 'c1', page: 0 },
+    });
+    expect(s1.nativeListKey).toBe(initialState.nativeListKey + 1);
+    const s2 = reducer(s1, {
+      type: 'WINDOW_READY',
+      window: w,
+      initialPage: 0,
+      initialScrollFraction: 0,
+      initialChapterFraction: 0,
+      scrollTo: { chapterId: 'c1', page: 0 },
+    });
+    expect(s2.nativeListKey).toBe(s1.nativeListKey + 1);
+  });
+
+  it('MOVE_FOCUS does NOT bump nativeListKey (no remount mid-scroll)', () => {
+    const before = withWindow(windowOf(['c1', 'c2', 'c3'], 1));
+    const after = reducer(before, {
+      type: 'MOVE_FOCUS',
+      trigger: { source: 'native-scroll', reportedChapterId: 'c1', page: 4, pageFraction: 1, chapterFraction: 1 },
+      order: order(['c1', 'c2', 'c3']),
+    });
+    expect(after.nativeListKey).toBe(before.nativeListKey);
+  });
+
+  it('an unknown action returns the same state reference', () => {
+    const s = withWindow(windowOf(['c1'], 0));
+    // @ts-expect-error — exercising the reducer's default branch with a bogus action
+    expect(reducer(s, { type: 'NOT_A_REAL_ACTION' })).toBe(s);
+  });
+
   it('SERIES_NAME_LOADED sets the name', () => {
     expect(reducer(initialState, { type: 'SERIES_NAME_LOADED', seriesName: 'Berserk' }).seriesName).toBe('Berserk');
   });

@@ -9,8 +9,7 @@ import { createEvent } from '../../shared/managers/events';
 // Payload is the position, not a read/unread status (that's ChapterEvents.readStatusChanged).
 //
 // No listener exists yet: this is what a future "continue reading" surface (a home-screen shelf,
-// a library badge) will subscribe to so it can update without polling. Shipped now so the reader
-// is already emitting by the time that surface is built.
+// a library badge) will subscribe to so it can update without polling.
 export interface ReaderProgressChangedPayload {
   seriesId: string;
   chapterId: string;

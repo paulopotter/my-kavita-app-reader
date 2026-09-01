@@ -12,6 +12,7 @@ import {
   isChapterEffectivelyRead,
   neighborsOfIn,
   progressBarFraction,
+  reconcileWindow,
   resolveInitialPage,
   shouldUnmarkOnReread,
   toOrderedChapters,
@@ -231,6 +232,20 @@ describe('toOrderedChapters', () => {
     } as unknown as SeriesDigestSuccess;
     expect(toOrderedChapters(digest).map(c => c.id)).toEqual(['c1', 'c3']);
   });
+
+  it('orders a chapter with a number before one without, then falls back to title compare', () => {
+    const digest = {
+      chapters: {
+        list: [
+          { isSuccess: true, id: 'z', seriesId: 's1', title: 'Zeta', readStatus: 'UNREAD' },
+          { isSuccess: true, id: 'a', seriesId: 's1', title: 'Alpha', readStatus: 'UNREAD' },
+          { isSuccess: true, id: 'n', seriesId: 's1', number: 2, title: 'Numbered', readStatus: 'UNREAD' },
+        ],
+      },
+    } as unknown as SeriesDigestSuccess;
+    // numbered first, then the two number-less ones by title
+    expect(toOrderedChapters(digest).map(c => c.id)).toEqual(['n', 'a', 'z']);
+  });
 });
 
 describe('neighborsOfIn', () => {
@@ -296,6 +311,64 @@ describe('buildWindow', () => {
     expect(w.entries).toHaveLength(1);
     expect(w.focusedIndex).toBe(0);
     expect(w.entries[0].status).toBe('ready');
+  });
+
+  it('uses explicit neighbor ids even with no order (cold open, digest embedded neighbors)', () => {
+    // orderIndex === -1, but the digest carried prev/next — the window still has both sides.
+    const w = buildWindow('c3', [], [readerChapter('c3'), readerChapter('c2'), readerChapter('c4')], {
+      prevId: 'c2',
+      nextId: 'c4',
+    });
+    expect(w.entries.map(e => e.chapter.id)).toEqual(['c2', 'c3', 'c4']);
+    expect(w.focusedIndex).toBe(1);
+    expect(w.entries.map(e => e.status)).toEqual(['ready', 'ready', 'ready']);
+  });
+
+  it('ignores a neighbor id equal to the opened chapter', () => {
+    const w = buildWindow('c3', o, [readerChapter('c3')], { prevId: 'c3', nextId: 'c4' });
+    expect(w.entries.map(e => e.chapter.id)).toEqual(['c3', 'c4']);
+    expect(w.focusedIndex).toBe(0);
+  });
+
+  it('builds a bare placeholder for a neighbor id that is in neither known nor order', () => {
+    const w = buildWindow('c3', [], [readerChapter('c3')], { prevId: 'ghost', nextId: null });
+    expect(w.entries.map(e => e.chapter.id)).toEqual(['ghost', 'c3']);
+    expect(w.entries[0].status).toBe('placeholder');
+    expect(w.entries[0].chapter.pageUrls).toEqual([]);
+    expect(w.focusedIndex).toBe(1);
+  });
+});
+
+// ── reconcileWindow — runs once the canonical order lands ──────────────
+
+describe('reconcileWindow', () => {
+  const o = order(['c1', 'c2', 'c3', 'c4', 'c5']);
+
+  it('prepends the missing prev and appends the missing next when the focus is a lone entry', () => {
+    const before: ReaderWindow = { entries: [{ chapter: readerChapter('c3'), status: 'ready' }], focusedIndex: 0 };
+    const after = reconcileWindow(before, o);
+    expect(after.entries.map(e => e.chapter.id)).toEqual(['c2', 'c3', 'c4']);
+    expect(after.entries[after.focusedIndex].chapter.id).toBe('c3');
+    expect(after.entries[0].status).toBe('placeholder');
+  });
+
+  it('returns the SAME window reference when there is nothing to grow or renumber', () => {
+    const w = readyWindow(['c2', 'c3', 'c4'], 1);
+    // pre-number the entries the way the order would, so renumbering is a no-op too
+    const numbered: ReaderWindow = {
+      entries: w.entries.map(e => ({ ...e, chapter: withOrderNumber(e.chapter, o) })),
+      focusedIndex: 1,
+    };
+    expect(reconcileWindow(numbered, o)).toBe(numbered);
+  });
+
+  it('re-applies the series-order number to an entry built before the order was known', () => {
+    const before: ReaderWindow = {
+      entries: [{ chapter: readerChapter('c4', { number: 1 }), status: 'ready' }],
+      focusedIndex: 0,
+    };
+    const after = reconcileWindow(before, o);
+    expect(after.entries[after.focusedIndex].chapter.number).toBe(4);
   });
 });
 

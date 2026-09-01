@@ -80,6 +80,18 @@ describe('webtoonAdapter', () => {
       const blocks = webtoonAdapter.toRenderModel(window(), order(['c1', 'c2']), t);
       expect(JSON.stringify(blocks[0].lastNode)).toContain('"1"');
     });
+
+    it('the footer number falls back to decimalNumber, then to an empty string', () => {
+      const w = window();
+      w.entries[0].chapter.number = undefined;
+      w.entries[0].chapter.decimalNumber = 1.5;
+      w.entries[1].chapter.number = undefined;
+      w.entries[1].chapter.decimalNumber = undefined;
+      const blocks = webtoonAdapter.toRenderModel(w, [], t);
+      expect(JSON.stringify(blocks[0].lastNode)).toContain('"1.5"');
+      // c2 has neither number nor decimalNumber — the label is just "" (no crash, no "undefined")
+      expect(JSON.stringify(blocks[1].lastNode)).not.toContain('undefined');
+    });
   });
 
   describe('interpretPositionReport', () => {
