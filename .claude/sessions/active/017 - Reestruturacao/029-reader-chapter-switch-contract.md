@@ -1,12 +1,11 @@
 # Task 029 — Reader: chapter-switch contract + 3-mechanism consumption (Phase 6 — Reader)
 
-**Status:** doing — core done (2026-09-01). The dual-mechanism root cause is resolved by the
-reader rewrite (`screens/reader/`): the `{prev, curr, next}` trio + parallel scroll/arrow flows
-were replaced by a single `ReaderWindow { entries[], focusedIndex }` and one `moveFocus(trigger)`
-path (reducer owns the transition; arrows reload + remount via `nativeListKey`). Validated on a
-real device across rc42–rc45. Remaining: (1) the chapter-order reflow — root cause found, fix
-deferred (see below); (2) `architecture.md` updated (done, commit `docs(architecture): contrato
-de troca de capítulo do leitor`).
+**Status:** done (2026-09-01). The dual-mechanism root cause is resolved by the reader rewrite
+(`screens/reader/`): the `{prev, curr, next}` trio + parallel scroll/arrow flows were replaced
+by a single `ReaderWindow { entries[], focusedIndex }` and one `moveFocus(trigger)` path
+(reducer owns the transition; arrows reload + remount via `nativeListKey`). Validated on a real
+device across rc42–rc45. Chapter-order reflow: root cause found (SerieScreen double-sort), not
+reproducible in practice per the user, fix deferred as optional. See `## Result`.
 
 > This task is the original plan 017 "Task 001 — Contrato único de troca de capítulo +
 > modelagem dos 3 mecanismos de comunicação", reslotted into Phase 6 and updated per Task 001
@@ -179,11 +178,49 @@ its own task.
 
 ## Completion criteria
 
-- Chapter-switch contract reconciled with Task 008/013 and approved by the user.
-- Explicit decision recorded on whether/when the unification refactor is implemented.
-- `loadNeighbor`/`loadMissingNeighbor` race fixed.
-- Chapter-order reflow investigation reopened and resolved or explicitly re-deferred with a
-  reason.
-- Tested on a real device by the user.
-- `make coverage` shows no drop relative to the current floor.
-- Explicit user approval before `finalizar-task`.
+- [x] Chapter-switch contract reconciled with Task 008/013 and approved by the user — no
+  `switchChapter(options)`; a scroll crossing goes through `moveFocus(trigger)` + the reducer,
+  an arrow through `openChapter(id, {startAtBeginning:true})` + `nativeListKey` remount. Two
+  deliberately separate flows with no shared mutable state to race over.
+- [x] Explicit decision recorded on the unification refactor — N/A: the rewrite replaced both
+  `loadInitialViewer` and `advanceToNextChapter`/`retreatToPrevChapter` outright, nothing left
+  to unify.
+- [x] `loadNeighbor`/`loadMissingNeighbor` race fixed — those functions no longer exist; the
+  window is append-only and the reducer owns the transition.
+- [x] Chapter-order reflow investigation reopened — root cause found (SerieScreen double-sort:
+  default `sortMode` on first paint, saved pref loads async and re-sorts a frame later). User
+  confirmed it is not reproducible in practice (the loading gate holds). Fix deferred as
+  optional; it is a SerieScreen concern, own task if pursued.
+- [x] Tested on a real device by the user — rc42–rc45 (chapter nav ↑↓, infinite scroll fwd/back,
+  overlay, no black screen / freeze / crash across 4200+ log lines).
+- [x] `make coverage` — JS branch coverage 90.51% (floor 90); `yarn test:coverage` exits 0.
+- [x] Explicit user approval before `finalizar-task`.
+
+## Result
+
+The recurring chapter-switch navigation bugs (proven by real log: "next" on chapter 26 → 28) are
+resolved by the ground-up reader rewrite (`frontend/src/screens/reader/`, ex-`reader-v2`):
+
+- **Data model** — `ReaderWindow { entries: LoadedChapterEntry[]; focusedIndex: number }`, a
+  position-indexed window (append-only on natural scroll). Replaced the named `{prev, curr, next}`
+  trio + the read-modify-write on `viewer.next` that two uncoordinated flows raced over.
+- **One path** — `moveFocus(trigger)` for scroll crossings; the reducer computes the transition
+  against its own `state.window` (`reader.reducer.ts`), so two reports in one React batch
+  serialize. No settling timer.
+- **Arrows / jump** — `openChapter(id, {startAtBeginning:true})` rebuilds the window and bumps
+  `State.nativeListKey`; the screen keys `<ReaderPageListView>` on it, so React unmounts the
+  native View and mounts a fresh one — the Compose `LazyColumn` starts on the target with no
+  inherited scroll offset. `scrollToItem` / `scrollToPositionWithOffset` proved unreliable
+  across 9 device builds; remounting sidesteps programmatic scroll for a switch.
+- **Cold-open prev** — `buildWindow` builds `[prev?, target, next?]` from the digest's embedded
+  neighbors; `reconcileWindow` prepends the prev once the canonical order lands (a bare
+  `getFull` carries no neighbors).
+- Also in scope of this task's Result: the **3 progress-sync gaps** (Task 030) and the **batch
+  mark-read** fix — both shipped alongside.
+
+Main files: `screens/reader/hooks/reader.hooks.ts`, `.../hooks/reader.reducer.ts`,
+`.../transforms/reader.transform.ts`, `.../reader.screen.tsx`, `.../reader.types.ts`. Kotlin
+reader unchanged (`ReaderPageList.kt` still the `LazyColumn`); `CacheBridgeModule.kt` (`:app`,
+outside Kover) changed `ttlMs` to non-nullable for `ReadingProgressManager`.
+
+`architecture.md` updated (§ "Chapter-switch contract (`ReaderWindow` + `moveFocus`)").

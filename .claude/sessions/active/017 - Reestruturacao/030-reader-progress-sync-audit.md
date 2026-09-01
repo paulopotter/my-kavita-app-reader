@@ -1,7 +1,7 @@
 # Task 030 — Reader: progress sync audit local↔server (Phase 6 — Reader)
 
-**Status:** doing — audit done + all 3 gaps fixed (2026-09-01, commit `fix(rn): fecha os 3 gaps
-de sync de progresso do leitor`). Report below. Pending: device validation + `finalizar-task`.
+**Status:** done (2026-09-01). Audit delivered + all 3 gaps fixed (commit `fix(rn): fecha os 3
+gaps de sync de progresso do leitor`), device-validated by the user. Report + `## Result` below.
 
 > This task is the original plan 017 "Task 002 — Auditoria de sincronização de progresso
 > local↔servidor", reslotted into Phase 6 unchanged.
@@ -119,6 +119,30 @@ in `reading-progress.manager.ts:6-9`, not a finding of this audit.
 - [x] Audit report presented to the user, with exact points (file:line) where progress is or
   should be synced.
 - [x] User decision on which gaps to fix — user approved fixing all three; done in this task.
-- [ ] Device validation (background the app mid-chapter → reopen on another client shows the
-  right resume point; arrow to next chapter → the left chapter's server progress is current).
-- [ ] `finalizar-task`.
+- [x] Device validation — user confirmed "aparentemente funcionou".
+- [x] `make coverage` — JS branch coverage 90.46% → 90.51% (floor 90).
+- [x] `finalizar-task`.
+
+## Result
+
+Audit found the reader writes reading position to two stores — local
+(`ReadingProgressManager.set` → `CacheManager.persistent`) and server (`ChapterService.progress.set`
+→ Kavita) — at three moments: a 2s local timer, a 20s server timer, and `onScreenExit`. Three
+gaps, all fixed in `frontend/src/screens/reader/hooks/reader.hooks.ts`:
+
+- **GAP 1** — no `AppState` listener anywhere in `frontend/`, so backgrounding/killing the app
+  never flushed to the server (up to 20s+ stale). Added a `useEffect` on
+  `AppState.addEventListener('change')` → `flushProgress` on `background`/`inactive`.
+- **GAP 2** — an arrow/jump reloads via `openChapter` without hitting `onScreenExit`, so the
+  chapter being left was never flushed (the timers effect cleanup only `clearInterval`s). Added
+  a flush of the outgoing chapter at the top of `openChapter`, unless reopening the same id.
+- **GAP 3** — the 2s local timer wrote to Room unconditionally. Added a `lastLocalSavedRef` guard
+  (skip when `page` + `scrollFraction` unchanged since the previous tick).
+
+All three route through one `flushProgress(chapter, { page, scrollFraction })` helper (local
+always; server only while `!isChapterEffectivelyRead`), which `onScreenExit` was rewritten to
+call. 6 new tests in `reader.hooks.tests.ts`.
+
+Not addressed (own task, noted in `reading-progress.manager.ts:6-9`): the boot-time
+reconciliation that pushes newer local entries to the server and prunes caught-up ones (Splash
+refactor).

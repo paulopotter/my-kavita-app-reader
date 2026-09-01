@@ -25,7 +25,7 @@ the hook.
    finding land as one coherent review with the user.
 4. Apply in the Reader once approved.
 
-## Resolution (2026-09-01)
+## Result (2026-09-01)
 
 Applied wholesale in the reader rewrite. Every finding is closed:
 
@@ -61,6 +61,6 @@ Applied wholesale in the reader rewrite. Every finding is closed:
   the `toBlock` half landed in the same rewrite as `webtoon-blocks.transform.ts`.
 - [x] Tested on a real device by the user. — rc42–rc45, chapter nav / infinite scroll / overlay
   all validated.
-- [x] `make coverage` shows no drop relative to the current floor. — JS branches back to 90.22%
-  (floor 90) after the corte final; `yarn test:coverage` exits 0.
-- [ ] Explicit user approval before `finalizar-task`.
+- [x] `make coverage` shows no drop relative to the current floor. — JS branches 90.51% (floor
+  90); `yarn test:coverage` exits 0.
+- [x] Explicit user approval before `finalizar-task`.
