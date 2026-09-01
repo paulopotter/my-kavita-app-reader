@@ -6,6 +6,7 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
 - Commands/build/sessions → `.claude/docs/quickstart.md`
 - File locations/layers → `.claude/docs/architecture.md`
 - Pitfalls → `.claude/docs/mistakes.md`
+- Read-path freshness (force / cache-first / optimistic) → `.claude/docs/data-freshness.md`
 
 ## Invariants
 - No personal data in code (no IPs, tokens, private usernames)

@@ -147,6 +147,11 @@ reuse it without crossing screen boundaries.
 *Kotlin side implemented (Task 023). RN side (`CacheManager`) not started
 yet — see "Deliberately deferred" below.*
 
+> **Read-path precedence rules live in [`data-freshness.md`](data-freshness.md)** — force wins,
+> cache-first + background refresh, optimistic-local, and how they compose (timestamps are the
+> tiebreaker, not source priority). Every read path — Digest builders, Services/Tools, screen
+> hooks — follows it; when a concrete rule seems to contradict it, the principle wins.
+
 Every domain that needs local cache reuses one generic module (`:cache`,
 Layer 1 — as domain-agnostic as `:core` itself) instead of inventing its
 own ad-hoc mechanism, as `LibraryModule.kt`'s old `@Volatile var` fields,
