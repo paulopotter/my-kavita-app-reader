@@ -27,7 +27,6 @@ export function useSplash(): SplashState {
   const [destination, setDestination] = useState<SplashDestination | null>(null);
   const [otaPolicy, setOtaPolicy] = useState<OtaPolicy | null>(null);
 
-  const syncProgressRef = useRef(0);
   // Resolves when user dismisses the highly_recommended dialog.
   const policyResolveRef = useRef<(() => void) | null>(null);
   // Tracks whether the splash is frozen waiting for a policy dismiss.
@@ -57,8 +56,7 @@ export function useSplash(): SplashState {
       if (cancelled) { return; }
       const elapsed = Date.now() - startMs;
       const timerProgress = Math.min(0.9, elapsed / MIN_DURATION_MS) * 0.9;
-      const combined = Math.max(timerProgress, syncProgressRef.current);
-      setProgress(combined);
+      setProgress(timerProgress);
     }, 50);
 
     // Hard timeout: navigate after 25s, but only if not blocked waiting for a policy dismiss.
@@ -107,12 +105,10 @@ export function useSplash(): SplashState {
         // so a broken group doesn't have to mean a broken boot).
         await activateFirstServerGroup();
 
-        // Run sync and min-duration timer in parallel so the 5s is always
-        // measured from when the RN splash became visible, not from when sync ends.
-        await Promise.all([
-          runSyncWithMilestones(cancelled),
-          waitForMinDuration(startMs),
-        ]);
+        // Hold for the minimum splash duration, measured from when the RN splash became visible.
+        // (The old blocking Kotlin "sync" step is gone — it was a no-op since Task 028; the real
+        // Library warm-up moves here in the splash migration, Task 038.)
+        await waitForMinDuration(startMs);
 
         if (cancelled) { clearTimeout(timeoutHandle); return; }
 
@@ -144,14 +140,6 @@ export function useSplash(): SplashState {
       } catch {
         clearTimeout(timeoutHandle);
         navigate('library');
-      }
-    }
-
-    async function runSyncWithMilestones(isCancelled: boolean) {
-      await StartupBridge.syncBlocking().catch(() => ({ success: false }));
-      if (!isCancelled) {
-        syncProgressRef.current = 0.9;
-        setProgress(p => Math.max(p, 0.9));
       }
     }
 

@@ -4,12 +4,10 @@ import { StartupBridge } from '../startup';
 const mockModule = {
   hasServerConfigured: jest.fn(),
   hasFollowedSeries: jest.fn(),
-  syncBlocking: jest.fn(),
-  syncInBackground: jest.fn(),
-  drainSyncQueue: jest.fn(),
   isSeriesFollowed: jest.fn(),
   getRestoredRoute: jest.fn(),
   notifyRouteChanged: jest.fn(),
+  markUiReady: jest.fn(),
 };
 
 beforeEach(() => {
@@ -46,15 +44,22 @@ describe('StartupBridge — módulo nativo disponível', () => {
     expect(mockModule.notifyRouteChanged).toHaveBeenCalledWith('library', true, 'library');
   });
 
-  it('syncBlocking retorna resultado do nativo', async () => {
-    mockModule.syncBlocking.mockResolvedValue({ success: true });
-    await expect(StartupBridge.syncBlocking()).resolves.toEqual({ success: true });
+  it('hasFollowedSeries delega para o módulo nativo', async () => {
+    mockModule.hasFollowedSeries.mockResolvedValue(true);
+    await expect(StartupBridge.hasFollowedSeries()).resolves.toBe(true);
+    expect(mockModule.hasFollowedSeries).toHaveBeenCalledTimes(1);
   });
 
   it('isSeriesFollowed retorna valor do nativo', async () => {
     mockModule.isSeriesFollowed.mockResolvedValue(false);
     await expect(StartupBridge.isSeriesFollowed('42')).resolves.toBe(false);
     expect(mockModule.isSeriesFollowed).toHaveBeenCalledWith('42');
+  });
+
+  it('markUiReady delega para o módulo nativo', async () => {
+    mockModule.markUiReady.mockResolvedValue(null);
+    await StartupBridge.markUiReady();
+    expect(mockModule.markUiReady).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -69,10 +74,6 @@ describe('StartupBridge — StartupModule ausente (APK antigo, bug tela cinza)',
 
   it('getRestoredRoute lança erro descritivo', async () => {
     await expect(StartupBridge.getRestoredRoute()).rejects.toThrow('StartupModule not available');
-  });
-
-  it('syncBlocking lança erro descritivo', async () => {
-    await expect(StartupBridge.syncBlocking()).rejects.toThrow('StartupModule not available');
   });
 
   it('notifyRouteChanged lança erro descritivo', async () => {

@@ -55,8 +55,9 @@ function AppContent() {
           // Servidor removido — descarta rota restaurada, mostra setup via splash normal
           return;
         }
+        // Route restored — skip the splash entirely. The Library/Serie/Reader screens each load
+        // cache-first through the digest stack on mount, so there's no warm-up to kick here.
         setShowSplash(false);
-        StartupBridge.syncInBackground().catch(() => {});
       }
     }
     boot().catch(() => { /* splash stays visible */ });

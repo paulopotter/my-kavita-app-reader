@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { OtaModule } from '../../native/OtaModule';
+import { StartupBridge } from '../../shared/bridge/startup';
 import { AppAlert } from '../../shared/components/AppAlert';
 import { AppVersions } from '../../shared/components/AppVersions';
 import { useStrings } from '../../shared/i18n/useStrings';
@@ -21,6 +22,12 @@ type Props = Pick<SplashState, 'progress' | 'otaUpdateReady' | 'otaPolicy' | 'on
 
 export function SplashScreen({ progress, otaUpdateReady, otaPolicy, onPolicyDismissed }: Props) {
   const t = useStrings();
+
+  // Once this component has painted, tell the native side to drop the system splash it's holding.
+  // Native has a timeout fallback, so a failure here only means a slightly longer system splash.
+  React.useEffect(() => {
+    StartupBridge.markUiReady().catch(() => undefined);
+  }, []);
 
   const isRequired = otaPolicy?.mode === 'required';
   const isHighlyRec = otaPolicy?.mode === 'highly_recommended';

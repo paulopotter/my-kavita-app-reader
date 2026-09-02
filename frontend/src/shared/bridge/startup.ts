@@ -23,20 +23,14 @@ export const StartupBridge = {
     return safeCall(() => mod().hasFollowedSeries());
   },
 
-  syncBlocking(): Promise<{ success: boolean }> {
-    return safeCall(() => mod().syncBlocking());
-  },
-
-  syncInBackground(): Promise<null> {
-    return safeCall(() => mod().syncInBackground());
-  },
-
-  drainSyncQueue(): Promise<null> {
-    return safeCall(() => mod().drainSyncQueue());
-  },
-
   isSeriesFollowed(seriesId: string): Promise<boolean> {
     return safeCall(() => mod().isSeriesFollowed(seriesId));
+  },
+
+  // Tell the native side the RN splash has mounted, so it can drop the system splash it's holding
+  // (no black frame between the two). Best-effort — the native side also has a timeout.
+  markUiReady(): Promise<null> {
+    return safeCall(() => mod().markUiReady());
   },
 
   getRestoredRoute(): Promise<string | null> {

@@ -19,9 +19,6 @@ const mockOtaModule = {
 const mockStartupModule = {
   hasServerConfigured: jest.fn<Promise<boolean>, []>(),
   hasFollowedSeries: jest.fn<Promise<boolean>, []>(),
-  syncBlocking: jest.fn<Promise<{ success: boolean }>, []>(),
-  syncInBackground: jest.fn(),
-  drainSyncQueue: jest.fn(),
   isSeriesFollowed: jest.fn(),
   getRestoredRoute: jest.fn(),
   notifyRouteChanged: jest.fn(),
@@ -40,7 +37,6 @@ beforeEach(() => {
   mockOtaModule.acknowledgePolicy.mockResolvedValue(undefined);
   mockStartupModule.hasServerConfigured.mockResolvedValue(true);
   mockStartupModule.hasFollowedSeries.mockResolvedValue(false);
-  mockStartupModule.syncBlocking.mockResolvedValue({ success: true });
   mockSetupModule.isAuthenticated.mockResolvedValue(true);
 });
 

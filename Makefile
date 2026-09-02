@@ -4,7 +4,7 @@
         kill redeploy-log
 
 APP_PACKAGE  := com.mymangareader
-APP_ACTIVITY := .SplashActivity
+APP_ACTIVITY := .MainActivity
 
 ANDROID_DIR  := android
 FRONTEND_DIR := frontend
