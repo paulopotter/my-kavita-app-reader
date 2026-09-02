@@ -5,7 +5,7 @@ import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
 import { ChapterEvents, ChapterTool } from '../../../shared/tools/chapters';
 import { EventBus, useEvent } from '../../../shared/managers/events';
-import { ReadingProgressManager } from '../../../shared/managers/reading-progress';
+import { ReadingProgressManager } from '../../../shared/managers/store';
 import type {
   FocusMoveTrigger,
   OrderedChapter,

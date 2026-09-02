@@ -40,7 +40,7 @@ jest.mock('../../../shared/managers/events', () => ({
 
 const mockProgressGet = jest.fn().mockResolvedValue(null);
 const mockProgressSetLocal = jest.fn().mockResolvedValue(undefined);
-jest.mock('../../../shared/managers/reading-progress', () => ({
+jest.mock('../../../shared/managers/store', () => ({
   ReadingProgressManager: {
     get: (...a: unknown[]) => mockProgressGet(...a),
     set: (...a: unknown[]) => mockProgressSetLocal(...a),
