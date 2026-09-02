@@ -149,11 +149,11 @@ describe('isChapterEffectivelyRead', () => {
   it('is true when readStatus is READ', () => {
     expect(isChapterEffectivelyRead(readerChapter('c1', { readStatus: 'READ' }))).toBe(true);
   });
-  it('is true when pagesRead / pageCount crosses 98%', () => {
-    expect(isChapterEffectivelyRead(readerChapter('c1', { pageCount: 100, pagesRead: 98 }))).toBe(true);
+  it('is true when pagesRead / pageCount crosses 95%', () => {
+    expect(isChapterEffectivelyRead(readerChapter('c1', { pageCount: 100, pagesRead: 95 }))).toBe(true);
   });
-  it('is false below 98%', () => {
-    expect(isChapterEffectivelyRead(readerChapter('c1', { pageCount: 100, pagesRead: 97 }))).toBe(false);
+  it('is false below 95%', () => {
+    expect(isChapterEffectivelyRead(readerChapter('c1', { pageCount: 100, pagesRead: 94 }))).toBe(false);
   });
   it('is false when pageCount is 0', () => {
     expect(isChapterEffectivelyRead(readerChapter('c1', { pageCount: 0, pagesRead: 0 }))).toBe(false);

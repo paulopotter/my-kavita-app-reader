@@ -15,7 +15,16 @@ import type {
   ReaderWindow,
 } from '../reader.types';
 
-export const READ_THRESHOLD_FRACTION = 0.98;
+// "Practically finished" cutoff — used both for auto-mark-as-read while scrolling
+// (chapterFraction >= this) and for isChapterEffectivelyRead (pagesRead / pageCount >= this).
+// 0.95, not 0.98: chapterFraction measures the viewport's bottom edge against the chapter's
+// total pixel height, so the last ~1 viewport of a chapter never counts (there's nothing below
+// to scroll it past). On a webtoon whose final page is many thousands of px tall, 0.98 means
+// the user has to drag through almost the entire last page before it marks — they routinely
+// reach the visible end and stop with the fraction stuck around 0.95-0.97. 0.95 marks it when
+// they've genuinely seen the chapter through. (device log v40/v41: fraction climbs past 0.98
+// only in the final few hundred px of an ~19000px last page.)
+export const READ_THRESHOLD_FRACTION = 0.95;
 
 // How far ahead of / behind the focus the window keeps at least one loaded-or-placeholder entry.
 // The window is append-only (see computeWindowAfterFocusMove) — this is the "grow" trigger, not a
