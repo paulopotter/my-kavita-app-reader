@@ -89,49 +89,83 @@ class OtaManager @Inject constructor(
 
     // ── OTA check and download ─────────────────────────────────────────────────
 
-    suspend fun checkAndDownload(): OtaCheckResult = withContext(Dispatchers.IO) {
+    // Manifest fetch + policy + version evaluation, WITHOUT downloading the bundle. MainApplication
+    // calls this on boot; MainActivity acts on the OtaDecision (block, or release the system
+    // splash right away) and fires download() on applicationScope for the DownloadPending case —
+    // so the boot is never held on the download. checkAndDownload() below keeps the old "do both,
+    // return one OtaCheckResult" shape for any caller that still wants it.
+    suspend fun check(): OtaDecision = withContext(Dispatchers.IO) {
         runCatching {
             Log.d(TAG, "Checking OTA manifest: $manifestUrl")
-            val manifest = fetchManifest() ?: return@withContext OtaCheckResult.Error(
-                IllegalStateException("Failed to fetch manifest")
-            )
+            val manifest = fetchManifest()
+                ?: return@withContext OtaDecision.Failed(IllegalStateException("Failed to fetch manifest"))
 
             // Evaluate policies:
-            //   required         → block app, no download
+            //   required          → block app, no download
             //   highly_recommended → show popup, no download, app opens
-            //   recommended      → show popup, download proceeds
+            //   recommended       → show popup, download proceeds
             val policyResult = evaluatePolicies(manifest.policies)
-            if (policyResult?.mode == "required" || policyResult?.mode == "highly_recommended") {
-                Log.w(TAG, "Policy ${policyResult.mode} — skipping download")
-                return@withContext policyResult
+            if (policyResult?.mode == "required") {
+                Log.w(TAG, "Policy required — blocking")
+                return@withContext OtaDecision.Blocked(policyResult.releaseNotesUrl)
             }
 
             // Technical compatibility check (also blocking)
             if (!meetsMinKotlinVersion(kotlinVersion, manifest.minKotlinVersion)) {
                 Log.w(TAG, "Kotlin $kotlinVersion < required ${manifest.minKotlinVersion}")
-                return@withContext OtaCheckResult.PolicyMatch(
-                    mode = "required",
-                    releaseNotesUrl = RELEASE_PAGE_URL,
-                )
+                return@withContext OtaDecision.Blocked(RELEASE_PAGE_URL)
             }
 
-            // Check if bundle is already up to date
+            val advisory = policyResult
+                ?.takeIf { it.mode == "highly_recommended" || it.mode == "recommended" }
+                ?.let { PolicyAdvisory(it.mode, it.releaseNotesUrl) }
+
+            // highly_recommended never downloads; only recommended proceeds to the bundle.
+            if (policyResult?.mode == "highly_recommended") {
+                Log.w(TAG, "Policy highly_recommended — skipping download")
+                return@withContext OtaDecision.NothingToDo(advisory)
+            }
+
             val state = store.readState()
             if (manifest.lastRNVersion == state.currentBundleVersion) {
                 Log.d(TAG, "Bundle already up to date: ${manifest.lastRNVersion}")
-                return@withContext OtaCheckResult.UpToDate(policy = policyResult)
+                return@withContext OtaDecision.NothingToDo(advisory)
             }
 
+            OtaDecision.DownloadPending(manifest, advisory)
+        }.getOrElse { OtaDecision.Failed(it) }
+    }
+
+    // Downloads + validates + rotates the bundle for a manifest check() already resolved to
+    // DownloadPending. Publishes progress through downloadProgress the whole time. Safe to call on
+    // a background scope after MainActivity is up.
+    suspend fun download(manifest: OtaManifest): OtaCheckResult = withContext(Dispatchers.IO) {
+        runCatching {
             Log.d(TAG, "Downloading bundle ${manifest.lastRNVersion} from ${manifest.url}")
-            val downloadResult = downloadAndValidate(manifest)
-
-            // Attach non-blocking policy to the download result so splash shows both
-            if (downloadResult is OtaCheckResult.Updated) {
-                return@withContext downloadResult.copy(policy = policyResult)
-            }
-            downloadResult
+            downloadAndValidate(manifest)
         }.getOrElse { OtaCheckResult.Error(it) }
     }
+
+    suspend fun checkAndDownload(): OtaCheckResult = withContext(Dispatchers.IO) {
+        when (val decision = check()) {
+            is OtaDecision.Blocked ->
+                OtaCheckResult.PolicyMatch(mode = "required", releaseNotesUrl = decision.releaseNotesUrl)
+            is OtaDecision.Failed ->
+                OtaCheckResult.Error(decision.cause)
+            is OtaDecision.NothingToDo ->
+                OtaCheckResult.UpToDate(policy = decision.advisory?.toPolicyMatch())
+            is OtaDecision.DownloadPending -> {
+                val downloadResult = download(decision.manifest)
+                if (downloadResult is OtaCheckResult.Updated) {
+                    downloadResult.copy(policy = decision.advisory?.toPolicyMatch())
+                } else {
+                    downloadResult
+                }
+            }
+        }
+    }
+
+    private fun PolicyAdvisory.toPolicyMatch() = OtaCheckResult.PolicyMatch(mode, releaseNotesUrl)
 
     // ── Private helpers ────────────────────────────────────────────────────────
 

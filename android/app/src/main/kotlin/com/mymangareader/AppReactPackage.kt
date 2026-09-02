@@ -18,7 +18,6 @@ import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
-import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.server.Server
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.tools.bridge.ConfigRepository
@@ -41,7 +40,6 @@ class AppReactPackage(
     private val bffFeature: BffFeature,
     private val followedSeriesDao: FollowedSeriesDao,
     private val serverConfigDao: ServerConfigDao,
-    private val splashSyncCoordinator: SplashSyncCoordinator,
     private val chapterCacheDao: ChapterCacheDao,
     private val uiPreferencesDao: UiPreferencesDao,
     private val activeUrlWatcher: ActiveUrlWatcher,
@@ -59,7 +57,7 @@ class AppReactPackage(
             DbValidatorModule(dbStatus, context),
             otaBridge,
             SetupModule(kavitaUrlSource, kavitaAuthFeature, bffFeature, context),
-            StartupModule(serverConfigDao, followedSeriesDao, splashSyncCoordinator, context),
+            StartupModule(serverConfigDao, followedSeriesDao, context),
             SeriesModule(
                 kavitaSeriesFeature,
                 kavitaChapterFeature,

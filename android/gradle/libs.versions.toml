@@ -4,6 +4,7 @@ kotlin = "2.0.21"
 ksp = "2.0.21-1.0.25"
 kover = "0.9.1"
 coreKtx = "1.16.0"
+coreSplashscreen = "1.0.1"
 appcompat = "1.7.0"
 hilt = "2.56.2"
 okhttp = "4.12.0"
@@ -23,6 +24,7 @@ composeBom = "2024.09.00"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

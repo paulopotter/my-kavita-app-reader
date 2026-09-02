@@ -71,7 +71,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount
-        versionName = "0.8.0-rc64"
+        versionName = "0.8.0-rc67"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
@@ -116,6 +116,7 @@ dependencies {
     implementation(project(":preferences"))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)

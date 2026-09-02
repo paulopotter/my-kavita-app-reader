@@ -3,9 +3,15 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/splash_background</item>
     </style>
-    <style name="Theme.Splash" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="android:windowBackground">@color/splash_background</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowFullscreen">false</item>
+
+    <!-- Android 12 SplashScreen API theme (backported via androidx.core:core-splashscreen).
+         MainActivity is the launcher and boots under this theme; installSplashScreen() swaps to
+         AppTheme once the OTA boot gate releases. The system splash is drawn by the OS from these
+         attributes before any app code runs, so its background is necessarily a static colour —
+         the RN splash paints the real (themeable) colour on top and cross-fades in. -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
 </resources>

@@ -42,15 +42,18 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=81 — bump this value whenever coverage improves.
+            // COVERAGE_FLOOR_KOTLIN=83 — bump this value whenever coverage improves.
             // Bumped from 78 (Task 028): deleting the untested LibraryModule, KavitaSeriesFeature.
             // listSeries()/resolveProgress(), BffFeature.syncBff() and the SplashSyncCoordinator
             // work loop removed a large block of uncovered lines, lifting the measured value to
             // ~81.18%.
+            // Bumped from 81 (Task 038): deleting the rest of SplashSyncCoordinator + StartupModule's
+            // sync methods, and adding OtaManager.check() with full branch coverage, lifted it to
+            // ~83.16%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 81
+                        minValue = 83
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }

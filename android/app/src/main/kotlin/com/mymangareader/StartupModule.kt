@@ -1,17 +1,18 @@
 package com.mymangareader
 
 import android.content.Context
-import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
-import com.mymangareader.features.startup.SplashSyncCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,11 +32,20 @@ private object ProcessLifecycleMarker {
     var isAlive = false
 }
 
+// Flipped once the RN splash has mounted and painted (SplashScreen.tsx calls markUiReady() in its
+// first effect). MainActivity keeps the system splash up until this is true (or a timeout), so
+// there's no black frame between the system splash going away and the RN splash appearing.
+// Process-scoped: a fresh process starts false; a restart (applyOtaUpdate) gets a new process.
+object BootUiReadySignal {
+    private val _ready = MutableStateFlow(false)
+    val ready: StateFlow<Boolean> = _ready.asStateFlow()
+    fun markReady() { _ready.value = true }
+}
+
 @Singleton
 class StartupModule @Inject constructor(
     private val serverConfigDao: ServerConfigDao,
     private val followedSeriesDao: FollowedSeriesDao,
-    private val splashSyncCoordinator: SplashSyncCoordinator,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
@@ -57,24 +67,11 @@ class StartupModule @Inject constructor(
         }
     }
 
+    // Called by the RN splash once it has mounted — releases the native system splash MainActivity
+    // is holding, so the handoff is system-splash → RN-splash with no black frame between.
     @ReactMethod
-    fun syncBlocking(promise: Promise) {
-        scope.launch {
-            runCatching { splashSyncCoordinator.sync() }.resolveOrReject(promise, "SYNC_ERROR") { success ->
-                Arguments.createMap().apply { putBoolean("success", success) }
-            }
-        }
-    }
-
-    @ReactMethod
-    fun syncInBackground(promise: Promise) {
-        scope.launch { runCatching { splashSyncCoordinator.sync() } }
-        promise.resolve(null)
-    }
-
-    @ReactMethod
-    fun drainSyncQueue(promise: Promise) {
-        // Stub — fila resiliente será implementada em plano futuro
+    fun markUiReady(promise: Promise) {
+        BootUiReadySignal.markReady()
         promise.resolve(null)
     }
 

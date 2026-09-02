@@ -28,13 +28,22 @@ import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
-import com.mymangareader.features.startup.SplashSyncCoordinator
 import com.mymangareader.server.Server
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.tools.bridge.ConfigStore
+import com.mymangareader.tools.ota.OtaCheckResult
+import com.mymangareader.tools.ota.OtaDecision
 import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -55,7 +64,6 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     @Inject lateinit var bffFeature: BffFeature
     @Inject lateinit var followedSeriesDao: FollowedSeriesDao
     @Inject lateinit var serverConfigDao: ServerConfigDao
-    @Inject lateinit var splashSyncCoordinator: SplashSyncCoordinator
     @Inject lateinit var chapterCacheDao: ChapterCacheDao
     @Inject lateinit var uiPreferencesDao: UiPreferencesDao
     @Inject lateinit var activeUrlWatcher: ActiveUrlWatcher
@@ -79,7 +87,6 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
                     bffFeature = bffFeature,
                     followedSeriesDao = followedSeriesDao,
                     serverConfigDao = serverConfigDao,
-                    splashSyncCoordinator = splashSyncCoordinator,
                     chapterCacheDao = chapterCacheDao,
                     uiPreferencesDao = uiPreferencesDao,
                     activeUrlWatcher = activeUrlWatcher,
@@ -100,15 +107,65 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
 
     override val reactHost: ReactHost? = null
 
+    // Lives as long as the process, independent of any Activity: the OTA gate (check + background
+    // download) and the "boot stayed up 5s" stable-boot timer run here. There is no SplashActivity
+    // anymore — MainActivity is the launcher and just observes `bootGate` below to know when to let
+    // the system splash go (and whether to block on `required`).
+    val applicationScope: CoroutineScope by lazy {
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
+    private val _bootGate = MutableStateFlow<OtaDecision?>(null)
+
+    // null until check() resolves. MainActivity keeps the system splash on screen while this is
+    // null, then acts on the decision (block for Blocked, fire the background download for
+    // DownloadPending, otherwise just proceed).
+    val bootGate: StateFlow<OtaDecision?> = _bootGate.asStateFlow()
+
     override fun onCreate() {
         super.onCreate()
         ReaderDebugFlags.d("CoilDiagnostic") { "app version=${BuildConfig.KOTLIN_VERSION_NAME}" }
         otaManager.discardStaleBundleIfNeeded()
+        otaManager.applyRollbackIfNeeded()
+        otaManager.recordBootStart()
         SoLoader.init(this, false)
         if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
             DefaultNewArchitectureEntryPoint.load()
         }
         crashGuard.install()
+
+        applicationScope.launch {
+            _bootGate.value = otaManager.check()
+        }
+        applicationScope.launch {
+            delay(STABLE_BOOT_DELAY_MS)
+            otaManager.recordStableBoot()
+        }
+    }
+
+    // Runs the OTA bundle download for a resolved DownloadPending, mirroring progress to the RN
+    // side through OtaEventBridge. Fire-and-forget on applicationScope — the boot never waits on it.
+    fun startOtaDownload(decision: OtaDecision.DownloadPending) {
+        OtaEventBridge.markDownloadStarted()
+        applicationScope.launch {
+            val progressJob = launch {
+                otaManager.downloadProgress.collect {
+                    OtaEventBridge.notifyDownloadProgress("downloading", it)
+                }
+            }
+            val result = try {
+                otaManager.download(decision.manifest)
+            } finally {
+                progressJob.cancel()
+            }
+            when (result) {
+                is OtaCheckResult.Updated -> {
+                    OtaEventBridge.notifyDownloadProgress("ready", 1f)
+                    OtaEventBridge.notifyBundleReady()
+                }
+                else -> OtaEventBridge.notifyDownloadProgress("failed", -1f)
+            }
+        }
     }
 
     // Registers SafeBitmapDecoder globally so every Coil request (reader pages included) decodes
@@ -143,5 +200,6 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
 
     companion object {
         private const val READER_DISK_CACHE_MAX_BYTES = 500L * 1024 * 1024
+        private const val STABLE_BOOT_DELAY_MS = 5_000L
     }
 }
