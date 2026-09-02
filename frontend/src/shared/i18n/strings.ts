@@ -177,6 +177,17 @@ export interface Strings {
   errorApiKeyEmpty: string;
   errorDbVersionMismatch: string;
   errorDbNotOpen: string;
+
+  // ── Relative time (DateTool.format.to.relative) ──────────────────────────
+  dateJustNow: string;
+  dateMinutesAgo: string; // "{0}" = minutes
+  dateHoursAgo: string; // "{0}" = hours
+  dateDaysAgo: string; // "{0}" = days
+
+  // ── Library freshness banner ────────────────────────────────────────────
+  libraryUpdatedAgo: string; // "{0}" = DateTool relative text — "Atualizado {0}"
+  libraryUpdatedJustNow: string; // shown briefly right after a successful network refresh
+  libraryOfflineStale: string; // couldn't reach the server — showing cached data
 }
 
 const ptBR: Strings = {
@@ -335,6 +346,15 @@ const ptBR: Strings = {
   errorApiKeyEmpty: 'A API key não pode estar vazia',
   errorDbVersionMismatch: 'Versão do banco incompatível',
   errorDbNotOpen: 'Banco de dados não está aberto',
+
+  dateJustNow: 'agora',
+  dateMinutesAgo: 'há {0} min',
+  dateHoursAgo: 'há {0} h',
+  dateDaysAgo: 'há {0} d',
+
+  libraryUpdatedAgo: 'Atualizado {0}',
+  libraryUpdatedJustNow: 'Atualizado',
+  libraryOfflineStale: 'Sem conexão — mostrando dados salvos',
 };
 
 const en: Strings = {
@@ -493,6 +513,15 @@ const en: Strings = {
   errorApiKeyEmpty: 'API key cannot be empty',
   errorDbVersionMismatch: 'Database version mismatch',
   errorDbNotOpen: 'Database is not open',
+
+  dateJustNow: 'just now',
+  dateMinutesAgo: '{0} min ago',
+  dateHoursAgo: '{0} h ago',
+  dateDaysAgo: '{0} d ago',
+
+  libraryUpdatedAgo: 'Updated {0}',
+  libraryUpdatedJustNow: 'Updated',
+  libraryOfflineStale: 'Offline — showing saved data',
 };
 
 export const allStrings: Record<Language, Strings> = { 'pt-BR': ptBR, en };
