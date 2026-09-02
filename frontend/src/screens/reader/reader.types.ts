@@ -65,7 +65,7 @@ export interface LoadedChapterEntry {
 }
 
 // A CONTIGUOUS subsequence of the series' canonical reading order (same order as
-// SeriesDigest.chapters.list). `focusedIndex` is the ONE source of truth for "where the user is"
+// SerialDigest.chapters.list). `focusedIndex` is the ONE source of truth for "where the user is"
 // — there is no separate `curr` field that could desync from the index.
 //
 // Today the window stays ~3 entries wide (same memory as the old trio). Growing it (free ±100

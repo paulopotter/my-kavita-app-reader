@@ -1,4 +1,4 @@
-package com.mymangareader.contentdigest.series
+package com.mymangareader.contentdigest.serial
 
 import com.mymangareader.contentdigest.chapter.ChapterDigest
 import com.mymangareader.contentdigest.chapter.ChapterFields
@@ -82,11 +82,11 @@ private fun fakeChapter(
     createdUtc = "2026-01-01T00:00:00", lastReadingProgressUtc = "2026-01-02T00:00:00", fileFormat = "archive",
 )
 
-// Controls every ServerPlugin.Serial operation buildSeriesDigest calls.
+// Controls every ServerPlugin.Serial operation buildSerialDigest calls.
 private class FakePlugin(
     var serialResult: Result<PluginSerial> = Result.success(
         PluginSerial(
-            id = "s1", name = "Series 1", pagesRead = 0, totalPages = 0,
+            id = "s1", name = "Series 1", coverUrl = "http://cover/s1", pagesRead = 0, totalPages = 0,
             libraryId = "1", libraryName = "Library", lastFolderScannedUtc = null, lastChapterAddedUtc = null,
             latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
             aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
@@ -147,7 +147,7 @@ private class FakePlugin(
     }
 }
 
-// ── ExternalMetadataServer fakes (for SeriesDigestOptions.externalMetadataServer) ──────────
+// ── ExternalMetadataServer fakes (for SerialDigestOptions.externalMetadataServer) ──────────
 
 private class FakeExternalMetadataGroupDao : ExternalMetadataGroupDao {
     private val rows = mutableMapOf<String, ExternalMetadataGroupEntity>()
@@ -208,7 +208,7 @@ private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = obj
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
-class SeriesDigestTest {
+class SerialDigestTest {
 
     private lateinit var mockServer: MockWebServer
     private lateinit var baseUrl: String
@@ -247,7 +247,7 @@ class SeriesDigestTest {
     fun `success carries every series field`() = runTest {
         activateGroup()
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals("s1", digest.id)
         assertEquals("Series 1", digest.name)
@@ -261,7 +261,7 @@ class SeriesDigestTest {
         activateGroup()
         plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 5)))
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
         val chapter = digest.chapters?.list?.single() as ChapterDigest.Success
 
         assertTrue(chapter.pages.list.isEmpty())
@@ -274,7 +274,7 @@ class SeriesDigestTest {
         activateGroup()
         plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 2)))
 
-        val digest = buildSeriesDigest(server, "s1", cache, SeriesDigestOptions(full = true)) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = true)) as SerialDigest.Success
         val chapter = digest.chapters?.list?.single() as ChapterDigest.Success
 
         assertEquals(2, chapter.pages.list.size)
@@ -287,10 +287,10 @@ class SeriesDigestTest {
         activateGroup()
         plugin.serialResult = Result.failure(IllegalStateException("boom"))
 
-        val digest = buildSeriesDigest(server, "s1", cache)
+        val digest = buildSerialDigest(server, "s1", cache)
 
-        assertTrue(digest is SeriesDigest.Failure)
-        digest as SeriesDigest.Failure
+        assertTrue(digest is SerialDigest.Failure)
+        digest as SerialDigest.Failure
         assertEquals("IllegalStateException", digest.error.code)
     }
 
@@ -299,7 +299,7 @@ class SeriesDigestTest {
         activateGroup()
         plugin.metadataResult = Result.failure(RuntimeException("no metadata"))
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertNull(digest.metadata)
     }
@@ -309,7 +309,7 @@ class SeriesDigestTest {
         activateGroup()
         plugin.chaptersListResult = Result.failure(RuntimeException("no chapters"))
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertNull(digest.chapters)
     }
@@ -319,14 +319,14 @@ class SeriesDigestTest {
         activateGroup()
         plugin.serialResult = Result.success(
             PluginSerial(
-                id = "s1", name = "Series 1", pagesRead = 0, totalPages = 0,
+                id = "s1", name = "Series 1", coverUrl = "http://cover/s1", pagesRead = 0, totalPages = 0,
                 libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
                 latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
                 aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertNull(digest.library)
     }
@@ -344,7 +344,7 @@ class SeriesDigestTest {
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
         val ids = digest.chapters?.list?.map { (it as ChapterDigest.Success).id }
 
         assertEquals(listOf("ch1", "ch-extra", "ch2"), ids)
@@ -361,7 +361,7 @@ class SeriesDigestTest {
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
         val numbers = digest.chapters?.list?.map { (it as ChapterDigest.Success).number }
 
         assertEquals(listOf(1, 2, 3), numbers)
@@ -378,7 +378,7 @@ class SeriesDigestTest {
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
         val list = digest.chapters!!.list.map { it as ChapterDigest.Success }
 
         fun neighborId(neighbor: com.mymangareader.contentdigest.chapter.ChapterNeighborDigest?) =
@@ -399,9 +399,9 @@ class SeriesDigestTest {
         activateGroup()
         plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0)))
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
-        assertEquals(SeriesFields.ChaptersStatus.SUCCESS, digest.chapters?.status)
+        assertEquals(SerialFields.ChaptersStatus.SUCCESS, digest.chapters?.status)
     }
 
     @Test
@@ -409,7 +409,7 @@ class SeriesDigestTest {
         activateGroup()
         plugin.chaptersListResult = Result.success(emptyList())
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals(0, digest.chapters?.total)
         assertNull(digest.chapters?.readCount)
@@ -426,7 +426,7 @@ class SeriesDigestTest {
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals(1, digest.chapters?.readCount)
     }
@@ -444,10 +444,10 @@ class SeriesDigestTest {
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals("ch3", digest.chapters?.resumePoint?.stoppedAtChapterId)
-        assertEquals(SeriesFields.ResumePointStatus.IN_PROGRESS, digest.chapters?.resumePoint?.status)
+        assertEquals(SerialFields.ResumePointStatus.IN_PROGRESS, digest.chapters?.resumePoint?.status)
     }
 
     @Test
@@ -460,10 +460,10 @@ class SeriesDigestTest {
             ),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals("ch2", digest.chapters?.resumePoint?.stoppedAtChapterId)
-        assertEquals(SeriesFields.ResumePointStatus.UNREAD, digest.chapters?.resumePoint?.status)
+        assertEquals(SerialFields.ResumePointStatus.UNREAD, digest.chapters?.resumePoint?.status)
     }
 
     @Test
@@ -473,7 +473,7 @@ class SeriesDigestTest {
             .copy(lastReadingProgressUtc = null)
         plugin.chaptersListResult = Result.success(listOf(unreadNoProgress))
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals("ch1", digest.chapters?.resumePoint?.stoppedAtChapterId)
         assertNull(digest.chapters?.resumePoint?.recordedAtEpochMs)
@@ -486,7 +486,7 @@ class SeriesDigestTest {
             listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 10)),
         )
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertNull(digest.chapters?.resumePoint)
     }
@@ -503,9 +503,9 @@ class SeriesDigestTest {
         )
         plugin.chapterIdsThatFailGet = setOf("ch2")
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
-        assertEquals(SeriesFields.ChaptersStatus.PARTIAL, digest.chapters?.status)
+        assertEquals(SerialFields.ChaptersStatus.PARTIAL, digest.chapters?.status)
         val results = digest.chapters?.list?.map { it::class.simpleName }
         assertEquals(listOf("Success", "Failure"), results)
     }
@@ -518,9 +518,9 @@ class SeriesDigestTest {
         )
         plugin.chapterIdsThatFailGet = setOf("ch1")
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
-        assertEquals(SeriesFields.ChaptersStatus.ERROR, digest.chapters?.status)
+        assertEquals(SerialFields.ChaptersStatus.ERROR, digest.chapters?.status)
     }
 
     @Test
@@ -535,7 +535,7 @@ class SeriesDigestTest {
         )
         plugin.chapterIdsThatFailGet = setOf("ch2")
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
         val list = digest.chapters!!.list
 
         assertTrue(list[0] is ChapterDigest.Success)
@@ -548,12 +548,12 @@ class SeriesDigestTest {
 
     @Test
     fun `no active group makes the whole result a Failure, not a crash`() = runTest {
-        val digest = buildSeriesDigest(server, "s1", cache)
+        val digest = buildSerialDigest(server, "s1", cache)
 
-        assertTrue(digest is SeriesDigest.Failure)
+        assertTrue(digest is SerialDigest.Failure)
     }
 
-    // ── external metadata composition (SeriesDigestOptions.externalMetadataServer) ──────────
+    // ── external metadata composition (SerialDigestOptions.externalMetadataServer) ──────────
 
     private suspend fun buildTestExternalMetadataServer(
         externalPlugin: FakeExternalMetadataPlugin,
@@ -581,7 +581,7 @@ class SeriesDigestTest {
     fun `includeExternalMetadata false (default) never calls buildExternalMetadataDigest — metadata external stays null`() = runTest {
         activateGroup()
 
-        val digest = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertNull(digest.metadata?.external)
     }
@@ -596,10 +596,10 @@ class SeriesDigestTest {
         val externalMetadataServer = buildTestExternalMetadataServer(externalPlugin, linkedServerGroupId = kavitaGroupId)
         mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the sync itself
 
-        val digest = buildSeriesDigest(
+        val digest = buildSerialDigest(
             server, "s1", cache,
-            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
-        ) as SeriesDigest.Success
+            SerialDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
+        ) as SerialDigest.Success
 
         val external = digest.metadata?.external as ExternalMetadataDigest.Success
         assertEquals("slug-1", external.match?.slug)
@@ -628,10 +628,10 @@ class SeriesDigestTest {
         externalMetadataServer.group(explicitGroup.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
         mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val digest = buildSeriesDigest(
+        val digest = buildSerialDigest(
             server, "s1", cache,
-            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer, externalMetadataGroupId = explicitGroup.id),
-        ) as SeriesDigest.Success
+            SerialDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer, externalMetadataGroupId = explicitGroup.id),
+        ) as SerialDigest.Success
 
         val external = digest.metadata?.external as ExternalMetadataDigest.Success
         assertEquals("slug-explicit", external.match?.slug)
@@ -647,10 +647,10 @@ class SeriesDigestTest {
             ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()), cache,
         )
 
-        val digest = buildSeriesDigest(
+        val digest = buildSerialDigest(
             server, "s1", cache,
-            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = emptyExternalMetadataServer),
-        ) as SeriesDigest.Success
+            SerialDigestOptions(includeExternalMetadata = true, externalMetadataServer = emptyExternalMetadataServer),
+        ) as SerialDigest.Success
 
         val external = digest.metadata?.external as ExternalMetadataDigest.Failure
         assertEquals("not_configured", external.error.code)
@@ -664,10 +664,10 @@ class SeriesDigestTest {
         val externalMetadataServer = buildTestExternalMetadataServer(externalPlugin, linkedServerGroupId = kavitaGroupId)
         mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val digest = buildSeriesDigest(
+        val digest = buildSerialDigest(
             server, "s1", cache,
-            SeriesDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
-        ) as SeriesDigest.Success
+            SerialDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
+        ) as SerialDigest.Success
 
         assertTrue(digest.metadata?.external is ExternalMetadataDigest.Failure)
     }
@@ -677,9 +677,9 @@ class SeriesDigestTest {
     @Test
     fun `a fresh cache hit never touches the network`() = runTest {
         activateGroup()
-        val first = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val first = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
-        val second = buildSeriesDigest(server, "s1", cache) as SeriesDigest.Success
+        val second = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
         assertEquals(first.name, second.name)
         assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
@@ -689,8 +689,8 @@ class SeriesDigestTest {
     fun `full and includeExternalMetadata variants are cached separately`() = runTest {
         activateGroup()
 
-        val light = buildSeriesDigest(server, "s1", cache, SeriesDigestOptions(full = false)) as SeriesDigest.Success
-        val full = buildSeriesDigest(server, "s1", cache, SeriesDigestOptions(full = true)) as SeriesDigest.Success
+        val light = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+        val full = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = true)) as SerialDigest.Success
 
         assertEquals("s1:false:false", light.cache?.key)
         assertEquals("s1:true:false", full.cache?.key)
@@ -699,10 +699,10 @@ class SeriesDigestTest {
     @Test
     fun `force true bypasses the cache read but still writes fresh data`() = runTest {
         activateGroup()
-        buildSeriesDigest(server, "s1", cache)
+        buildSerialDigest(server, "s1", cache)
         mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the forced re-fetch
 
-        val forced = buildSeriesDigest(server, "s1", cache, force = true) as SeriesDigest.Success
+        val forced = buildSerialDigest(server, "s1", cache, force = true) as SerialDigest.Success
 
         assertTrue(forced.cache != null)
     }

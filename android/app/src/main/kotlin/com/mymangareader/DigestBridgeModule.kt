@@ -9,8 +9,8 @@ import com.mymangareader.cache.Cache
 import com.mymangareader.contentdigest.chapter.buildChapterDigest
 import com.mymangareader.contentdigest.page.ChapterSummary
 import com.mymangareader.contentdigest.page.buildPageDigest
-import com.mymangareader.contentdigest.series.SeriesDigestOptions
-import com.mymangareader.contentdigest.series.buildSeriesDigest
+import com.mymangareader.contentdigest.serial.SerialDigestOptions
+import com.mymangareader.contentdigest.serial.buildSerialDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 // has.
 //
 // PENDING (deliberately out of scope for now, per the user's own call): buildChapterDigest's
-// `knownChapter`/`prevChapter`/`nextChapter` and buildSeriesDigest's ability to accept
+// `knownChapter`/`prevChapter`/`nextChapter` and buildSerialDigest's ability to accept
 // already-known chapter data are NOT exposed as parameters here yet — RN has no source of this
 // data today (no consumer has been migrated to these digests). Add them as optional parameters
 // (ReadableMap → PluginChapter/ChapterNeighborDigest, mirroring DigestBridgeMappers.kt's own
@@ -97,7 +97,7 @@ class DigestBridgeModule @Inject constructor(
     }
 
     // [options] carries full/force — a ReadableMap instead of separate parameters, same "2+
-    // fields → one named object" shape getSeriesDigest already uses. force (default false) skips
+    // fields → one named object" shape getSerialDigest already uses. force (default false) skips
     // the cache entirely and re-fetches from the server, same meaning as buildChapterDigest's own
     // force parameter — used by a manual pull-to-refresh, never by a plain mount/focus load.
     @ReactMethod
@@ -112,14 +112,14 @@ class DigestBridgeModule @Inject constructor(
     }
 
     // [options] carries full/includeExternalMetadata/externalMetadataGroupId/force — a ReadableMap
-    // instead of separate parameters since this already mirrors SeriesDigestOptions' own
+    // instead of separate parameters since this already mirrors SerialDigestOptions' own
     // "2+ fields → one named object" shape on the Kotlin side. includeExternalMetadata (default
     // false) is what actually turns on the BFF/M3 enrichment — omitting it keeps today's
     // behavior (no extra network call to ExternalMetadataServer) unchanged for existing callers.
     // force (default false) skips the cache entirely and re-fetches from the server — used by a
     // manual pull-to-refresh, never by a plain mount/focus load.
     @ReactMethod
-    fun getSeriesDigest(seriesId: String, options: ReadableMap, promise: Promise) {
+    fun getSerialDigest(seriesId: String, options: ReadableMap, promise: Promise) {
         scope.launch {
             val full = if (options.hasKey("full")) options.getBoolean("full") else false
             val includeExternalMetadata = if (options.hasKey("includeExternalMetadata")) options.getBoolean("includeExternalMetadata") else false
@@ -127,11 +127,11 @@ class DigestBridgeModule @Inject constructor(
             val force = if (options.hasKey("force")) options.getBoolean("force") else false
 
             runCatching {
-                buildSeriesDigest(
+                buildSerialDigest(
                     server,
                     seriesId,
                     cache,
-                    SeriesDigestOptions(
+                    SerialDigestOptions(
                         full = full,
                         includeExternalMetadata = includeExternalMetadata,
                         externalMetadataServer = if (includeExternalMetadata) externalMetadataServer else null,

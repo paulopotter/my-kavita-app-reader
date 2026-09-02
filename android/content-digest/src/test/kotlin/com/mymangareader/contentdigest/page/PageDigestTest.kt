@@ -82,7 +82,7 @@ private class FakePlugin(
 
     override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
         override suspend fun get(): PluginSerial = PluginSerial(
-            id = serialId, name = "S", pagesRead = 0, totalPages = 0,
+            id = serialId, name = "S", coverUrl = "http://cover", pagesRead = 0, totalPages = 0,
             libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
             latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
             aniListId = null, malId = null, primaryColor = null, secondaryColor = null,

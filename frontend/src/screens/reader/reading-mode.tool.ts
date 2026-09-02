@@ -35,7 +35,7 @@ function readReadingModePrefs(key: string): Promise<ReadingModePrefs | null> {
 // TODO (new task, does not block this): "server says webtoon". The Kavita API does not expose a
 // reading layout per series/chapter — LayoutMode (0=LeftRight, 1=UpDown, 2=Webtoon) and
 // allowAutomaticWebtoonReaderDetection are fields of UserReadingProfileDto (the user's server-side
-// reading profile), not of SeriesDto/ChapterDto, and SeriesDigest carries no layout field. If the
+// reading profile), not of SeriesDto/ChapterDto, and SerialDigest carries no layout field. If the
 // app ever mirrors UserReadingProfileDto or implements a local heuristic (e.g. average page aspect
 // ratio > threshold => webtoon), the cascade gains a rung BEFORE global:
 // series-override -> server-signal -> global -> default. getReadingModePrefs already accepts that

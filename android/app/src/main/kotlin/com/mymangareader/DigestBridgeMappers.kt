@@ -7,9 +7,9 @@ import com.mymangareader.contentdigest.chapter.ChapterFields
 import com.mymangareader.contentdigest.chapter.ChapterNeighborDigest
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.page.PageDigest
-import com.mymangareader.contentdigest.series.ExternalMetadataDigest
-import com.mymangareader.contentdigest.series.SeriesDigest
-import com.mymangareader.contentdigest.series.SeriesFields
+import com.mymangareader.contentdigest.serial.ExternalMetadataDigest
+import com.mymangareader.contentdigest.serial.SerialDigest
+import com.mymangareader.contentdigest.serial.SerialFields
 import com.mymangareader.externalmetadataserver.ExternalMetadataActiveInfo
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.server.ImageDescriptor
@@ -155,33 +155,33 @@ fun PluginAgeRating.toWritableMap(): WritableMap = Arguments.createMap().apply {
     putString("system", system)
 }
 
-private fun SeriesFields.Library.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.Library.toWritableMap(): WritableMap = Arguments.createMap().apply {
     putString("id", id)
     name?.let { putString("name", it) }
 }
 
-private fun SeriesFields.LastUpdatesUTC.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.LastUpdatesUTC.toWritableMap(): WritableMap = Arguments.createMap().apply {
     series?.let { putDouble("series", it.toDouble()) }
     chapterAdded?.let { putDouble("chapterAdded", it.toDouble()) }
     readDate?.let { putDouble("readDate", it.toDouble()) }
 }
 
-private fun SeriesFields.OtherNames.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.OtherNames.toWritableMap(): WritableMap = Arguments.createMap().apply {
     original?.let { putString("original", it) }
     localized?.let { putString("localized", it) }
 }
 
-private fun SeriesFields.OtherIds.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.OtherIds.toWritableMap(): WritableMap = Arguments.createMap().apply {
     aniListId?.let { putInt("aniListId", it) }
     malId?.let { putDouble("malId", it.toDouble()) }
 }
 
-private fun SeriesFields.Colors.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.Colors.toWritableMap(): WritableMap = Arguments.createMap().apply {
     primary?.let { putString("primary", it) }
     secondary?.let { putString("secondary", it) }
 }
 
-private fun SeriesFields.Metadata.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.Metadata.toWritableMap(): WritableMap = Arguments.createMap().apply {
     description?.let { putString("description", it) }
     putArray("genres", Arguments.createArray().also { arr -> genres.forEach { arr.pushMap(it.toWritableMap()) } })
     putArray("tags", Arguments.createArray().also { arr -> tags.forEach { arr.pushMap(it.toWritableMap()) } })
@@ -189,7 +189,7 @@ private fun SeriesFields.Metadata.toWritableMap(): WritableMap = Arguments.creat
     ageRating?.let { putMap("ageRating", it.toWritableMap()) }
     releaseYear?.let { putInt("releaseYear", it) }
     language?.let { putString("language", it) }
-    // null when SeriesDigestOptions.includeExternalMetadata was false — buildExternalMetadataDigest
+    // null when SerialDigestOptions.includeExternalMetadata was false — buildExternalMetadataDigest
     // was never even called, so there's genuinely nothing to report (not the same as it being
     // called and finding "not configured," which is a real Failure — see ExternalMetadataDigest).
     external?.let { putMap("external", it.toWritableMap()) }
@@ -233,14 +233,14 @@ private fun ExternalMetadataDigest.toWritableMap(): WritableMap = when (this) {
     }
 }
 
-private fun SeriesFields.ResumePoint.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.ResumePoint.toWritableMap(): WritableMap = Arguments.createMap().apply {
     putString("stoppedAtChapterId", stoppedAtChapterId)
     putInt("stoppedAtChapterIndex", stoppedAtChapterIndex)
     putString("status", status.name)
     recordedAtEpochMs?.let { putDouble("recordedAtEpochMs", it.toDouble()) }
 }
 
-private fun SeriesFields.Chapters.toWritableMap(): WritableMap = Arguments.createMap().apply {
+private fun SerialFields.Chapters.toWritableMap(): WritableMap = Arguments.createMap().apply {
     status?.let { putString("status", it.name) }
     readCount?.let { putInt("readCount", it) }
     putInt("total", total)
@@ -248,12 +248,12 @@ private fun SeriesFields.Chapters.toWritableMap(): WritableMap = Arguments.creat
     putArray("list", Arguments.createArray().also { arr -> list.forEach { arr.pushMap(it.toWritableMap()) } })
 }
 
-fun SeriesDigest.toWritableMap(): WritableMap = when (this) {
-    is SeriesDigest.Failure -> Arguments.createMap().apply {
+fun SerialDigest.toWritableMap(): WritableMap = when (this) {
+    is SerialDigest.Failure -> Arguments.createMap().apply {
         putBoolean("isSuccess", false)
         putMap("error", error.toWritableMap())
     }
-    is SeriesDigest.Success -> Arguments.createMap().apply {
+    is SerialDigest.Success -> Arguments.createMap().apply {
         putBoolean("isSuccess", true)
         putString("id", id)
         putString("name", name)

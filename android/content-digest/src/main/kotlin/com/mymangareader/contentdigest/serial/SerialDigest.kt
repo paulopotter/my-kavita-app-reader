@@ -1,4 +1,4 @@
-package com.mymangareader.contentdigest.series
+package com.mymangareader.contentdigest.serial
 
 import com.mymangareader.cache.Cache
 import com.mymangareader.cache.CacheDescriptor
@@ -13,12 +13,12 @@ import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.server.ImageDescriptor
+import com.mymangareader.server.SerialData
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
 import com.mymangareader.server.plugins.PluginAgeRating
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginGenreOrTag
-import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.tools.datetime.parseIsoUtcToEpochMs
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +31,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 
-interface SeriesFields {
+interface SerialFields {
     val id: String
     val name: String
     val library: Library?
@@ -67,7 +67,7 @@ interface SeriesFields {
         val ageRating: PluginAgeRating?,
         val releaseYear: Int?,
         val language: String?,
-        val external: ExternalMetadataDigest?, // null when SeriesDigestOptions.includeExternalMetadata was false — SeriesDigest never even called buildExternalMetadataDigest; non-null (Success/Failure) once it did — see ExternalMetadataDigest's own doc
+        val external: ExternalMetadataDigest?, // null when SerialDigestOptions.includeExternalMetadata was false — SerialDigest never even called buildExternalMetadataDigest; non-null (Success/Failure) once it did — see ExternalMetadataDigest's own doc
     )
 
     @Serializable
@@ -95,31 +95,31 @@ interface SeriesFields {
 }
 
 @Serializable
-sealed interface SeriesDigest {
+sealed interface SerialDigest {
     @Serializable
     data class Success(
         override val id: String,
         override val name: String,
-        override val library: SeriesFields.Library?,
-        override val lastUpdatesUTC: SeriesFields.LastUpdatesUTC?,
+        override val library: SerialFields.Library?,
+        override val lastUpdatesUTC: SerialFields.LastUpdatesUTC?,
         override val coverImage: ImageDescriptor,
-        override val chapters: SeriesFields.Chapters?,
-        override val otherNames: SeriesFields.OtherNames?,
+        override val chapters: SerialFields.Chapters?,
+        override val otherNames: SerialFields.OtherNames?,
         override val sortName: String?,
-        override val otherIds: SeriesFields.OtherIds?,
-        override val colors: SeriesFields.Colors?,
-        override val metadata: SeriesFields.Metadata?,
+        override val otherIds: SerialFields.OtherIds?,
+        override val colors: SerialFields.Colors?,
+        override val metadata: SerialFields.Metadata?,
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
         // Never part of the JSON persisted in Cache — see PageDigest.Success.cache's own doc.
         @Transient override val cache: CacheDescriptor? = null,
-    ) : SeriesDigest, SeriesFields
+    ) : SerialDigest, SerialFields
 
     @Serializable
-    data class Failure(val error: ErrorDigest) : SeriesDigest
+    data class Failure(val error: ErrorDigest) : SerialDigest
 }
 
-private fun PluginSeriesMetadata.toDigestMetadata(external: ExternalMetadataDigest?) = SeriesFields.Metadata(
+private fun PluginSeriesMetadata.toDigestMetadata(external: ExternalMetadataDigest?) = SerialFields.Metadata(
     description = description,
     genres = genres,
     tags = tags,
@@ -131,10 +131,10 @@ private fun PluginSeriesMetadata.toDigestMetadata(external: ExternalMetadataDige
 )
 
 // Optional composition inputs — grouped into one object per the project's "2+ fields → one
-// named object" convention, since server/seriesId already made buildSeriesDigest's signature
+// named object" convention, since server/seriesId already made buildSerialDigest's signature
 // crowded once external-metadata sync was added.
 //
-// [includeExternalMetadata] is the ONLY switch that decides whether buildSeriesDigest even calls
+// [includeExternalMetadata] is the ONLY switch that decides whether buildSerialDigest even calls
 // buildExternalMetadataDigest at all — "I don't want this data for this call" (e.g. the Reader
 // screen, where it's irrelevant and would just slow the response down). This is a different
 // decision from "is any ExternalMetadataServer group configured" — that's discovered INSIDE
@@ -144,24 +144,24 @@ private fun PluginSeriesMetadata.toDigestMetadata(external: ExternalMetadataDige
 // [externalMetadataGroupId] is only ever a specific override (e.g. a config screen testing one
 // exact group) — when null (the common case), resolution falls back to Kavita's own
 // serverInfo.groupId (already known from server.serial(seriesId).get(), no separate lookup).
-data class SeriesDigestOptions(
+data class SerialDigestOptions(
     val full: Boolean = false,
     val includeExternalMetadata: Boolean = false,
     val externalMetadataServer: ExternalMetadataServer? = null,
     val externalMetadataGroupId: String? = null,
 )
 
-private const val SERIES_CACHE_DOMAIN = "series"
-private val seriesDigestJson = Json { ignoreUnknownKeys = true }
-private val seriesDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+private const val SERIAL_CACHE_DOMAIN = "serial"
+private val serialDigestJson = Json { ignoreUnknownKeys = true }
+private val serialDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-private fun seriesDigestCacheKey(seriesId: String, options: SeriesDigestOptions) =
+private fun serialDigestCacheKey(seriesId: String, options: SerialDigestOptions) =
     "$seriesId:${options.full}:${options.includeExternalMetadata}"
 
-private fun CacheEntry.toSeriesCacheDescriptor(key: String) = CacheDescriptor(
+private fun CacheEntry.toSerialCacheDescriptor(key: String) = CacheDescriptor(
     key = key,
     variant = "full:external",
-    domain = SERIES_CACHE_DOMAIN,
+    domain = SERIAL_CACHE_DOMAIN,
     mode = CacheMode.PERSISTENT,
     cachedAtEpochMs = cachedAtEpochMs,
     expiresAtEpochMs = cachedAtEpochMs + ttlMs,
@@ -178,33 +178,33 @@ private fun CacheEntry.toSeriesCacheDescriptor(key: String) = CacheDescriptor(
  * a manual "refresh everything" action from the Series level should never leave a stale Chapter
  * or Page underneath a freshly-refreshed Series.
  */
-suspend fun buildSeriesDigest(
+suspend fun buildSerialDigest(
     server: Server,
     seriesId: String,
     cache: Cache,
-    options: SeriesDigestOptions = SeriesDigestOptions(),
+    options: SerialDigestOptions = SerialDigestOptions(),
     force: Boolean = false,
-): SeriesDigest {
-    val key = seriesDigestCacheKey(seriesId, options)
+): SerialDigest {
+    val key = serialDigestCacheKey(seriesId, options)
 
     if (!force) {
         val cached = cache.persistent.get(key, variant = "full:external")
         if (cached != null) {
-            val digest = seriesDigestJson.decodeFromString<SeriesDigest.Success>(cached.value)
-                .copy(cache = cached.toSeriesCacheDescriptor(key))
+            val digest = serialDigestJson.decodeFromString<SerialDigest.Success>(cached.value)
+                .copy(cache = cached.toSerialCacheDescriptor(key))
             if (cached.isExpired) {
-                seriesDigestBackgroundScope.launch {
-                    buildSeriesDigest(server, seriesId, cache, options, force = true)
+                serialDigestBackgroundScope.launch {
+                    buildSerialDigest(server, seriesId, cache, options, force = true)
                 }
             }
             return digest
         }
     }
 
-    val fresh = fetchSeriesDigest(server, seriesId, cache, options, force)
-    if (fresh !is SeriesDigest.Success) return fresh
+    val fresh = fetchSerialDigest(server, seriesId, cache, options, force)
+    if (fresh !is SerialDigest.Success) return fresh
 
-    val descriptor = cache.persistent.put(key, seriesDigestJson.encodeToString(SeriesDigest.Success.serializer(), fresh), SERIES_CACHE_DOMAIN, variant = "full:external")
+    val descriptor = cache.persistent.put(key, serialDigestJson.encodeToString(SerialDigest.Success.serializer(), fresh), SERIAL_CACHE_DOMAIN, variant = "full:external")
     return fresh.copy(cache = descriptor)
 }
 
@@ -216,35 +216,31 @@ suspend fun buildSeriesDigest(
 // corresponding field stays null, doesn't escalate, and doesn't touch server/resolvedAtEpochMs
 // (those only reflect THIS Series' own get()/getCoverImage() calls, never metadata's,
 // chapters'', or the external sync's).
-private suspend fun fetchSeriesDigest(
+private suspend fun fetchSerialDigest(
     server: Server,
     seriesId: String,
     cache: Cache,
-    options: SeriesDigestOptions,
+    options: SerialDigestOptions,
     force: Boolean,
-): SeriesDigest {
+): SerialDigest {
     val full = options.full
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
 
-    val plugin: PluginSerial
+    val plugin: SerialData
     val coverImage: ImageDescriptor
     try {
         val serialResponse = server.serial(seriesId).get()
         serverInfo = serialResponse.serverInfo
         resolvedAtEpochMs = serialResponse.resolvedAtEpochMs
         plugin = serialResponse.data
-
-        coverImage = server.serial(seriesId).getCoverImage()
-        // Unlike buildChapterDigest (which has a knownChapter fast path that can skip its own
-        // get() call), buildSeriesDigest always calls serial.get() for real above — there's no
-        // "Series already had this" caller. So serverInfo is never null at this point, and
-        // getCoverImage() (which never fails on its own) is unconditionally the last successful
-        // call per R11.
-        serverInfo = coverImage.server
-        resolvedAtEpochMs = coverImage.resolvedAtEpochMs
+        // Server already normalized the raw cover URL into a full ImageDescriptor on the same
+        // serial.get() call (SerialData.coverImage) — no separate getCoverImage() round trip.
+        // Its server/resolvedAtEpochMs are this same get()'s, so R11's "last successful call
+        // wins" is already satisfied without a second call.
+        coverImage = plugin.coverImage
     } catch (e: Exception) {
-        return SeriesDigest.Failure(e.toErrorDigest())
+        return SerialDigest.Failure(e.toErrorDigest())
     }
 
     val externalMetadata: ExternalMetadataDigest? = if (options.includeExternalMetadata) {
@@ -260,33 +256,33 @@ private suspend fun fetchSeriesDigest(
         null
     }
 
-    val metadata: SeriesFields.Metadata? = try {
+    val metadata: SerialFields.Metadata? = try {
         server.serial(seriesId).getMetadata().data.toDigestMetadata(externalMetadata)
     } catch (e: Exception) {
         null
     }
 
-    val chapters: SeriesFields.Chapters? = try {
+    val chapters: SerialFields.Chapters? = try {
         buildChaptersBlock(server, seriesId, cache, server.serial(seriesId).chapters.list().data, full, force)
     } catch (e: Exception) {
         null
     }
 
-    return SeriesDigest.Success(
+    return SerialDigest.Success(
         id = plugin.id,
         name = plugin.name,
-        library = plugin.libraryId?.let { SeriesFields.Library(id = it, name = plugin.libraryName) },
-        lastUpdatesUTC = SeriesFields.LastUpdatesUTC(
+        library = plugin.libraryId?.let { SerialFields.Library(id = it, name = plugin.libraryName) },
+        lastUpdatesUTC = SerialFields.LastUpdatesUTC(
             series = parseIsoUtcToEpochMs(plugin.lastFolderScannedUtc),
             chapterAdded = parseIsoUtcToEpochMs(plugin.lastChapterAddedUtc),
             readDate = parseIsoUtcToEpochMs(plugin.latestReadDateUtc),
         ),
         coverImage = coverImage,
         chapters = chapters,
-        otherNames = SeriesFields.OtherNames(original = plugin.originalName, localized = plugin.localizedName),
+        otherNames = SerialFields.OtherNames(original = plugin.originalName, localized = plugin.localizedName),
         sortName = plugin.sortName,
-        otherIds = SeriesFields.OtherIds(aniListId = plugin.aniListId, malId = plugin.malId),
-        colors = SeriesFields.Colors(primary = plugin.primaryColor, secondary = plugin.secondaryColor),
+        otherIds = SerialFields.OtherIds(aniListId = plugin.aniListId, malId = plugin.malId),
+        colors = SerialFields.Colors(primary = plugin.primaryColor, secondary = plugin.secondaryColor),
         metadata = metadata,
         resolvedAtEpochMs = resolvedAtEpochMs!!,
         server = serverInfo!!,
@@ -310,7 +306,7 @@ private suspend fun buildChaptersBlock(
     rawChapters: List<PluginChapter>,
     full: Boolean,
     force: Boolean,
-): SeriesFields.Chapters {
+): SerialFields.Chapters {
     val sorted = rawChapters.sortedBy { it.decimalNumber ?: Double.MAX_VALUE }
 
     val digests = coroutineScope {
@@ -333,9 +329,9 @@ private suspend fun buildChaptersBlock(
     }
 
     val status = when {
-        withNeighborsAndNumber.all { it is ChapterDigest.Success } -> SeriesFields.ChaptersStatus.SUCCESS
-        withNeighborsAndNumber.all { it is ChapterDigest.Failure } -> SeriesFields.ChaptersStatus.ERROR
-        else -> SeriesFields.ChaptersStatus.PARTIAL
+        withNeighborsAndNumber.all { it is ChapterDigest.Success } -> SerialFields.ChaptersStatus.SUCCESS
+        withNeighborsAndNumber.all { it is ChapterDigest.Failure } -> SerialFields.ChaptersStatus.ERROR
+        else -> SerialFields.ChaptersStatus.PARTIAL
     }
 
     val successfulChapters = withNeighborsAndNumber.filterIsInstance<ChapterDigest.Success>()
@@ -345,7 +341,7 @@ private suspend fun buildChaptersBlock(
     // page-granularity pages/pagesRead) — this is derived by counting list, per the design notes.
     val readCount = if (withNeighborsAndNumber.isNotEmpty()) successfulChapters.count { it.readStatus == ChapterFields.ReadStatus.READ } else null
 
-    return SeriesFields.Chapters(
+    return SerialFields.Chapters(
         status = status,
         readCount = readCount,
         total = withNeighborsAndNumber.size,
@@ -356,18 +352,18 @@ private suspend fun buildChaptersBlock(
 
 // 2-level cascade: first IN_PROGRESS chapter in order → else first UNREAD chapter in order →
 // else null (every chapter is READ — a "reread" state, nothing left to resume).
-private fun buildResumePoint(list: List<ChapterDigest>): SeriesFields.ResumePoint? {
+private fun buildResumePoint(list: List<ChapterDigest>): SerialFields.ResumePoint? {
     val inProgressIndex = list.indexOfFirst { it is ChapterDigest.Success && it.readStatus == ChapterFields.ReadStatus.IN_PROGRESS }
     val unreadIndex = list.indexOfFirst { it is ChapterDigest.Success && it.readStatus == ChapterFields.ReadStatus.UNREAD }
 
     val (index, status) = when {
-        inProgressIndex != -1 -> inProgressIndex to SeriesFields.ResumePointStatus.IN_PROGRESS
-        unreadIndex != -1 -> unreadIndex to SeriesFields.ResumePointStatus.UNREAD
+        inProgressIndex != -1 -> inProgressIndex to SerialFields.ResumePointStatus.IN_PROGRESS
+        unreadIndex != -1 -> unreadIndex to SerialFields.ResumePointStatus.UNREAD
         else -> return null
     }
 
     val chapter = list[index] as ChapterDigest.Success
-    return SeriesFields.ResumePoint(
+    return SerialFields.ResumePoint(
         stoppedAtChapterId = chapter.id,
         stoppedAtChapterIndex = index,
         status = status,

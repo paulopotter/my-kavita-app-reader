@@ -17,7 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.mock
 
-// buildPageDigest/buildChapterDigest/buildSeriesDigest (:content-digest) each wrap their own
+// buildPageDigest/buildChapterDigest/buildSerialDigest (:content-digest) each wrap their own
 // Server calls in try/catch and return a Failure value instead of ever rethrowing (see each
 // function's own doc — this is deliberate: an expected failure is data, not an exception). That
 // means DigestBridgeModule's own runCatching { ... }.resolveOrReject(...) never actually reaches

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
+import { EventBus } from '../../../shared/managers/events';
+import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
 import { useStrings } from '../../../shared/i18n/useStrings';
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
 import type { NavOrigin } from '../../../navigation/routes';
@@ -70,7 +72,7 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   const { realize } = useAction({ origin });
   const t = useStrings();
 
-  // SerialService.get (full=false) already returns SeriesDigest cache-first (the decision lives
+  // SerialService.get (full=false) already returns SerialDigest cache-first (the decision lives
   // entirely in Kotlin's digest builders — see architecture.md's Cache Guideline) — a plain mount/
   // focus load never forces a network call, it just asks and lets Kotlin decide whether that means
   // a cache hit or a real fetch. `isRefresh` (pull-to-refresh) is different: it passes force=true,
@@ -92,6 +94,10 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
       return SerialService.get({ seriesId, force: isRefresh })
         .then(digest => {
           if (!digest.isSuccess) {throw new Error(digest.error.message ?? 'unknown error');}
+          // Announce the fresh digest for the app-wide SeriesDigestIndex (Library reads it so a
+          // series opened here shows real chapter counts / publication status without the
+          // Library refetching it). Fire-and-forget — this screen doesn't care who listens.
+          EventBus.emit(SerieEvents.digestResolved, serieDigestResolvedPayload(digest));
           return SerieTool.normalize({ digest });
         })
         .then(normalized => {

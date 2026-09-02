@@ -2,7 +2,7 @@ import { SerialService, SerialsService } from './serials.services';
 
 jest.mock('../../bridge/digest', () => ({
   DigestBridge: {
-    getSeriesDigest: jest.fn(),
+    getSerialDigest: jest.fn(),
   },
 }));
 
@@ -32,7 +32,7 @@ import { DigestBridge } from '../../bridge/digest';
 import { ExternalMetadataBridge } from '../../bridge/external';
 import { ServerBridge } from '../../bridge/server';
 
-const mockGetSeriesDigest = DigestBridge.getSeriesDigest as jest.Mock;
+const mockGetSeriesDigest = DigestBridge.getSerialDigest as jest.Mock;
 const mockListSerials = ServerBridge.listSerials as jest.Mock;
 const mockSetChaptersRead = ServerBridge.setChaptersRead as jest.Mock;
 const mockGetSerial = ServerBridge.getSerial as jest.Mock;
@@ -51,9 +51,11 @@ describe('SerialsService.list', () => {
     jest.clearAllMocks();
   });
 
-  it('returns the raw PluginSerial[] exactly as ServerBridge resolved it', async () => {
-    const serials = [{ id: 'series-1', name: 'Some Series', pagesRead: 0, totalPages: 10, genres: [], tags: [] }];
-    mockListSerials.mockResolvedValue(serials);
+  it('unwraps SerialListData.serials from what ServerBridge resolved', async () => {
+    const serials = [
+      { id: 'series-1', name: 'Some Series', coverImage: { url: 'c1' }, pagesRead: 0, totalPages: 10 },
+    ];
+    mockListSerials.mockResolvedValue({ serials });
     const result = await SerialsService.list();
     expect(mockListSerials).toHaveBeenCalledWith();
     expect(result).toBe(serials);
@@ -118,19 +120,19 @@ describe('SerialService', () => {
   });
 
   describe('get', () => {
-    it('calls DigestBridge.getSeriesDigest with full=false', async () => {
+    it('calls DigestBridge.getSerialDigest with full=false', async () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       await SerialService.get({ seriesId: 'series-1' });
       expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: false, force: undefined });
     });
 
-    it('forwards force to DigestBridge.getSeriesDigest', async () => {
+    it('forwards force to DigestBridge.getSerialDigest', async () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       await SerialService.get({ seriesId: 'series-1', force: true });
       expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: false, force: true });
     });
 
-    it('returns the SeriesDigest exactly as the bridge resolved it', async () => {
+    it('returns the SerialDigest exactly as the bridge resolved it', async () => {
       const digest = { isSuccess: true, id: 'series-1', name: 'Some Series' };
       mockGetSeriesDigest.mockResolvedValue(digest);
       const result = await SerialService.get({ seriesId: 'series-1' });
@@ -139,19 +141,19 @@ describe('SerialService', () => {
   });
 
   describe('getFull', () => {
-    it('calls DigestBridge.getSeriesDigest with full=true', async () => {
+    it('calls DigestBridge.getSerialDigest with full=true', async () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       await SerialService.getFull({ seriesId: 'series-1' });
       expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: true, force: undefined });
     });
 
-    it('forwards force to DigestBridge.getSeriesDigest', async () => {
+    it('forwards force to DigestBridge.getSerialDigest', async () => {
       mockGetSeriesDigest.mockResolvedValue({ isSuccess: true });
       await SerialService.getFull({ seriesId: 'series-1', force: true });
       expect(mockGetSeriesDigest).toHaveBeenCalledWith('series-1', { full: true, force: true });
     });
 
-    it('returns the SeriesDigest exactly as the bridge resolved it (failure)', async () => {
+    it('returns the SerialDigest exactly as the bridge resolved it (failure)', async () => {
       const digest = { isSuccess: false, error: { message: 'not found' } };
       mockGetSeriesDigest.mockResolvedValue(digest);
       const result = await SerialService.getFull({ seriesId: 'series-1' });

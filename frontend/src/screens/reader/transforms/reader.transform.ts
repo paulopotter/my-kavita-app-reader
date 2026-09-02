@@ -5,7 +5,7 @@
 import type {
   ChapterDigestSuccess,
   ChapterNeighborDigestSuccess,
-  SeriesDigestSuccess,
+  SerialDigestSuccess,
 } from '../../../shared/bridge/digest';
 import type {
   FocusMoveTrigger,
@@ -112,7 +112,7 @@ export function placeholderChapterFromOrder(o: OrderedChapter): ReaderChapter {
   };
 }
 
-// The chapter's `number` from the series order (SeriesDigest.chapters.list, 1-indexed position) —
+// The chapter's `number` from the series order (SerialDigest.chapters.list, 1-indexed position) —
 // the SAME value the series screen shows. ChapterService.getFull called in isolation gives a
 // DIFFERENT `number` (decimalNumber truncated), so anywhere the reader shows "Capítulo N" it must
 // use this. Falls back to the chapter's own number when the order isn't loaded / the chapter
@@ -167,7 +167,7 @@ export function shouldUnmarkOnReread(
 
 // ── series order ────────────────────────────────────────────────────────
 
-export function toOrderedChapters(digest: SeriesDigestSuccess): OrderedChapter[] {
+export function toOrderedChapters(digest: SerialDigestSuccess): OrderedChapter[] {
   const list = (digest.chapters?.list ?? [])
     .filter((c): c is ChapterDigestSuccess => c.isSuccess)
     .map(c => ({

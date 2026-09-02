@@ -7,7 +7,7 @@ jest.mock('../../bridge/followedSeries', () => ({
 
 import { SerieTool } from './serie.tool';
 import { FollowedSeriesBridge } from '../../bridge/followedSeries';
-import type { ChapterDigestSuccess, SeriesDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
+import type { ChapterDigestSuccess, SerialDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
 const mockToggle = FollowedSeriesBridge.toggle as jest.Mock;
 const mockIsFollowed = FollowedSeriesBridge.isFollowed as jest.Mock;
@@ -41,7 +41,7 @@ function makeChapter(overrides: Partial<ChapterDigestSuccess> = {}): ChapterDige
   };
 }
 
-function makeSeriesDigest(overrides: Partial<SeriesDigestSuccess> = {}): SeriesDigestSuccess {
+function makeSeriesDigest(overrides: Partial<SerialDigestSuccess> = {}): SerialDigestSuccess {
   return {
     isSuccess: true,
     id: 's1',

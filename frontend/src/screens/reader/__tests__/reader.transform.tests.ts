@@ -1,7 +1,7 @@
 import type {
   ChapterDigestSuccess,
   ChapterNeighborDigestSuccess,
-  SeriesDigestSuccess,
+  SerialDigestSuccess,
 } from '../../../shared/bridge/digest';
 import type { OrderedChapter, ReaderChapter, ReaderWindow } from '../reader.types';
 import {
@@ -229,7 +229,7 @@ describe('toOrderedChapters', () => {
           { isSuccess: true, id: 'c1', seriesId: 's1', number: 1, title: '1', readStatus: 'READ' },
         ],
       },
-    } as unknown as SeriesDigestSuccess;
+    } as unknown as SerialDigestSuccess;
     expect(toOrderedChapters(digest).map(c => c.id)).toEqual(['c1', 'c3']);
   });
 
@@ -242,7 +242,7 @@ describe('toOrderedChapters', () => {
           { isSuccess: true, id: 'n', seriesId: 's1', number: 2, title: 'Numbered', readStatus: 'UNREAD' },
         ],
       },
-    } as unknown as SeriesDigestSuccess;
+    } as unknown as SerialDigestSuccess;
     // numbered first, then the two number-less ones by title
     expect(toOrderedChapters(digest).map(c => c.id)).toEqual(['n', 'a', 'z']);
   });

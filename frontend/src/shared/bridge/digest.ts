@@ -119,7 +119,7 @@ export interface ChapterDigestSuccess extends ChapterFieldsShape {
 
 export type ChapterDigest = ChapterDigestSuccess | DigestFailure;
 
-// ── SeriesDigest ─────────────────────────────────────────────────────────
+// ── SerialDigest ─────────────────────────────────────────────────────────
 
 export interface PluginGenreOrTag {
   id: string;
@@ -131,28 +131,28 @@ export interface PluginAgeRating {
   system: string;
 }
 
-export interface SeriesLibrary {
+export interface SerialLibrary {
   id: string;
   name?: string;
 }
 
-export interface SeriesLastUpdatesUTC {
+export interface SerialLastUpdatesUTC {
   series?: number;
   chapterAdded?: number;
   readDate?: number;
 }
 
-export interface SeriesOtherNames {
+export interface SerialOtherNames {
   original?: string;
   localized?: string;
 }
 
-export interface SeriesOtherIds {
+export interface SerialOtherIds {
   aniListId?: number;
   malId?: number;
 }
 
-export interface SeriesColors {
+export interface SerialColors {
   primary?: string;
   secondary?: string;
 }
@@ -169,7 +169,7 @@ export interface ExternalMetadataDigestSuccess {
 
 export type ExternalMetadataDigest = ExternalMetadataDigestSuccess | DigestFailure;
 
-export interface SeriesMetadata {
+export interface SerialMetadata {
   description?: string;
   genres: PluginGenreOrTag[];
   tags: PluginGenreOrTag[];
@@ -177,59 +177,59 @@ export interface SeriesMetadata {
   ageRating?: PluginAgeRating;
   releaseYear?: number;
   language?: string;
-  // absent when SeriesDigestOptions.includeExternalMetadata was false — the caller never asked
+  // absent when SerialDigestOptions.includeExternalMetadata was false — the caller never asked
   // for enrichment, not the same as "asked and it failed" (see ExternalMetadataDigest.Failure).
   external?: ExternalMetadataDigest;
 }
 
-export type SeriesResumePointStatus = 'IN_PROGRESS' | 'UNREAD';
+export type SerialResumePointStatus = 'IN_PROGRESS' | 'UNREAD';
 
-export interface SeriesResumePoint {
+export interface SerialResumePoint {
   stoppedAtChapterId: string;
   stoppedAtChapterIndex: number;
-  status: SeriesResumePointStatus;
+  status: SerialResumePointStatus;
   recordedAtEpochMs?: number;
 }
 
-export type SeriesChaptersStatus = 'SUCCESS' | 'PARTIAL' | 'ERROR';
+export type SerialChaptersStatus = 'SUCCESS' | 'PARTIAL' | 'ERROR';
 
-export interface SeriesChapters {
-  status?: SeriesChaptersStatus; // absent only when chapters.list() itself failed
+export interface SerialChapters {
+  status?: SerialChaptersStatus; // absent only when chapters.list() itself failed
   readCount?: number;
   total: number;
-  resumePoint?: SeriesResumePoint;
+  resumePoint?: SerialResumePoint;
   list: ChapterDigest[];
 }
 
-export interface SeriesDigestSuccess {
+export interface SerialDigestSuccess {
   isSuccess: true;
   id: string;
   name: string;
-  library?: SeriesLibrary;
-  lastUpdatesUTC?: SeriesLastUpdatesUTC;
+  library?: SerialLibrary;
+  lastUpdatesUTC?: SerialLastUpdatesUTC;
   coverImage: ImageDescriptor;
-  chapters?: SeriesChapters;
-  otherNames?: SeriesOtherNames;
+  chapters?: SerialChapters;
+  otherNames?: SerialOtherNames;
   sortName?: string;
-  otherIds?: SeriesOtherIds;
-  colors?: SeriesColors;
-  metadata?: SeriesMetadata;
+  otherIds?: SerialOtherIds;
+  colors?: SerialColors;
+  metadata?: SerialMetadata;
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
   cache: CacheDescriptorBridge | null;
 }
 
-export type SeriesDigest = SeriesDigestSuccess | DigestFailure;
+export type SerialDigest = SerialDigestSuccess | DigestFailure;
 
 // ── bridge module ────────────────────────────────────────────────────────
 
-// Mirrors DigestBridgeModule.getSeriesDigest's own ReadableMap options parameter — full/
+// Mirrors DigestBridgeModule.getSerialDigest's own ReadableMap options parameter — full/
 // includeExternalMetadata/externalMetadataGroupId/force, all optional (native side defaults each
 // to false/undefined when the key is absent). includeExternalMetadata is what actually turns on
 // the BFF/M3 enrichment for this call; externalMetadataGroupId is only ever a specific override.
 // force skips the cache entirely and re-fetches from the server — a manual pull-to-refresh, never
 // a plain mount/focus load.
-export interface SeriesDigestOptions {
+export interface SerialDigestOptions {
   full?: boolean;
   includeExternalMetadata?: boolean;
   externalMetadataGroupId?: string;
@@ -237,7 +237,7 @@ export interface SeriesDigestOptions {
 }
 
 // Mirrors DigestBridgeModule.getChapterDigest's own ReadableMap options parameter — full/force,
-// same meaning as SeriesDigestOptions' own fields of the same name.
+// same meaning as SerialDigestOptions' own fields of the same name.
 export interface ChapterDigestOptions {
   full?: boolean;
   force?: boolean;
@@ -246,7 +246,7 @@ export interface ChapterDigestOptions {
 interface DigestBridgeModuleInterface {
   getPageDigest(seriesId: string, chapterId: string, pageIndex: number): Promise<PageDigest>;
   getChapterDigest(seriesId: string, chapterId: string, options: ChapterDigestOptions): Promise<ChapterDigest>;
-  getSeriesDigest(seriesId: string, options: SeriesDigestOptions): Promise<SeriesDigest>;
+  getSerialDigest(seriesId: string, options: SerialDigestOptions): Promise<SerialDigest>;
 }
 
 export const DigestBridge: DigestBridgeModuleInterface = NativeModules.DigestBridgeModule;
