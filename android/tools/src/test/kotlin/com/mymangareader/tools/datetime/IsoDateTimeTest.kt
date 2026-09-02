@@ -21,6 +21,21 @@ class IsoDateTimeTest {
     }
 
     @Test
+    fun `parses a value that already carries a Z (post-ensureIsoUtc)`() {
+        // Same instant as the raw "2026-07-30T02:06:35.6950261" case above, clamped to ms + Z.
+        assertEquals(1785377195695L, parseIsoUtcToEpochMs("2026-07-30T02:06:35.695Z"))
+    }
+
+    @Test
+    fun `parses a value with an explicit numeric offset`() {
+        // 02:04:27Z == 04:04:27+02:00
+        assertEquals(
+            parseIsoUtcToEpochMs("2026-07-30T02:04:27.914Z"),
+            parseIsoUtcToEpochMs("2026-07-30T04:04:27.914+02:00"),
+        )
+    }
+
+    @Test
     fun `returns null for a null input`() {
         assertNull(parseIsoUtcToEpochMs(null))
     }
