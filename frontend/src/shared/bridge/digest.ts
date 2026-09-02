@@ -152,6 +152,13 @@ export interface SerialOtherIds {
   malId?: number;
 }
 
+// Kavita's series-level page progress (pagesRead/totalPages) — coarser than chapters.readCount,
+// but the only progress the list endpoint carries.
+export interface SerialPages {
+  read: number;
+  total: number;
+}
+
 export interface SerialColors {
   primary?: string;
   secondary?: string;
@@ -213,6 +220,7 @@ export interface SerialDigestSuccess {
   sortName?: string;
   otherIds?: SerialOtherIds;
   colors?: SerialColors;
+  pages?: SerialPages;
   metadata?: SerialMetadata;
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
@@ -220,6 +228,26 @@ export interface SerialDigestSuccess {
 }
 
 export type SerialDigest = SerialDigestSuccess | DigestFailure;
+
+// ── SerialsDigest (list) ─────────────────────────────────────────────────
+
+// The list counterpart of SerialDigest. Each entry is a minimal SerialDigestSuccess assembled
+// straight from serials.list() — chapters/metadata/resumePoint absent. lastUpdatedEpochMs is the
+// newest cachedAtEpochMs across the per-series caches the build touched (null on an empty list),
+// so the Library can show how fresh its data is without any snapshot of its own.
+export interface SerialsDigestSuccess {
+  isSuccess: true;
+  serials: SerialDigest[];
+  lastUpdatedEpochMs: number | null;
+}
+
+export type SerialsDigest = SerialsDigestSuccess | DigestFailure;
+
+// Only `force` — the Library's pull-to-refresh. Mirrors DigestBridgeModule.getSerialsDigest's
+// ReadableMap options.
+export interface SerialsDigestOptions {
+  force?: boolean;
+}
 
 // ── bridge module ────────────────────────────────────────────────────────
 
@@ -247,6 +275,7 @@ interface DigestBridgeModuleInterface {
   getPageDigest(seriesId: string, chapterId: string, pageIndex: number): Promise<PageDigest>;
   getChapterDigest(seriesId: string, chapterId: string, options: ChapterDigestOptions): Promise<ChapterDigest>;
   getSerialDigest(seriesId: string, options: SerialDigestOptions): Promise<SerialDigest>;
+  getSerialsDigest(options: SerialsDigestOptions): Promise<SerialsDigest>;
 }
 
 export const DigestBridge: DigestBridgeModuleInterface = NativeModules.DigestBridgeModule;
