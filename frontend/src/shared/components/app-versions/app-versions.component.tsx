@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AppVersions as Versions, OtaModule } from '../../native/OtaModule';
-import { Strings } from '../i18n/strings';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { AppVersions as Versions, OtaModule } from '../../../native/OtaModule';
+import { Strings } from '../../i18n/strings';
+import { styles } from './app-versions.styles';
 
 interface Props {
   t: Strings;
@@ -10,6 +11,10 @@ interface Props {
 
 const DEBUG_UNLOCK_TAPS = 5;
 
+// The three-version footer (backend / app / frontend) shown on the RN splash and in Config.
+// Reads the values from the native OtaModule itself — it's a self-contained shared widget, not a
+// dumb component: nothing upstream has the version strings and there's no state worth lifting.
+// Tapping the "app" column DEBUG_UNLOCK_TAPS times fires onDebugUnlocked (Config only).
 export function AppVersions({ t, onDebugUnlocked }: Props) {
   const [versions, setVersions] = useState<Versions | null>(null);
   const tapCount = useRef(0);
@@ -47,27 +52,3 @@ function VersionCol({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#ffffff22',
-  },
-  col: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  label: {
-    fontSize: 9,
-    color: '#44FFFFFF',
-    textTransform: 'lowercase',
-    marginBottom: 2,
-  },
-  value: {
-    fontSize: 10,
-    color: '#99FFFFFF',
-  },
-});

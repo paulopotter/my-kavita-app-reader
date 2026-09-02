@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { ConfigRepository, SetupBridge } from '../../shared/bridge/config';
-import { AppVersions } from '../../shared/components/AppVersions';
+import { AppVersions } from '../../shared/components/app-versions';
 import { ChapterSortConfigFields } from '../../shared/components/ChapterSortConfigFields';
 import { ChaptersTool, type ChapterSortMode } from '../../shared/tools/chapters';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
