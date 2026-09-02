@@ -28,16 +28,37 @@ const BANNER_CONFIRMED_MS = 4000;
 // the same window buildSerialsDigest itself uses to decide a background refresh is due.
 const STALE_AFTER_MS = 15 * 60 * 1000;
 
-// A just-assembled list, shared across every useLibrary instance (Library + Following) so the
-// second screen to mount paints it synchronously instead of flashing a spinner while it
-// re-assembles identical data. Written only in load()'s .then(); read only on mount. `null` until
-// the first assemble in this app session. Not persisted (that was the rc57 Store snapshot, ripped
-// out for the allocation cost) — the Kotlin per-series cache is the cold-start source.
+// A just-assembled Library list, shared across every useLibrary instance so the SECOND screen to
+// mount (Library <-> Following) — or the FIRST one after a splash that pre-fetched — paints it
+// synchronously instead of flashing a spinner over identical data.
+//
+// It is a plain module variable, not React state / Context: one copy per JS bundle lifetime, no
+// re-render fan-out, nobody subscribes. Best-effort by construction — any screen that needs the
+// list still fetches it itself; this only lets a producer hand it off so a consumer can skip that
+// fetch. Producers: load()'s .then() here, and seedLibrary() (called by the splash). Consumers:
+// the useReducer lazy initializer + the mount effect below. `null` until the first producer runs
+// (e.g. a deeplink straight into a series, then navigating up to Library — nothing seeded it, so
+// that mount just does a normal load). Not persisted (that was the rc57 Store snapshot, dropped
+// for its allocation cost) — the Kotlin per-series cache is the cold-start source.
 let lastAssembled: { entries: LibraryEntry[]; lastUpdatedEpochMs: number | null; atEpochMs: number } | null = null;
 
 // A mount reuses lastAssembled without its own fetch only while it's this fresh; older than this,
 // the mount does a normal background load() instead.
 const HANDOFF_FRESH_MS = 30 * 1000;
+
+function freshHandoff(): { entries: LibraryEntry[]; lastUpdatedEpochMs: number | null } | null {
+  if (lastAssembled && Date.now() - lastAssembled.atEpochMs < HANDOFF_FRESH_MS) {
+    return { entries: lastAssembled.entries, lastUpdatedEpochMs: lastAssembled.lastUpdatedEpochMs };
+  }
+  return null;
+}
+
+// Producer entry point for code OUTSIDE useLibrary — the splash calls this with the list it
+// already fetched, so the first Library/Following screen mounts with data and no fetch. Same
+// channel the Library <-> Following handoff uses; a subsequent real load() overwrites it.
+export function seedLibrary(entries: LibraryEntry[], lastUpdatedEpochMs: number | null): void {
+  lastAssembled = { entries, lastUpdatedEpochMs, atEpochMs: Date.now() };
+}
 
 let libraryInstanceSeq = 0;
 
@@ -69,6 +90,10 @@ interface State {
   // Set right after a force-refresh that reached the network — drives the transient 'confirmed'
   // banner. Cleared on a timer (BANNER_CONFIRMED_MS) and on any non-forced load.
   confirmedAtEpochMs: number | null;
+  // True when initState() seeded this instance from a fresh handoff (the other tab, or the
+  // splash). The mount effect uses it to decide whether to fetch — an empty seeded list (a
+  // genuinely empty library) must NOT trigger a fetch, so this can't be inferred from data.length.
+  hydratedFromHandoff: boolean;
 }
 
 type Action =
@@ -216,7 +241,25 @@ const initial: State = {
   lastUpdatedEpochMs: null,
   loadFailed: false,
   confirmedAtEpochMs: null,
+  hydratedFromHandoff: false,
 };
+
+// Lazy reducer initializer — runs once, BEFORE the first render. If a producer (the other tab, or
+// the splash) left a fresh list, start from it with loading already false, so this instance never
+// renders a spinner frame. Otherwise start from `initial` and let the mount effect fetch.
+function initState(): State {
+  const handoff = freshHandoff();
+  if (!handoff) {
+    return initial;
+  }
+  return {
+    ...initial,
+    loading: false,
+    data: handoff.entries,
+    lastUpdatedEpochMs: handoff.lastUpdatedEpochMs,
+    hydratedFromHandoff: true,
+  };
+}
 
 // ── list assembly (the hook owns "when/how to fetch", like serie.hooks.ts's own load) ─────────
 
@@ -314,7 +357,7 @@ async function assembleLibrary({
 // ── hook ─────────────────────────────────────────────────────────────────────
 
 export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions = {}) {
-  const [state, dispatch] = useReducer(reducer, initial);
+  const [state, dispatch] = useReducer(reducer, undefined, initState);
   const [viewMode, setViewModeState] = useState<LibraryViewMode>(DEFAULT_VIEW_MODE);
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadInFlightRef = useRef(false);
@@ -342,13 +385,12 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     assembleLibrary({ force })
       .then(({ entries, lastUpdatedEpochMs }) => {
         dispatch({ type: 'LOADED', data: entries, lastUpdatedEpochMs, forced: force });
-        const assembledAtEpochMs = Date.now();
-        lastAssembled = { entries, lastUpdatedEpochMs, atEpochMs: assembledAtEpochMs };
+        seedLibrary(entries, lastUpdatedEpochMs);
         EventBus.emit(LibraryEvents.assembled, {
           instanceId: instanceIdRef.current,
           entries,
           lastUpdatedEpochMs,
-          assembledAtEpochMs,
+          assembledAtEpochMs: Date.now(),
         });
       })
       .catch((e: unknown) => dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' }))
@@ -358,19 +400,14 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   }, []);
   loadRef.current = load;
 
-  // Mount: if another instance assembled the list moments ago, paint it synchronously (no spinner)
-  // and skip this mount's own fetch — the emitting instance already refreshed. Otherwise do the
-  // normal background load; the Kotlin per-series cache keeps a cold start fast.
+  // Mount: initState() may have seeded this instance from a fresh handoff (the other tab, or the
+  // splash just pre-fetched) — that producer already refreshed, so skip this mount's own fetch.
+  // Only fetch on a cold start (no fresh handoff). The Kotlin per-series cache keeps that fast.
   useEffect(() => {
-    if (lastAssembled && Date.now() - lastAssembled.atEpochMs < HANDOFF_FRESH_MS) {
-      dispatch({
-        type: 'HYDRATE',
-        data: lastAssembled.entries,
-        lastUpdatedEpochMs: lastAssembled.lastUpdatedEpochMs,
-      });
-      return;
+    if (!state.hydratedFromHandoff) {
+      loadRef.current(false);
     }
-    loadRef.current(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The other LibraryScreen finished assembling while this one is mounted (both tabs alive). Take

@@ -54,7 +54,8 @@ jest.mock('../library.prefs', () => ({
 import { EventBus } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SerieEvents } from '../../../shared/tools/series';
-import { useLibrary, __resetLibraryHandoff } from './library.hooks';
+import { useLibrary, seedLibrary, __resetLibraryHandoff } from './library.hooks';
+import type { LibraryEntry } from '../library.tool';
 import type { ServerActiveInfo } from '../../../shared/bridge/digest';
 
 const server: ServerActiveInfo = {
@@ -352,6 +353,47 @@ describe('useLibrary — cross-screen handoff (Library <-> Following)', () => {
     // Give any stray re-emit / reload a chance to fire.
     await new Promise<void>(r => setTimeout(r, 50));
     expect(mockGet.mock.calls.length).toBe(callsAfterFirst); // still no extra fetch from the handoff
+  });
+
+  it('the second instance never renders a loading frame (lazy init from the handoff)', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('a')]));
+    const first = renderHook(() => useLibrary());
+    await waitFor(() => expect(first.result.current.data).toHaveLength(1));
+
+    // From its very first render, the second instance is already non-loading with data.
+    const second = renderHook(() => useLibrary({ prefsKey: 'following' }));
+    expect(second.result.current.loading).toBe(false);
+    expect(second.result.current.data).toHaveLength(1);
+  });
+
+  it('seedLibrary (the splash entry point) lets the first screen mount with data and no fetch', async () => {
+    const seeded: LibraryEntry[] = [
+      { id: 'x', name: 'Seeded', coverUrl: 'c', progressFraction: 0, readStatus: 'UNREAD', isFollowed: false },
+    ];
+    seedLibrary(seeded, 1_700_000_000_000);
+
+    const { result } = renderHook(() => useLibrary());
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data).toEqual(seeded);
+    // No background fetch — the seeder (splash) just produced this.
+    await new Promise<void>(r => setTimeout(r, 20));
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('a stale handoff is ignored — the mount fetches normally', async () => {
+    // Seed, then age it past HANDOFF_FRESH_MS by faking Date.now.
+    seedLibrary([{ id: 'old', name: 'Old', coverUrl: 'c', progressFraction: 0, readStatus: 'UNREAD', isFollowed: false }], null);
+    const realNow = Date.now;
+    Date.now = () => realNow() + 60 * 1000;
+    try {
+      mockGet.mockResolvedValue(serialsDigest([serialData('fresh')]));
+      const { result } = renderHook(() => useLibrary());
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data[0].id).toBe('fresh');
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    } finally {
+      Date.now = realNow;
+    }
   });
 });
 
