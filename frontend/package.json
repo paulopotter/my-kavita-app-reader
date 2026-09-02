@@ -1,6 +1,6 @@
 {
   "name": "mymangareader",
-  "version": "0.9.0-rc48",
+  "version": "0.9.0-rc58",
   "private": true,
   "scripts": {
     "start": "react-native start",
@@ -81,7 +81,6 @@
       "/index\\.ts$",
       "/src/shared/bridge/chapter\\.ts$",
       "/src/shared/bridge/config\\.ts$",
-      "/src/shared/bridge/library\\.ts$",
       "/src/shared/bridge/network\\.ts$",
       "/src/shared/bridge/page\\.ts$",
       "/src/shared/bridge/preferences\\.ts$",
@@ -96,9 +95,9 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 56,
-        "lines": 56,
-        "functions": 74,
+        "statements": 66,
+        "lines": 66,
+        "functions": 75,
         "branches": 90
       }
     }

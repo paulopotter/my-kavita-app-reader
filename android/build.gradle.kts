@@ -42,14 +42,15 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=78 — bump this value whenever coverage improves.
-            // Bumped from 77: Migration_10_11/11_12/12_13 gained dedicated tests (none of the
-            // migrations 10-13 had any before — the Migration_12_13 PK-collision crash would have
-            // been caught by one), pushing the measured value to ~78.29%.
+            // COVERAGE_FLOOR_KOTLIN=81 — bump this value whenever coverage improves.
+            // Bumped from 78 (Task 028): deleting the untested LibraryModule, KavitaSeriesFeature.
+            // listSeries()/resolveProgress(), BffFeature.syncBff() and the SplashSyncCoordinator
+            // work loop removed a large block of uncovered lines, lifting the measured value to
+            // ~81.18%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 78
+                        minValue = 81
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
