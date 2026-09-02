@@ -382,4 +382,139 @@ don't catch this class of bug — assert the *actual value* passed to
 
 ---
 
-**Last Updated**: 2026-08-19
+### 18. Compose `LazyColumn` won't reliably jump when its data changes and an old item survives
+
+**Symptom**: `listState.scrollToItem(targetIndex)` (or, after switching to
+`RecyclerView`, `LinearLayoutManager.scrollToPositionWithOffset`) is
+called, the app even reports it consumed the request, but the list does
+not move to the target — it stays anchored on wherever it was, or jumps
+and then snaps back. Deterministic once the new item list shares any item
+with the old one; fine on a fully-fresh list.
+
+**Root cause**: when RN hands the native list a new `blocks`/`items`
+collection where some entries survive from the previous one (same keys),
+the list keeps its scroll anchored to a surviving item. A programmatic
+`scrollToItem` fights that anchor and loses — silently. Proven across 9
+device builds in the reader rewrite (rc34–rc41), for both `LazyColumn`
+and a `RecyclerView` spike.
+
+**Rule**: to force a native list to a specific position when its data is
+also changing, **remount the whole native view** instead of scrolling it.
+On the RN side, bump a counter in state on the reload (`nativeListKey`)
+and pass it as the `key` of the native component — React unmounts the old
+view and mounts a fresh one, so the list is created directly at the
+target with no inherited scroll state to fight. Only for a genuine
+"navigate to a different place" (a chapter switch); a natural in-place
+scroll must NOT bump the key (it would jank mid-scroll).
+
+**Reference**: `screens/reader/reader.screen.tsx` `key={reader.nativeListKey}`,
+bumped only in the `WINDOW_READY` reducer case; `architecture.md`
+§ "Chapter-switch contract".
+
+---
+
+### 19. Two mechanisms writing the same navigation state with no coordination
+
+**Symptom**: pressing "next chapter" once advances two chapters (real
+log: chapter 26 → 28). Intermittent, timing-dependent, "fixed" repeatedly
+by adding settle timers that only lower the odds.
+
+**Root cause**: two independent flows both mutate the same field — a
+native continuous-scroll report and a manual arrow — via async
+read-modify-write with no lock. When they run close together, the second
+write clobbers the first with a value captured before the first landed.
+Settle timers ("ignore scroll reports for 1200ms after an arrow") only
+shrink the race window; a slow network or fast taps still hit it.
+
+**Rule**: a piece of navigation state must have exactly one write path. If
+several triggers can move it (scroll, arrow, jump), they all dispatch a
+*description of the intent* and a single owner (a reducer) computes the
+new state synchronously against its own current value — never each
+trigger doing its own async fetch-then-write on a shared ref. Model the
+state as a position + index ("ruler + pointer"), not named mutable slots
+two writers can grab.
+
+**Reference**: `screens/reader/hooks/reader.reducer.ts` owns the
+`ReaderWindow`; `moveFocus(trigger)` only dispatches. `architecture.md`
+§ "Chapter-switch contract".
+
+---
+
+### 20. Looping a single-item endpoint instead of using the batch one
+
+**Symptom**: "mark all selected as read" marks one chapter and the rest
+silently un-mark themselves a moment later. Looks like an optimistic-mark
+bug.
+
+**Root cause**: the batch action did
+`selectedIds.forEach(id => markRead({ chapterId: id }))` — N parallel
+POSTs to a per-item endpoint. The server can't take N at once, some
+requests fail, and the optimistic-mark helper's own error path reverts
+exactly the failed ones. The provider had a real batch endpoint
+(`/api/Reader/mark-multiple-read`, one request for N ids) and the bridge
+already exposed it (`ServerBridge.setChaptersRead`) — it just wasn't
+wired past the Service layer.
+
+**Rule**: before looping a mutation over a collection, check whether the
+provider/bridge has a batch form. If it does, wire a `setMany`/`markMany`
+that does one request and applies the optimistic/confirm/revert cycle to
+every id in the set (revert falls back per-id via a `prevStatusById`
+map). N parallel writes to one host is a load problem waiting to surface
+as a "flaky UI" bug report.
+
+**Reference**: `ChapterTool.mark.readMany`/`unreadMany` +
+`ChapterService.status.setMany`; `serie.hooks.ts` `markSelectedRead`.
+
+---
+
+### 21. "Read" threshold as a scroll fraction never reaches 1.0 on a tall last page
+
+**Symptom**: the series' last chapter (or any chapter whose last page is
+much taller than the viewport) never auto-marks as read even after the
+user scrolls to the visible end.
+
+**Root cause**: the progress fraction measures the viewport's *bottom
+edge* against the chapter's total pixel height. The final ~1 viewport of
+content can never be scrolled past the bottom edge (there is nothing
+below it to scroll into), so on a webtoon whose last page is ~19,000px
+tall, the fraction climbs past 0.98 only in the last few hundred px — the
+user reaches the visible end, stops, and the fraction sits at ~0.95–0.97.
+
+**Rule**: a "practically finished" threshold driven by a scroll fraction
+that structurally can't reach 1.0 must leave headroom for that last
+viewport — pick the cutoff against what the fraction actually maxes out
+at in the field (0.95 here), not the arithmetic ideal (0.98). Confirmed
+by device logs before changing the constant: when the fraction does cross
+the threshold, the mark flow works 100% — the bug was purely the
+constant.
+
+**Reference**: `READ_THRESHOLD_FRACTION = 0.95` in
+`screens/reader/transforms/reader.transform.ts` (was 0.98).
+
+---
+
+### 22. Screen re-sorts a list one frame after first paint (async preference)
+
+**Symptom**: opening a series briefly shows the chapter list in the wrong
+order, then it visibly re-sorts (e.g. ascending → descending).
+
+**Root cause**: the sort mode is a `useState` seeded with a default
+(`ASCENDING`). The series data loads cache-first and fast, so the first
+paint uses the default. A *separate* effect reads the saved per-series
+sort preference asynchronously (native bridge, no sync path) and
+`setSortMode`s it — the memoized sorted list then re-runs one frame
+later.
+
+**Rule**: when a list's order (or any layout-affecting derived state)
+depends on an async-loaded preference, either gate the list render on a
+`prefsLoaded` flag (the loading spinner already covers it), or seed the
+`useState` from a synchronously-readable value. Don't let the first paint
+use a default the async read is about to overturn.
+
+**Reference**: `serie.hooks.ts` — `sortMode` default vs.
+`ChaptersTool.sort.get`. Not reproducible in practice per the user (the
+loading gate usually holds); fix deferred as optional. Task 029 file.
+
+---
+
+**Last Updated**: 2026-09-01

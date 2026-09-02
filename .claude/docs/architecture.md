@@ -15,12 +15,14 @@ my-kavita-app-reader/
 ├── frontend/                   # React Native / Expo
 │   └── src/
 │       ├── screens/            # One folder per screen (DDD: domain-first)
-│       │   └── library/
-│       │       ├── components/ # Screen-specific dummy components
-│       │       ├── hooks/      # Screen-specific hooks
-│       │       ├── LibraryScreen.tsx
-│       │       ├── LibraryService.ts
-│       │       └── LibraryTransform.ts
+│       │   └── reader/         # current convention (see note below); serie/ matches
+│       │       ├── components/ # one subfolder per dumb component:
+│       │       │   └── reader-top-bar/  # <c>.component.tsx + <c>.styles.ts + <c>.tests.tsx + index.ts
+│       │       ├── hooks/      #   reader.hooks.ts, reader.reducer.ts
+│       │       ├── transforms/ #   reader.transform.ts (screen-specific pure fns)
+│       │       ├── reader.screen.tsx
+│       │       ├── reader.styles.ts
+│       │       └── reader.types.ts
 │       └── shared/
 │           ├── components/     # Generic reusable components
 │           ├── hooks/          # Shared hooks
@@ -49,6 +51,29 @@ my-kavita-app-reader/
     ├── agents/                 # Subagents
     └── templates/              # Document templates
 ```
+
+### Screen file convention
+
+Two conventions coexist. The **current** one — used by `serie/` and `reader/` (the screens
+rewritten under plan 017) and the target for any new or migrated screen:
+
+- `<name>.screen.tsx`, `<name>.hooks.ts` (in `hooks/`), `<name>.transform.ts` (in `transforms/`),
+  `<name>.types.ts`, `<name>.styles.ts` — all kebab-case, role in the filename.
+- Each dumb component gets its own subfolder: `components/<comp>/<comp>.component.tsx` +
+  `<comp>.styles.ts` + `<comp>.tests.tsx` + `index.ts`. Style is always a separate file (no
+  inline `StyleSheet.create` in a `.component.tsx`).
+
+The **legacy** one — `config/`, `following/`, `library/`, `search/`, `setup/`, `splash/`:
+`LibraryScreen.tsx`, `useLibrary.ts`, `LibraryTransform.ts` (PascalCase, flat, `use*` hook).
+Migrate to the current convention when a screen is next touched substantially; don't rename
+wholesale for its own sake.
+
+**Open inconsistency (not yet resolved):** where screen-specific pure derivation lives.
+`reader/` puts it in `transforms/reader.transform.ts` + `transforms/webtoon-blocks.transform.ts`;
+`serie/` keeps `sortChapters` inline in `serie.hooks.ts` and has no `transforms/` folder. The
+Tools (`ChapterTool`, `SerieTool`) absorbed the normalization/formatting half. The
+`CLAUDE.md` "Tool → Hook → Service → Transform → Screen → Component" flow predates this drift.
+Pick one and align both screens in a dedicated task before migrating more screens.
 
 ## Domain Composition
 
@@ -277,22 +302,33 @@ instead — it already knows how to fetch); available for other callers
 (e.g. a future RN-driven background refresh) that need the same
 fire-and-forget shape without duplicating the pattern.
 
-**Deliberately deferred — not decided now, same philosophy as `EventToken`
-(Task 013):**
-- **`CacheManager` (RN)** — not built yet. When it is, it's expected to be
-  thinner than originally sketched: the cache-first *decision* (read vs.
-  fetch vs. stale-refresh) already lives in the Kotlin builders above, not
-  in RN orchestration. `CacheManager`'s real job is likely just exposing
-  `CacheBridge` (already implemented — `persistent`/`memoryKotlin` ×
-  `get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/
-  `purgeExpired`/`purgeOlderThan`; `network` deliberately not
-  bridged — its `block` parameter is a Kotlin function, which can't cross
-  RN↔Kotlin) to RN Services, plus the `MEMORY` mode (RN-only in-memory
-  cache, mirroring `MEMORY_KOTLIN` but living in JS instead — not built).
-- **Who calls `purgeExpired`/`purgeOlderThan`** — implemented on both
+**`CacheManager` (RN) — implemented** (`shared/managers/caches/`). As
+predicted it's thin: the cache-first *decision* (read vs. fetch vs.
+stale-refresh) lives in the Kotlin digest builders, not here. `CacheManager`
+just exposes `CacheBridge` by mode — `persistent` / `memoryKotlin` ×
+`get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/
+`purgeExpired`/`purgeOlderThan` (`network` deliberately not bridged — its
+`block` is a Kotlin function). The RN-only `MEMORY` mode is still not built.
+
+**Managers built on top of `CacheManager.persistent`** — a domain that
+needs a small typed store keyed by id wraps `CacheManager.persistent`
+rather than talking to the bridge directly:
+- **`PreferencesManager`** (`shared/managers/preferences/`) — over
+  `:preferences` (its own Room table, not `:cache`); used by
+  `ChaptersTool.sort`, `ReadingModeTool`.
+- **`ReadingProgressManager`** (`shared/managers/reading-progress/`) — the
+  reader's local reading position (`{ seriesId, page, scrollFraction }` per
+  chapterId), `domain: 'readingProgress'`, no TTL. The cache entry's
+  `cachedAtEpochMs` IS its "updated at" — `resolveInitialPage` compares it
+  against the server `resumePoint.recordedAtEpochMs`, newest wins (see
+  `data-freshness.md`). A temporary sync buffer, not the source of truth;
+  a boot reconciliation to prune it against the server is a separate task.
+
+**Deliberately deferred:**
+- **Who calls `purgeExpired`/`purgeOlderThan`** — implemented on
   `persistent`/`memoryKotlin`/`network`, exposed over the bridge, but
   nothing calls them yet. Expected to be a splash-screen routine on the RN
-  side once `CacheManager` exists.
+  side.
 - **Whether a given field/domain should be `MEMORY_KOTLIN` instead of
   `PERSISTENT`** — decided per case, only when a real reason shows up
   (e.g. a field that changes too often to be worth surviving restart).
