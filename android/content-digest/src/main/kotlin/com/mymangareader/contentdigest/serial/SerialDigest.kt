@@ -42,6 +42,7 @@ interface SerialFields {
     val sortName: String?
     val otherIds: OtherIds?
     val colors: Colors?
+    val pages: Pages?                  // Kavita's SERIES-level page progress (pagesRead/totalPages) — coarser than chapters.readCount, but the only progress the list endpoint carries; always present (both a get() and a list() row have it)
     val metadata: Metadata?            // Aggregating — null on any getMetadata() failure, never escalates
     val resolvedAtEpochMs: Long        // R11 — only reflects this Series' OWN calls (get/getCoverImage), never chapters.list's or metadata's
     val server: ServerActiveInfo
@@ -57,6 +58,8 @@ interface SerialFields {
     data class OtherIds(val aniListId: Int?, val malId: Long?)
     @Serializable
     data class Colors(val primary: String?, val secondary: String?)
+    @Serializable
+    data class Pages(val read: Int, val total: Int)
 
     @Serializable
     data class Metadata(
@@ -108,6 +111,7 @@ sealed interface SerialDigest {
         override val sortName: String?,
         override val otherIds: SerialFields.OtherIds?,
         override val colors: SerialFields.Colors?,
+        override val pages: SerialFields.Pages?,
         override val metadata: SerialFields.Metadata?,
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
@@ -151,7 +155,32 @@ data class SerialDigestOptions(
     val externalMetadataGroupId: String? = null,
 )
 
-private const val SERIAL_CACHE_DOMAIN = "serial"
+// internal (not private): buildSerialsDigest (same package, SerialsDigest.kt) merges list rows
+// into these very same per-series cache entries, so it needs the domain/variant/key/TTL that
+// buildSerialDigest's own default read uses — sharing the constants is what keeps a list refresh
+// and a later single-series mount pointed at one entry.
+internal const val SERIAL_CACHE_DOMAIN = "serial"
+internal const val SERIAL_CACHE_VARIANT = "full:external"
+
+// The key buildSerialsDigest writes: the same one buildSerialDigest(id) reads with its default
+// options (full=false, includeExternalMetadata=false).
+internal fun serialsListCacheKey(seriesId: String) =
+    serialDigestCacheKey(seriesId, SerialDigestOptions())
+
+// Whether the newest per-series cache entry a buildSerialsDigest run touched is old enough to
+// warrant a background refresh. null (nothing cached / empty list) is treated as stale so the
+// first-ever load still schedules a refresh. Uses the Cache module's own default TTL — the same
+// one buildSerialDigest's writes carry (it never overrides ttlMs on put()).
+internal fun isSerialCacheStale(lastUpdatedEpochMs: Long?): Boolean {
+    if (lastUpdatedEpochMs == null) return true
+    return System.currentTimeMillis() - lastUpdatedEpochMs >= SERIAL_CACHE_TTL_MS
+}
+
+// 15 min — Cache.persistent.put()'s DEFAULT_TTL_MS (that module keeps it internal, so it's
+// restated here with the same value and reasoning; buildSerialDigest relies on that same default
+// by never passing ttlMs).
+private const val SERIAL_CACHE_TTL_MS = 15 * 60 * 1000L
+
 private val serialDigestJson = Json { ignoreUnknownKeys = true }
 private val serialDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -283,6 +312,7 @@ private suspend fun fetchSerialDigest(
         sortName = plugin.sortName,
         otherIds = SerialFields.OtherIds(aniListId = plugin.aniListId, malId = plugin.malId),
         colors = SerialFields.Colors(primary = plugin.primaryColor, secondary = plugin.secondaryColor),
+        pages = SerialFields.Pages(read = plugin.pagesRead, total = plugin.totalPages),
         metadata = metadata,
         resolvedAtEpochMs = resolvedAtEpochMs!!,
         server = serverInfo!!,
