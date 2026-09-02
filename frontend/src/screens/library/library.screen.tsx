@@ -1,6 +1,6 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScrollToTopButton } from '../../shared/components/ScrollToTopButton';
 import { useStrings } from '../../shared/i18n/useStrings';
@@ -13,17 +13,30 @@ import { AlphabetIndex, FreshnessBanner, SeriesCard, SeriesListItem } from './co
 import type { FreshnessBannerVariant } from './components';
 import { useLibrary, type LibraryBannerState } from './hooks';
 import { styles } from './library.styles';
-import type { UseLibraryOptions } from './library.types';
+import type { LibraryMode } from './library.types';
 
-interface Props extends UseLibraryOptions {
-  emptyText?: string;
+// The same screen backs two tabs. Which one is driven entirely by the route param `mode` (set via
+// Tab.Screen's initialParams in MainNavigator) — there is no separate Following screen. 'following'
+// = the Library list filtered to followed series, with its own persisted layout prefs and its own
+// nav origin; 'library' (the default when the param is absent) = everything.
+function resolveMode(raw: unknown): LibraryMode {
+  return raw === 'following' ? 'following' : 'library';
 }
 
 // library.screen.tsx — render + event forwarding only. Every piece of derived state
 // (alphabetIndex, padded list, scroll-to-top visibility, sort/view mode) comes from useLibrary;
 // the only thing the screen owns is navigation and the FlatList ref.
-export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
+export function LibraryScreen() {
   const t = useStrings();
+  const route = useRoute();
+  const mode = resolveMode((route.params as { mode?: string } | undefined)?.mode);
+  const isFollowing = mode === 'following';
+
+  const filter = useMemo(
+    () => (isFollowing ? (entry: LibraryEntry) => entry.isFollowed : undefined),
+    [isFollowing],
+  );
+
   const {
     loading,
     refreshing,
@@ -40,11 +53,12 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
     refresh,
     toggleSortMode,
     toggleViewMode,
-  } = useLibrary({ filter, prefsKey });
+  } = useLibrary({ filter, prefsKey: mode });
 
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const listRef = useRef<FlatList>(null);
-  const origin: NavOrigin = prefsKey === 'following' ? 'FOLLOWING' : 'LIBRARY';
+  const origin: NavOrigin = isFollowing ? 'FOLLOWING' : 'LIBRARY';
+  const emptyText = isFollowing ? t.followingEmpty : t.libraryEmpty;
 
   const openSeries = useCallback(
     (seriesId: string) => {
@@ -103,7 +117,7 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
   if (!loading && data.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.message}>{emptyText ?? t.libraryEmpty}</Text>
+        <Text style={styles.message}>{emptyText}</Text>
       </View>
     );
   }

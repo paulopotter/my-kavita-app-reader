@@ -6,8 +6,10 @@ import type { LibraryEntry } from './library.types';
 const t = getStrings('pt-BR');
 
 const mockNavigate = jest.fn();
+let mockRouteParams: { mode?: string } = {};
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
+  useRoute: () => ({ params: mockRouteParams }),
 }));
 
 const mockToggleFollow = jest.fn();
@@ -76,6 +78,7 @@ function entry(over: Partial<LibraryEntry> = {}): LibraryEntry {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRouteParams = {};
   Object.assign(mockHookState, {
     loading: false,
     refreshing: false,
@@ -106,11 +109,15 @@ describe('LibraryScreen', () => {
     expect(mockRefresh).toHaveBeenCalled();
   });
 
-  it('shows the default empty state, and a custom one when provided', () => {
-    const { getByText, rerender } = render(<LibraryScreen />);
+  it('shows the library empty state by default', () => {
+    const { getByText } = render(<LibraryScreen />);
     expect(getByText(t.libraryEmpty)).toBeTruthy();
-    rerender(<LibraryScreen emptyText="Nada seguido" />);
-    expect(getByText('Nada seguido')).toBeTruthy();
+  });
+
+  it('shows the following empty state when route param mode=following', () => {
+    mockRouteParams = { mode: 'following' };
+    const { getByText } = render(<LibraryScreen />);
+    expect(getByText(t.followingEmpty)).toBeTruthy();
   });
 
   it('renders grid cards and forwards press → navigate', () => {
@@ -122,6 +129,16 @@ describe('LibraryScreen', () => {
     expect(getByText(`1 ${t.librarySeriesCount}`)).toBeTruthy();
     fireEvent.press(getByText('Bravo'));
     expect(mockNavigate).toHaveBeenCalledWith('series/:seriesId', { seriesId: 's7', origin: 'LIBRARY' });
+  });
+
+  it('forwards origin=FOLLOWING when route param mode=following', () => {
+    mockRouteParams = { mode: 'following' };
+    const e = entry({ id: 's7', name: 'Bravo' });
+    mockHookState.data = [e];
+    mockHookState.paddedData = [e, null];
+    const { getByText } = render(<LibraryScreen />);
+    fireEvent.press(getByText('Bravo'));
+    expect(mockNavigate).toHaveBeenCalledWith('series/:seriesId', { seriesId: 's7', origin: 'FOLLOWING' });
   });
 
   it('renders the freshness banner from bannerState (stale → relative "Atualizado há ...")', () => {

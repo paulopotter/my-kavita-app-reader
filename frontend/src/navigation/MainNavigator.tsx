@@ -4,7 +4,6 @@ import { useNavigation } from '@react-navigation/native';
 import { Library, Settings, Star } from 'lucide-react-native';
 import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library';
-import { FollowingScreen } from '../screens/following/following.screen';
 import { ConfigScreen } from '../screens/config/ConfigScreen';
 import { useAppShellState } from '../shared/components/AppShellState';
 import { useStrings } from '../shared/i18n/useStrings';
@@ -66,10 +65,13 @@ export function MainNavigator() {
         tabBarLabelStyle: { fontSize: 11 },
       }}
     >
+      {/* Following and Library are the same component; the `mode` route param is the only
+          difference (followed-only filter + its own prefs scope + nav origin). */}
       {hasFollowedSeries && (
         <Tab.Screen
           name={Routes.FOLLOWING}
-          component={FollowingScreen}
+          component={LibraryScreen}
+          initialParams={{ mode: 'following' }}
           options={{
             tabBarLabel: strings.navFollowing,
             tabBarIcon: ({ focused }) => <Star size={20} color={focused ? ACTIVE : INACTIVE} />,
@@ -79,6 +81,7 @@ export function MainNavigator() {
       <Tab.Screen
         name={Routes.LIBRARY}
         component={LibraryScreen}
+        initialParams={{ mode: 'library' }}
         options={{
           tabBarLabel: strings.navLibrary,
           tabBarIcon: ({ focused }) => <Library size={20} color={focused ? ACTIVE : INACTIVE} />,
