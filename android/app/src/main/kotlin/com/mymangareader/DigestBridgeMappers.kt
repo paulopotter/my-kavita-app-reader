@@ -10,6 +10,7 @@ import com.mymangareader.contentdigest.page.PageDigest
 import com.mymangareader.contentdigest.serial.ExternalMetadataDigest
 import com.mymangareader.contentdigest.serial.SerialDigest
 import com.mymangareader.contentdigest.serial.SerialFields
+import com.mymangareader.contentdigest.serial.SerialsDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataActiveInfo
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.server.ImageDescriptor
@@ -181,6 +182,11 @@ private fun SerialFields.Colors.toWritableMap(): WritableMap = Arguments.createM
     secondary?.let { putString("secondary", it) }
 }
 
+private fun SerialFields.Pages.toWritableMap(): WritableMap = Arguments.createMap().apply {
+    putInt("read", read)
+    putInt("total", total)
+}
+
 private fun SerialFields.Metadata.toWritableMap(): WritableMap = Arguments.createMap().apply {
     description?.let { putString("description", it) }
     putArray("genres", Arguments.createArray().also { arr -> genres.forEach { arr.pushMap(it.toWritableMap()) } })
@@ -265,9 +271,24 @@ fun SerialDigest.toWritableMap(): WritableMap = when (this) {
         sortName?.let { putString("sortName", it) }
         otherIds?.let { putMap("otherIds", it.toWritableMap()) }
         colors?.let { putMap("colors", it.toWritableMap()) }
+        pages?.let { putMap("pages", it.toWritableMap()) }
         metadata?.let { putMap("metadata", it.toWritableMap()) }
         putDouble("resolvedAtEpochMs", resolvedAtEpochMs.toDouble())
         putMap("server", server.toWritableMap())
         cache?.let { putMap("cache", it.toWritableMap()) } ?: putNull("cache")
+    }
+}
+
+// ── SerialsDigest (list) ─────────────────────────────────────────────────
+
+fun SerialsDigest.toWritableMap(): WritableMap = when (this) {
+    is SerialsDigest.Failure -> Arguments.createMap().apply {
+        putBoolean("isSuccess", false)
+        putMap("error", error.toWritableMap())
+    }
+    is SerialsDigest.Success -> Arguments.createMap().apply {
+        putBoolean("isSuccess", true)
+        putArray("serials", Arguments.createArray().also { arr -> serials.forEach { arr.pushMap(it.toWritableMap()) } })
+        lastUpdatedEpochMs?.let { putDouble("lastUpdatedEpochMs", it.toDouble()) } ?: putNull("lastUpdatedEpochMs")
     }
 }

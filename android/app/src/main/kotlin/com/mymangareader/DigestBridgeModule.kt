@@ -11,6 +11,7 @@ import com.mymangareader.contentdigest.page.ChapterSummary
 import com.mymangareader.contentdigest.page.buildPageDigest
 import com.mymangareader.contentdigest.serial.SerialDigestOptions
 import com.mymangareader.contentdigest.serial.buildSerialDigest
+import com.mymangareader.contentdigest.serial.buildSerialsDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
@@ -140,6 +141,20 @@ class DigestBridgeModule @Inject constructor(
                     force = force,
                 )
             }.resolveOrReject(promise, "GET_SERIES_DIGEST_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    // The list counterpart of getSerialDigest. [options] carries only `force` (default false) —
+    // used by the Library's pull-to-refresh. buildSerialsDigest owns no cache of its own; it
+    // merges every listed series into that series' own per-series cache (the same entries
+    // getSerialDigest reads), so a Library mount right after this is a series-by-series cache hit.
+    @ReactMethod
+    fun getSerialsDigest(options: ReadableMap, promise: Promise) {
+        scope.launch {
+            val force = if (options.hasKey("force")) options.getBoolean("force") else false
+
+            runCatching { buildSerialsDigest(server, cache, force = force) }
+                .resolveOrReject(promise, "GET_SERIALS_DIGEST_ERROR") { it.toWritableMap() }
         }
     }
 }
