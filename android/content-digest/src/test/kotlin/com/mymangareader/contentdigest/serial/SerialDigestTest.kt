@@ -98,6 +98,7 @@ private class FakePlugin(
     var chaptersListResult: Result<List<PluginChapter>> = Result.success(emptyList()),
     var progressForChapter: (String) -> Result<PluginProgress?> = { Result.success(null) },
     var chapterIdsThatFailGet: Set<String> = emptySet(),
+    var serialsListResult: Result<List<PluginSerial>> = Result.success(emptyList()),
 ) : ServerPlugin {
     var serialGetCallCount = 0
     override val id = "fake"
@@ -113,7 +114,7 @@ private class FakePlugin(
     }
 
     override val serials = object : ServerPlugin.Serials {
-        override suspend fun list(): List<PluginSerial> = emptyList()
+        override suspend fun list(): List<PluginSerial> = serialsListResult.getOrThrow()
     }
 
     override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
@@ -707,4 +708,138 @@ class SerialDigestTest {
         assertTrue(forced.cache != null)
     }
 
+}
+
+// ── buildSerialsDigest — list counterpart ──────────────────────────────────
+
+private fun fakePluginSerial(
+    id: String,
+    name: String = "Series $id",
+    lastChapterAddedUtc: String? = null,
+) = PluginSerial(
+    id = id, name = name, coverUrl = "http://cover/$id", pagesRead = 0, totalPages = 0,
+    libraryId = "1", libraryName = "Library", lastFolderScannedUtc = null,
+    lastChapterAddedUtc = lastChapterAddedUtc, latestReadDateUtc = null,
+    originalName = null, localizedName = null, sortName = null,
+    aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
+)
+
+class SerialsDigestTest {
+
+    private lateinit var mockServer: MockWebServer
+    private lateinit var baseUrl: String
+    private lateinit var groupDao: FakeServerGroupDao
+    private lateinit var urlDao: FakeServerUrlDao
+    private lateinit var plugin: FakePlugin
+    private lateinit var server: Server
+    private val cache = fakeCache()
+
+    @Before
+    fun setUp() {
+        mockServer = MockWebServer()
+        mockServer.start()
+        baseUrl = mockServer.url("/").toString().trimEnd('/')
+        groupDao = FakeServerGroupDao()
+        urlDao = FakeServerUrlDao()
+        plugin = FakePlugin()
+        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()))
+    }
+
+    @After
+    fun tearDown() {
+        mockServer.shutdown()
+    }
+
+    private suspend fun activateGroup() {
+        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+        server.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+        server.setActiveGroup(group.id)
+        mockServer.enqueue(MockResponse().setResponseCode(200))
+    }
+
+    @Test
+    fun `every listed series comes back as a minimal SerialDigest Success`() = runTest {
+        activateGroup()
+        plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
+
+        val result = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+        assertEquals(2, result.serials.size)
+        val first = result.serials.first() as SerialDigest.Success
+        assertEquals("s1", first.id)
+        assertEquals("Series s1", first.name)
+        // chapters / metadata / resumePoint the list can't carry → absent
+        assertNull(first.chapters)
+        assertNull(first.metadata)
+        // cover was normalized by :server into a full ImageDescriptor
+        assertTrue(first.coverImage.url.isNotEmpty())
+    }
+
+    @Test
+    fun `each series is written into its own per-series cache under the single-series key`() = runTest {
+        activateGroup()
+        plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+
+        buildSerialsDigest(server, cache)
+
+        // buildSerialDigest(id) with default options must now be a cache hit — same key/variant.
+        val entry = cache.persistent.get("s1:false:false", variant = "full:external")
+        assertTrue(entry != null)
+    }
+
+    @Test
+    fun `lastUpdatedEpochMs is the newest cachedAtEpochMs across the per-series caches`() = runTest {
+        activateGroup()
+        plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
+
+        val before = System.currentTimeMillis()
+        val result = buildSerialsDigest(server, cache) as SerialsDigest.Success
+        val after = System.currentTimeMillis()
+
+        val lastUpdated = result.lastUpdatedEpochMs
+        assertTrue(lastUpdated != null && lastUpdated in before..after)
+    }
+
+    @Test
+    fun `empty list yields Success with no serials and a null lastUpdatedEpochMs`() = runTest {
+        activateGroup()
+        plugin.serialsListResult = Result.success(emptyList())
+
+        val result = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+        assertTrue(result.serials.isEmpty())
+        assertNull(result.lastUpdatedEpochMs)
+    }
+
+    @Test
+    fun `a serials list failure makes the whole result a Failure`() = runTest {
+        activateGroup()
+        plugin.serialsListResult = Result.failure(IllegalStateException("list boom"))
+
+        val result = buildSerialsDigest(server, cache)
+
+        assertTrue(result is SerialsDigest.Failure)
+        result as SerialsDigest.Failure
+        assertEquals("IllegalStateException", result.error.code)
+    }
+
+    @Test
+    fun `a list refresh preserves a richer entry a prior buildSerialDigest wrote`() = runTest {
+        activateGroup()
+        // Prior single-series build → cache entry WITH a chapters block.
+        plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0)))
+        buildSerialDigest(server, "s1", cache)
+        val withChapters = cache.persistent.get("s1:false:false", variant = "full:external")
+        assertTrue(withChapters!!.value.contains("\"chapters\""))
+
+        // List refresh renames the series and must NOT drop chapters.
+        plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", name = "Renamed")))
+        val result = buildSerialsDigest(server, cache, force = true) as SerialsDigest.Success
+
+        val merged = result.serials.single() as SerialDigest.Success
+        assertEquals("Renamed", merged.name)
+        assertTrue(merged.chapters != null)
+    }
 }
