@@ -26,7 +26,8 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
 - Commits: Conventional Commits, pt-BR message, no Co-Authored-By
 - Build for device → `versionar-build` skill (APK + bundle both get `-rcN`)
 - Test + approval before commit
-- Data flow: `Kotlin Tool → Hook → Service → Transform → Screen → Component`
+- Data flow: `Bridge → Service → Tool/model → Hook → Screen → Component` (no per-screen
+  `Transform` layer — see architecture.md § "No `Transform` layer")
 
 ## Coverage
 - Every feature ships with tests. Only skip if technically impossible — ask the user first.

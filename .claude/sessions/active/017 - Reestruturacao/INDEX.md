@@ -49,3 +49,4 @@ changelog entry by hand.
 | [034](034-changelog-skill-origin-tag.md) | 7 — Safeguards | `atualizar-changelog` skill — use `<origin-tag>..HEAD` diff as cross-check | todo |
 | [035](035-fix-config-setup-session-auth.md) | 5 — Corrections | Correction — Config/Setup session & auth (401 on Library/Following, migrate to `:server`/`ServerService`) | todo (blocked by 017; related to 021 but not blocked by it) |
 | [036](036-library-sobre-digest.md) | 5 — Corrections | Library screen moves to the new Server/digest stack (drop `KavitaSeriesFeature.listSeries`) | todo (carved out of Task 024's closing conversation; needs its own fetch-strategy and Library-card-contract design phase) |
+| [037](037-kill-transform-layer.md) | 6 — Reader | Kill the `Transform` layer — move `reader/transforms/` into ChapterTool + a screen-local model + the webtoon adapter | todo (design decided 2026-09-01; `serie/` already complies, `reader/` is the only offender) |

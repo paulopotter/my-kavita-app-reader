@@ -15,14 +15,14 @@ my-kavita-app-reader/
 ├── frontend/                   # React Native / Expo
 │   └── src/
 │       ├── screens/            # One folder per screen (DDD: domain-first)
-│       │   └── reader/         # current convention (see note below); serie/ matches
+│       │   └── reader/         # current convention (see notes below); serie/ matches
 │       │       ├── components/ # one subfolder per dumb component:
 │       │       │   └── reader-top-bar/  # <c>.component.tsx + <c>.styles.ts + <c>.tests.tsx + index.ts
 │       │       ├── hooks/      #   reader.hooks.ts, reader.reducer.ts
-│       │       ├── transforms/ #   reader.transform.ts (screen-specific pure fns)
+│       │       ├── modes/      #   webtoon.adapter.ts (per rendering-mode translation)
 │       │       ├── reader.screen.tsx
 │       │       ├── reader.styles.ts
-│       │       └── reader.types.ts
+│       │       └── reader.types.ts   # + reader.window.ts (screen-local model, no `Transform`)
 │       └── shared/
 │           ├── components/     # Generic reusable components
 │           ├── hooks/          # Shared hooks
@@ -57,8 +57,8 @@ my-kavita-app-reader/
 Two conventions coexist. The **current** one — used by `serie/` and `reader/` (the screens
 rewritten under plan 017) and the target for any new or migrated screen:
 
-- `<name>.screen.tsx`, `<name>.hooks.ts` (in `hooks/`), `<name>.transform.ts` (in `transforms/`),
-  `<name>.types.ts`, `<name>.styles.ts` — all kebab-case, role in the filename.
+- `<name>.screen.tsx`, `<name>.hooks.ts` (in `hooks/`), `<name>.types.ts`, `<name>.styles.ts` —
+  all kebab-case, role in the filename.
 - Each dumb component gets its own subfolder: `components/<comp>/<comp>.component.tsx` +
   `<comp>.styles.ts` + `<comp>.tests.tsx` + `index.ts`. Style is always a separate file (no
   inline `StyleSheet.create` in a `.component.tsx`).
@@ -68,12 +68,28 @@ The **legacy** one — `config/`, `following/`, `library/`, `search/`, `setup/`,
 Migrate to the current convention when a screen is next touched substantially; don't rename
 wholesale for its own sake.
 
-**Open inconsistency (not yet resolved):** where screen-specific pure derivation lives.
-`reader/` puts it in `transforms/reader.transform.ts` + `transforms/webtoon-blocks.transform.ts`;
-`serie/` keeps `sortChapters` inline in `serie.hooks.ts` and has no `transforms/` folder. The
-Tools (`ChapterTool`, `SerieTool`) absorbed the normalization/formatting half. The
-`CLAUDE.md` "Tool → Hook → Service → Transform → Screen → Component" flow predates this drift.
-Pick one and align both screens in a dedicated task before migrating more screens.
+### No `Transform` layer
+
+**Decided: there is no `transforms/` folder and no `*Transform.ts` file in a screen.** Pure
+derivation lives in one of:
+
+- **The domain `Tool`** (`shared/tools/<domain>/<domain>.tool.ts`) — anything about normalizing
+  or formatting that domain's entity: turning a digest into the screen's shape, display labels,
+  "effectively read", resolve-initial-page, etc. `ChapterTool.format.title` /
+  `ChapterTool.mark.*` are the pattern; `ChapterTool.fromDigest` / `ChapterTool.order.*` extend
+  it.
+- **A screen-local model file** (`<name>.window.ts`, `<name>.model.ts`) — pure state-shape logic
+  that only that screen has and no other domain would reuse (e.g. the reader's `ReaderWindow`
+  math: `buildWindow`, `computeWindowAfterFocusMove`).
+- **The mode adapter** (`<screen>/modes/<mode>.adapter.ts`) — anything that translates for one
+  rendering mode (the webtoon report → trigger, window → native blocks).
+- **`shared/transforms/<domain>.ts`** still exists for genuinely cross-screen pure functions —
+  that is the *shared* layer, not a per-screen `Transform`.
+
+`serie/` already follows this (`sortChapters` inline in `serie.hooks.ts`, normalization in
+`SerieTool`/`ChapterTool`). `reader/` still has a `transforms/` folder from its rewrite —
+Task 037 dissolves it. The `CLAUDE.md` "Tool → Hook → Service → Transform → Screen → Component"
+line is stale on the `Transform` step; treat it as "Tool/model → Hook → …".
 
 ## Domain Composition
 
