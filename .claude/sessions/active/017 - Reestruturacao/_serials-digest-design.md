@@ -1,5 +1,33 @@
 # Design notes — `buildSerialsDigest` + `SerialsService.get` + Library freshness banner
 
+> **STATUS (rc59, 2026-09-02): IMPLEMENTED.** All three parts below shipped:
+> - Kotlin `SerialsDigest` + `buildSerialsDigest` in `:content-digest`
+>   (`serial/SerialsDigest.kt`), cache-first via a merge into each series' own per-series cache
+>   (domain `serial`, key `<id>:false:false`, variant `full:external` — the exact entry
+>   `buildSerialDigest(id)` reads), `lastUpdatedEpochMs` derived from the newest touched
+>   `cachedAtEpochMs`, background `force=true` refresh when stale (TTL constant shared with
+>   `buildSerialDigest` via `SERIAL_CACHE_TTL_MS` / `isSerialCacheStale`).
+> - `SerialFields.Pages` (`read`/`total`) added to `SerialDigest` so a list-row digest still
+>   carries Kavita's series-level page progress (populated in both `fetchSerialDigest` and
+>   `serialDigestFromListData`). RN `SerialPages` + `SerialDigestSuccess.pages`, threaded through
+>   `SerieTool.normalize` → `Serie.pages`.
+> - `DigestBridge.getSerialsDigest` + `SerialsDigest.toWritableMap()` mapper.
+> - RN `SerialsService.get({ force })` → `SerialsDigest`; `SerialsService.raw.list()` kept for
+>   the smoke test. `SeriesTool.normalize({ serials: SerialDigest[] })` now just filters
+>   Failures + delegates to `SerieTool.normalize` per item.
+> - `library.hooks.ts`: dropped the RN `Store` snapshot entirely (Kotlin per-series cache is the
+>   warm-start source). Added `bannerState` (`none` / `confirmed` / `stale` / `offline`) +
+>   `DateTool.format.to.time`. New `<FreshnessBanner>` dumb component. i18n reworked:
+>   `dateMinutesAgo/HoursAgo/DaysAgo` → "minuto(s)"/"hora(s)"/"dia(s)"; `libraryUpdatedAt`
+>   (absolute), `libraryOfflineStale` / `libraryOfflineNoDate`.
+>
+> Verified: `compileDebugKotlin` + `:content-digest`/`:app` unit tests + `koverVerify` (floor 81),
+> `tsc`, `jest` (743 tests, 54 suites), JS coverage floors bumped 66→67 / 75→76.
+>
+> Original notes below (captured mid-implementation), kept for the rationale.
+
+---
+
 > Captured mid-implementation (2026-09-02). Feeds Tasks 028 / 036. The Kotlin `:server`
 > `SerialData`/`SerialListData` normalization and the RN `SeriesTool` / `LibraryTool` split are
 > already done (rc52). The date-format fix (`DateTool` + Kotlin `ensureIsoUtc`) is done and

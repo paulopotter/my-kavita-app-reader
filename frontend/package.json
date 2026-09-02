@@ -1,6 +1,6 @@
 {
   "name": "mymangareader",
-  "version": "0.9.0-rc58",
+  "version": "0.9.0-rc59",
   "private": true,
   "scripts": {
     "start": "react-native start",
@@ -95,9 +95,9 @@
     "coverageDirectory": "coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 66,
-        "lines": 66,
-        "functions": 75,
+        "statements": 67,
+        "lines": 67,
+        "functions": 76,
         "branches": 90
       }
     }
