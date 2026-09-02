@@ -179,6 +179,7 @@ class KavitaServerPluginTest {
         assertEquals("Serial A", serial.name)
         assertEquals(40, serial.pagesRead)
         assertEquals(100, serial.totalPages)
+        assertEquals("$baseUrl/api/Image/series-cover?seriesId=1&apiKey=api-key-123", serial.coverUrl)
     }
 
     // ── serial(id).get() / getMetadata() — two separate network calls ──

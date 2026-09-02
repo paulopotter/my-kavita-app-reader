@@ -194,7 +194,7 @@ private class FakePlugin(val authJson: String, var failSerialsListWith: Throwabl
     var baseUrlForFake: String = ""
 
     private fun fakeSerial(id: String) = PluginSerial(
-        id = id, name = "Serial $id", pagesRead = 0, totalPages = 0,
+        id = id, name = "Serial $id", coverUrl = "http://cover/$id", pagesRead = 0, totalPages = 0,
         libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
         latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
         aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
@@ -548,7 +548,7 @@ class ServerTest {
 
         val serials = server.serials.list()
 
-        assertEquals(listOf("1"), serials.data.map { it.id })
+        assertEquals(listOf("1"), serials.data.serials.map { it.id })
     }
 
     @Test
@@ -755,7 +755,7 @@ class ServerTest {
         failNextServalsListCall = true
         val serials = retryServer.serials.list()
 
-        assertEquals(listOf("1"), serials.data.map { it.id })
+        assertEquals(listOf("1"), serials.data.serials.map { it.id })
         assertEquals(1, urlSelector.invalidateAndReselectCalls)
     }
 

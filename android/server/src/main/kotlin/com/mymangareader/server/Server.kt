@@ -181,6 +181,69 @@ data class ImageDescriptor(
     val cache: CacheDescriptor?,
 )
 
+// Server's normalized shape for one series — the same structure whether it came from
+// serial(id).get() (one) or serials.list() (many, wrapped in SerialListData). Mirrors the raw
+// PluginSerial the plugin produces, with one difference: the plugin's flat `coverUrl: String`
+// becomes a full `coverImage: ImageDescriptor` here, built by Server (which alone knows the
+// ServerActiveInfo). This is Server's own "normalize" step — a caller above Server never deals
+// with a bare cover URL, and get() vs list() hand back items of exactly the same shape.
+@Serializable
+data class SerialData(
+    val id: String,
+    val name: String,
+    val coverImage: ImageDescriptor,
+    val pagesRead: Int,
+    val totalPages: Int,
+    val libraryId: String?,
+    val libraryName: String?,
+    val lastFolderScannedUtc: String?,
+    val lastChapterAddedUtc: String?,
+    val latestReadDateUtc: String?,
+    val originalName: String?,
+    val localizedName: String?,
+    val sortName: String?,
+    val aniListId: Int?,
+    val malId: Long?,
+    val primaryColor: String?,
+    val secondaryColor: String?,
+)
+
+// Wrapper for serials.list()'s payload — an object, not a bare array, so list-level metadata
+// (total, paging, …) has a place to land later without reshaping the contract.
+@Serializable
+data class SerialListData(
+    val serials: List<SerialData>,
+)
+
+// Server's normalize: raw PluginSerial (flat coverUrl string) → SerialData (coverImage
+// ImageDescriptor). [server]/[resolvedAtEpochMs] come from the same ServerResponse envelope that
+// carried this PluginSerial, so the cover's provenance matches the series' own.
+private fun PluginSerial.toSerialData(server: ServerActiveInfo, resolvedAtEpochMs: Long) = SerialData(
+    id = id,
+    name = name,
+    coverImage = buildImageDescriptor(
+        url = coverUrl,
+        width = null,
+        height = null,
+        resolvedAtEpochMs = resolvedAtEpochMs,
+        server = server,
+    ),
+    pagesRead = pagesRead,
+    totalPages = totalPages,
+    libraryId = libraryId,
+    libraryName = libraryName,
+    lastFolderScannedUtc = lastFolderScannedUtc,
+    lastChapterAddedUtc = lastChapterAddedUtc,
+    latestReadDateUtc = latestReadDateUtc,
+    originalName = originalName,
+    localizedName = localizedName,
+    sortName = sortName,
+    aniListId = aniListId,
+    malId = malId,
+    primaryColor = primaryColor,
+    secondaryColor = secondaryColor,
+)
+
 fun buildImageDescriptor(
     url: String,
     width: Int?,
@@ -312,13 +375,24 @@ class Server @Inject constructor(
     // dead URL (e.g. a LAN IP that stopped answering after a wifi switch) gets replaced
     // transparently instead of failing the call outright.
     val serials: Serials = object : Serials {
-        override suspend fun list(): ServerResponse<List<PluginSerial>> = withUrlRetryEnveloped { it.serials.list() }
+        override suspend fun list(): ServerResponse<SerialListData> {
+            val response = withUrlRetryEnveloped { it.serials.list() }
+            val normalized = response.data.map { it.toSerialData(response.serverInfo, response.resolvedAtEpochMs) }
+            return ServerResponse(SerialListData(normalized), response.serverInfo, response.resolvedAtEpochMs)
+        }
     }
 
     fun serial(serialId: String): Serial = SerialHandle(serialId)
 
     private inner class SerialHandle(private val serialId: String) : Serial {
-        override suspend fun get(): ServerResponse<PluginSerial> = withUrlRetryEnveloped { it.serial(serialId).get() }
+        override suspend fun get(): ServerResponse<SerialData> {
+            val response = withUrlRetryEnveloped { it.serial(serialId).get() }
+            return ServerResponse(
+                response.data.toSerialData(response.serverInfo, response.resolvedAtEpochMs),
+                response.serverInfo,
+                response.resolvedAtEpochMs,
+            )
+        }
 
         override suspend fun getMetadata(): ServerResponse<PluginSeriesMetadata> =
             withUrlRetryEnveloped { it.serial(serialId).getMetadata() }
@@ -540,11 +614,11 @@ class Server @Inject constructor(
     }
 
     interface Serials {
-        suspend fun list(): ServerResponse<List<PluginSerial>>
+        suspend fun list(): ServerResponse<SerialListData>
     }
 
     interface Serial {
-        suspend fun get(): ServerResponse<PluginSerial>
+        suspend fun get(): ServerResponse<SerialData>
         suspend fun getMetadata(): ServerResponse<PluginSeriesMetadata>
         suspend fun getCoverImage(): ImageDescriptor
         val chapters: Chapters

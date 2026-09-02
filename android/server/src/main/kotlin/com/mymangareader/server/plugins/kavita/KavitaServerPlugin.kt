@@ -17,6 +17,7 @@ import com.mymangareader.server.plugins.kavita.chapter.KavitaVolumeDto
 import com.mymangareader.server.plugins.kavita.series.KavitaSeries
 import com.mymangareader.server.plugins.kavita.series.KavitaSeriesDto
 import com.mymangareader.server.plugins.kavita.series.KavitaSeriesMetadataDto
+import com.mymangareader.tools.datetime.ensureIsoUtc
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -140,8 +141,10 @@ class KavitaServerPlugin(
     }
 
     override val serials: ServerPlugin.Serials = object : ServerPlugin.Serials {
-        override suspend fun list(): List<PluginSerial> =
-            kavitaSeries(ensureToken()).listSeries().map { it.toPluginSerial() }
+        override suspend fun list(): List<PluginSerial> {
+            val api = kavitaSeries(ensureToken())
+            return api.listSeries().map { it.toPluginSerial(api.buildSeriesCoverUrl(it.id.toString())) }
+        }
     }
 
     override fun serial(serialId: String): ServerPlugin.Serial = KavitaSerial(serialId)
@@ -182,8 +185,10 @@ class KavitaServerPlugin(
             cachedVolumes = null
         }
 
-        override suspend fun get(): PluginSerial =
-            kavitaSeries(ensureToken()).getSeries(serialId).toPluginSerial()
+        override suspend fun get(): PluginSerial {
+            val api = kavitaSeries(ensureToken())
+            return api.getSeries(serialId).toPluginSerial(api.buildSeriesCoverUrl(serialId))
+        }
 
         override suspend fun getMetadata(): PluginSeriesMetadata =
             kavitaSeries(ensureToken()).getSeriesMetadata(serialId).toPluginSeriesMetadata()
@@ -266,16 +271,19 @@ class KavitaServerPlugin(
 // name is Vital (SeriesContract) — a series with no name isn't a usable result at all, so a
 // missing name throws here rather than silently defaulting, letting buildSeriesDigest turn it
 // into a SeriesDigest.Failure the same way any other thrown exception does.
-private fun KavitaSeriesDto.toPluginSerial() = PluginSerial(
+private fun KavitaSeriesDto.toPluginSerial(coverUrl: String) = PluginSerial(
     id = id.toString(),
     name = name ?: throw KavitaServerPluginException("Series $id has no name"),
+    coverUrl = coverUrl,
     pagesRead = pagesRead,
     totalPages = pages,
     libraryId = if (libraryId != 0) libraryId.toString() else null,
     libraryName = libraryName,
-    lastFolderScannedUtc = lastFolderScanned,
-    lastChapterAddedUtc = lastChapterAddedUtc,
-    latestReadDateUtc = latestReadDate,
+    // Kavita's *Utc values are zone-less with a 7-digit fraction — fix the string FORMAT here
+    // (add the Z, clamp the fraction) so the RN side can parse it; the app converts to epoch ms.
+    lastFolderScannedUtc = ensureIsoUtc(lastFolderScanned),
+    lastChapterAddedUtc = ensureIsoUtc(lastChapterAddedUtc),
+    latestReadDateUtc = ensureIsoUtc(latestReadDate),
     originalName = originalName,
     localizedName = localizedName,
     sortName = sortName,

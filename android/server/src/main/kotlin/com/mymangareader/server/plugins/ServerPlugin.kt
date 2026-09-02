@@ -15,6 +15,13 @@ import kotlinx.serialization.Serializable
 data class PluginSerial(
     val id: String,
     val name: String,
+    // Raw cover image URL, ready to drop into an <Image src> — the plugin builds it (it's the one
+    // that knows the provider's cover path / auth scheme, e.g. Kavita's
+    // /api/Image/series-cover?seriesId=&apiKey=). Server normalizes this into a full
+    // ImageDescriptor (SerialData.coverImage) — the plugin never sees ServerActiveInfo, so it can
+    // only produce the bare string, same split as Serial.getCoverUrl() (String) vs
+    // Server.serial().getCoverImage() (ImageDescriptor).
+    val coverUrl: String,
     val pagesRead: Int,
     val totalPages: Int,
     val libraryId: String?,
