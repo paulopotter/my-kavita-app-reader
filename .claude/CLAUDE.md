@@ -22,6 +22,12 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
   See architecture.md § Domain Composition for full rules.
 
 ## Rules
+- **"Splash" = the RN splash** (`frontend/src/screens/splash/`). Always, unless the user
+  explicitly says "Splash do Kotlin". The Kotlin/native splash (Android 12 SplashScreen API held
+  by `MainActivity` via `core-splashscreen`) is **frozen**: it already has the bare minimum (a
+  static colour + icon, drawn by the OS before any code runs) and must not gain logic, UI, or
+  config. Everything else — progress, versions, OTA advisory dialogs, warm-up, theming — lives in
+  the RN splash. There is no `SplashActivity` anymore (Task 038).
 - Replies → pt-BR; code + `.claude/` → English
 - Commits: Conventional Commits, pt-BR message, no Co-Authored-By
 - Build for device → `versionar-build` skill (APK + bundle both get `-rcN`)

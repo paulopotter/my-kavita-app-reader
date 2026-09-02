@@ -133,6 +133,48 @@ By the end of this task the splash references **nothing from the old model**. Co
 - `Makefile` `APP_ACTIVITY` `.SplashActivity` → `.MainActivity` (deploy `am start` was broken).
 - `BootUiReadySignalTest`; `startup.test.ts` gains `markUiReady`.
 
+**Done in rc68/rc69 (RN splash — new file structure):**
+- `screens/splash/` on the current convention: `splash.screen.tsx` (prop-driven view for now),
+  `splash.styles.ts`, `splash.types.ts` (`SplashDestination = 'setup' | 'app'`, `SplashOtaAlert`),
+  `hooks/splash.hooks.ts` (+ `splash.tests.ts`), `components/progress/` (bar + optional caption
+  slot for "what's loading" / playful messages — memoized, clamps 0..1).
+- `AppVersions` promoted flat → `shared/components/app-versions/` (current convention + render
+  tests); Config's import updated.
+- `shared/theme/colors.ts` — first design-token pass, seeded from the colours in the files this
+  rewrite touched. Full theming = backlog **018-tema-e-design-tokens.md**.
+- No `ota-policy-alert` component — the mode→{title,body,buttons} mapping is pure derivation, so
+  it's a `useMemo` in the hook; the screen renders `<AppAlert {...otaAlert} />` directly.
+- **Legacy `SplashScreen.tsx` / `useSplash.ts` still wired in `App.tsx`** — the new screen/hook
+  are built and tested but not plugged until the boot logic (destination) migrates.
+
+**Done in rc70 (splash hook — step 1 & 2):**
+- **Step 1 (show-the-splash rule):** `useSplash` calls `StartupBridge.markUiReady()` on mount +
+  a `reportStep()` that only `console.log`s for now (progress caption not wired to the return
+  yet — it'll be fed by each boot step once the graph exists).
+- **Step 2 (OTA rule moved into the hook):** `getOtaPolicy()` on mount → `otaAlert` derived via
+  `useMemo` (mode + Strings → `{title, message, buttons, dismissible}`), wired to the return.
+  `required` = hard stop, no dismiss. Advisory = "not now" / "view notes"; `highly_recommended`
+  re-shows after 5 min; `Linking.openURL` + `acknowledgePolicy` in callbacks. `otaBundleReady` +
+  `getOtaState` phase `ready` → `otaUpdateReady` (hidden button), wired. `otaDownloadProgress` →
+  `console.log` + `reportStep` (not wired). `progress` / `destination` still not wired.
+
+**Design decisions (step 3 — server management, 2026-09-02):**
+- **`:server`'s model is single-active-group** (`activeGroupId` is one in-memory slot; N `Server`
+  instances for N servers). Multiple URLs *within* a group already work (`UrlSelector` failover).
+- **The splash just activates `groups[0]`** (what `activateFirstServerGroup` already does). No
+  "last used", no picker.
+- **Only one server group is allowed** until multi-server is designed. Nothing enforces it in
+  code — the Config screen is still 100% legacy (`SetupBridge`/`ConfigRepository`, "one Kavita +
+  N URLs") and creates **no** `server_group` at all, so a guard would be dead code. The rule is
+  registered in backlog **019-multiplos-servidores.md** and Task 035 (Config → `:server`) must
+  respect it when it adds group creation.
+- **`hasServerConfigured` / `isAuthenticated` stay on the legacy `SetupBridge`** in the splash —
+  migrating auth to `:server` is Task 035, not pulled in here. The splash only needs "is there a
+  server?" and "is the session valid?" and the legacy answers are fine for now.
+- Backlog **019-multiplos-servidores.md** created (single-active-group model, the options:
+  picker / N Server instances / aggregated library, and the impact on `:server`/digests/Library/
+  Reader/Config).
+
 **Remaining:**
 4. **Frontend** — `OtaModule.ts`: `getOtaState` + `otaDownloadProgress` types. `startup.ts`: drop
    `syncBlocking/syncInBackground/drainSyncQueue`.
