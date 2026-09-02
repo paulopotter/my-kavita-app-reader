@@ -1,0 +1,205 @@
+import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
+
+jest.mock('../../../shared/bridge/startup', () => ({
+  StartupBridge: { markUiReady: jest.fn() },
+}));
+
+const listeners: Record<string, (payload: unknown) => void> = {};
+jest.mock('../../../native/OtaModule', () => ({
+  OtaModule: {
+    getOtaPolicy: jest.fn(),
+    getOtaState: jest.fn(),
+    acknowledgePolicy: jest.fn(),
+    applyOtaUpdate: jest.fn(),
+  },
+  OtaEmitter: {
+    addListener: (name: string, cb: (payload: unknown) => void) => {
+      listeners[name] = cb;
+      return { remove: () => { delete listeners[name]; } };
+    },
+  },
+}));
+
+jest.mock('../../../shared/services/servers', () => ({
+  ServersService: { groups: { list: jest.fn() } },
+  ServerService: {
+    group: { active: { set: jest.fn() } },
+    auth: { reauthenticate: jest.fn() },
+  },
+}));
+
+jest.mock('../../../shared/bridge/followedSeries', () => ({
+  FollowedSeriesBridge: { getAllIds: jest.fn() },
+}));
+
+jest.mock('../../../shared/services/serials', () => ({
+  SerialService: { get: jest.fn() },
+}));
+
+jest.mock('../../library/hooks/library.hooks', () => ({
+  assembleLibrary: jest.fn(),
+  seedLibrary: jest.fn(),
+}));
+
+import { StartupBridge } from '../../../shared/bridge/startup';
+import { OtaModule } from '../../../native/OtaModule';
+import { ServersService, ServerService } from '../../../shared/services/servers';
+import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
+import { SerialService } from '../../../shared/services/serials';
+import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
+import { runSplashBoot, useSplash } from './splash.hooks';
+
+const markUiReady = StartupBridge.markUiReady as jest.Mock;
+const getOtaPolicy = OtaModule.getOtaPolicy as jest.Mock;
+const getOtaState = OtaModule.getOtaState as jest.Mock;
+const acknowledgePolicy = OtaModule.acknowledgePolicy as jest.Mock;
+const listGroups = ServersService.groups.list as jest.Mock;
+const setActiveGroup = ServerService.group.active.set as jest.Mock;
+const reauthenticate = ServerService.auth.reauthenticate as jest.Mock;
+const getAllIds = FollowedSeriesBridge.getAllIds as jest.Mock;
+const serialGet = SerialService.get as jest.Mock;
+const assemble = assembleLibrary as jest.Mock;
+const seed = seedLibrary as jest.Mock;
+
+function emit(name: string, payload?: unknown) {
+  act(() => { listeners[name]?.(payload); });
+}
+
+const noopSteps = { onStep: () => {}, onProgress: () => {} };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  for (const k of Object.keys(listeners)) { delete listeners[k]; }
+  markUiReady.mockResolvedValue(null);
+  getOtaPolicy.mockResolvedValue(null);
+  getOtaState.mockResolvedValue({ phase: 'idle', progress: -1, policy: null });
+  acknowledgePolicy.mockResolvedValue(undefined);
+  listGroups.mockResolvedValue([{ id: 'g1', name: 'S1' }]);
+  setActiveGroup.mockResolvedValue(undefined);
+  reauthenticate.mockResolvedValue(undefined);
+  getAllIds.mockResolvedValue([]);
+  serialGet.mockResolvedValue({ isSuccess: true });
+  assemble.mockResolvedValue({ entries: [], lastUpdatedEpochMs: null });
+  seed.mockReturnValue(undefined);
+});
+
+// ── runSplashBoot (pure) ─────────────────────────────────────────────────────
+
+describe('runSplashBoot', () => {
+  it('no server → destination setup, nothing else runs', async () => {
+    listGroups.mockResolvedValue([]);
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'setup' });
+    expect(setActiveGroup).not.toHaveBeenCalled();
+    expect(assemble).not.toHaveBeenCalled();
+  });
+
+  it('groups.list rejects → treated as no server → setup', async () => {
+    listGroups.mockRejectedValue(new Error('bridge'));
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'setup' });
+  });
+
+  it('server + auth ok → activates groups[0], warms, seeds, lands on home', async () => {
+    getAllIds.mockResolvedValue(['s1', 's2']);
+    const r = await runSplashBoot(noopSteps);
+    expect(setActiveGroup).toHaveBeenCalledWith({ groupId: 'g1' });
+    expect(serialGet).toHaveBeenCalledTimes(2);
+    expect(assemble).toHaveBeenCalledWith({ force: false });
+    expect(seed).toHaveBeenCalledTimes(1);
+    expect(r.destination).toEqual({ kind: 'home' });
+  });
+
+  it('setActiveGroup fails once → reauthenticate + retry → home', async () => {
+    setActiveGroup.mockRejectedValueOnce(new Error('401')).mockResolvedValueOnce(undefined);
+    const r = await runSplashBoot(noopSteps);
+    expect(reauthenticate).toHaveBeenCalledWith({ groupId: 'g1' });
+    expect(setActiveGroup).toHaveBeenCalledTimes(2);
+    expect(r.destination).toEqual({ kind: 'home' });
+  });
+
+  it('setActiveGroup fails and reauth also fails → setup', async () => {
+    setActiveGroup.mockRejectedValue(new Error('401'));
+    reauthenticate.mockRejectedValue(new Error('bad key'));
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'setup' });
+    expect(assemble).not.toHaveBeenCalled();
+  });
+
+  it('a warm-up failure does not change the destination', async () => {
+    assemble.mockRejectedValue(new Error('digest down'));
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'home' });
+    expect(seed).not.toHaveBeenCalled();
+  });
+
+  it('drives progress forward through the steps', async () => {
+    const seen: number[] = [];
+    await runSplashBoot({ onStep: () => {}, onProgress: v => seen.push(v) });
+    expect(seen[0]).toBeLessThan(seen[seen.length - 1]);
+    expect(seen[seen.length - 1]).toBe(1);
+  });
+});
+
+// ── useSplash (hook) ─────────────────────────────────────────────────────────
+
+describe('useSplash — mount', () => {
+  it('signals native, then reaches destination home on a healthy boot', async () => {
+    const { result } = renderHook(() => useSplash());
+    expect(markUiReady).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(result.current.destination).toEqual({ kind: 'home' }));
+  });
+
+  it('no server → destination setup', async () => {
+    listGroups.mockResolvedValue([]);
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.destination).toEqual({ kind: 'setup' }));
+  });
+
+  it('progress ends at 1 on a healthy boot', async () => {
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.progress).toBe(1));
+  });
+});
+
+describe('useSplash — OTA required is a hard stop', () => {
+  it('required → alert shown, destination stays null even though the graph would finish', async () => {
+    getOtaPolicy.mockResolvedValue({ mode: 'required', releaseNotesUrl: 'https://n' });
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
+    expect(result.current.otaAlert!.dismissible).toBe(false);
+    // give the boot graph time to settle; destination must remain null
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destination).toBeNull();
+  });
+});
+
+describe('useSplash — OTA advisory + staged bundle', () => {
+  it('recommended → dismissible 2-button alert; dismiss clears it', async () => {
+    getOtaPolicy.mockResolvedValue({ mode: 'recommended', releaseNotesUrl: 'https://n' });
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
+    expect(result.current.otaAlert!.buttons).toHaveLength(2);
+    act(() => { result.current.otaAlert!.buttons[0].onPress(); });
+    await waitFor(() => expect(result.current.otaAlert).toBeNull());
+    expect(OtaModule.acknowledgePolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it('"view notes" opens the URL', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+    getOtaPolicy.mockResolvedValue({ mode: 'highly_recommended', releaseNotesUrl: 'https://notes' });
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
+    act(() => { result.current.otaAlert!.buttons[1].onPress(); });
+    expect(openURL).toHaveBeenCalledWith('https://notes');
+    openURL.mockRestore();
+  });
+
+  it('otaBundleReady flips otaUpdateReady', async () => {
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(getOtaState).toHaveBeenCalled());
+    emit('otaBundleReady');
+    await waitFor(() => expect(result.current.otaUpdateReady).toBe(true));
+  });
+});

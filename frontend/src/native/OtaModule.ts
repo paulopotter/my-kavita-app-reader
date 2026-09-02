@@ -37,7 +37,7 @@ export interface OtaDownloadProgressEvent {
 export const OtaModule = NativeModules.OtaEventBridge as {
   applyOtaUpdate: () => void;
   getVersions: () => Promise<AppVersions>;
-  // Returns the pending OTA policy set by SplashActivity, or null if none.
+  // Returns the pending OTA policy MainActivity picked up from the boot check(), or null if none.
   getOtaPolicy: () => Promise<OtaPolicy | null>;
   // Snapshot of the background-download state — read once on mount so a download that finished (or
   // started) before the RN splash could subscribe to 'otaDownloadProgress' isn't missed.

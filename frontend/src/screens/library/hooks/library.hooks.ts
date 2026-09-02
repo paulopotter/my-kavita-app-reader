@@ -315,7 +315,11 @@ function settledOr<T>(result: PromiseSettledResult<T>, fallback: T): T {
 // SerialsService.get() is cache-first on the Kotlin side (each series merged into its own
 // per-series cache), so a warm mount resolves without a network round trip — no RN-side snapshot
 // needed. `lastUpdatedEpochMs` is the newest of those per-series cache timestamps.
-async function assembleLibrary({
+//
+// Exported (not just used by useLibrary's load) so the splash can run the same assembly on boot
+// and hand the result to seedLibrary() — same file, same function, no duplicated logic. Importing
+// this module pulls React in but runs no hook at import time, so it's fine under Jest/Metro.
+export async function assembleLibrary({
   force,
 }: {
   force: boolean;

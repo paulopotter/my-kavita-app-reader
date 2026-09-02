@@ -10,7 +10,7 @@ import {
 import { OtaModule } from '../../native/OtaModule';
 import { StartupBridge } from '../../shared/bridge/startup';
 import { AppAlert } from '../../shared/components/AppAlert';
-import { AppVersions } from '../../shared/components/AppVersions';
+import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { SplashState } from './useSplash';
 
