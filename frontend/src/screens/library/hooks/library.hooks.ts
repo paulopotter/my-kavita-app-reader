@@ -1,0 +1,412 @@
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
+import type { ExternalMetadataMatch } from '../../../shared/bridge/external';
+import { SeriesFollowedEmitter } from '../../../shared/bridge/series';
+import { useEvent } from '../../../shared/managers/events';
+import { Store } from '../../../shared/managers/store';
+import { SerialsService, SerialService } from '../../../shared/services/serials';
+import { ChapterEvents } from '../../../shared/tools/chapters';
+import { SeriesDigestIndex, SeriesTool, SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
+import type { SeriesDigestIndexEntry } from '../../../shared/tools/series';
+import { LibraryPrefs, DEFAULT_SORT_MODE, DEFAULT_VIEW_MODE } from '../library.prefs';
+import { LibraryTool, type LibraryEntry } from '../library.tool';
+import type { LibrarySortMode, LibraryViewMode, UseLibraryOptions } from '../library.types';
+
+// Debounce for the background reconcile after a cross-screen chapter-read event: marking several
+// chapters in quick succession collapses into one reload, not one per mark.
+const RECONCILE_DEBOUNCE_MS = 400;
+
+// A card past this scroll offset (px) with the user scrolling up shows the scroll-to-top button.
+const SCROLL_TOP_THRESHOLD = 300;
+
+// Persistent snapshot of the last assembled list — painted on the first frame before any network
+// call so a warm start shows no spinner. Survives an app restart (Room via :cache). No list-level
+// TTL yet (a separate task); every non-forced mount still refreshes in the background.
+const snapshotStore = Store.for<{ entries: LibraryEntry[] }>({ domain: 'library' });
+const SNAPSHOT_KEY = 'list';
+
+// ── state ────────────────────────────────────────────────────────────────────
+// `data` is ALWAYS the raw unsorted, unfiltered list exactly as assembleLibrary produced it. The
+// reducer never sorts or filters — sorting is a pure view concern (see the useMemo in the hook),
+// so changing sortMode is a single field write, not a data rebuild, and never a refetch.
+
+interface State {
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
+  data: LibraryEntry[];
+  sortMode: LibrarySortMode;
+}
+
+type Action =
+  | { type: 'LOADING' }
+  | { type: 'REFRESHING' }
+  | { type: 'LOADED'; data: LibraryEntry[] }
+  | { type: 'ERROR'; error: string }
+  | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
+  | { type: 'SET_FOLLOWED_IDS'; ids: string[] }
+  | { type: 'TOGGLE_FOLLOW'; seriesId: string }
+  | { type: 'PATCH_ENTRY'; seriesId: string; patch: Partial<LibraryEntry> }
+  | { type: 'ADJUST_READ'; seriesId: string; delta: number };
+
+// Pure view transform — sort a list by the current mode. Not in the reducer: called by a useMemo
+// keyed on (data, sortMode) so it re-runs only when one of those actually changes.
+function sortEntries(data: LibraryEntry[], mode: LibrarySortMode): LibraryEntry[] {
+  if (mode === 'ALPHABETICAL') {
+    return [...data].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return [...data].sort((a, b) => {
+    const ta = a.lastChapterAddedEpochMs ?? 0;
+    const tb = b.lastChapterAddedEpochMs ?? 0;
+    if (tb !== ta) {return tb - ta;}
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// Recomputes progressFraction / readStatus after an in-place count change (a cross-screen mark).
+// Only applies when the entry carries chapter counts; a page-only entry is left for the reload.
+function withRecomputedProgress(entry: LibraryEntry): LibraryEntry {
+  if (entry.readChapters == null || entry.chapterCount == null || entry.chapterCount <= 0) {
+    return entry;
+  }
+  const readChapters = Math.max(0, Math.min(entry.chapterCount, entry.readChapters));
+  const progressFraction = readChapters / entry.chapterCount;
+  const readStatus: LibraryEntry['readStatus'] =
+    readChapters <= 0 ? 'UNREAD' : readChapters >= entry.chapterCount ? 'READ' : 'IN_PROGRESS';
+  return { ...entry, readChapters, progressFraction, readStatus };
+}
+
+export function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'LOADING':
+      return { ...state, loading: true, error: null };
+    case 'REFRESHING':
+      return { ...state, refreshing: true, error: null };
+    case 'LOADED':
+      return { ...state, loading: false, refreshing: false, error: null, data: action.data };
+    case 'ERROR':
+      return { ...state, loading: false, refreshing: false, error: action.error };
+    case 'SET_SORT_MODE':
+      return state.sortMode === action.mode ? state : { ...state, sortMode: action.mode };
+    case 'SET_FOLLOWED_IDS': {
+      const followed = new Set(action.ids);
+      // No-op if nothing changed — avoids a re-render when the emitter fires with the same set.
+      if (state.data.every(e => e.isFollowed === followed.has(e.id))) {
+        return state;
+      }
+      return { ...state, data: state.data.map(e => ({ ...e, isFollowed: followed.has(e.id) })) };
+    }
+    case 'TOGGLE_FOLLOW':
+      return {
+        ...state,
+        data: state.data.map(e => (e.id === action.seriesId ? { ...e, isFollowed: !e.isFollowed } : e)),
+      };
+    case 'PATCH_ENTRY': {
+      const idx = state.data.findIndex(e => e.id === action.seriesId);
+      if (idx === -1) {
+        return state;
+      }
+      const patched = withRecomputedProgress({ ...state.data[idx], ...action.patch });
+      const next = state.data.slice();
+      next[idx] = patched;
+      return { ...state, data: next };
+    }
+    case 'ADJUST_READ': {
+      const idx = state.data.findIndex(e => e.id === action.seriesId);
+      if (idx === -1) {
+        return state;
+      }
+      const e = state.data[idx];
+      if (e.readChapters == null || e.chapterCount == null || e.chapterCount <= 0) {
+        return state;
+      }
+      const next = state.data.slice();
+      next[idx] = withRecomputedProgress({
+        ...e,
+        readChapters: Math.max(0, Math.min(e.chapterCount, e.readChapters + action.delta)),
+      });
+      return { ...state, data: next };
+    }
+  }
+}
+
+// How much a chapter-read change moves a series' READ count. With prevStatus known, only a real
+// crossing of the READ boundary counts; without it, an optimistic ±1 the clamp + reload reconcile.
+function readCountDelta(readStatus: string, prevStatus: string | undefined): number {
+  if (prevStatus != null) {
+    if (prevStatus !== 'READ' && readStatus === 'READ') {return 1;}
+    if (prevStatus === 'READ' && readStatus !== 'READ') {return -1;}
+    return 0;
+  }
+  return readStatus === 'READ' ? 1 : -1;
+}
+
+const initial: State = {
+  loading: true,
+  refreshing: false,
+  error: null,
+  data: [],
+  sortMode: DEFAULT_SORT_MODE,
+};
+
+// ── list assembly (the hook owns "when/how to fetch", like serie.hooks.ts's own load) ─────────
+
+// Reads whatever the persistent SeriesDigestIndex already has for these ids (a series the user
+// opened before). Missing → not in the map. Runs for every id up front, in one pass — no per-id
+// event, no per-id dispatch.
+async function readIndexFor(ids: string[]): Promise<Map<string, SeriesDigestIndexEntry>> {
+  const out = new Map<string, SeriesDigestIndexEntry>();
+  const settled = await Promise.allSettled(ids.map(id => SeriesDigestIndex.get(id)));
+  settled.forEach((result, i) => {
+    if (result.status === 'fulfilled' && result.value) {
+      out.set(ids[i], result.value);
+    }
+  });
+  return out;
+}
+
+// Fetches every followed series' digest (full=false — the card only needs counts) in parallel and
+// returns the per-series index projection. It does NOT emit SerieEvents.digestResolved per series
+// — that event is the SerieScreen's channel for a user-opened series; firing it here for every
+// followed series would bounce straight back into this hook's own listener (a re-render per
+// followed series). The results are folded into the assembled list directly instead.
+async function loadFollowedDigests(
+  followedIds: string[],
+  force: boolean,
+): Promise<Map<string, SeriesDigestIndexEntry>> {
+  const out = new Map<string, SeriesDigestIndexEntry>();
+  if (followedIds.length === 0) {
+    return out;
+  }
+  const settled = await Promise.allSettled(followedIds.map(seriesId => SerialService.get({ seriesId, force })));
+  settled.forEach((result, i) => {
+    if (result.status !== 'fulfilled' || !result.value.isSuccess) {
+      return;
+    }
+    const payload = serieDigestResolvedPayload(result.value);
+    out.set(followedIds[i], {
+      readChapters: payload.readChapters,
+      totalChapters: payload.totalChapters,
+      publicationStatus: payload.publicationStatus,
+    });
+  });
+  return out;
+}
+
+function settledOr<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  return result.status === 'fulfilled' ? result.value : fallback;
+}
+
+// Assembles LibraryEntry[] from the batch sources. Only SerialsService.list() is critical — if it
+// rejects, this rejects. getAllIds / the BFF batch / each followed digest are best-effort: a
+// rejection degrades that piece, the rest of the list still renders.
+async function assembleLibrary({ force }: { force: boolean }): Promise<LibraryEntry[]> {
+  const [serialsResult, followedResult] = await Promise.allSettled([
+    SerialsService.list(),
+    FollowedSeriesBridge.getAllIds(),
+  ]);
+
+  if (serialsResult.status !== 'fulfilled') {
+    throw serialsResult.reason instanceof Error ? serialsResult.reason : new Error(String(serialsResult.reason));
+  }
+  const series = SeriesTool.normalize({ serials: serialsResult.value });
+  const followedIds = settledOr(followedResult, [] as string[]);
+  const followedSet = new Set(followedIds);
+
+  const [matchesResult] = await Promise.allSettled([
+    SerialsService.externalDetails.sync({
+      series: series.map(s => ({ seriesId: s.id, seriesName: s.name })),
+    }),
+  ]);
+  const matches = settledOr(matchesResult, [] as (ExternalMetadataMatch | null)[]);
+
+  const freshDigests = await loadFollowedDigests(followedIds, force);
+  const idsNeedingIndex = series.map(s => s.id).filter(id => !freshDigests.has(id));
+  const staleIndex = await readIndexFor(idsNeedingIndex);
+  const indexBySeriesId = new Map<string, SeriesDigestIndexEntry>([...staleIndex, ...freshDigests]);
+
+  return LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet });
+}
+
+// ── hook ─────────────────────────────────────────────────────────────────────
+
+export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions = {}) {
+  const [state, dispatch] = useReducer(reducer, initial);
+  const [viewMode, setViewModeState] = useState<LibraryViewMode>(DEFAULT_VIEW_MODE);
+  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadInFlightRef = useRef(false);
+  const loadRef = useRef<(force?: boolean) => void>(() => {});
+
+  // Assemble (or refresh) the list. Guards against a second concurrent run (mount kicks one, and
+  // a cross-screen event could kick another before the first settles). On success it writes the
+  // persistent snapshot; it does NOT broadcast an event — there is no cross-instance channel, a
+  // coexisting Library/Following tab does its own load.
+  const load = useCallback((force = false) => {
+    if (loadInFlightRef.current) {
+      return;
+    }
+    loadInFlightRef.current = true;
+    dispatch(force ? { type: 'REFRESHING' } : { type: 'LOADING' });
+    assembleLibrary({ force })
+      .then(entries => {
+        dispatch({ type: 'LOADED', data: entries });
+        snapshotStore.set(SNAPSHOT_KEY, { entries }).catch(() => {});
+      })
+      .catch((e: unknown) => dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' }))
+      .finally(() => {
+        loadInFlightRef.current = false;
+      });
+  }, []);
+  loadRef.current = load;
+
+  // Mount: paint the persisted snapshot immediately if present, then one background refresh.
+  useEffect(() => {
+    let cancelled = false;
+    snapshotStore
+      .get(SNAPSHOT_KEY)
+      .then(rec => {
+        if (cancelled) {return;}
+        if (rec && rec.entries.length > 0) {
+          dispatch({ type: 'LOADED', data: rec.entries });
+        }
+        loadRef.current(false);
+      })
+      .catch(() => {
+        if (!cancelled) {loadRef.current(false);}
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persisted view/sort prefs for this tab.
+  useEffect(() => {
+    LibraryPrefs.getViewMode(prefsKey).then(setViewModeState).catch(() => {});
+    LibraryPrefs.getSortMode(prefsKey).then(mode => dispatch({ type: 'SET_SORT_MODE', mode })).catch(() => {});
+  }, [prefsKey]);
+
+  // A series' digest resolved elsewhere (the user opened its SerieScreen) — patch that one card's
+  // chapter counts in place. One dispatch per event, and the reducer no-ops if the series isn't
+  // in the list. publicationStatus isn't patched (the event carries the raw string, not the
+  // card's normalized enum) — the next load picks it up from the warmed index.
+  useEvent(SerieEvents.digestResolved, ({ seriesId, readChapters, totalChapters }) => {
+    if (readChapters == null && totalChapters == null) {return;}
+    dispatch({
+      type: 'PATCH_ENTRY',
+      seriesId,
+      patch: {
+        ...(readChapters != null ? { readChapters } : {}),
+        ...(totalChapters != null ? { chapterCount: totalChapters } : {}),
+      },
+    });
+  });
+
+  // Follow state changed from another screen while this tab stays mounted. The reducer no-ops if
+  // the set is unchanged, so an idle emit costs nothing.
+  useEffect(() => {
+    const sub = SeriesFollowedEmitter.addListener('seriesFollowedIds', (ids: string[]) => {
+      dispatch({ type: 'SET_FOLLOWED_IDS', ids });
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Chapter read/unread from another screen — optimistic in-place move, then one debounced
+  // background reload to reconcile the aggregate.
+  useEvent(ChapterEvents.readStatusChanged, ({ chapter, changed, phase }) => {
+    if (phase === 'confirmed') {return;}
+    const base = readCountDelta(changed.readStatus, changed.prevStatus);
+    const delta = phase === 'reverted' ? -base : base;
+    if (delta !== 0) {
+      dispatch({ type: 'ADJUST_READ', seriesId: chapter.seriesId, delta });
+    }
+    if (reconcileTimerRef.current) {clearTimeout(reconcileTimerRef.current);}
+    reconcileTimerRef.current = setTimeout(() => loadRef.current(false), RECONCILE_DEBOUNCE_MS);
+  });
+  useEffect(
+    () => () => {
+      if (reconcileTimerRef.current) {clearTimeout(reconcileTimerRef.current);}
+    },
+    [],
+  );
+
+  const refresh = useCallback(() => load(true), [load]);
+
+  const setViewMode = useCallback(
+    (mode: LibraryViewMode) => {
+      setViewModeState(mode);
+      LibraryPrefs.setViewMode(prefsKey, mode);
+    },
+    [prefsKey],
+  );
+
+  const setSortMode = useCallback(
+    (mode: LibrarySortMode) => {
+      dispatch({ type: 'SET_SORT_MODE', mode });
+      LibraryPrefs.setSortMode(prefsKey, mode);
+    },
+    [prefsKey],
+  );
+
+  const toggleSortMode = useCallback(() => {
+    setSortMode(state.sortMode === 'RECENTLY_UPDATED' ? 'ALPHABETICAL' : 'RECENTLY_UPDATED');
+  }, [state.sortMode, setSortMode]);
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode(viewMode === 'GRID' ? 'LIST' : 'GRID');
+  }, [viewMode, setViewMode]);
+
+  // ── derived view state — sort + filter live here, not in the reducer ─────────
+  // Re-runs only when the raw list, the sort mode or the filter actually change. The toggle just
+  // flips sortMode; this re-orders the list already in hand, no fetch, no re-normalization.
+  const data = useMemo(() => {
+    const sorted = sortEntries(state.data, state.sortMode);
+    return filter ? sorted.filter(filter) : sorted;
+  }, [state.data, state.sortMode, filter]);
+
+  // Alphabet index: letter → first row index, only meaningful in LIST + ALPHABETICAL.
+  const alphabetIndex = useMemo<Map<string, number>>(() => {
+    if (viewMode !== 'LIST' || state.sortMode !== 'ALPHABETICAL') {return new Map();}
+    const map = new Map<string, number>();
+    data.forEach((entry, index) => {
+      const letter = entry.name[0]?.toUpperCase() ?? '#';
+      if (!map.has(letter)) {map.set(letter, index);}
+    });
+    return map;
+  }, [data, viewMode, state.sortMode]);
+
+  // GRID needs an even item count for a clean 2-column grid — pad with one null tail cell.
+  const paddedData = useMemo<(LibraryEntry | null)[]>(
+    () => (viewMode === 'GRID' && data.length % 2 !== 0 ? [...data, null] : data),
+    [viewMode, data],
+  );
+
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const lastOffsetY = useRef(0);
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const scrollingUp = y < lastOffsetY.current;
+    lastOffsetY.current = y;
+    setShowScrollTop(scrollingUp && y > SCROLL_TOP_THRESHOLD);
+  }, []);
+  const hideScrollTop = useCallback(() => setShowScrollTop(false), []);
+
+  return {
+    loading: state.loading,
+    refreshing: state.refreshing,
+    error: state.error,
+    data,
+    paddedData,
+    viewMode,
+    sortMode: state.sortMode,
+    alphabetIndex,
+    showScrollTop,
+    hideScrollTop,
+    handleScroll,
+    refresh,
+    setViewMode,
+    setSortMode,
+    toggleSortMode,
+    toggleViewMode,
+  };
+}
