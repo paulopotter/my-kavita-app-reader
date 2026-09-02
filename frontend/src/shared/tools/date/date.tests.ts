@@ -69,6 +69,13 @@ describe('DateTool.format.to.utcIso', () => {
   });
 });
 
+describe('DateTool.format.to.time', () => {
+  it('epoch ms → local "HH:MM:SS", zero-padded', () => {
+    const d = new Date(2026, 6, 30, 4, 5, 9);
+    expect(DateTool.format.to.time(d.getTime())).toBe('04:05:09');
+  });
+});
+
 describe('DateTool.format.to.relative', () => {
   const NOW = 1_800_000_000_000;
   beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(NOW));
@@ -80,14 +87,14 @@ describe('DateTool.format.to.relative', () => {
   });
 
   it('minutes', () => {
-    expect(DateTool.format.to.relative(NOW - 5 * 60_000, t)).toBe('há 5 min');
+    expect(DateTool.format.to.relative(NOW - 5 * 60_000, t)).toBe('há 5 minuto(s)');
   });
 
   it('hours', () => {
-    expect(DateTool.format.to.relative(NOW - 3 * 3_600_000, t)).toBe('há 3 h');
+    expect(DateTool.format.to.relative(NOW - 3 * 3_600_000, t)).toBe('há 3 hora(s)');
   });
 
   it('days', () => {
-    expect(DateTool.format.to.relative(NOW - 2 * 86_400_000, t)).toBe('há 2 d');
+    expect(DateTool.format.to.relative(NOW - 2 * 86_400_000, t)).toBe('há 2 dia(s)');
   });
 });

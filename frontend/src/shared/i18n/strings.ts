@@ -180,14 +180,15 @@ export interface Strings {
 
   // ── Relative time (DateTool.format.to.relative) ──────────────────────────
   dateJustNow: string;
-  dateMinutesAgo: string; // "{0}" = minutes
-  dateHoursAgo: string; // "{0}" = hours
-  dateDaysAgo: string; // "{0}" = days
+  dateMinutesAgo: string; // "{0}" = minutes ("há {0} minuto(s)")
+  dateHoursAgo: string; // "{0}" = hours ("há {0} hora(s)")
+  dateDaysAgo: string; // "{0}" = days ("há {0} dia(s)")
 
   // ── Library freshness banner ────────────────────────────────────────────
   libraryUpdatedAgo: string; // "{0}" = DateTool relative text — "Atualizado {0}"
-  libraryUpdatedJustNow: string; // shown briefly right after a successful network refresh
-  libraryOfflineStale: string; // couldn't reach the server — showing cached data
+  libraryUpdatedAt: string; // "{0}" = absolute HH:MM:SS — shown briefly after a network refresh
+  libraryOfflineStale: string; // "{0}" = relative text — "(Sem conexão) Atualizado {0}"
+  libraryOfflineNoDate: string; // couldn't reach the server and no cache timestamp known
 }
 
 const ptBR: Strings = {
@@ -348,13 +349,14 @@ const ptBR: Strings = {
   errorDbNotOpen: 'Banco de dados não está aberto',
 
   dateJustNow: 'agora',
-  dateMinutesAgo: 'há {0} min',
-  dateHoursAgo: 'há {0} h',
-  dateDaysAgo: 'há {0} d',
+  dateMinutesAgo: 'há {0} minuto(s)',
+  dateHoursAgo: 'há {0} hora(s)',
+  dateDaysAgo: 'há {0} dia(s)',
 
   libraryUpdatedAgo: 'Atualizado {0}',
-  libraryUpdatedJustNow: 'Atualizado',
-  libraryOfflineStale: 'Sem conexão — mostrando dados salvos',
+  libraryUpdatedAt: 'Atualizado às {0}',
+  libraryOfflineStale: '(Sem conexão) Atualizado {0}',
+  libraryOfflineNoDate: 'Sem conexão — mostrando dados salvos',
 };
 
 const en: Strings = {
@@ -515,13 +517,14 @@ const en: Strings = {
   errorDbNotOpen: 'Database is not open',
 
   dateJustNow: 'just now',
-  dateMinutesAgo: '{0} min ago',
-  dateHoursAgo: '{0} h ago',
-  dateDaysAgo: '{0} d ago',
+  dateMinutesAgo: '{0} minute(s) ago',
+  dateHoursAgo: '{0} hour(s) ago',
+  dateDaysAgo: '{0} day(s) ago',
 
   libraryUpdatedAgo: 'Updated {0}',
-  libraryUpdatedJustNow: 'Updated',
-  libraryOfflineStale: 'Offline — showing saved data',
+  libraryUpdatedAt: 'Updated at {0}',
+  libraryOfflineStale: '(Offline) Updated {0}',
+  libraryOfflineNoDate: 'Offline — showing saved data',
 };
 
 export const allStrings: Record<Language, Strings> = { 'pt-BR': ptBR, en };

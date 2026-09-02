@@ -78,6 +78,14 @@ export const DateTool = {
         return new Date(epochMs).toISOString();
       },
 
+      // → "HH:MM:SS" in the device's local zone. For a wall-clock timestamp the user reads at a
+      // glance ("Atualizado às 14:30:51"), never for storage or comparison.
+      time(epochMs: number): string {
+        const d = new Date(epochMs);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      },
+
       // → "agora" / "há 5 min" / "há 2 h" / "há 3 d". `t` is injected (this tool is pure, no
       // language context). A future timestamp (clock skew) reads as "agora".
       relative(epochMs: number, t: Strings): string {
