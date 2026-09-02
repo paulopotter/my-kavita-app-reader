@@ -1,8 +1,10 @@
 # Task 028 — Correction: Library (Phase 5 — Corrections)
 
-**Status:** todo (blocked by Task 015, Task 011, Task 002, and Tasks 016-023 — Library's series
+**Status:** done (2026-09-02 — see `## Result`)
+
+**(historical)** ~~blocked by Task 015, Task 011, Task 002, and Tasks 016-023 — Library's series
 listing now goes through the real `Server` module (Task 017) and the real `Cache`/`CacheManager`
-implementation (Task 023), not just their design) — scope revised 2026-08-21 in a
+implementation (Task 023), not just their design~~ — scope revised 2026-08-21 in a
 mini-iteration with the user, superseding the original framing below. Do not follow the old
 "create `KavitaLibraryFeature.kt`" plan — see **Revised scope** for what actually applies.
 
@@ -100,3 +102,41 @@ exists.
 - Tested on a real device by the user.
 - `make coverage` shows no drop relative to the current floor.
 - Explicit user approval before `finalizar-task`.
+
+## Result (2026-09-02)
+
+Fechada junto com Task 036 (a divisão 028=remoção do legado / 036=Library sobre digest ficou
+artificial na prática — a mesma reescrita cobriu as duas).
+
+**Legado removido** (commits `90c198a`, `3df305d`, `f598eb1`):
+- `LibraryModule.kt` deletado; removido de `AppReactPackage.kt`.
+- `KavitaSeriesFeature.listSeries()` / `resolveProgress()` / `SeriesSummary` (Kotlin) removidos.
+- `BffFeature.syncBff()` / `MangaDto` / `normalizedForMatch` removidos; `SplashSyncCoordinator`
+  reescrito para um no-op (`sync()` só zera o progresso — o warm-up real vai para a task da splash).
+- `frontend/src/shared/bridge/library.ts` deletado; `LibraryScreen.tsx` / `LibraryService` /
+  `LibraryTransform` / `useLibrary` / `FollowingScreen.tsx` legados deletados.
+- `toggleFollow` duplicado sumiu com o módulo (o de `SerieTool`/`FollowedSeriesBridge` é o único).
+
+**Novo caminho** (ver Task 036 `## Result` para o detalhe do digest):
+- Listagem de série agora passa por `Server.serials.list()` (Layer 2, `SerialData`/`SerialListData`
+  com `coverImage: ImageDescriptor`) → `SerialsService.get()` → `buildSerialsDigest` (Layer 3,
+  cache-first, TTL do domínio `serial`, sem `@Volatile`).
+- `Following` deixou de ser tela própria — é a `LibraryScreen` com `route.params.mode = 'following'`
+  (commit `5839d5b`). Some a violação "screen importa de screen".
+
+**Versões:** rc48 → rc64 (APK `0.8.0`, bundle `0.9.0`).
+
+**Testes:** `npx tsc --noEmit` (0), `npx jest` (756, 54 suites), `./gradlew compileDebugKotlin`
+`koverVerify` (piso 81), `make coverage-js` (pisos 68/68/77/90). Device: `make redeploy-log` —
+Library e Following carregam, ordenação alfabética/recentes ok (após o fix `parseIsoUtcToEpochMs`
+com `Z`, commit `8e00575`, e o `onScrollToIndexFailed`, commit `0730077`), banner de frescor
+aparece, troca Library↔Following sem tela de carregar.
+
+**Follow-ups não bloqueantes:**
+- 401/token ao abrir a Library ainda ocorre esporádico → **Task 035** (auth ainda não migrou pro
+  `:server`).
+- "não re-buscar dentro de N min" no nível da lista → task separada.
+- warm-up da lista na splash (via `seedLibrary()`, já exportado) → task da splash.
+
+**Aprovação:** usuário aprovou explicitamente em 2026-09-02 após testar Library/Following e a
+ordenação no device ("show, funcionou, acho que agora da para commitar e fechar a task").

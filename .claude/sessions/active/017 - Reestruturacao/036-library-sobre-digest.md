@@ -1,6 +1,6 @@
 # Task 036 — Library screen moves to the new Server/digest stack (drop KavitaSeriesFeature.listSeries)
 
-**Status:** todo
+**Status:** done (2026-09-02 — see `## Result`)
 
 ## Objective
 
@@ -95,3 +95,56 @@ This task was carved out of Task 024's closing conversation (2026-08-29) rather 
 inline, once its real size (new Kotlin exposure decisions for BFF/publication-status, a
 fetch-strategy decision, and a full Library rewrite) became clear. Task 024 itself closes without
 touching this.
+
+## Result (2026-09-02)
+
+Ver também Task 028 `## Result` (a remoção do legado). Esta task cobre o novo caminho.
+
+**Kotlin (`:server` + `:content-digest` + bridge):**
+- `Server.serials.list()` → `ServerResponse<SerialListData>`; `SerialData` = campos do `PluginSerial`
+  com `coverImage: ImageDescriptor` no lugar de `coverUrl: String` (o `:server` normaliza; o plugin
+  Kavita só monta a string). `serial(id).get()` → `ServerResponse<SerialData>` (mesmo shape).
+  (commits `3d2d905`, `4a60128`, `e73e515` — rename `Series*→Serial*` no digest).
+- `buildSerialsDigest` (novo, `serial/SerialsDigest.kt`): 1 request `serials.list()`, cada item vira
+  um `SerialDigest.Success` mínimo montado da linha da lista (chapters/metadata/resumePoint
+  ausentes). **Sem cache próprio** — faz merge em cada cache por série (domínio `serial`, key
+  `<id>:false:false`, variant `full:external` — o mesmo que `buildSerialDigest(id)` lê),
+  preservando uma entrada mais rica de um `get` anterior. `lastUpdatedEpochMs` derivado do
+  `cachedAtEpochMs` mais novo; refresh em background quando stale (TTL do domínio, importado, não
+  duplicado). (commits `501dd06`, `8589889`, `09a75f9`).
+- `SerialFields.Pages` (`read`/`total`) adicionado ao `SerialDigest` — a linha da lista continua
+  carregando o progresso de página do Kavita.
+- `parseIsoUtcToEpochMs` passou a aceitar string com `Z`/offset (`OffsetDateTime` antes de
+  `LocalDateTime`). O `ensureIsoUtc` upstream adicionava o `Z` e o parser antigo rejeitava →
+  `lastUpdatesUTC` vazio → sort "Atualizado recentemente" sem timestamp. (commit `8e00575`).
+
+**RN:**
+- `SerialsService.get({ force })` → `SerialsDigest` (via `DigestBridge.getSerialsDigest`);
+  `SerialsService.raw.list()` mantém o `ServerBridge.listSerials()` cru (smoke test). (`9c9e128`).
+- `SeriesTool.normalize({ serials: SerialDigest[] })` só filtra Failures e delega item a item para
+  `SerieTool.normalize` (o item já é um digest). `SerieTool` passa `digest.pages` para `Serie.pages`.
+- `LibraryTool` (tool da tela, `screens/library/library.tool.ts`) compõe `LibraryEntry[]` a partir
+  de `Serie[]` + matches BFF (posicional) + `SeriesDigestIndex` + set de seguidos. (`b335bbf`).
+- `library.hooks.ts`: `assembleLibrary` usa `SerialsService.get`; sem snapshot `Store` no RN (o
+  cache por série do Kotlin é a partida quente). `bannerState` (`none`/`confirmed`/`stale`/
+  `offline`) + `<FreshnessBanner>` abaixo do header; `DateTool.format.to.time`. (`b6104d7`, `af4d178`).
+- Handoff Library↔Following: `lastAssembled` (variável de módulo) + `LibraryEvents.assembled`
+  (emitido só no `.then()` do `load()`; listener só faz `dispatch(HYDRATE)`, nunca re-emite nem
+  chama `load()` — sem loop). Lido no lazy initializer do `useReducer` → a segunda tela nasce sem
+  frame de spinner. `seedLibrary(entries, lastUpdatedEpochMs)` exportado para a splash plantar
+  dado no mesmo canal. (`fc1b282`).
+- `Following` deixou de ser tela — é `LibraryScreen` com `route.params.mode`. (`5839d5b`).
+- `onScrollToIndexFailed` no FlatList da Library — o `AlphabetIndex` chamava `scrollToIndex` sem
+  `getItemLayout`, crashava ao tocar numa letra fora da viewport. (`0730077`).
+
+**Gap aceito pelo usuário:** `downloadedChapters`/`hasErrors`/`publicationStatus` continuam vindo
+só do match BFF quando existe; sem BFF o card renderiza de `Serie` + índice. Nenhuma exposição
+nova de BFF/publication-status foi feita (não era necessária para o card funcionar).
+
+**Versões:** rc48 → rc64. **Testes:** `tsc` (0), `jest` (756, 54 suites), `compileDebugKotlin` +
+`koverVerify` (piso 81), pisos JS 68/68/77/90. Device: `make redeploy-log` — Library/Following
+carregam, ordenação alfabética e "recentes" ok, banner de frescor aparece, troca entre abas sem
+tela de carregar, índice A-Z não crasha.
+
+**Aprovação:** usuário aprovou em 2026-09-02 após testar no device ("show, funcionou, acho que
+agora da para commitar e fechar a task").
