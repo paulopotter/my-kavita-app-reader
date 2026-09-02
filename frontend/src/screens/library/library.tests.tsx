@@ -214,6 +214,31 @@ describe('LibraryScreen', () => {
     expect(getByText('B')).toBeTruthy();
   });
 
+  it('tapping an alphabet letter jumps the list, and a failed jump does not crash (onScrollToIndexFailed)', () => {
+    const a = entry({ id: 'a', name: 'Ada' });
+    const z = entry({ id: 'z', name: 'Zed' });
+    mockHookState.viewMode = 'LIST';
+    mockHookState.sortMode = 'ALPHABETICAL';
+    mockHookState.data = [a, z];
+    mockHookState.paddedData = [a, z];
+    mockHookState.alphabetIndex = new Map([
+      ['A', 0],
+      ['Z', 1],
+    ]);
+    const { getByText, UNSAFE_getByType } = render(<LibraryScreen />);
+    const FlatList = require('react-native').FlatList;
+    const list = UNSAFE_getByType(FlatList);
+
+    // The rail is wired to scrollToIndex; the FlatList must carry the failure fallback so an
+    // offscreen index never throws the "Invariant Violation" that crashed the app on device.
+    expect(typeof list.props.onScrollToIndexFailed).toBe('function');
+    expect(() =>
+      list.props.onScrollToIndexFailed({ index: 1, averageItemLength: 80, highestMeasuredFrameIndex: 0 }),
+    ).not.toThrow();
+    // Tapping a letter still fires the jump.
+    fireEvent.press(getByText('Z'));
+  });
+
   it('the card star fires SerieTool.toggleFollow', () => {
     const e = entry({ id: 's3' });
     mockHookState.data = [e];

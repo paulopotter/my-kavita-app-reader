@@ -93,6 +93,18 @@ export function LibraryScreen() {
 
   const keyExtractor = useCallback((item: LibraryEntry | null, idx: number) => (item ? item.id : `pad-${idx}`), []);
 
+  // The alphabet rail calls scrollToIndex on a letter tap. Rows have no fixed height (no
+  // getItemLayout), so a jump to a still-unrendered index throws "Invariant Violation:
+  // scrollToIndex should be used in conjunction with getItemLayout or onScrollToIndexFailed".
+  // This is that fallback: nudge toward the target by an estimated offset, let FlatList render,
+  // then land the exact index on the next frame.
+  const onScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
+    listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ index: info.index, animated: false });
+    }, 60);
+  }, []);
+
   if (loading && data.length === 0) {
     return (
       <View style={styles.center}>
@@ -168,6 +180,7 @@ export function LibraryScreen() {
           }
           onScroll={handleScroll}
           scrollEventThrottle={100}
+          onScrollToIndexFailed={onScrollToIndexFailed}
           // A re-order re-mounts nothing (stable keys) and the rows are React.memo'd, so the cost
           // is FlatList diffing 119 items. These caps keep the work per frame bounded.
           initialNumToRender={12}
