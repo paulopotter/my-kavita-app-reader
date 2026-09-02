@@ -40,6 +40,7 @@ const mockExitSelectionMode = jest.fn();
 const mockMarkSelectedRead = jest.fn();
 const mockMarkSelectedUnread = jest.fn();
 const mockRealize = jest.fn();
+const mockHideScrollTop = jest.fn();
 
 function makeChapter(overrides: Partial<SerieChapter> = {}): SerieChapter {
   return {
@@ -109,6 +110,10 @@ beforeEach(() => {
     exitSelectionMode: mockExitSelectionMode,
     markSelectedRead: mockMarkSelectedRead,
     markSelectedUnread: mockMarkSelectedUnread,
+    showScrollTop: false,
+    handleScroll: jest.fn(),
+    hideScrollTop: mockHideScrollTop,
+    onHeaderLayout: jest.fn(),
   };
 });
 
@@ -352,21 +357,29 @@ describe('SerieScreen', () => {
     expect(queryByText(t.seriesDetailSortConfigTitle)).toBeNull();
   });
 
-  it('shows the scroll-to-top button after scrolling up past the header, and scrolls to the top when pressed', () => {
+  it('wires the FlatList scroll / header layout to the hook callbacks', () => {
     mockSerieState.loading = false;
     mockSerieState.serie = makeSerie();
-    const { getByText, queryByText, UNSAFE_getByType } = render(<SerieScreen />);
+    const { UNSAFE_getByType } = render(<SerieScreen />);
     const FlatList = require('react-native').FlatList;
     const list = UNSAFE_getByType(FlatList);
 
-    // Reports the header's real rendered height, same onLayout the screen wires on its list
-    // header wrapper — needed before a scroll-up is recognized as "past the header".
-    fireEvent(list.props.ListHeaderComponent, 'layout', { nativeEvent: { layout: { height: 200 } } });
+    // onScroll goes straight to the hook; the header wrapper's onLayout is the hook's callback.
+    expect(list.props.onScroll).toBe(mockSerieState.handleScroll);
+    expect(list.props.ListHeaderComponent.props.onLayout).toBe(mockSerieState.onHeaderLayout);
+  });
 
-    fireEvent(list, 'onScroll', { nativeEvent: { contentOffset: { y: 500 } } });
-    fireEvent(list, 'onScroll', { nativeEvent: { contentOffset: { y: 100 } } });
+  it('renders the scroll-to-top button only when the hook says so, and hides it on press', () => {
+    mockSerieState.loading = false;
+    mockSerieState.serie = makeSerie();
 
+    const hidden = render(<SerieScreen />);
+    expect(hidden.queryByText('↑')).toBeNull();
+    hidden.unmount();
+
+    mockSerieState.showScrollTop = true;
+    const { getByText } = render(<SerieScreen />);
     fireEvent.press(getByText('↑'));
-    expect(queryByText('↑')).toBeNull(); // pressing it hides the button again
+    expect(mockHideScrollTop).toHaveBeenCalledTimes(1);
   });
 });

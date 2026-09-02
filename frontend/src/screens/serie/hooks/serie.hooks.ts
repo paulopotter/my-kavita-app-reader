@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
 import { EventBus } from '../../../shared/managers/events';
@@ -308,6 +309,28 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     exitSelectionMode();
   }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdate, exitSelectionMode]);
 
+  // ── scroll-to-top button visibility (presentation-only, owned by the hook per the "dumb
+  // component / dumb screen" invariant — the screen just wires onScroll / onLayout and renders) ──
+  // Shows the button once the header has scrolled out of view AND the user is scrolling back up —
+  // the "you're heading back, here's a shortcut" pattern. headerHeight is measured by the screen
+  // via onHeaderLayout; lastOffsetY tracks the previous frame to detect direction.
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const lastOffsetY = useRef(0);
+  const headerHeightRef = useRef(0);
+
+  const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+    headerHeightRef.current = e.nativeEvent.layout.height;
+  }, []);
+
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentY = e.nativeEvent.contentOffset.y;
+    const scrollingUp = currentY < lastOffsetY.current;
+    lastOffsetY.current = currentY;
+    setShowScrollTop(currentY > headerHeightRef.current && scrollingUp);
+  }, []);
+
+  const hideScrollTop = useCallback(() => setShowScrollTop(false), []);
+
   return {
     loading,
     refreshing,
@@ -340,5 +363,9 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     exitSelectionMode,
     markSelectedRead,
     markSelectedUnread,
+    showScrollTop,
+    handleScroll,
+    hideScrollTop,
+    onHeaderLayout,
   };
 }

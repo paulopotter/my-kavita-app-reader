@@ -707,4 +707,44 @@ describe('useSerie — selection mode', () => {
     act(() => result.current.markSelectedRead());
     expect(mockMarkReadMany).not.toHaveBeenCalled();
   });
+
+  describe('scroll-to-top button visibility', () => {
+    const layout = (h: number) => ({ nativeEvent: { layout: { height: h } } }) as never;
+    const scroll = (y: number) => ({ nativeEvent: { contentOffset: { y } } }) as never;
+
+    it('stays hidden until the user scrolls up past the measured header', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.onHeaderLayout(layout(200)));
+
+      // scrolling DOWN past the header — still hidden
+      act(() => result.current.handleScroll(scroll(500)));
+      expect(result.current.showScrollTop).toBe(false);
+
+      // now scrolling UP, still past the header — shown
+      act(() => result.current.handleScroll(scroll(300)));
+      expect(result.current.showScrollTop).toBe(true);
+    });
+
+    it('does not show while still within the header height, even when scrolling up', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.onHeaderLayout(layout(200)));
+
+      act(() => result.current.handleScroll(scroll(150)));
+      act(() => result.current.handleScroll(scroll(50))); // scrolling up but header still visible
+      expect(result.current.showScrollTop).toBe(false);
+    });
+
+    it('hideScrollTop forces it hidden', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.onHeaderLayout(layout(100)));
+      act(() => result.current.handleScroll(scroll(500)));
+      act(() => result.current.handleScroll(scroll(200)));
+      expect(result.current.showScrollTop).toBe(true);
+      act(() => result.current.hideScrollTop());
+      expect(result.current.showScrollTop).toBe(false);
+    });
+  });
 });

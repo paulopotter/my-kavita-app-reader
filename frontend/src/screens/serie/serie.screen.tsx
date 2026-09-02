@@ -3,8 +3,6 @@ import {
   ActivityIndicator,
   BackHandler,
   FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   RefreshControl,
   Text,
   TouchableOpacity,
@@ -61,9 +59,6 @@ export function SerieScreen() {
 
   const [sortConfigVisible, setSortConfigVisible] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const lastOffsetY = useRef(0);
-  const headerHeightRef = useRef(0);
 
   const {
     loading,
@@ -72,6 +67,7 @@ export function SerieScreen() {
     serie,
     chapters,
     continueChapter,
+    readCount,
     actionLabel,
     isFollowed,
     sortMode,
@@ -92,6 +88,10 @@ export function SerieScreen() {
     exitSelectionMode,
     markSelectedRead,
     markSelectedUnread,
+    showScrollTop,
+    handleScroll,
+    hideScrollTop,
+    onHeaderLayout,
   } = useSerie({ seriesId, origin });
 
   function handleBack() {
@@ -134,14 +134,6 @@ export function SerieScreen() {
     const target = continueChapter ?? chapters[0];
     if (!target) {return;}
     navigation.navigate(Routes.READER, { seriesId, chapterId: target.id, origin, seriesName: serie?.name });
-  }
-
-  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const currentY = e.nativeEvent.contentOffset.y;
-    const scrollingUp = currentY < lastOffsetY.current;
-    lastOffsetY.current = currentY;
-    const headerGone = currentY > headerHeightRef.current;
-    setShowScrollTop(headerGone && scrollingUp);
   }
 
   if (loading && chapters.length === 0 && !serie) {
@@ -198,14 +190,11 @@ export function SerieScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={100}
         ListHeaderComponent={
-          <View
-            onLayout={e => {
-              headerHeightRef.current = e.nativeEvent.layout.height;
-            }}>
+          <View onLayout={onHeaderLayout}>
             {serie && <Header serie={serie} actionLabel={actionLabel} onActionPress={handleActionPress} />}
             <View style={styles.sortBar}>
               <Text style={styles.chapterCount}>
-                {chapters.filter(c => c.readStatus === 'READ').length}/{chapters.length}
+                {readCount}/{chapters.length}
               </Text>
               <TouchableOpacity style={styles.sortToggle} onPress={toggleSortOrder}>
                 <Text style={styles.sortToggleText}>{sortModeLabel(sortMode, sortFixedThreshold, sortProgressPercent, t)}</Text>
@@ -230,7 +219,7 @@ export function SerieScreen() {
         <ScrollToTopButton
           onPress={() => {
             listRef.current?.scrollToOffset({ offset: 0, animated: true });
-            setShowScrollTop(false);
+            hideScrollTop();
           }}
         />
       )}
