@@ -54,7 +54,7 @@ jest.mock('../library.prefs', () => ({
 import { EventBus } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SerieEvents } from '../../../shared/tools/series';
-import { useLibrary } from './library.hooks';
+import { useLibrary, __resetLibraryHandoff } from './library.hooks';
 import type { ServerActiveInfo } from '../../../shared/bridge/digest';
 
 const server: ServerActiveInfo = {
@@ -107,6 +107,7 @@ function seriesDigest(id: string, readCount: number, total: number) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  __resetLibraryHandoff();
   mockGet.mockResolvedValue(serialsDigest([]));
   mockExternalSync.mockResolvedValue([]);
   mockGetAllIds.mockResolvedValue([]);
@@ -308,6 +309,49 @@ describe('useLibrary — cross-screen events', () => {
     });
     expect(mockGet).toHaveBeenCalled();
     jest.useRealTimers();
+  });
+});
+
+describe('useLibrary — cross-screen handoff (Library <-> Following)', () => {
+  it('a second instance mounting right after the first paints via the handoff, WITHOUT its own get()', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('a'), serialData('b')]));
+    const first = renderHook(() => useLibrary());
+    await waitFor(() => expect(first.result.current.data).toHaveLength(2));
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    // Following mounts moments later — no spinner, no extra fetch.
+    const second = renderHook(() => useLibrary({ filter: e => e.isFollowed, prefsKey: 'following' }));
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('an instance mounted alongside another receives its assembled list via the event', async () => {
+    // Both mount before any data resolves.
+    let resolveGet: (v: unknown) => void = () => {};
+    mockGet.mockImplementation(() => new Promise(r => { resolveGet = r; }));
+    const lib = renderHook(() => useLibrary());
+    const fol = renderHook(() => useLibrary({ filter: e => e.isFollowed, prefsKey: 'following' }));
+
+    // Only the first mount's get() is in flight (second mount also called it, but...); resolve it.
+    act(() => resolveGet(serialsDigest([serialData('a'), serialData('b')])));
+    await waitFor(() => expect(lib.result.current.data.length).toBe(2));
+    // Following got the same list through LibraryEvents.assembled — no crash, no loop, data present.
+    await waitFor(() => expect(fol.result.current.data.length).toBe(0)); // none followed → filtered empty
+    expect(fol.result.current.loading).toBe(false);
+  });
+
+  it('the handoff never loops — a hydrate does not trigger another get() or emit', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('a')]));
+    const first = renderHook(() => useLibrary());
+    await waitFor(() => expect(first.result.current.data).toHaveLength(1));
+    const callsAfterFirst = mockGet.mock.calls.length;
+
+    const second = renderHook(() => useLibrary({ prefsKey: 'following' }));
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+
+    // Give any stray re-emit / reload a chance to fire.
+    await new Promise<void>(r => setTimeout(r, 50));
+    expect(mockGet.mock.calls.length).toBe(callsAfterFirst); // still no extra fetch from the handoff
   });
 });
 

@@ -3,11 +3,12 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
 import type { ExternalMetadataMatch } from '../../../shared/bridge/external';
 import { SeriesFollowedEmitter } from '../../../shared/bridge/series';
-import { useEvent } from '../../../shared/managers/events';
+import { EventBus, useEvent } from '../../../shared/managers/events';
 import { SerialsService, SerialService } from '../../../shared/services/serials';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SeriesDigestIndex, SeriesTool, SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
 import type { SeriesDigestIndexEntry } from '../../../shared/tools/series';
+import { LibraryEvents } from '../library.events';
 import { LibraryPrefs, DEFAULT_SORT_MODE, DEFAULT_VIEW_MODE } from '../library.prefs';
 import { LibraryTool, type LibraryEntry } from '../library.tool';
 import type { LibrarySortMode, LibraryViewMode, UseLibraryOptions } from '../library.types';
@@ -26,6 +27,19 @@ const BANNER_CONFIRMED_MS = 4000;
 // Older than this and the data is "stale" — matches :content-digest's SERIAL cache TTL (15 min),
 // the same window buildSerialsDigest itself uses to decide a background refresh is due.
 const STALE_AFTER_MS = 15 * 60 * 1000;
+
+// A just-assembled list, shared across every useLibrary instance (Library + Following) so the
+// second screen to mount paints it synchronously instead of flashing a spinner while it
+// re-assembles identical data. Written only in load()'s .then(); read only on mount. `null` until
+// the first assemble in this app session. Not persisted (that was the rc57 Store snapshot, ripped
+// out for the allocation cost) — the Kotlin per-series cache is the cold-start source.
+let lastAssembled: { entries: LibraryEntry[]; lastUpdatedEpochMs: number | null; atEpochMs: number } | null = null;
+
+// A mount reuses lastAssembled without its own fetch only while it's this fresh; older than this,
+// the mount does a normal background load() instead.
+const HANDOFF_FRESH_MS = 30 * 1000;
+
+let libraryInstanceSeq = 0;
 
 // What the freshness strip under the header shows. 'confirmed' is the transient post-refresh
 // state; 'offline' means the last load failed but we're still showing cached rows; 'stale' means
@@ -61,6 +75,10 @@ type Action =
   | { type: 'LOADING' }
   | { type: 'REFRESHING' }
   | { type: 'LOADED'; data: LibraryEntry[]; lastUpdatedEpochMs: number | null; forced: boolean }
+  // Data assembled by ANOTHER useLibrary instance (or by lastAssembled on mount). Same effect on
+  // state as LOADED with forced=false, but it must never trigger a load() or an emit — that's what
+  // keeps the cross-screen handoff from looping.
+  | { type: 'HYDRATE'; data: LibraryEntry[]; lastUpdatedEpochMs: number | null }
   | { type: 'ERROR'; error: string }
   | { type: 'CLEAR_CONFIRMED' }
   | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
@@ -112,6 +130,21 @@ export function reducer(state: State, action: Action): State {
         data: action.data,
         lastUpdatedEpochMs: action.lastUpdatedEpochMs,
         confirmedAtEpochMs: action.forced ? Date.now() : null,
+      };
+    case 'HYDRATE':
+      // Reference-equality guard: the same array handed back (a re-emit we already applied) is a
+      // no-op, so it can't drive an extra render.
+      if (state.data === action.data && !state.loading) {
+        return state;
+      }
+      return {
+        ...state,
+        loading: false,
+        refreshing: false,
+        error: null,
+        loadFailed: false,
+        data: action.data,
+        lastUpdatedEpochMs: action.lastUpdatedEpochMs,
       };
     case 'ERROR':
       // Keep whatever `data` is already on screen — only flag the failure so the banner can say
@@ -286,12 +319,20 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadInFlightRef = useRef(false);
   const loadRef = useRef<(force?: boolean) => void>(() => {});
+  // Stable id for THIS instance — lets the assembled-list listener below ignore its own emit.
+  const instanceIdRef = useRef<string>('');
+  if (instanceIdRef.current === '') {
+    instanceIdRef.current = `lib-${(libraryInstanceSeq += 1)}`;
+  }
 
   // Assemble (or refresh) the list. Guards against a second concurrent run (mount kicks one, and
   // a cross-screen event could kick another before the first settles). No RN-side snapshot write —
-  // SerialsService.get() is cache-first on the Kotlin side, so a warm mount is already fast. It
-  // does NOT broadcast an event — there is no cross-instance channel, a coexisting Library/
-  // Following tab does its own load.
+  // SerialsService.get() is cache-first on the Kotlin side, so a warm mount is already fast.
+  //
+  // On success it publishes LibraryEvents.assembled (and fills the module-level lastAssembled) so
+  // the OTHER LibraryScreen (Library <-> Following) can paint the same list without re-fetching.
+  // This is the ONLY emit; the listener never re-emits and never calls load(), so there is no
+  // cycle — see library.events.ts.
   const load = useCallback((force = false) => {
     if (loadInFlightRef.current) {
       return;
@@ -301,6 +342,14 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     assembleLibrary({ force })
       .then(({ entries, lastUpdatedEpochMs }) => {
         dispatch({ type: 'LOADED', data: entries, lastUpdatedEpochMs, forced: force });
+        const assembledAtEpochMs = Date.now();
+        lastAssembled = { entries, lastUpdatedEpochMs, atEpochMs: assembledAtEpochMs };
+        EventBus.emit(LibraryEvents.assembled, {
+          instanceId: instanceIdRef.current,
+          entries,
+          lastUpdatedEpochMs,
+          assembledAtEpochMs,
+        });
       })
       .catch((e: unknown) => dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' }))
       .finally(() => {
@@ -309,11 +358,29 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   }, []);
   loadRef.current = load;
 
-  // Mount: one background load. The Kotlin per-series cache is the warm-start source now — a hit
-  // resolves before the first paint with no spinner, a miss shows the spinner once.
+  // Mount: if another instance assembled the list moments ago, paint it synchronously (no spinner)
+  // and skip this mount's own fetch — the emitting instance already refreshed. Otherwise do the
+  // normal background load; the Kotlin per-series cache keeps a cold start fast.
   useEffect(() => {
+    if (lastAssembled && Date.now() - lastAssembled.atEpochMs < HANDOFF_FRESH_MS) {
+      dispatch({
+        type: 'HYDRATE',
+        data: lastAssembled.entries,
+        lastUpdatedEpochMs: lastAssembled.lastUpdatedEpochMs,
+      });
+      return;
+    }
     loadRef.current(false);
   }, []);
+
+  // The other LibraryScreen finished assembling while this one is mounted (both tabs alive). Take
+  // its list as-is. HYDRATE only — no load(), no re-emit — so this can never bounce back.
+  useEvent(LibraryEvents.assembled, ({ instanceId, entries, lastUpdatedEpochMs }) => {
+    if (instanceId === instanceIdRef.current) {
+      return;
+    }
+    dispatch({ type: 'HYDRATE', data: entries, lastUpdatedEpochMs });
+  });
 
   // Persisted view/sort prefs for this tab.
   useEffect(() => {
@@ -473,4 +540,11 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     toggleSortMode,
     toggleViewMode,
   };
+}
+
+// Test-only: clear the cross-instance handoff cache between test cases (it's module-level state,
+// so it would otherwise leak from one test into the next).
+export function __resetLibraryHandoff(): void {
+  lastAssembled = null;
+  libraryInstanceSeq = 0;
 }
