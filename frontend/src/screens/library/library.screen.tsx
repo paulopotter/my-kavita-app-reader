@@ -7,9 +7,11 @@ import { useStrings } from '../../shared/i18n/useStrings';
 import type { Strings } from '../../shared/i18n/strings';
 import { NavOrigin, Routes } from '../../navigation/routes';
 import { SerieTool } from '../../shared/tools/series';
+import { DateTool } from '../../shared/tools/date';
 import { LibraryTool, type LibraryEntry } from './library.tool';
-import { AlphabetIndex, SeriesCard, SeriesListItem } from './components';
-import { useLibrary } from './hooks';
+import { AlphabetIndex, FreshnessBanner, SeriesCard, SeriesListItem } from './components';
+import type { FreshnessBannerVariant } from './components';
+import { useLibrary, type LibraryBannerState } from './hooks';
 import { styles } from './library.styles';
 import type { UseLibraryOptions } from './library.types';
 
@@ -26,6 +28,7 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
     loading,
     refreshing,
     error,
+    bannerState,
     data,
     paddedData,
     viewMode,
@@ -106,6 +109,7 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
   }
 
   const alphabetEntries = Array.from(alphabetIndex.entries());
+  const banner = freshnessBanner(bannerState, t);
 
   return (
     <View style={styles.root}>
@@ -122,6 +126,8 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
           <Text style={styles.viewToggleIcon}>{viewMode === 'GRID' ? '☰' : '⊞'}</Text>
         </TouchableOpacity>
       </View>
+
+      {banner && <FreshnessBanner variant={banner.variant} text={banner.text} />}
 
       <View style={styles.content}>
         <FlatList
@@ -173,6 +179,32 @@ export function LibraryScreen({ filter, prefsKey, emptyText }: Props = {}) {
       </View>
     </View>
   );
+}
+
+// ── freshness banner (pure, screen-local — maps the hook's bannerState to a variant + string) ──
+
+function freshnessBanner(
+  state: LibraryBannerState,
+  t: Strings,
+): { variant: FreshnessBannerVariant; text: string } | null {
+  switch (state.kind) {
+    case 'none':
+      return null;
+    case 'confirmed':
+      return { variant: 'confirmed', text: t.libraryUpdatedAt.replace('{0}', DateTool.format.to.time(state.atEpochMs)) };
+    case 'stale':
+      return {
+        variant: 'stale',
+        text: t.libraryUpdatedAgo.replace('{0}', DateTool.format.to.relative(state.sinceEpochMs, t)),
+      };
+    case 'offline':
+      return state.sinceEpochMs == null
+        ? { variant: 'offline', text: t.libraryOfflineNoDate }
+        : {
+            variant: 'offline',
+            text: t.libraryOfflineStale.replace('{0}', DateTool.format.to.relative(state.sinceEpochMs, t)),
+          };
+  }
 }
 
 // ── label assembly (pure, screen-local — the dumb components take strings only) ──────────────

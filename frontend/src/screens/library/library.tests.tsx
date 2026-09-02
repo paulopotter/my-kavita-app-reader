@@ -16,10 +16,13 @@ jest.mock('../../shared/tools/series', () => {
   return { ...actual, SerieTool: { ...actual.SerieTool, toggleFollow: (...a: unknown[]) => mockToggleFollow(...a) } };
 });
 
+import type { LibraryBannerState } from './hooks';
+
 const mockHookState: {
   loading: boolean;
   refreshing: boolean;
   error: string | null;
+  bannerState: LibraryBannerState;
   data: LibraryEntry[];
   paddedData: (LibraryEntry | null)[];
   viewMode: 'GRID' | 'LIST';
@@ -30,6 +33,7 @@ const mockHookState: {
   loading: false,
   refreshing: false,
   error: null,
+  bannerState: { kind: 'none' },
   data: [],
   paddedData: [],
   viewMode: 'GRID',
@@ -76,6 +80,7 @@ beforeEach(() => {
     loading: false,
     refreshing: false,
     error: null,
+    bannerState: { kind: 'none' },
     data: [],
     paddedData: [],
     viewMode: 'GRID',
@@ -117,6 +122,33 @@ describe('LibraryScreen', () => {
     expect(getByText(`1 ${t.librarySeriesCount}`)).toBeTruthy();
     fireEvent.press(getByText('Bravo'));
     expect(mockNavigate).toHaveBeenCalledWith('series/:seriesId', { seriesId: 's7', origin: 'LIBRARY' });
+  });
+
+  it('renders the freshness banner from bannerState (stale → relative "Atualizado há ...")', () => {
+    const e = entry();
+    mockHookState.data = [e];
+    mockHookState.paddedData = [e, null];
+    mockHookState.bannerState = { kind: 'stale', sinceEpochMs: Date.now() - 20 * 60 * 1000 };
+    const { getByText } = render(<LibraryScreen />);
+    expect(getByText(/^Atualizado há \d+ minuto\(s\)$/)).toBeTruthy();
+  });
+
+  it('renders the confirmed banner (absolute time) from bannerState', () => {
+    const e = entry();
+    mockHookState.data = [e];
+    mockHookState.paddedData = [e, null];
+    mockHookState.bannerState = { kind: 'confirmed', atEpochMs: new Date(2026, 0, 1, 14, 30, 51).getTime() };
+    const { getByText } = render(<LibraryScreen />);
+    expect(getByText('Atualizado às 14:30:51')).toBeTruthy();
+  });
+
+  it('renders no banner when bannerState is "none"', () => {
+    const e = entry();
+    mockHookState.data = [e];
+    mockHookState.paddedData = [e, null];
+    const { queryByText } = render(<LibraryScreen />);
+    expect(queryByText(/^Atualizado há/)).toBeNull();
+    expect(queryByText(/^Atualizado às/)).toBeNull();
   });
 
   it('renders list rows in LIST mode with chapter-count and downloaded labels', () => {

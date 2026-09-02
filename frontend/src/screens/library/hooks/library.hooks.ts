@@ -4,7 +4,6 @@ import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
 import type { ExternalMetadataMatch } from '../../../shared/bridge/external';
 import { SeriesFollowedEmitter } from '../../../shared/bridge/series';
 import { useEvent } from '../../../shared/managers/events';
-import { Store } from '../../../shared/managers/store';
 import { SerialsService, SerialService } from '../../../shared/services/serials';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SeriesDigestIndex, SeriesTool, SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
@@ -20,11 +19,22 @@ const RECONCILE_DEBOUNCE_MS = 400;
 // A card past this scroll offset (px) with the user scrolling up shows the scroll-to-top button.
 const SCROLL_TOP_THRESHOLD = 300;
 
-// Persistent snapshot of the last assembled list — painted on the first frame before any network
-// call so a warm start shows no spinner. Survives an app restart (Room via :cache). No list-level
-// TTL yet (a separate task); every non-forced mount still refreshes in the background.
-const snapshotStore = Store.for<{ entries: LibraryEntry[] }>({ domain: 'library' });
-const SNAPSHOT_KEY = 'list';
+// After a force-refresh that actually reached the network, the "Atualizado às HH:MM:SS" banner
+// stays up this long, then hides itself. A cache-first mount never shows this variant.
+const BANNER_CONFIRMED_MS = 4000;
+
+// Older than this and the data is "stale" — matches :content-digest's SERIAL cache TTL (15 min),
+// the same window buildSerialsDigest itself uses to decide a background refresh is due.
+const STALE_AFTER_MS = 15 * 60 * 1000;
+
+// What the freshness strip under the header shows. 'confirmed' is the transient post-refresh
+// state; 'offline' means the last load failed but we're still showing cached rows; 'stale' means
+// the newest cached row is past STALE_AFTER_MS; 'none' hides the strip.
+export type LibraryBannerState =
+  | { kind: 'none' }
+  | { kind: 'confirmed'; atEpochMs: number }
+  | { kind: 'stale'; sinceEpochMs: number }
+  | { kind: 'offline'; sinceEpochMs: number | null };
 
 // ── state ────────────────────────────────────────────────────────────────────
 // `data` is ALWAYS the raw unsorted, unfiltered list exactly as assembleLibrary produced it. The
@@ -37,13 +47,22 @@ interface State {
   error: string | null;
   data: LibraryEntry[];
   sortMode: LibrarySortMode;
+  // Newest per-series cache timestamp reported by the last successful SerialsService.get()
+  // (SerialsDigest.lastUpdatedEpochMs). null until the first success / on an empty library.
+  lastUpdatedEpochMs: number | null;
+  // Set when a load fails while `data` still holds cached rows — drives the 'offline' banner.
+  loadFailed: boolean;
+  // Set right after a force-refresh that reached the network — drives the transient 'confirmed'
+  // banner. Cleared on a timer (BANNER_CONFIRMED_MS) and on any non-forced load.
+  confirmedAtEpochMs: number | null;
 }
 
 type Action =
   | { type: 'LOADING' }
   | { type: 'REFRESHING' }
-  | { type: 'LOADED'; data: LibraryEntry[] }
+  | { type: 'LOADED'; data: LibraryEntry[]; lastUpdatedEpochMs: number | null; forced: boolean }
   | { type: 'ERROR'; error: string }
+  | { type: 'CLEAR_CONFIRMED' }
   | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
   | { type: 'SET_FOLLOWED_IDS'; ids: string[] }
   | { type: 'TOGGLE_FOLLOW'; seriesId: string }
@@ -84,9 +103,22 @@ export function reducer(state: State, action: Action): State {
     case 'REFRESHING':
       return { ...state, refreshing: true, error: null };
     case 'LOADED':
-      return { ...state, loading: false, refreshing: false, error: null, data: action.data };
+      return {
+        ...state,
+        loading: false,
+        refreshing: false,
+        error: null,
+        loadFailed: false,
+        data: action.data,
+        lastUpdatedEpochMs: action.lastUpdatedEpochMs,
+        confirmedAtEpochMs: action.forced ? Date.now() : null,
+      };
     case 'ERROR':
-      return { ...state, loading: false, refreshing: false, error: action.error };
+      // Keep whatever `data` is already on screen — only flag the failure so the banner can say
+      // "offline". A hard error with no data at all is still surfaced via `error`.
+      return { ...state, loading: false, refreshing: false, error: action.error, loadFailed: true };
+    case 'CLEAR_CONFIRMED':
+      return state.confirmedAtEpochMs == null ? state : { ...state, confirmedAtEpochMs: null };
     case 'SET_SORT_MODE':
       return state.sortMode === action.mode ? state : { ...state, sortMode: action.mode };
     case 'SET_FOLLOWED_IDS': {
@@ -148,6 +180,9 @@ const initial: State = {
   error: null,
   data: [],
   sortMode: DEFAULT_SORT_MODE,
+  lastUpdatedEpochMs: null,
+  loadFailed: false,
+  confirmedAtEpochMs: null,
 };
 
 // ── list assembly (the hook owns "when/how to fetch", like serie.hooks.ts's own load) ─────────
@@ -198,19 +233,30 @@ function settledOr<T>(result: PromiseSettledResult<T>, fallback: T): T {
   return result.status === 'fulfilled' ? result.value : fallback;
 }
 
-// Assembles LibraryEntry[] from the batch sources. Only SerialsService.list() is critical — if it
-// rejects, this rejects. getAllIds / the BFF batch / each followed digest are best-effort: a
-// rejection degrades that piece, the rest of the list still renders.
-async function assembleLibrary({ force }: { force: boolean }): Promise<LibraryEntry[]> {
+// Assembles LibraryEntry[] from the batch sources. Only SerialsService.get() is critical — if it
+// rejects, or comes back a Failure, this rejects. getAllIds / the BFF batch / each followed
+// digest are best-effort: a rejection degrades that piece, the rest of the list still renders.
+// SerialsService.get() is cache-first on the Kotlin side (each series merged into its own
+// per-series cache), so a warm mount resolves without a network round trip — no RN-side snapshot
+// needed. `lastUpdatedEpochMs` is the newest of those per-series cache timestamps.
+async function assembleLibrary({
+  force,
+}: {
+  force: boolean;
+}): Promise<{ entries: LibraryEntry[]; lastUpdatedEpochMs: number | null }> {
   const [serialsResult, followedResult] = await Promise.allSettled([
-    SerialsService.list(),
+    SerialsService.get({ force }),
     FollowedSeriesBridge.getAllIds(),
   ]);
 
   if (serialsResult.status !== 'fulfilled') {
     throw serialsResult.reason instanceof Error ? serialsResult.reason : new Error(String(serialsResult.reason));
   }
-  const series = SeriesTool.normalize({ serials: serialsResult.value });
+  if (!serialsResult.value.isSuccess) {
+    throw new Error(serialsResult.value.error.message ?? serialsResult.value.error.code ?? 'serials digest failed');
+  }
+  const digest = serialsResult.value;
+  const series = SeriesTool.normalize({ serials: digest.serials });
   const followedIds = settledOr(followedResult, [] as string[]);
   const followedSet = new Set(followedIds);
 
@@ -226,7 +272,10 @@ async function assembleLibrary({ force }: { force: boolean }): Promise<LibraryEn
   const staleIndex = await readIndexFor(idsNeedingIndex);
   const indexBySeriesId = new Map<string, SeriesDigestIndexEntry>([...staleIndex, ...freshDigests]);
 
-  return LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet });
+  return {
+    entries: LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet }),
+    lastUpdatedEpochMs: digest.lastUpdatedEpochMs,
+  };
 }
 
 // ── hook ─────────────────────────────────────────────────────────────────────
@@ -239,9 +288,10 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   const loadRef = useRef<(force?: boolean) => void>(() => {});
 
   // Assemble (or refresh) the list. Guards against a second concurrent run (mount kicks one, and
-  // a cross-screen event could kick another before the first settles). On success it writes the
-  // persistent snapshot; it does NOT broadcast an event — there is no cross-instance channel, a
-  // coexisting Library/Following tab does its own load.
+  // a cross-screen event could kick another before the first settles). No RN-side snapshot write —
+  // SerialsService.get() is cache-first on the Kotlin side, so a warm mount is already fast. It
+  // does NOT broadcast an event — there is no cross-instance channel, a coexisting Library/
+  // Following tab does its own load.
   const load = useCallback((force = false) => {
     if (loadInFlightRef.current) {
       return;
@@ -249,9 +299,8 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     loadInFlightRef.current = true;
     dispatch(force ? { type: 'REFRESHING' } : { type: 'LOADING' });
     assembleLibrary({ force })
-      .then(entries => {
-        dispatch({ type: 'LOADED', data: entries });
-        snapshotStore.set(SNAPSHOT_KEY, { entries }).catch(() => {});
+      .then(({ entries, lastUpdatedEpochMs }) => {
+        dispatch({ type: 'LOADED', data: entries, lastUpdatedEpochMs, forced: force });
       })
       .catch((e: unknown) => dispatch({ type: 'ERROR', error: e instanceof Error ? e.message : 'Unknown error' }))
       .finally(() => {
@@ -260,24 +309,10 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   }, []);
   loadRef.current = load;
 
-  // Mount: paint the persisted snapshot immediately if present, then one background refresh.
+  // Mount: one background load. The Kotlin per-series cache is the warm-start source now — a hit
+  // resolves before the first paint with no spinner, a miss shows the spinner once.
   useEffect(() => {
-    let cancelled = false;
-    snapshotStore
-      .get(SNAPSHOT_KEY)
-      .then(rec => {
-        if (cancelled) {return;}
-        if (rec && rec.entries.length > 0) {
-          dispatch({ type: 'LOADED', data: rec.entries });
-        }
-        loadRef.current(false);
-      })
-      .catch(() => {
-        if (!cancelled) {loadRef.current(false);}
-      });
-    return () => {
-      cancelled = true;
-    };
+    loadRef.current(false);
   }, []);
 
   // Persisted view/sort prefs for this tab.
@@ -364,6 +399,34 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     return filter ? sorted.filter(filter) : sorted;
   }, [state.data, state.sortMode, filter]);
 
+  // Freshness strip state. 'confirmed' wins right after a successful force-refresh (transient);
+  // then 'offline' if the last load failed but rows are still shown; then 'stale' if the newest
+  // cached row is old; else 'none'.
+  const bannerState = useMemo<LibraryBannerState>(() => {
+    if (state.confirmedAtEpochMs != null) {
+      return { kind: 'confirmed', atEpochMs: state.confirmedAtEpochMs };
+    }
+    if (state.loadFailed && state.data.length > 0) {
+      return { kind: 'offline', sinceEpochMs: state.lastUpdatedEpochMs };
+    }
+    if (
+      state.lastUpdatedEpochMs != null &&
+      Date.now() - state.lastUpdatedEpochMs >= STALE_AFTER_MS
+    ) {
+      return { kind: 'stale', sinceEpochMs: state.lastUpdatedEpochMs };
+    }
+    return { kind: 'none' };
+  }, [state.confirmedAtEpochMs, state.loadFailed, state.data.length, state.lastUpdatedEpochMs]);
+
+  // Auto-hide the 'confirmed' strip after BANNER_CONFIRMED_MS.
+  useEffect(() => {
+    if (state.confirmedAtEpochMs == null) {
+      return;
+    }
+    const timer = setTimeout(() => dispatch({ type: 'CLEAR_CONFIRMED' }), BANNER_CONFIRMED_MS);
+    return () => clearTimeout(timer);
+  }, [state.confirmedAtEpochMs]);
+
   // Alphabet index: letter → first row index, only meaningful in LIST + ALPHABETICAL.
   const alphabetIndex = useMemo<Map<string, number>>(() => {
     if (viewMode !== 'LIST' || state.sortMode !== 'ALPHABETICAL') {return new Map();}
@@ -395,6 +458,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     loading: state.loading,
     refreshing: state.refreshing,
     error: state.error,
+    bannerState,
     data,
     paddedData,
     viewMode,

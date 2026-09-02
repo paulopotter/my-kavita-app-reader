@@ -2,26 +2,14 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 // ── mocks: the hook's fetch dependencies (SeriesTool / LibraryTool stay real — pure) ──────────
 
-jest.mock('../../../shared/managers/store', () => {
-  const bound = {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
-    clear: jest.fn().mockResolvedValue(undefined),
-  };
-  return { Store: { for: () => bound }, __bound: bound };
-});
-const { __bound: storeBound } = require('../../../shared/managers/store') as {
-  __bound: { get: jest.Mock; set: jest.Mock };
-};
-const mockStoreGet = storeBound.get;
-const mockStoreSet = storeBound.set;
-
-const mockList = jest.fn();
+// mockGet resolves a SerialsDigest ({ isSuccess, serials: SerialDigest[], lastUpdatedEpochMs }).
+// serialsDigest() below is the shorthand for the common success shape.
+const mockGet = jest.fn();
 const mockExternalSync = jest.fn();
 const mockGetDigest = jest.fn();
 jest.mock('../../../shared/services/serials', () => ({
   SerialsService: {
-    list: (...a: unknown[]) => mockList(...a),
+    get: (...a: unknown[]) => mockGet(...a),
     externalDetails: { sync: (...a: unknown[]) => mockExternalSync(...a) },
   },
   SerialService: { get: (...a: unknown[]) => mockGetDigest(...a) },
@@ -74,16 +62,34 @@ const server: ServerActiveInfo = {
   url: 'https://x.invalid', timeoutMs: 5000, priority: 0,
 };
 
+// A minimal SerialDigestSuccess — the shape buildSerialsDigest hands back per list row (via the
+// bridge): chapters/metadata absent, pages present. `over` may still pass pagesRead/totalPages
+// for terser call sites — they're folded into `pages` here.
 function serialData(id: string, over: Record<string, unknown> = {}) {
+  const { pagesRead = 0, totalPages = 100, lastChapterAddedUtc, ...rest } = over as {
+    pagesRead?: number;
+    totalPages?: number;
+    lastChapterAddedUtc?: string;
+  } & Record<string, unknown>;
+  const chapterAdded =
+    lastChapterAddedUtc === undefined ? Date.parse('2026-01-01T00:00:00Z') : Date.parse(lastChapterAddedUtc);
   return {
+    isSuccess: true as const,
     id,
     name: `S${id}`,
     coverImage: { url: `cover/${id}`, hasFetchedDimensions: false, resolvedAtEpochMs: 1, server, cache: null },
-    pagesRead: 0,
-    totalPages: 100,
-    lastChapterAddedUtc: '2026-01-01T00:00:00Z',
-    ...over,
+    pages: { read: pagesRead, total: totalPages },
+    lastUpdatesUTC: { series: undefined, chapterAdded, readDate: undefined },
+    resolvedAtEpochMs: 1,
+    server,
+    cache: null,
+    ...rest,
   };
+}
+
+// The SerialsDigest.Success wrapper around a set of list-row digests.
+function serialsDigest(serials: ReturnType<typeof serialData>[], lastUpdatedEpochMs: number | null = Date.now()) {
+  return { isSuccess: true as const, serials, lastUpdatedEpochMs };
 }
 
 function seriesDigest(id: string, readCount: number, total: number) {
@@ -101,9 +107,7 @@ function seriesDigest(id: string, readCount: number, total: number) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockStoreGet.mockResolvedValue(null);
-  mockStoreSet.mockResolvedValue(undefined);
-  mockList.mockResolvedValue([]);
+  mockGet.mockResolvedValue(serialsDigest([]));
   mockExternalSync.mockResolvedValue([]);
   mockGetAllIds.mockResolvedValue([]);
   mockIndexGet.mockResolvedValue(null);
@@ -115,43 +119,49 @@ beforeEach(() => {
 
 describe('useLibrary — mount / assembly', () => {
   it('assembles entries from the batch list alone (page-based progress)', async () => {
-    mockList.mockResolvedValue([serialData('1', { pagesRead: 50 }), serialData('2')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 50 }), serialData('2')]));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data).toHaveLength(2));
     expect(result.current.data[0]).toMatchObject({ id: '1', progressFraction: 0.5, isFollowed: false });
     expect(result.current.data[0].coverUrl).toBe('cover/1');
   });
 
-  it('reads the persisted snapshot on mount, then refreshes from the network', async () => {
-    mockStoreGet.mockResolvedValue({
-      entries: [{ id: 's1', name: 'Snapshot', coverUrl: 'c', progressFraction: 0, readStatus: 'UNREAD', isFollowed: false }],
-      updatedAtEpochMs: 1,
-    });
-    mockList.mockResolvedValue([serialData('s1', { pagesRead: 100 })]);
+  it('shows fresh data once the (cache-first) SerialsService.get resolves', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('s1', { pagesRead: 100 })]));
     const { result } = renderHook(() => useLibrary());
-    // The snapshot is read...
-    await waitFor(() => expect(mockStoreGet).toHaveBeenCalledWith('list'));
-    // ...and the background refresh then replaces it with fresh data.
-    await waitFor(() => expect(result.current.data[0].name).toBe('Ss1'));
+    await waitFor(() => expect(result.current.data[0]?.name).toBe('Ss1'));
     expect(result.current.data[0].readStatus).toBe('READ');
     expect(result.current.loading).toBe(false);
   });
 
-  it('persists the snapshot after a load', async () => {
-    mockList.mockResolvedValue([serialData('1')]);
-    renderHook(() => useLibrary());
-    await waitFor(() => expect(mockStoreSet).toHaveBeenCalled());
-    expect(mockStoreSet).toHaveBeenCalledWith('list', { entries: expect.any(Array) });
+  it('reports lastUpdated via bannerState (fresh → no banner)', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')], Date.now()));
+    const { result } = renderHook(() => useLibrary());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.bannerState.kind).toBe('none');
   });
 
-  it('surfaces an error when the critical list() rejects and there is no snapshot', async () => {
-    mockList.mockRejectedValue(new Error('kavita down'));
+  it('bannerState becomes "stale" when lastUpdated is older than the TTL', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')], Date.now() - 20 * 60 * 1000));
+    const { result } = renderHook(() => useLibrary());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.bannerState.kind).toBe('stale');
+  });
+
+  it('surfaces an error when the critical get() rejects', async () => {
+    mockGet.mockRejectedValue(new Error('kavita down'));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.error).toBe('kavita down'));
   });
 
+  it('a SerialsDigest.Failure is treated as a load error', async () => {
+    mockGet.mockResolvedValue({ isSuccess: false, error: { code: 'X', message: 'digest failed' } });
+    const { result } = renderHook(() => useLibrary());
+    await waitFor(() => expect(result.current.error).toBe('digest failed'));
+  });
+
   it('degrades when getAllIds / the BFF batch reject — the list still renders', async () => {
-    mockList.mockResolvedValue([serialData('1')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     mockGetAllIds.mockRejectedValue(new Error('room error'));
     mockExternalSync.mockRejectedValue(new Error('bff down'));
     const { result } = renderHook(() => useLibrary());
@@ -163,7 +173,7 @@ describe('useLibrary — mount / assembly', () => {
 
 describe('useLibrary — followed digests + index', () => {
   it('fetches followed digests, marks followed, uses chapter counts — WITHOUT re-emitting digestResolved', async () => {
-    mockList.mockResolvedValue([serialData('1'), serialData('2')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1'), serialData('2')]));
     mockGetAllIds.mockResolvedValue(['1']);
     mockGetDigest.mockResolvedValue(seriesDigest('1', 3, 10));
     const digestSpy = jest.fn();
@@ -186,7 +196,7 @@ describe('useLibrary — followed digests + index', () => {
   });
 
   it('a failed followed digest falls back to page-based progress for that series', async () => {
-    mockList.mockResolvedValue([serialData('1', { pagesRead: 20, totalPages: 100 })]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 20, totalPages: 100 })]));
     mockGetAllIds.mockResolvedValue(['1']);
     mockGetDigest.mockRejectedValue(new Error('digest failed'));
     const { result } = renderHook(() => useLibrary());
@@ -196,7 +206,7 @@ describe('useLibrary — followed digests + index', () => {
   });
 
   it('uses the persistent SeriesDigestIndex for a non-followed series opened before', async () => {
-    mockList.mockResolvedValue([serialData('1', { pagesRead: 0, totalPages: 100 })]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 0, totalPages: 100 })]));
     mockGetAllIds.mockResolvedValue([]);
     mockIndexGet.mockImplementation((id: string) =>
       id === '1' ? Promise.resolve({ readChapters: 5, totalChapters: 8 }) : Promise.resolve(null),
@@ -212,14 +222,14 @@ describe('useLibrary — followed digests + index', () => {
 describe('useLibrary — sort', () => {
   it('applies persisted ALPHABETICAL sort', async () => {
     mockGetSortMode.mockResolvedValue('ALPHABETICAL');
-    mockList.mockResolvedValue([serialData('b', { name: 'Zed' }), serialData('a', { name: 'Ada' })]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('b', { name: 'Zed' }), serialData('a', { name: 'Ada' })]));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data).toHaveLength(2));
     expect(result.current.data.map(e => e.name)).toEqual(['Ada', 'Zed']);
   });
 
   it('toggleSortMode flips and persists', async () => {
-    mockList.mockResolvedValue([serialData('1')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data).toHaveLength(1));
     act(() => result.current.toggleSortMode());
@@ -230,7 +240,7 @@ describe('useLibrary — sort', () => {
 
 describe('useLibrary — Following filter', () => {
   it('filters reactively over the unfiltered list', async () => {
-    mockList.mockResolvedValue([serialData('a'), serialData('b')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('a'), serialData('b')]));
     mockGetAllIds.mockResolvedValue(['a']);
     mockGetDigest.mockResolvedValue(seriesDigest('a', 1, 2));
     const { result } = renderHook(() => useLibrary({ filter: e => e.isFollowed, prefsKey: 'following' }));
@@ -239,7 +249,7 @@ describe('useLibrary — Following filter', () => {
   });
 
   it('an item newly followed via the followed-ids event enters the filtered list', async () => {
-    mockList.mockResolvedValue([serialData('a'), serialData('b')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('a'), serialData('b')]));
     mockGetAllIds.mockResolvedValue(['a']);
     mockGetDigest.mockResolvedValue(seriesDigest('a', 1, 2));
     const { result } = renderHook(() => useLibrary({ filter: e => e.isFollowed, prefsKey: 'following' }));
@@ -252,17 +262,17 @@ describe('useLibrary — Following filter', () => {
 });
 
 describe('useLibrary — cross-screen events', () => {
-  it('does not re-assemble the list on its own — a single mount triggers exactly one list()', async () => {
-    mockList.mockResolvedValue([serialData('1'), serialData('2')]);
+  it('does not re-assemble the list on its own — a single mount triggers exactly one get()', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1'), serialData('2')]));
     renderHook(() => useLibrary());
-    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1));
     // give any stray effects a chance to fire a second load
     await new Promise<void>(r => setTimeout(() => r(), 50));
-    expect(mockList).toHaveBeenCalledTimes(1);
+    expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
   it('patches chapter counts on SerieEvents.digestResolved', async () => {
-    mockList.mockResolvedValue([serialData('1')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     mockGetAllIds.mockResolvedValue(['1']);
     mockGetDigest.mockResolvedValue(seriesDigest('1', 1, 10));
     const { result } = renderHook(() => useLibrary());
@@ -277,12 +287,12 @@ describe('useLibrary — cross-screen events', () => {
 
   it('adjusts read count optimistically on ChapterEvents.readStatusChanged and schedules a reload', async () => {
     jest.useFakeTimers();
-    mockList.mockResolvedValue([serialData('1')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     mockGetAllIds.mockResolvedValue(['1']);
     mockGetDigest.mockResolvedValue(seriesDigest('1', 2, 10));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data[0].readChapters).toBe(2));
-    mockList.mockClear();
+    mockGet.mockClear();
 
     act(() => {
       EventBus.emit(ChapterEvents.readStatusChanged, {
@@ -296,7 +306,7 @@ describe('useLibrary — cross-screen events', () => {
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(mockList).toHaveBeenCalled();
+    expect(mockGet).toHaveBeenCalled();
     jest.useRealTimers();
   });
 });
@@ -305,7 +315,7 @@ describe('useLibrary — presentation state', () => {
   it('builds the alphabet index only in LIST + ALPHABETICAL', async () => {
     mockGetViewMode.mockResolvedValue('LIST');
     mockGetSortMode.mockResolvedValue('ALPHABETICAL');
-    mockList.mockResolvedValue([serialData('a', { name: 'Ada' }), serialData('b', { name: 'Bob' })]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('a', { name: 'Ada' }), serialData('b', { name: 'Bob' })]));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.alphabetIndex.size).toBe(2));
     expect(result.current.alphabetIndex.get('A')).toBe(0);
@@ -313,7 +323,7 @@ describe('useLibrary — presentation state', () => {
   });
 
   it('pads the GRID list to an even count', async () => {
-    mockList.mockResolvedValue([serialData('a'), serialData('b'), serialData('c')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('a'), serialData('b'), serialData('c')]));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data).toHaveLength(3));
     expect(result.current.paddedData).toHaveLength(4);
@@ -321,7 +331,7 @@ describe('useLibrary — presentation state', () => {
   });
 
   it('handleScroll toggles showScrollTop when scrolling up past the threshold', async () => {
-    mockList.mockResolvedValue([serialData('1')]);
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data).toHaveLength(1));
     act(() => result.current.handleScroll({ nativeEvent: { contentOffset: { y: 500 } } } as never));
