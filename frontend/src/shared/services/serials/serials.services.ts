@@ -1,22 +1,19 @@
-import { DigestBridge, type SerialDigest } from '../../bridge/digest';
+import { DigestBridge, type SerialDigest, type SerialsDigest } from '../../bridge/digest';
 import { ExternalMetadataBridge, type ExternalMetadataMatch } from '../../bridge/external';
 import { ServerBridge, type PluginChapter, type SerialData } from '../../bridge/server';
 import { Methods } from '../../tools/methods';
 
-// Layer 4 — SerialsService (plural) is the batch namespace: it goes straight to
-// ServerBridge.listSerials (Server, Layer 2), not through the Digest — there is no batch digest
-// operation today. Returns the raw SerialData[] exactly as Server produced it (Server has
-// already normalized each item's cover URL into a full coverImage: ImageDescriptor), no further
-// transformation — same passthrough role SerialService.get plays for a single SerialDigest.
-// Callers wanting the canonical Serie[] shape run the result through SeriesTool.normalize
-// (shared/tools/series), the plural sibling of SerieTool.normalize. list() takes no arguments,
-// so it stays the one method here with no single-object-argument shape to bind.
+// Layer 4 — SerialsService (plural) is the batch namespace. get() is the list counterpart of
+// SerialService.get: it goes through DigestBridge.getSerialsDigest (:content-digest, Layer 3),
+// which is cache-first (each series merged into its own per-series cache) and reports how fresh
+// the data is via lastUpdatedEpochMs. Callers wanting the canonical Serie[] shape run
+// result.serials through SeriesTool.normalize (shared/tools/series), the plural sibling of
+// SerieTool.normalize. `raw.list()` is the un-digested escape hatch — a bare ServerBridge
+// (Layer 2) call returning SerialData[] straight from the plugin, for the smoke test / debugging
+// only.
 export const SerialsService = {
-  list(): Promise<SerialData[]> {
-    // Bridge resolves SerialListData ({ serials: [...] }) — unwrap to the array. `?? []` guards
-    // against a malformed native payload (should never happen, but a missing key would otherwise
-    // surface as `undefined.map` deep in a caller).
-    return ServerBridge.listSerials().then((payload) => payload?.serials ?? []);
+  get({ force }: { force?: boolean } = {}): Promise<SerialsDigest> {
+    return DigestBridge.getSerialsDigest({ force });
   },
   // Batch external-metadata lookup, no hint — mirrors ExternalMetadataServer.matches.sync():
   // resolves against whichever group is already active (or activates one via the 2-level
@@ -37,9 +34,14 @@ export const SerialsService = {
       );
     },
   },
-  // Raw access to all 4 resolution shapes ExternalMetadataServer.matches exposes — straight
-  // passthrough to ExternalMetadataBridge, no Digest involved.
+  // Un-digested escape hatch — bare Server (Layer 2) reads and all 4 resolution shapes
+  // ExternalMetadataServer.matches exposes, straight passthrough, no Digest involved.
   raw: {
+    // Bare serials.list() — SerialData[] straight from the plugin, no cache, no digest. For the
+    // smoke test / debugging only; real callers use get() (cache-first, freshness-aware).
+    list(): Promise<SerialData[]> {
+      return ServerBridge.listSerials().then((payload) => payload?.serials ?? []);
+    },
     externalDetails: {
       syncByGroup({
         groupId,

@@ -3,6 +3,7 @@ import { SerialService, SerialsService } from './serials.services';
 jest.mock('../../bridge/digest', () => ({
   DigestBridge: {
     getSerialDigest: jest.fn(),
+    getSerialsDigest: jest.fn(),
   },
 }));
 
@@ -33,6 +34,7 @@ import { ExternalMetadataBridge } from '../../bridge/external';
 import { ServerBridge } from '../../bridge/server';
 
 const mockGetSeriesDigest = DigestBridge.getSerialDigest as jest.Mock;
+const mockGetSerialsDigest = DigestBridge.getSerialsDigest as jest.Mock;
 const mockListSerials = ServerBridge.listSerials as jest.Mock;
 const mockSetChaptersRead = ServerBridge.setChaptersRead as jest.Mock;
 const mockGetSerial = ServerBridge.getSerial as jest.Mock;
@@ -46,7 +48,27 @@ const mockMatchesSyncByGroup = ExternalMetadataBridge.matchesSyncByGroup as jest
 const mockMatchesSyncByServerId = ExternalMetadataBridge.matchesSyncByServerId as jest.Mock;
 const mockMatchesSyncByServerUrl = ExternalMetadataBridge.matchesSyncByServerUrl as jest.Mock;
 
-describe('SerialsService.list', () => {
+describe('SerialsService.get', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('goes through DigestBridge.getSerialsDigest and returns the SerialsDigest as-is', async () => {
+    const digest = { isSuccess: true, serials: [], lastUpdatedEpochMs: 123 };
+    mockGetSerialsDigest.mockResolvedValue(digest);
+    const result = await SerialsService.get();
+    expect(mockGetSerialsDigest).toHaveBeenCalledWith({ force: undefined });
+    expect(result).toBe(digest);
+  });
+
+  it('forwards force', async () => {
+    mockGetSerialsDigest.mockResolvedValue({ isSuccess: true, serials: [], lastUpdatedEpochMs: null });
+    await SerialsService.get({ force: true });
+    expect(mockGetSerialsDigest).toHaveBeenCalledWith({ force: true });
+  });
+});
+
+describe('SerialsService.raw.list', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -56,9 +78,14 @@ describe('SerialsService.list', () => {
       { id: 'series-1', name: 'Some Series', coverImage: { url: 'c1' }, pagesRead: 0, totalPages: 10 },
     ];
     mockListSerials.mockResolvedValue({ serials });
-    const result = await SerialsService.list();
+    const result = await SerialsService.raw.list();
     expect(mockListSerials).toHaveBeenCalledWith();
     expect(result).toBe(serials);
+  });
+
+  it('falls back to [] on a malformed native payload', async () => {
+    mockListSerials.mockResolvedValue(undefined);
+    expect(await SerialsService.raw.list()).toEqual([]);
   });
 });
 

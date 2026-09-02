@@ -94,7 +94,7 @@ export function serverServiceSteps(groupId: string): Array<() => Promise<SmokeTe
 
 export async function discoverFirstSeriesId(): Promise<string | null> {
   try {
-    const serials = await SerialsService.list();
+    const serials = await SerialsService.raw.list();
     return serials[0]?.id ?? null;
   } catch {
     return null;
@@ -104,8 +104,8 @@ export async function discoverFirstSeriesId(): Promise<string | null> {
 export function serialSteps(seriesId: string): Array<() => Promise<SmokeTestStep>> {
   const bound = SerialService.bound({ seriesId });
   return [
-    () => runStep('SerialsService.list', async () => {
-      const serials = await SerialsService.list();
+    () => runStep('SerialsService.raw.list', async () => {
+      const serials = await SerialsService.raw.list();
       return `${serials.length} serial(s)`;
     }),
     () => runStep('SerialService.get', async () => {

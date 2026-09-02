@@ -82,6 +82,10 @@ export const SerieTool = {
       sortName: digest.sortName,
       otherIds: digest.otherIds,
       colors: digest.colors,
+      // Kavita's series-level page progress — present on both a full digest and a minimal
+      // list-row digest (SerialsDigest). LibraryTool falls back to this when there's no chapters
+      // block yet.
+      pages: digest.pages,
       metadata: digest.metadata,
       resolvedAtEpochMs: digest.resolvedAtEpochMs,
       server: digest.server,
