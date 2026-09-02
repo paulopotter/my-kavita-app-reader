@@ -9,13 +9,14 @@ import com.facebook.react.bridge.ReadableArray
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
 import com.mymangareader.server.ProviderInfo
+import com.mymangareader.server.SerialData
+import com.mymangareader.server.SerialListData
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerGroupInfo
 import com.mymangareader.server.ServerUrlInfo
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
-import com.mymangareader.server.plugins.PluginSerial
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -151,7 +152,8 @@ class ServerBridgeModule @Inject constructor(
     @ReactMethod
     fun listSerials(promise: Promise) {
         scope.launch {
-            runCatching { server.serials.list().data }.resolveOrReject(promise, "LIST_SERIALS_ERROR") { it.toSerialsWritableArray() }
+            runCatching { server.serials.list().data }
+                .resolveOrReject(promise, "LIST_SERIALS_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -261,9 +263,10 @@ class ServerBridgeModule @Inject constructor(
 
     private fun List<ServerUrlInfo>.toUrlsWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
 
-    private fun PluginSerial.toWritableMap() = Arguments.createMap().apply {
+    private fun SerialData.toWritableMap() = Arguments.createMap().apply {
         putString("id", id)
         putString("name", name)
+        putMap("coverImage", coverImage.toWritableMap())
         putInt("pagesRead", pagesRead)
         putInt("totalPages", totalPages)
         libraryId?.let { putString("libraryId", it) }
@@ -280,7 +283,13 @@ class ServerBridgeModule @Inject constructor(
         secondaryColor?.let { putString("secondaryColor", it) }
     }
 
-    private fun List<PluginSerial>.toSerialsWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
+    private fun List<SerialData>.toSerialsWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
+
+    // SerialListData → { serials: [...] } — the object-wrapper shape the RN bridge type
+    // (SerialListData) and SerialsService.list()'s `payload.serials` unwrap both expect.
+    private fun SerialListData.toWritableMap() = Arguments.createMap().apply {
+        putArray("serials", serials.toSerialsWritableArray())
+    }
 
     private fun PluginChapter.toWritableMap() = Arguments.createMap().apply {
         putString("id", id)

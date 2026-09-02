@@ -1,4 +1,5 @@
 import { NativeModules } from 'react-native';
+import type { ImageDescriptor } from './digest';
 
 export interface ProviderInfo {
   id: string;
@@ -22,16 +23,34 @@ export interface ServerUrlInfo {
   priority: number;
 }
 
-export interface PluginSerial {
+// Mirrors Server.SerialData (Kotlin :server) 1:1 — the shape Server hands back from
+// serials.list() / serial(id).get(). Server has already normalized the plugin's raw flat cover
+// URL into a full `coverImage: ImageDescriptor` (the same type SeriesDigest.coverImage uses);
+// a caller above the bridge never deals with a bare cover URL string.
+export interface SerialData {
   id: string;
   name: string;
-  coverUrl?: string;
+  coverImage: ImageDescriptor;
   pagesRead: number;
   totalPages: number;
-  lastUpdatedUtc?: string;
-  summary?: string;
-  genres: string[];
-  tags: string[];
+  libraryId?: string;
+  libraryName?: string;
+  lastFolderScannedUtc?: string;
+  lastChapterAddedUtc?: string;
+  latestReadDateUtc?: string;
+  originalName?: string;
+  localizedName?: string;
+  sortName?: string;
+  aniListId?: number;
+  malId?: number;
+  primaryColor?: string;
+  secondaryColor?: string;
+}
+
+// serials.list()'s payload — an object wrapper (not a bare array) so list-level metadata
+// (paging, total…) has somewhere to land later. Mirrors Server.SerialListData (Kotlin).
+export interface SerialListData {
+  serials: SerialData[];
 }
 
 export interface PluginChapter {
@@ -93,8 +112,8 @@ interface ServerBridgeModuleInterface {
   getActiveGroupId(): Promise<string | null>;
 
   // content: serials
-  listSerials(): Promise<PluginSerial[]>;
-  getSerial(serialId: string): Promise<PluginSerial>;
+  listSerials(): Promise<SerialListData>;
+  getSerial(serialId: string): Promise<SerialData>;
 
   // content: chapters
   listChapters(serialId: string): Promise<PluginChapter[]>;
