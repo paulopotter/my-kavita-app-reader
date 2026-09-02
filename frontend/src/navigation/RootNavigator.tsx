@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Routes } from './routes';
 import { MainNavigator } from './MainNavigator';
+import { SplashScreen } from '../screens/splash';
 import { SetupScreen } from '../screens/setup/SetupScreen';
 import { SerieScreen } from '../screens/serie';
 import { ReaderScreen } from '../screens/reader';
@@ -10,22 +11,26 @@ import { NotificationsScreen } from '../screens/notifications/NotificationsScree
 const Stack = createNativeStackNavigator();
 
 interface Props {
-  initialRoute: string;
+  // Defaults to the splash, which decides where to go. Kept overridable for tests / a future
+  // dynamic initial route (see App.tsx's commented restored-route block).
+  initialRoute?: string;
   onSetupComplete: () => void;
 }
 
-export function RootNavigator({ initialRoute, onSetupComplete }: Props) {
+export function RootNavigator({ initialRoute = Routes.SPLASH, onSetupComplete }: Props) {
   return (
     <Stack.Navigator
       initialRouteName={initialRoute}
       screenOptions={{ headerShown: false, animation: 'fade' }}
     >
+      <Stack.Screen name={Routes.SPLASH} component={SplashScreen} />
+
       <Stack.Screen name={Routes.SETUP}>
         {() => <SetupScreen onComplete={onSetupComplete} />}
       </Stack.Screen>
 
       <Stack.Screen
-        name="main"
+        name={Routes.HUB}
         component={MainNavigator}
       />
 

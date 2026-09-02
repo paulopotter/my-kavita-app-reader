@@ -145,16 +145,20 @@ describe('runSplashBoot', () => {
 // ── useSplash (hook) ─────────────────────────────────────────────────────────
 
 describe('useSplash — mount', () => {
-  it('signals native, then reaches destination home on a healthy boot', async () => {
+  it('signals native, then resolves navigate to the hub on a healthy boot', async () => {
     const { result } = renderHook(() => useSplash());
     expect(markUiReady).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(result.current.destination).toEqual({ kind: 'home' }));
+    await waitFor(() =>
+      expect(result.current.navigate).toEqual({ index: 0, routes: [{ name: 'hub' }] }),
+    );
   });
 
-  it('no server → destination setup', async () => {
+  it('no server → navigate to setup', async () => {
     listGroups.mockResolvedValue([]);
     const { result } = renderHook(() => useSplash());
-    await waitFor(() => expect(result.current.destination).toEqual({ kind: 'setup' }));
+    await waitFor(() =>
+      expect(result.current.navigate).toEqual({ index: 0, routes: [{ name: 'setup' }] }),
+    );
   });
 
   it('progress ends at 1 on a healthy boot', async () => {
@@ -164,14 +168,14 @@ describe('useSplash — mount', () => {
 });
 
 describe('useSplash — OTA required is a hard stop', () => {
-  it('required → alert shown, destination stays null even though the graph would finish', async () => {
+  it('required → alert shown, navigate stays null even though the graph would finish', async () => {
     getOtaPolicy.mockResolvedValue({ mode: 'required', releaseNotesUrl: 'https://n' });
     const { result } = renderHook(() => useSplash());
     await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
     expect(result.current.otaAlert!.dismissible).toBe(false);
-    // give the boot graph time to settle; destination must remain null
+    // give the boot graph time to settle; navigate must remain null
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.destination).toBeNull();
+    expect(result.current.navigate).toBeNull();
   });
 });
 

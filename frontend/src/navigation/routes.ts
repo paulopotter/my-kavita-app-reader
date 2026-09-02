@@ -1,6 +1,11 @@
 export const Routes = {
-  STARTUP: 'startup',
+  // The RN splash. Initial route of the RootNavigator; it decides where to go next.
+  SPLASH: 'splash',
   SETUP: 'setup',
+  // The bottom-tab container (MainNavigator). "Hub" = the place you navigate freely to/from —
+  // Library / Following / Config, and a Home tab later. Series/Reader are NOT here: they're a
+  // linear flow (back/forward only), stacked over the hub in the RootNavigator.
+  HUB: 'hub',
   LIBRARY: 'library',
   FOLLOWING: 'following',
   SEARCH: 'search',

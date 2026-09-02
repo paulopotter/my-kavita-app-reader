@@ -7,8 +7,9 @@ import { ServersService, ServerService } from '../../../shared/services/servers'
 import { SerialService } from '../../../shared/services/serials';
 import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
 import { useStrings } from '../../../shared/i18n/useStrings';
+import { Routes } from '../../../navigation/routes';
 import type { AppAlertButton } from '../../../shared/components/AppAlert';
-import type { SplashDestination, SplashOtaAlert, SplashState } from '../splash.types';
+import type { SplashDestination, SplashNavAction, SplashOtaAlert, SplashState } from '../splash.types';
 
 // Re-show the highly_recommended dialog this long after it's first dismissed. recommended is
 // dismissed once and never re-shown.
@@ -93,6 +94,24 @@ async function activateAndAuth(groupId: string): Promise<boolean> {
   }
 }
 
+// The single place that turns a SplashDestination into the object the screen passes to
+// navigation.reset(). Exhaustive — a new `kind` on SplashDestination breaks the build here until
+// it's mapped, so there's no silent fallback to worry about.
+function navActionFor(destination: SplashDestination): SplashNavAction {
+  switch (destination.kind) {
+    case 'setup':
+      return { index: 0, routes: [{ name: Routes.SETUP }] };
+    case 'home':
+      return { index: 0, routes: [{ name: Routes.HUB }] };
+    // Deep-link targets: land on the hub for now (no series/reader stacking yet). When deep
+    // links are wired, add the extra route(s)/params here — the screen doesn't change.
+    case 'serial':
+      return { index: 0, routes: [{ name: Routes.HUB }] };
+    case 'reader':
+      return { index: 0, routes: [{ name: Routes.HUB }] };
+  }
+}
+
 // ── hook ─────────────────────────────────────────────────────────────────────
 // Rewritten from the legacy useSplash, one concern at a time (Task 038).
 //
@@ -100,15 +119,16 @@ async function activateAndAuth(groupId: string): Promise<boolean> {
 //  - OTA: read the pending policy, surface the advisory dialog (`otaAlert`), drive the hidden
 //    "apply update" button off `otaBundleReady`, log the download progress. `required` is a hard
 //    stop — the boot never proceeds and there's no dismiss.
-//  - Boot graph (runSplashBoot): server → auth → followed warm-up → Library warm-up → destination.
+//  - Boot graph (runSplashBoot): server → auth → followed warm-up → Library warm-up → a
+//    SplashDestination, which navActionFor() turns into the `navigate` object the screen resets to.
 //
-// `progress` and `destination` are wired to the return. `progressLabel` is NOT — each step logs
-// its label for now (the screen will show it once the sequence is proven on device).
+// `progress` and `navigate` are wired to the return. `progressLabel` is NOT — each step logs its
+// label for now (the screen will show it once the sequence is proven on device).
 export function useSplash(): SplashState {
   const t = useStrings();
 
   const [progress, setProgress] = useState(0);
-  const [destination, setDestination] = useState<SplashDestination | null>(null);
+  const [navigate, setNavigate] = useState<SplashNavAction | null>(null);
 
   const reportStep = useCallback((label: string) => {
     // eslint-disable-next-line no-console
@@ -173,7 +193,7 @@ export function useSplash(): SplashState {
       }).catch(() => ({ destination: { kind: 'setup' } as SplashDestination })),
     ]).then(([blocked, boot]) => {
       if (cancelled || blocked) { return; }
-      setDestination(boot.destination);
+      setNavigate(navActionFor(boot.destination));
     });
 
     return () => {
@@ -228,6 +248,6 @@ export function useSplash(): SplashState {
     progressLabel: undefined,
     otaUpdateReady,
     otaAlert,
-    destination,
+    navigate,
   };
 }

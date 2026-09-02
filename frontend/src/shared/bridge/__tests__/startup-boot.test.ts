@@ -5,6 +5,12 @@
  *   2. Qualquer falha no boot deve sempre resolver para 'splash', nunca travar em 'booting'
  * E o bug de rota restaurada com servidor removido:
  *   3. getRestoredRoute retorna rota mas hasServerConfigured retorna false → splash (não pula)
+ *
+ * NOTA (Task 038): o restore de rota no App.tsx foi comentado quando a splash virou rota do
+ * RootNavigator — a decisão "pra onde ir" toda ficou no runSplashBoot. Este `runBoot` é uma
+ * cópia inline daquela lógica antiga (não importa o App.tsx real); enquanto o restore de rota
+ * estiver desativado, cobre um caminho que o app não executa. Reavaliar (adaptar ao novo modelo
+ * ou remover) quando o restore de rota for retomado — ver o bloco comentado em App.tsx.
  */
 
 type BootResult =

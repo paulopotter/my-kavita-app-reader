@@ -1,25 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { OtaModule } from '../../native/OtaModule';
 import { AppAlert } from '../../shared/components/AppAlert';
 import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { Progress } from './components';
+import { useSplash } from './hooks';
 import { styles } from './splash.styles';
-import type { SplashState } from './splash.types';
 
-// The screen renders from a SplashState the hook produced. It stays a prop-driven view for now
-// because App.tsx mounts it as an overlay and also needs the hook's `destination` to navigate —
-// that wiring (screen owns the hook + onDone callback) is folded in with the App.tsx change in a
-// later step of Task 038.
-type Props = Pick<SplashState, 'progress' | 'progressLabel' | 'otaUpdateReady' | 'otaAlert'>;
-
-// Presentation only. Every rule lives in useSplash — including building `otaAlert` (title / body /
-// buttons) from the OTA policy. This wires the hook's output to the pieces: the logo (same asset +
-// size as the native splash so the handoff doesn't resize it), the progress bar, the version
-// footer, the always-mounted-but-usually-hidden update button, and the generic OTA alert.
-export function SplashScreen({ progress, progressLabel, otaUpdateReady, otaAlert }: Props) {
+// The RN splash — the RootNavigator's initial route. It owns useSplash (every rule lives there,
+// including turning the boot outcome into a `navigate` object) and just forwards that to
+// navigation.reset() once it's set. Presentation: the logo (same asset + size as the native
+// splash so the handoff doesn't resize it), the progress bar, the version footer, the
+// always-mounted-but-usually-hidden update button, and the OTA alert.
+export function SplashScreen() {
   const t = useStrings();
+  const navigation = useNavigation<any>();
+  const { progress, progressLabel, otaUpdateReady, otaAlert, navigate } = useSplash();
+
+  useEffect(() => {
+    if (navigate) {
+      navigation.reset(navigate);
+    }
+  }, [navigate, navigation]);
 
   return (
     <View style={styles.container}>
