@@ -9,7 +9,6 @@ export * from './db-validator';
 export * from './digest';
 export * from './external';
 export * from './followedSeries';
-export * from './library';
 export * from './network';
 export * from './page';
 export * from './preferences';
