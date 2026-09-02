@@ -33,7 +33,7 @@ class AppReactPackage(
     private val kavitaUrlSource: KavitaUrlSource,
     private val kavitaAuthFeature: KavitaAuthFeature,
     private val kavitaSeriesFeature: KavitaSeriesFeature,
-    // Concrete type: LibraryModule/SeriesModule call methods outside ChapterDataSource's contract
+    // Concrete type: SeriesModule calls methods outside ChapterDataSource's contract
     // (listChaptersForSeries, markChaptersRead/Unread). ReaderChapterModule below uses the
     // separate chapterDataSource param instead — see its own doc.
     private val kavitaChapterFeature: KavitaChapterFeature,
@@ -58,7 +58,6 @@ class AppReactPackage(
             ConfigRepository(configStore, context),
             DbValidatorModule(dbStatus, context),
             otaBridge,
-            LibraryModule(kavitaSeriesFeature, kavitaChapterFeature, bffFeature, followedSeriesDao, context),
             SetupModule(kavitaUrlSource, kavitaAuthFeature, bffFeature, context),
             StartupModule(serverConfigDao, followedSeriesDao, splashSyncCoordinator, context),
             SeriesModule(

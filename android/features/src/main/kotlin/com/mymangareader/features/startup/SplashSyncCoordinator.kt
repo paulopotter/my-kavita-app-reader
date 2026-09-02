@@ -1,71 +1,31 @@
 package com.mymangareader.features.startup
 
-import com.mymangareader.core.database.ChapterCacheDao
-import com.mymangareader.core.database.FollowedSeriesDao
-import com.mymangareader.core.database.UiPreferencesDao
-import com.mymangareader.features.bff.BffFeature
-import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
-import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.withTimeoutOrNull
 
-private const val SYNC_BUDGET_MS = 30_000L
-private const val RECENT_SYNC_WINDOW_MS = 5 * 60 * 1000L
-
+// SplashSyncCoordinator — no longer does any work (plano 017, Task 028).
+//
+// It used to, on the RN splash: (a) list every series via KavitaSeriesFeature.listSeries(),
+// (b) feed that list to BffFeature.syncBff() to refresh the BFF match table, and (c) loop the
+// followed series populating chapterCacheDao. All three are gone:
+//   - (c) chapterCacheDao is no longer read by any live screen — the Library, Serie and Reader
+//     rewrites all go through :content-digest / :server, which have their own cache.
+//   - (b) the BFF sync now happens on the RN side (SerialsService.externalDetails.sync, driven
+//     by the Library's own load flow) — Kotlin no longer orchestrates it.
+//   - (a) only existed to feed (b) and (c).
+//
+// sync() is kept as a no-op so StartupModule.syncBlocking/syncInBackground (and the RN
+// StartupBridge calls) still resolve. Removing those methods and having the RN splash drive the
+// Library warm-up directly is the Splash refactor task, deliberately out of scope here.
 @Singleton
-class SplashSyncCoordinator @Inject constructor(
-    private val kavitaSeriesFeature: KavitaSeriesFeature,
-    private val kavitaChapterFeature: KavitaChapterFeature,
-    private val bffFeature: BffFeature,
-    private val followedSeriesDao: FollowedSeriesDao,
-    private val chapterCacheDao: ChapterCacheDao,
-    private val uiPreferencesDao: UiPreferencesDao,
-) {
+class SplashSyncCoordinator @Inject constructor() {
     private val _progress = MutableStateFlow(0f)
     val progress: StateFlow<Float> = _progress
 
     suspend fun sync(): Boolean {
-        _progress.value = 0f
-
-        val prefs = uiPreferencesDao.get()
-        val lastSync = prefs?.lastSuccessfulSyncAtMs
-        if (lastSync != null && (System.currentTimeMillis() - lastSync) < RECENT_SYNC_WINDOW_MS) {
-            _progress.value = 0.9f
-            return true
-        }
-
-        val completed = withTimeoutOrNull(SYNC_BUDGET_MS) {
-            val seriesResult = kavitaSeriesFeature.listSeries()
-            val series = seriesResult.getOrNull()
-            _progress.value = 0.3f
-
-            if (series != null) {
-                runCatching { bffFeature.syncBff(series) }
-            }
-            _progress.value = 0.6f
-
-            val followedIds = runCatching { followedSeriesDao.getAllIds() }.getOrElse { emptyList() }
-            for (seriesId in followedIds) {
-                runCatching {
-                    val chapters = kavitaChapterFeature.listChaptersForSeries(seriesId).getOrNull()
-                    if (chapters != null) {
-                        chapterCacheDao.deleteBySeriesId(seriesId)
-                        chapterCacheDao.insertAll(chapters)
-                    }
-                }
-            }
-            _progress.value = 0.9f
-            true
-        }
-
-        val success = completed == true
-        if (success) {
-            val current = prefs ?: com.mymangareader.core.database.UiPreferencesEntity()
-            uiPreferencesDao.upsert(current.copy(lastSuccessfulSyncAtMs = System.currentTimeMillis()))
-        }
-        return success
+        _progress.value = 1f
+        return true
     }
 }

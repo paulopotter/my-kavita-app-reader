@@ -2,10 +2,6 @@ package com.mymangareader.features.kavita.series
 
 import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.AuthConfigEntity
-import com.mymangareader.core.database.BffMatchDao
-import com.mymangareader.core.database.BffMatchEntity
-import com.mymangareader.core.database.ChapterCacheDao
-import com.mymangareader.core.database.ChapterCacheEntity
 import com.mymangareader.core.database.SeriesDetailCacheDao
 import com.mymangareader.core.database.SeriesDetailCacheEntity
 import com.mymangareader.features.kavita.KavitaUrlSource
@@ -36,25 +32,6 @@ private class FakeUrlSource(private val url: String) : KavitaUrlSource {
     override fun getLastKnownUrl(): String? = url
 }
 
-private class FakeChapterCacheDao : ChapterCacheDao {
-    override suspend fun getBySeriesId(seriesId: String) = emptyList<ChapterCacheEntity>()
-    override suspend fun updateReadStatus(
-        chapterId: String,
-        readStatus: String,
-        pagesRead: Int,
-        updatedAtLocalMs: Long,
-    ) {}
-    override suspend fun insertAll(chapters: List<ChapterCacheEntity>) {}
-    override suspend fun deleteBySeriesId(seriesId: String) {}
-}
-
-private class FakeBffMatchDao : BffMatchDao {
-    override suspend fun getAll() = emptyList<BffMatchEntity>()
-    override suspend fun getBySeriesId(seriesId: String): BffMatchEntity? = null
-    override suspend fun insertAll(matches: List<BffMatchEntity>) {}
-    override suspend fun deleteAll() {}
-}
-
 private class FakeSeriesDetailCacheDao : SeriesDetailCacheDao {
     private val store = mutableMapOf<String, SeriesDetailCacheEntity>()
     override suspend fun get(seriesId: String): SeriesDetailCacheEntity? = store[seriesId]
@@ -81,8 +58,6 @@ class KavitaSeriesFeatureTest {
             urlSource = FakeUrlSource(baseUrl),
             requestTool = RequestTool(OkHttpClient()),
             authConfigDao = authDao,
-            chapterCacheDao = FakeChapterCacheDao(),
-            bffMatchDao = FakeBffMatchDao(),
             seriesDetailCacheDao = seriesDetailCacheDao,
         )
     }
