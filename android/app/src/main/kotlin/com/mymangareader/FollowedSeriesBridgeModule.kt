@@ -1,5 +1,6 @@
 package com.mymangareader
 
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -47,7 +48,13 @@ class FollowedSeriesBridgeModule @Inject constructor(
     @ReactMethod
     fun getAllIds(promise: Promise) {
         scope.launch {
-            runCatching { followedSeriesDao.getAllIds() }.resolveOrReject(promise, "FOLLOWED_SERIES_GET_ALL_IDS_ERROR") { it.toTypedArray() }
+            runCatching { followedSeriesDao.getAllIds() }
+                .resolveOrReject(promise, "FOLLOWED_SERIES_GET_ALL_IDS_ERROR") { ids ->
+                    // promise.resolve() only converts WritableArray, not a raw Array<String>
+                    // (Arguments.fromJavaArgs: "Cannot convert argument of type class
+                    // [Ljava.lang.String;") — build a WritableArray explicitly.
+                    Arguments.createArray().also { arr -> ids.forEach { arr.pushString(it) } }
+                }
         }
     }
 }
