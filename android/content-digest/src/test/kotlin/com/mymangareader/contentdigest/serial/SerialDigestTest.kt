@@ -196,6 +196,7 @@ private fun fakeExternalMetadataRegistration(plugin: FakeExternalMetadataPlugin)
         override val displayName = "Fake M3"
         override val version = "0.0.0"
         override val credentialFields: List<ExternalMetadataCredentialField> = emptyList()
+        override val defaultHealthCheckPath = "/health"
         override val factory = { _: RequestTool, _: com.mymangareader.cache.Cache, _: String, _: String -> plugin as ExternalMetadataPlugin }
     }
 
@@ -204,6 +205,7 @@ private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = obj
     override val displayName = "Fake"
     override val version = "0.0.0"
     override val credentialFields = listOf(CredentialField("apiKey", "API Key", "string") { null })
+    override val defaultHealthCheckPath = "/health"
     override val factory = { _: RequestTool, _: String, _: String -> plugin as ServerPlugin }
 }
 

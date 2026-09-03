@@ -129,6 +129,7 @@ private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = obj
     override val displayName = "Fake"
     override val version = "0.0.0"
     override val credentialFields = listOf(CredentialField("apiKey", "API Key", "string") { null })
+    override val defaultHealthCheckPath = "/health"
     override val factory = { _: RequestTool, _: String, _: String -> plugin as ServerPlugin }
 }
 

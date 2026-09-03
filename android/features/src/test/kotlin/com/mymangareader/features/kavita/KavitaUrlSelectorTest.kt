@@ -3,6 +3,7 @@ package com.mymangareader.features.kavita
 import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.ServerConfigEntity
 import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,8 @@ private class FakeUrlSelector(private val result: Result<String>) : UrlSelector 
     override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> = result
     override suspend fun invalidateAndReselect(candidates: List<UrlCandidate>): Result<String> = result
     override fun getLastKnownUrl(): String? = result.getOrNull()
+    override suspend fun probe(candidate: UrlCandidate): UrlProbeResult =
+        UrlProbeResult(url = candidate.url, ok = result.isSuccess, status = if (result.isSuccess) 200 else null, elapsedMs = 0)
 }
 
 class KavitaUrlSelectorTest {

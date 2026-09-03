@@ -73,7 +73,14 @@ class ActiveUrlSelector @Inject constructor(
 
     override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> {
         val key = candidatesCacheKey(candidates)
+        // MMR-DIAG (backlog 015-telemetria-interna-debug): candidate set + cache key + winner for
+        // the 15-min-cached selection. Uncomment when a "connected" dot won't go green.
+        // Log.i(
+        //     "MMR-DIAG",
+        //     "getActiveUrl key=$key candidates=${candidates.map { "${it.url.trimEnd('/')}${it.healthCheckPath}" }}",
+        // )
         val result = cache.network.run(key, CACHE_TTL_MS) { selectFastest(candidates) }
+        // Log.i("MMR-DIAG", "getActiveUrl → ${result.getOrNull() ?: "FAIL: ${result.exceptionOrNull()?.message}"}")
         result.onSuccess { lastKnownUrl = it }
         return result
     }
@@ -81,6 +88,9 @@ class ActiveUrlSelector @Inject constructor(
     override fun getLastKnownUrl(): String? = lastKnownUrl
 
     override suspend fun invalidateAndReselect(candidates: List<UrlCandidate>): Result<String> {
+        // MMR-DIAG (backlog 015-telemetria-interna-debug): the stale-cache drop a healthCheckPath
+        // change relies on. Uncomment when a re-selection doesn't seem to take effect.
+        // Log.i("MMR-DIAG", "invalidateAndReselect key=${candidatesCacheKey(candidates)}")
         cache.network.invalidate(candidatesCacheKey(candidates))
         return getActiveUrl(candidates)
     }
@@ -93,6 +103,9 @@ class ActiveUrlSelector @Inject constructor(
             .readTimeout(candidate.timeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .build()
         val url = candidate.url.trimEnd('/') + candidate.healthCheckPath
+        // MMR-DIAG (backlog 015-telemetria-interna-debug): the exact URL probed + its status.
+        // Uncomment when a health check's outcome is in doubt (was used to confirm M3's /api/health).
+        // Log.i("MMR-DIAG", "probe → GET $url (timeout=${candidate.timeoutMs}ms)")
         val call: Call = client.newCall(Request.Builder().url(url).build())
         val timeoutTask = healthCheckWatchdog.schedule(candidate.timeoutMs.toLong()) { call.cancel() }
         return try {
@@ -103,8 +116,10 @@ class ActiveUrlSelector @Inject constructor(
                     status = response.code,
                     elapsedMs = System.currentTimeMillis() - startedAt,
                 )
+                // .also { Log.i("MMR-DIAG", "probe ← $url status=${it.status} ok=${it.ok} ${it.elapsedMs}ms") }
             }
         } catch (e: Exception) {
+            // Log.w("MMR-DIAG", "probe ✗ $url threw ${e.javaClass.simpleName}: ${e.message}")
             UrlProbeResult(
                 url = candidate.url.trimEnd('/'),
                 ok = false,
