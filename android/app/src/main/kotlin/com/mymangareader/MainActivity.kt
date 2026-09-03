@@ -58,8 +58,12 @@ class MainActivity : ReactActivity() {
             when (val decision = app.bootGate.first { it != null }!!) {
                 is OtaDecision.Blocked -> {
                     // Release the system splash (holding it forever risks an ANR on some launchers)
-                    // and show a non-cancelable dialog over the RN content — the user can only tap
-                    // "download", same as the old SplashActivity block screen.
+                    // and show a non-cancelable native dialog — the user can only tap "download".
+                    // Also publish the policy so the RN splash freezes underneath (no progress, no
+                    // redirect): a redundant second barrier in case the native dialog is somehow
+                    // dismissed. The RN splash does NOT draw its own `required` alert on top of
+                    // this one (see useSplash) — it just stops.
+                    OtaEventBridge.pendingPolicy = "required" to decision.releaseNotesUrl
                     gateResolved = true
                     showBlockedDialog(decision.releaseNotesUrl)
                 }
