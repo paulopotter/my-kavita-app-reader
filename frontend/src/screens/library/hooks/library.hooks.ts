@@ -332,7 +332,7 @@ export async function assembleLibrary({
   force: boolean;
   light?: boolean;
 }): Promise<{ entries: LibraryEntry[]; lastUpdatedEpochMs: number | null }> {
-  const t0 = Date.now();
+  // const t0 = Date.now(); // re-enable with the timing traces below (backlog 015-telemetria-interna-debug)
   const [serialsResult, followedResult] = await Promise.allSettled([
     SerialsService.get({ force }),
     FollowedSeriesBridge.getAllIds(),
@@ -348,8 +348,8 @@ export async function assembleLibrary({
   const series = SeriesTool.normalize({ serials: digest.serials });
   const followedIds = settledOr(followedResult, [] as string[]);
   const followedSet = new Set(followedIds);
-  // eslint-disable-next-line no-console
-  console.log(`[library] assemble light=${light} serials=${series.length} listMs=${Date.now() - t0}`);
+  // Assemble timing trace — kept for the debug task (backlog 015-telemetria-interna-debug).
+  // console.log(`[library] assemble light=${light} serials=${series.length} listMs=${Date.now() - t0}`);
 
   let matches: (ExternalMetadataMatch | null)[] = [];
   let indexBySeriesId: Map<string, SeriesDigestIndexEntry> = new Map();
@@ -373,9 +373,7 @@ export async function assembleLibrary({
     const staleIndex = await readIndexFor(idsNeedingIndex);
     indexBySeriesId = new Map<string, SeriesDigestIndexEntry>([...staleIndex, ...freshDigests]);
   }
-
-  // eslint-disable-next-line no-console
-  console.log(`[library] assemble done light=${light} totalMs=${Date.now() - t0}`);
+  // console.log(`[library] assemble done light=${light} totalMs=${Date.now() - t0}`);
   return {
     entries: LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet }),
     lastUpdatedEpochMs: digest.lastUpdatedEpochMs,
@@ -624,13 +622,13 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   dataRef.current = data;
 
   const enrichSeries = useCallback(async (seriesId: string, seriesName: string) => {
-    const t0 = Date.now();
+    // const t0 = Date.now(); // re-enable with the enrich timing trace below (backlog 015-telemetria-interna-debug)
     const [digestRes, matchRes] = await Promise.allSettled([
       SerialService.get({ seriesId }),
       SerialService.externalDetail.sync({ seriesId, seriesName }),
     ]);
-    // eslint-disable-next-line no-console
-    console.log(`[library] enrich ${seriesId} ms=${Date.now() - t0}`);
+    // Per-series enrich timing — kept for the debug task (backlog 015-telemetria-interna-debug).
+    // console.log(`[library] enrich ${seriesId} ms=${Date.now() - t0}`);
 
     const patch: Partial<LibraryEntry> = {};
     if (digestRes.status === 'fulfilled' && digestRes.value.isSuccess) {
@@ -663,8 +661,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     if (batch.length === 0) { return; }
     pendingEnrichRef.current = [];
     enrichInFlightRef.current = true;
-    // eslint-disable-next-line no-console
-    console.log(`[library] enrich batch n=${batch.length}`);
+    // console.log(`[library] enrich batch n=${batch.length}`);
     mapWithLimit(batch, ENRICH_CONCURRENCY, e => enrichSeries(e.id, e.name)).finally(() => {
       enrichInFlightRef.current = false;
       drainEnrichQueue();
