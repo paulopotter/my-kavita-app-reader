@@ -34,3 +34,4 @@
 | [019](backlog/items/019-multiplos-servidores.md) | Múltiplos servidores (grupos) ativos | 017 |
 | [020](backlog/items/020-ota-download-sob-demanda.md) | OTA download sob demanda (botão "baixar" no highly_recommended) | 038 |
 | [021](backlog/items/021-estrutura-de-testes.md) | Revisão da estrutura de arquivos de teste (convenção única, hook+screen num arquivo) | 035 |
+| [022](backlog/items/022-aposentar-ui-preferences-room.md) | Aposentar `ui_preferences` (Room); keep-screen-on / immersive vão para `:preferences` | 035 |
