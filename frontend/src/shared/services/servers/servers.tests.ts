@@ -27,7 +27,14 @@ beforeEach(() => {
 
 describe('ServersService.providers.list', () => {
   it('forwards to ServerBridge.listProviders', async () => {
-    const providers = [{ id: 'kavita', displayName: 'Kavita', version: '1.0' }];
+    const providers = [
+      {
+        id: 'kavita',
+        displayName: 'Kavita',
+        version: '1.0',
+        credentialFields: [{ name: 'apiKey', label: 'Kavita API Key', type: 'string', required: true }],
+      },
+    ];
     (ServerBridge.listProviders as jest.Mock).mockResolvedValue(providers);
     const result = await ServersService.providers.list();
     expect(ServerBridge.listProviders).toHaveBeenCalledWith();

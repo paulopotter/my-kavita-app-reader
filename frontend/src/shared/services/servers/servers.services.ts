@@ -3,6 +3,7 @@ import {
   type ProviderInfo,
   type ServerGroupInfo,
   type ServerUrlInfo,
+  type UrlProbeResult,
 } from '../../bridge/server';
 import { Methods } from '../../tools/methods';
 import { ExternalService } from './external.services';
@@ -108,8 +109,19 @@ export const ServerService = {
     remove({ groupId, urlId }: { groupId: string; urlId: string }): Promise<void> {
       return ServerBridge.removeGroupUrl(groupId, urlId);
     },
+    // Re-tests every URL and switches the active one to whichever answers first. The group
+    // section's "test connection" button.
     validate({ groupId }: { groupId: string }): Promise<ServerUrlInfo> {
       return ServerBridge.validateGroupUrls(groupId);
+    },
+    // Point check on one URL — reachable right now? — without touching which URL is active. The
+    // per-URL modal's "test connection" button.
+    test({ groupId, url }: { groupId: string; url: string }): Promise<UrlProbeResult> {
+      return ServerBridge.testGroupUrl(groupId, url);
+    },
+    // The URL currently active for this group (null before it's ever been resolved).
+    getActive({ groupId }: { groupId: string }): Promise<ServerUrlInfo | null> {
+      return ServerBridge.getGroupActive(groupId);
     },
   },
   auth: {

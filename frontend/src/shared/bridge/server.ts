@@ -1,10 +1,21 @@
 import { NativeModules } from 'react-native';
 import type { ImageDescriptor } from './digest';
 
+// One field a provider needs the user to fill in (Kavita: apiKey; the BFF provider: none/other).
+// `required` is derived server-side from the field's own validate — the config form uses it to
+// mark "*" and block save; the server still re-validates the actual value on group.add/update.
+export interface ProviderCredentialField {
+  name: string;
+  label: string;
+  type: string;
+  required: boolean;
+}
+
 export interface ProviderInfo {
   id: string;
   displayName: string;
   version: string;
+  credentialFields: ProviderCredentialField[];
 }
 
 export interface ServerGroupInfo {
@@ -21,6 +32,16 @@ export interface ServerUrlInfo {
   url: string;
   timeoutMs: number;
   priority: number;
+}
+
+// Outcome of probing one URL's health check. The config screen shows only `ok`; `status` and
+// `elapsedMs` are kept for a debug view / logs. `status` is null when there was no response at
+// all (DNS failure, connection refused, timeout).
+export interface UrlProbeResult {
+  url: string;
+  ok: boolean;
+  status: number | null;
+  elapsedMs: number;
 }
 
 // Mirrors Server.SerialData (Kotlin :server) 1:1 — the shape Server hands back from
@@ -105,6 +126,13 @@ interface ServerBridgeModuleInterface {
   ): Promise<ServerUrlInfo>;
   removeGroupUrl(groupId: string, urlId: string): Promise<void>;
   validateGroupUrls(groupId: string): Promise<ServerUrlInfo>;
+  // Point check on one typed-in URL — hits `<url><group healthCheckPath>` once, reports the
+  // outcome, and NEVER changes which URL is active (unlike validateGroupUrls). The config
+  // screen's per-URL "test connection" button.
+  testGroupUrl(groupId: string, url: string): Promise<UrlProbeResult>;
+  // The URL that actually won selection for this group the last time it was resolved. null if
+  // the group has never been resolved in this process. Never hits the network.
+  getGroupActive(groupId: string): Promise<ServerUrlInfo | null>;
 
   // active group
   setActiveGroup(groupId: string): Promise<void>;
