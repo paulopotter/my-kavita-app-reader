@@ -1,5 +1,4 @@
-import { webtoonReportToTrigger } from '../transforms/reader.transform';
-import { windowToWebtoonBlocks } from '../transforms/webtoon-blocks.transform';
+import { webtoonReportToTrigger, windowToWebtoonBlocks } from '../transforms';
 import type { ReaderChapterBlock } from '../components/reader-page-list-view';
 import type { ReaderModeAdapter } from './reading-mode.types';
 
