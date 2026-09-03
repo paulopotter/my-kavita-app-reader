@@ -8,6 +8,17 @@ import kotlinx.serialization.Serializable
 // provider without knowing its provider-specific DTOs. Each adapter (e.g. KavitaServerPlugin) is
 // responsible for translating its raw plugin's real response into these.
 
+/**
+ * A content operation failed specifically because the session is no longer accepted (the server
+ * answered 401 to an *authenticated content* request — NOT the auth endpoints themselves, where a
+ * 401 is the terminal "wrong credentials" answer). This is the one plugin exception [Server]
+ * treats specially: on catching it, Server renews the session (reauthenticate → full authenticate
+ * fallback) against the SAME URL and replays the call once. Every plugin adapter must raise this
+ * (instead of its own generic exception) when, and only when, an authenticated content call comes
+ * back 401 — a stale/expired JWT that a fresh login would fix.
+ */
+class ServerAuthException(message: String) : Exception(message)
+
 // Fields from Kavita's real SeriesDto (the first, cheaper series call) — never mixes in fields
 // that require the separate SeriesMetadataDto call (see PluginSeriesMetadata below). Naming
 // already matches SeriesContract's vocabulary (Task 020), not SeriesDto's raw field names — same
@@ -133,6 +144,10 @@ interface ServerPluginRegistration {
     val displayName: String
     val version: String
     val credentialFields: List<CredentialField>
+    // The path this provider answers a cheap liveness check on (e.g. Kavita's "/api/Health").
+    // UrlSelector appends it to each candidate URL when picking a healthy one, and a new group
+    // is created with this value — the RN config screen never has to know a provider's endpoint.
+    val defaultHealthCheckPath: String
     val factory: (requestTool: RequestTool, baseUrl: String, authJson: String) -> ServerPlugin
 }
 

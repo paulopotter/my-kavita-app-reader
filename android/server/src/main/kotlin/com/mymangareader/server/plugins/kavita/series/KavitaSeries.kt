@@ -1,6 +1,7 @@
 package com.mymangareader.server.plugins.kavita.series
 
 import com.mymangareader.server.plugins.kavita.chapter.KavitaPersonDto
+import com.mymangareader.server.plugins.kavita.kavitaRaiseIfSessionRejected
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -141,6 +142,7 @@ class KavitaSeries(
             ),
             body = SERIES_ALL_BODY,
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Series list failed")
         if (http.status != 200) throw KavitaSeriesException("Series list failed: HTTP ${http.status}")
         return seriesJson.decodeFromString(http.body)
     }
@@ -151,6 +153,7 @@ class KavitaSeries(
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Series detail failed")
         if (http.status != 200) throw KavitaSeriesException("Series detail failed: HTTP ${http.status}")
         return seriesJson.decodeFromString(http.body)
     }
@@ -161,6 +164,7 @@ class KavitaSeries(
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Series metadata failed")
         if (http.status != 200) throw KavitaSeriesException("Series metadata failed: HTTP ${http.status}")
         return seriesJson.decodeFromString(http.body)
     }

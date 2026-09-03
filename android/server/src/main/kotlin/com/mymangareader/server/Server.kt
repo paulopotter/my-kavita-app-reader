@@ -10,6 +10,7 @@ import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
 import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.PluginSeriesMetadata
+import com.mymangareader.server.plugins.ServerAuthException
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.RequestTool
@@ -96,6 +97,9 @@ data class ProviderInfo(
     // a "*" and block save without hardcoding any provider's field names. The real validation of
     // the entered value still runs server-side in groups.add/update (validateCredentials).
     val credentialFields: List<ProviderCredentialField>,
+    // The liveness path this provider answers on — the RN config screen passes it straight into
+    // groups.add so it never has to know a provider's endpoint.
+    val defaultHealthCheckPath: String,
 )
 
 data class ProviderCredentialField(
@@ -463,18 +467,31 @@ class Server @Inject constructor(
             withUrlRetryEnveloped { it.serial(serialId).chapter(chapterId).page(pageIndex).getUrl() }
     }
 
-    // Runs one content call against the active group's plugin; if it fails with a network error
-    // (IOException — connection refused, timeout, DNS failure; never an HTTP status like 401,
-    // which surfaces as a normal return value from RequestTool, not an exception), forces a
-    // fresh URL selection (ignoring the 15-minute cache) and retries the same call exactly once
-    // against a freshly-built plugin. A second network failure is not retried again — it
-    // propagates, since two dead URLs in a row means the group itself is unreachable right now,
-    // not that the wrong URL was picked. Used directly by WRITE methods (no data to envelope);
-    // READ methods use withUrlRetryEnveloped below instead.
+    // Runs one content call against the active group's plugin, with two independent one-shot
+    // recoveries — each retries the SAME call exactly once against a freshly-built plugin:
+    //
+    //  - IOException (connection refused, timeout, DNS failure): the picked URL is dead. Force a
+    //    fresh URL selection (ignoring the 15-minute cache) and retry. A second IOException is not
+    //    retried again — two dead URLs in a row means the group itself is unreachable right now.
+    //
+    //  - ServerAuthException (an authenticated content call came back 401 — the plugin raises this
+    //    specifically for that, see its doc): the URL is fine, the session expired. Re-authenticate
+    //    the active group (full login via the stored apiKey — reauthenticateActiveGroup drops the
+    //    cached session and calls authenticate()) against the same URL, then retry. A second
+    //    ServerAuthException means the credential itself no longer works (revoked apiKey / account
+    //    change) — it propagates, and whoever's above sends the user back to setup.
+    //
+    // The two are handled separately, not nested: a 401 does not trigger a URL reselect, and a
+    // network failure does not trigger a re-auth.
+    // Used directly by WRITE methods (no data to envelope); READ methods use
+    // withUrlRetryEnveloped below instead.
     private suspend fun <T> withUrlRetry(action: suspend (ServerPlugin) -> T): T {
         val groupId = activeGroupId ?: throw ServerException("No active server group set — call setActiveGroup(id) first")
         return try {
             action(getActiveContent())
+        } catch (e: ServerAuthException) {
+            reauthenticateActiveGroup(groupId)
+            action(getActiveContent(groupId = groupId))
         } catch (e: IOException) {
             action(getActiveContent(forceUrlReselect = true, groupId = groupId))
         }
@@ -788,6 +805,7 @@ private fun ServerPluginRegistration.toInfo() = ProviderInfo(
             required = it.validate("") != null,
         )
     },
+    defaultHealthCheckPath = defaultHealthCheckPath,
 )
 
 private fun ServerGroupEntity.toInfo() = ServerGroupInfo(

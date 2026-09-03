@@ -13,6 +13,7 @@ import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
 import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.PluginSeriesMetadata
+import com.mymangareader.server.plugins.ServerAuthException
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.ActiveUrlSelector
@@ -152,11 +153,13 @@ private class FakePlugin(val authJson: String, var failSerialsListWith: Throwabl
     override val displayName = "Fake"
     override val version = "0.0.0"
     var authenticateCalled = false
+    var authenticateCallCount = 0
     var tokenAfterAuth: String? = null
 
     override val auth = object : ServerPlugin.Auth {
         override suspend fun authenticate() {
             authenticateCalled = true
+            authenticateCallCount++
             tokenAfterAuth = "token-${authJson.hashCode()}"
         }
         override suspend fun checkToken(): String? = null
@@ -234,6 +237,7 @@ private fun fakeRegistration(
     override val displayName = "Fake $id"
     override val version = "0.0.0"
     override val credentialFields = credentialFields
+    override val defaultHealthCheckPath = "/health"
     override val factory = { requestTool: RequestTool, baseUrl: String, authJson: String ->
         val plugin = FakePlugin(authJson)
         onFactory(requestTool, baseUrl, authJson, plugin)
@@ -797,6 +801,71 @@ class ServerTest {
 
         assertEquals(listOf("1"), serials.data.serials.map { it.id })
         assertEquals(1, urlSelector.invalidateAndReselectCalls)
+    }
+
+    // ── session-expiry retry (withUrlRetry catching ServerAuthException) ─────
+
+    @Test
+    fun `a 401 on a content call re-authenticates the group and retries once, without reselecting the URL`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl)
+        var failNextSerialsListWith401 = false
+        val authInstances = mutableListOf<FakePlugin>()
+        val authServer = Server(
+            groupDao,
+            urlDao,
+            mapOf(
+                "fake" to fakeRegistration(
+                    onFactory = { _, _, _, plugin ->
+                        authInstances += plugin
+                        if (failNextSerialsListWith401) {
+                            plugin.failSerialsListWith = ServerAuthException("session rejected (HTTP 401)")
+                            failNextSerialsListWith401 = false
+                        }
+                    },
+                ),
+            ),
+            urlSelector,
+            RequestTool(OkHttpClient()),
+        )
+        val group = authServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+        authServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+        authServer.setActiveGroup(group.id)
+        val reselectsBefore = urlSelector.invalidateAndReselectCalls
+
+        failNextSerialsListWith401 = true
+        val serials = authServer.serials.list()
+
+        assertEquals(listOf("1"), serials.data.serials.map { it.id })
+        // the re-auth path rebuilt the plugin and called authenticate() again — but never asked
+        // the selector to re-pick a URL (a 401 is not a dead URL).
+        assertTrue(authInstances.any { it.authenticateCallCount >= 1 })
+        assertEquals(reselectsBefore, urlSelector.invalidateAndReselectCalls)
+    }
+
+    @Test
+    fun `a 401 that persists after re-authentication propagates the exception`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl)
+        val authServer = Server(
+            groupDao,
+            urlDao,
+            mapOf(
+                "fake" to fakeRegistration(
+                    onFactory = { _, _, _, plugin ->
+                        plugin.failSerialsListWith = ServerAuthException("session still rejected (HTTP 401)")
+                    },
+                ),
+            ),
+            urlSelector,
+            RequestTool(OkHttpClient()),
+        )
+        val group = authServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+        authServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+        authServer.setActiveGroup(group.id)
+        val reselectsBefore = urlSelector.invalidateAndReselectCalls
+
+        assertFailsWith<ServerAuthException> { authServer.serials.list() }
+        // exactly one re-auth-and-retry, then it gives up — and still no URL reselect.
+        assertEquals(reselectsBefore, urlSelector.invalidateAndReselectCalls)
     }
 
     @Test

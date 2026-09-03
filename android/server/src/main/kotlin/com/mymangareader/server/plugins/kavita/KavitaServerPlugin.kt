@@ -87,6 +87,8 @@ class KavitaServerPlugin(
             ),
         )
 
+        override val defaultHealthCheckPath: String = "/api/Health"
+
         override val factory = { requestTool: RequestTool, baseUrl: String, authJson: String ->
             val payload = authFormat.decodeFromString<AuthPayload>(authJson)
             KavitaServerPlugin(baseUrl, payload.session?.jwt, payload.credentials.apiKey, requestTool) as ServerPlugin

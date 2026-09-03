@@ -2,6 +2,7 @@ package com.mymangareader.server.plugins.kavita.chapter
 
 import com.mymangareader.server.plugins.kavita.series.KavitaGenreDto
 import com.mymangareader.server.plugins.kavita.series.KavitaTagDto
+import com.mymangareader.server.plugins.kavita.kavitaRaiseIfSessionRejected
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -167,6 +168,8 @@ class KavitaChapter(
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Volumes fetch failed")
+
         if (http.status != 200) throw KavitaChapterException("Volumes fetch failed: HTTP ${http.status}")
         return chapterJson.decodeFromString(http.body)
     }
@@ -188,6 +191,8 @@ class KavitaChapter(
             method = "GET",
             headers = mapOf("Authorization" to "Bearer $jwt"),
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Chapter info fetch failed")
+
         if (http.status != 200) throw KavitaChapterException("Chapter info fetch failed: HTTP ${http.status}")
         return chapterJson.decodeFromString<KavitaChapterInfoDto>(http.body).pageDimensions.sortedBy { it.pageNumber }
     }
@@ -199,6 +204,8 @@ class KavitaChapter(
             headers = mapOf("Authorization" to "Bearer $jwt"),
         ).getOrThrow()
         if (http.status == 404) return null
+        kavitaRaiseIfSessionRejected(http.status, "Get progress failed")
+
         if (http.status != 200) throw KavitaChapterException("Get progress failed: HTTP ${http.status}")
         return chapterJson.decodeFromString(http.body)
     }
@@ -223,6 +230,8 @@ class KavitaChapter(
             ),
             body = body,
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Save progress failed")
+
         if (http.status != 200) throw KavitaChapterException("Save progress failed: HTTP ${http.status}")
     }
 
@@ -245,6 +254,8 @@ class KavitaChapter(
             ),
             body = body,
         ).getOrThrow()
+        kavitaRaiseIfSessionRejected(http.status, "Mark chapters failed")
+
         if (http.status != 200) throw KavitaChapterException("Mark chapters failed: HTTP ${http.status}")
     }
 }
