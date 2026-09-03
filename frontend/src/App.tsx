@@ -6,7 +6,7 @@ import { LanguageContext } from './shared/i18n/LanguageContext';
 import { getStrings } from './shared/i18n/strings';
 import { ConfigRepository } from './shared/bridge/config';
 import { StartupBridge } from './shared/bridge/startup';
-import { AppShellStateProvider } from './shared/components/AppShellState';
+import { StartupProvider } from './shared/context/startup';
 import { RootNavigator } from './navigation/RootNavigator';
 import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
 
@@ -84,7 +84,7 @@ function AppContent() {
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>
       <StatusBar backgroundColor="#1A1A2E" barStyle="light-content" translucent={false} />
       <View style={[styles.root, { paddingTop: statusBarHeight }]}>
-        <AppShellStateProvider>
+        <StartupProvider>
           <NavigationContainer ref={navRef} onStateChange={onNavigationStateChange}>
             <RootNavigator
               onSetupComplete={() => {
@@ -92,7 +92,7 @@ function AppContent() {
               }}
             />
           </NavigationContainer>
-        </AppShellStateProvider>
+        </StartupProvider>
       </View>
     </LanguageContext.Provider>
   );

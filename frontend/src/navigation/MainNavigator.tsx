@@ -5,7 +5,7 @@ import { Library, Settings, Star } from 'lucide-react-native';
 import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library';
 import { ConfigScreen } from '../screens/config';
-import { useAppShellState } from '../shared/components/AppShellState';
+import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n/useStrings';
 
 const Tab = createBottomTabNavigator();
@@ -32,7 +32,7 @@ function ConfigTab({
 }
 
 export function MainNavigator() {
-  const { refresh, hasFollowedSeries } = useAppShellState();
+  const { refresh, hasFollowedSeries } = useStartup();
   const strings = useStrings();
   const navigation = useNavigation<any>();
   const isConfigSubScreenRef = useRef(false);

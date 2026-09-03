@@ -1,21 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { StartupBridge } from '../bridge/startup';
+import { StartupBridge } from '../../bridge/startup';
+import type { StartupState } from './startup.types';
 
-interface AppShellState {
-  hasServerConfigured: boolean;
-  hasFollowedSeries: boolean;
-  unreadNotificationCount: number;
-  refresh: () => void;
-}
-
-const AppShellContext = createContext<AppShellState>({
+const StartupContext = createContext<StartupState>({
   hasServerConfigured: false,
   hasFollowedSeries: false,
   unreadNotificationCount: 0,
   refresh: () => {},
 });
 
-export function AppShellStateProvider({ children }: { children: React.ReactNode }) {
+export function StartupProvider({ children }: { children: React.ReactNode }) {
   const [hasServerConfigured, setHasServerConfigured] = useState(false);
   const [hasFollowedSeries, setHasFollowedSeries] = useState(false);
   const [unreadNotificationCount] = useState(0);
@@ -29,19 +23,22 @@ export function AppShellStateProvider({ children }: { children: React.ReactNode 
       setHasServerConfigured(server);
       setHasFollowedSeries(followed);
     } catch {
-      // Non-fatal: shell state defaults to false
+      // Non-fatal: startup state defaults to false, the shell still renders.
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   return (
-    <AppShellContext.Provider value={{ hasServerConfigured, hasFollowedSeries, unreadNotificationCount, refresh: load }}>
+    <StartupContext.Provider
+      value={{ hasServerConfigured, hasFollowedSeries, unreadNotificationCount, refresh: load }}>
       {children}
-    </AppShellContext.Provider>
+    </StartupContext.Provider>
   );
 }
 
-export function useAppShellState(): AppShellState {
-  return useContext(AppShellContext);
+export function useStartup(): StartupState {
+  return useContext(StartupContext);
 }
