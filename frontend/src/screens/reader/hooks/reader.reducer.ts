@@ -6,7 +6,7 @@
 // state.window — so two MOVE_FOCUS in the same React batch serialize correctly (the 2nd builds on
 // the 1st's result). Nothing in the hook keeps a parallel copy of the window.
 
-import { computeWindowAfterFocusMove } from '../transforms';
+import { computeWindowAfterFocusMove } from '../reader.window';
 import type { LoadedChapterEntry, ReaderAction, ReaderWindow, State } from '../reader.types';
 
 export const initialState: State = {

@@ -1,6 +1,11 @@
 import { getStrings } from '../../../../shared/i18n/strings';
 import type { OrderedChapter, ReaderWindow } from '../../reader.types';
-import { webtoonAdapter } from '../../modes/webtoon.adapter';
+import {
+  isWebtoonPositionReport,
+  webtoonAdapter,
+  webtoonReportToTrigger,
+  windowToWebtoonBlocks,
+} from '../../modes/webtoon.adapter';
 
 const t = getStrings('pt-BR');
 
@@ -115,6 +120,34 @@ describe('webtoonAdapter', () => {
     it('returns null for a malformed payload', () => {
       expect(webtoonAdapter.interpretPositionReport({ nope: true })).toBeNull();
       expect(webtoonAdapter.interpretPositionReport(null)).toBeNull();
+    });
+  });
+
+  // The hook/screen import these standalone functions directly (NOT through the modes/ barrel,
+  // NOT via the adapter object) — the rc30 module-init guard. Cover that entry point too.
+  describe('standalone exports', () => {
+    it('windowToWebtoonBlocks maps every entry, placeholder included', () => {
+      const blocks = windowToWebtoonBlocks(window(), order(['c1', 'c2']), t);
+      expect(blocks.map(b => b.chapterId)).toEqual(['c1', 'c2']);
+    });
+
+    it('webtoonReportToTrigger parses a valid report and rejects a bad one', () => {
+      expect(
+        webtoonReportToTrigger({ chapterId: 'c9', pageIndex: 3, pageFraction: 0.4, chapterFraction: 0.7 }),
+      ).toEqual({
+        source: 'native-scroll',
+        reportedChapterId: 'c9',
+        page: 3,
+        pageFraction: 0.4,
+        chapterFraction: 0.7,
+      });
+      expect(webtoonReportToTrigger({ nope: true })).toBeNull();
+    });
+
+    it('isWebtoonPositionReport is a type guard on chapterId + pageIndex', () => {
+      expect(isWebtoonPositionReport({ chapterId: 'c1', pageIndex: 0 })).toBe(true);
+      expect(isWebtoonPositionReport({ chapterId: 'c1' })).toBe(false);
+      expect(isWebtoonPositionReport(null)).toBe(false);
     });
   });
 });

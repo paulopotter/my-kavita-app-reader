@@ -14,7 +14,8 @@ import {
   type ReaderChapterBlock,
 } from './components';
 import { useReader } from './hooks';
-import { progressBarFraction, windowToWebtoonBlocks } from './transforms';
+import { progressBarFraction } from './reader.model';
+import { windowToWebtoonBlocks } from './modes/webtoon.adapter';
 import { styles } from './reader.styles';
 
 type RouteParams = {

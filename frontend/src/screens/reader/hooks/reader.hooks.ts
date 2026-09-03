@@ -18,17 +18,18 @@ import { ReadingModeTool, type ReadingMode } from '../reading-mode.tool';
 import {
   READ_THRESHOLD_FRACTION,
   adjacentChapterId,
-  buildWindow,
   chapterFromDigest,
-  computeWindowAfterFocusMove,
   isChapterEffectivelyRead,
-  reconcileWindow,
   resolveInitialPage,
   shouldUnmarkOnReread,
   toOrderedChapters,
-  webtoonReportToTrigger,
   withOrderNumber,
-} from '../transforms';
+} from '../reader.model';
+import { buildWindow, computeWindowAfterFocusMove, reconcileWindow } from '../reader.window';
+// Imported straight from the adapter file, NOT via the modes/ barrel — a module-init ordering
+// crash in the barrel graph took the app down on device (rc30). Keep it a direct named import of
+// the plain function; never the READER_MODE_ADAPTERS object.
+import { webtoonReportToTrigger } from '../modes/webtoon.adapter';
 import { initialState, reducer } from './reader.reducer';
 
 // Reader V2 hook — owns ALL reader state. The screen is dumb: it forwards the native payload
@@ -390,11 +391,11 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   }, [state.scrollRequest, state.window]);
 
   // ── native list -> hook. Screen forwards this verbatim; the hook owns the decision. ──
-  // Uses the pure webtoonReportToTrigger from reader.transform, NOT the adapter — this runs on
-  // the very first native scroll event, and depending on the adapter module graph here risks a
-  // module-init ordering crash that takes the whole app down (seen on device, rc30). When a
-  // non-webtoon mode ships, this becomes a per-mode dispatch that still resolves to a plain
-  // function, never an object deref.
+  // Uses the plain webtoonReportToTrigger imported straight from modes/webtoon.adapter.ts, NOT
+  // via the modes/ barrel or the adapter object — this runs on the very first native scroll
+  // event, and pulling the barrel module graph here risks a module-init ordering crash that
+  // takes the whole app down (seen on device, rc30). When a non-webtoon mode ships, this becomes
+  // a per-mode dispatch that still resolves to a plain function, never an object deref.
   const onNativePosition = useCallback(
     (chapterId_: string, page: number, pageFraction: number, chapterFraction: number) => {
       // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
