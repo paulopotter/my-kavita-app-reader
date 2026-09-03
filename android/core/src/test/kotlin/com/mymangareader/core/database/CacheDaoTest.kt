@@ -171,4 +171,58 @@ class CacheDaoTest {
         assertNull(dao.getByKey("c:true", "full"))
         assertTrue(dao.getByKey("c:false", "full") != null)
     }
+
+    // ── queryFiltered — the batch read behind CacheStore.patchAll (the CacheFilter sugar over it
+    //    lives in :cache and is covered by CachePatchTest) ──────────────────────
+
+    @Test
+    fun `queryFiltered with hasKeys 0 and null domain,variant returns every row`() = runTest {
+        dao.upsert(entry("a", domain = "serial"))
+        dao.upsert(entry("b", domain = "chapter", variant = "full"))
+
+        assertEquals(
+            setOf("a", "b"),
+            dao.queryFiltered(keys = emptyList(), hasKeys = 0, domain = null, variant = null).map { it.key }.toSet(),
+        )
+    }
+
+    @Test
+    fun `queryFiltered ANDs keys, domain and variant`() = runTest {
+        dao.upsert(entry("s1", domain = "serial", variant = "v"))
+        dao.upsert(entry("s2", domain = "serial", variant = "v"))
+        dao.upsert(entry("s3", domain = "serial", variant = "other"))
+        dao.upsert(entry("c1", domain = "chapter", variant = "v"))
+
+        assertEquals(
+            setOf("s1", "s2"),
+            dao.queryFiltered(listOf("s1", "s2", "s3"), hasKeys = 1, domain = "serial", variant = "v").map { it.key }.toSet(),
+        )
+        assertEquals(
+            setOf("s1", "s2", "s3"),
+            dao.queryFiltered(emptyList(), hasKeys = 0, domain = "serial", variant = null).map { it.key }.toSet(),
+        )
+        assertEquals(
+            setOf("s1", "s2", "c1"),
+            dao.queryFiltered(emptyList(), hasKeys = 0, domain = null, variant = "v").map { it.key }.toSet(),
+        )
+    }
+
+    @Test
+    fun `upsertAllLenient writes every row and returns the count`() = runTest {
+        val written = dao.upsertAllLenient(
+            listOf(entry("a", value = "1"), entry("b", value = "2"), entry("c", variant = "full", value = "3")),
+        )
+
+        assertEquals(3, written)
+        assertEquals("1", dao.getByKey("a", "")?.value)
+        assertEquals("2", dao.getByKey("b", "")?.value)
+        assertEquals("3", dao.getByKey("c", "full")?.value)
+    }
+
+    @Test
+    fun `upsertAllLenient replaces an existing row (same key,variant)`() = runTest {
+        dao.upsert(entry("a", value = "old"))
+        dao.upsertAllLenient(listOf(entry("a", value = "new")))
+        assertEquals("new", dao.getByKey("a", "")?.value)
+    }
 }

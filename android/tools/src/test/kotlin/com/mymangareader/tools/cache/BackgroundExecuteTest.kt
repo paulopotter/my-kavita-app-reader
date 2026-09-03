@@ -39,6 +39,9 @@ private class FakeCacheDao : CacheDao {
     override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
         entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
 
+    override suspend fun queryFiltered(keys: List<String>, hasKeys: Int, domain: String?, variant: String?): List<CacheEntity> =
+        entities.values.filter { e -> (hasKeys == 0 || e.key in keys) && (domain == null || e.domain == domain) && (variant == null || e.variant == variant) }
+
     override suspend fun deleteExpired(entries: List<CacheEntity>) {
         entries.forEach { entities.remove(FakeCacheKey(it.key, it.variant)) }
     }

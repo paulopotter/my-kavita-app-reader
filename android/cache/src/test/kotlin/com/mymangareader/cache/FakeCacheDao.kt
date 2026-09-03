@@ -17,6 +17,17 @@ internal class FakeCacheDao : CacheDao {
         entities[MapKey(entity.key, entity.variant)] = entity
     }
 
+    override suspend fun queryFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheEntity> = entities.values.filter { e ->
+        (hasKeys == 0 || e.key in keys) &&
+            (domain == null || e.domain == domain) &&
+            (variant == null || e.variant == variant)
+    }
+
     override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) {
         val mapKey = MapKey(key, variant)
         entities[mapKey]?.let { entities[mapKey] = it.copy(lastAccessedAtEpochMs = lastAccessedAtEpochMs) }

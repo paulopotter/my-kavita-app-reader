@@ -15,6 +15,39 @@ interface CacheDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: CacheEntity)
 
+    // Batch read for CacheStore.patchAll: one query for many rows instead of one getByKey per key.
+    // Each arg is optional and AND-ed; `hasKeys` (0/1) disambiguates "no key filter" from "empty
+    // key list" so an empty IN(...) never happens. The :cache module wraps this with a CacheFilter
+    // object; :core keeps it primitive so nothing here needs to depend on that type.
+    @Query(
+        """
+        SELECT * FROM cache
+        WHERE (:hasKeys = 0 OR `key` IN (:keys))
+          AND (:domain IS NULL OR domain = :domain)
+          AND (:variant IS NULL OR variant = :variant)
+        """,
+    )
+    suspend fun queryFiltered(keys: List<String>, hasKeys: Int, domain: String?, variant: String?): List<CacheEntity>
+
+    // Batch upsert in ONE transaction (one commit / fsync, not one per row — that difference is
+    // the whole point). Lenient: a row that somehow fails to upsert is skipped, the rest still go
+    // in, and the count of successful writes is returned. A malformed CacheEntity can't really
+    // occur (all fields non-null primitives/String), so this only matters if the DB itself is
+    // broken — in which case the outer @Transaction rolls the whole thing back anyway.
+    @Transaction
+    suspend fun upsertAllLenient(entities: List<CacheEntity>): Int {
+        var written = 0
+        for (e in entities) {
+            try {
+                upsert(e)
+                written++
+            } catch (_: Exception) {
+                // skip this row, keep going
+            }
+        }
+        return written
+    }
+
     @Query("UPDATE cache SET lastAccessedAtEpochMs = :lastAccessedAtEpochMs WHERE `key` = :key AND variant = :variant")
     suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long)
 

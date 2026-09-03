@@ -1,8 +1,13 @@
 package com.mymangareader.cache
 
+
 // 15min, same value ActiveUrlSelector.CACHE_TTL_MS already uses (:tools) — kept as this module's
 // own constant since Cache never depends on :tools.
 internal const val DEFAULT_TTL_MS = 15 * 60 * 1000L
+
+// One entry to patch in a patchAll batch: same trio put()/patch() take, minus the domain/variant
+// (those are batch-wide — every item in one patchAll call shares them).
+data class PatchItem(val key: String, val value: String, val ttlMs: Long = DEFAULT_TTL_MS)
 
 // value/cachedAtEpochMs/ttlMs are always returned even when isExpired is true — get() never
 // deletes an expired entry itself (see CacheStore.purgeExpired). The caller decides whether a
@@ -36,6 +41,42 @@ interface CacheStore {
     // `cache` field carries forward (see CacheDescriptor's own doc). Never Unit: a caller building
     // a digest needs this to attach provenance without re-deriving it.
     suspend fun put(key: String, value: String, domain: String, variant: String = "", ttlMs: Long = DEFAULT_TTL_MS): CacheDescriptor
+
+    // Like put(), but keeps the fields already stored under (key, variant) that `value` doesn't
+    // mention. Both sides are treated as MAYBE-JSON: if the stored value and `value` both parse as
+    // JSON objects, the stored entry is merged with `value` — top-level keys from `value` win,
+    // keys only in the stored value are preserved. `deep` controls only how a key present on both
+    // sides is combined: false (default) replaces it wholesale; true recurses into objects (see
+    // jsonMerge). Either side not a JSON object, or no existing entry → patch behaves exactly like
+    // put(value). Always rewrites cachedAtEpochMs/expiresAtEpochMs and returns the fresh
+    // descriptor. Lets a caller refresh the "list" fields of a per-series digest without a manual
+    // get()+copy()+put() and without clobbering the richer chapters/metadata a prior single-series
+    // fetch wrote. A default impl (get → merge → put) covers both backends; an implementation can
+    // override for a single-round-trip version.
+    suspend fun patch(key: String, value: String, domain: String, variant: String = "", ttlMs: Long = DEFAULT_TTL_MS, deep: Boolean = false): CacheDescriptor {
+        val existing = get(key, variant)?.value
+        val toWrite = if (existing != null) jsonMerge(existing, value, deep) else value
+        return put(key, toWrite, domain, variant, ttlMs)
+    }
+
+    // Batch patch: merge-and-write [items] under one (domain, variant), reading the existing
+    // entries ONCE and writing them ONCE. `readFilter` picks how wide that pre-merge read is;
+    // null → read exactly the keys in [items] for this variant (chunked past
+    // CACHE_FILTER_MAX_KEYS). A caller with a whole-domain refresh (e.g. buildSerialsDigest, ~all
+    // series at once) passes CacheFilter(domain = ..., variant = ...) to skip the IN-list and its
+    // limit entirely. Merge semantics per item are exactly patch()'s (shallow unless deep). Order
+    // of the returned descriptors matches [items].
+    //
+    // The default here is the slow path — one patch() per item — so a store that can't batch
+    // still works. PersistentHandle overrides it with the real single-read / single-transaction
+    // version; MemoryKotlinHandle overrides it with a lock-once loop.
+    suspend fun patchAll(
+        items: List<PatchItem>,
+        domain: String,
+        variant: String = "",
+        deep: Boolean = false,
+        readFilter: CacheFilter? = null,
+    ): List<CacheDescriptor> = items.map { patch(it.key, it.value, domain, variant, it.ttlMs, deep) }
 
     suspend fun invalidate(key: String, variant: String = "")
     suspend fun invalidateDomain(domain: String)

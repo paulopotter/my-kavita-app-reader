@@ -45,6 +45,66 @@ internal class PersistentHandle(private val cacheDao: CacheDao) : Persistent {
         )
     }
 
+    // Batch version: one read (via CacheFilter) + one transactional write, instead of the default's
+    // one get()+put() per item. `readFilter` null → read exactly the batch's keys for this
+    // variant, chunked so no single IN-list exceeds SQLite's host-param cap.
+    override suspend fun patchAll(
+        items: List<PatchItem>,
+        domain: String,
+        variant: String,
+        deep: Boolean,
+        readFilter: CacheFilter?,
+    ): List<CacheDescriptor> {
+        if (items.isEmpty()) return emptyList()
+
+        // 1. Read existing entries once, into a (key,variant) -> value map.
+        val existingByKey = HashMap<String, String>(items.size * 2)
+        if (readFilter != null) {
+            cacheDao.query(readFilter).forEach { if (it.variant == variant) existingByKey[it.key] = it.value }
+        } else {
+            items.map { it.key }.distinct().chunked(CACHE_FILTER_MAX_KEYS).forEach { chunk ->
+                cacheDao.query(CacheFilter(keys = chunk, variant = variant))
+                    .forEach { existingByKey[it.key] = it.value }
+            }
+        }
+
+        // 2. Merge each item in memory (no I/O), build the rows to write.
+        val now = System.currentTimeMillis()
+        val entities = ArrayList<CacheEntity>(items.size)
+        val descriptors = ArrayList<CacheDescriptor>(items.size)
+        for (item in items) {
+            val existing = existingByKey[item.key]
+            val toWrite = if (existing != null) jsonMerge(existing, item.value, deep) else item.value
+            val expiresAtEpochMs = now + item.ttlMs
+            entities.add(
+                CacheEntity(
+                    key = item.key,
+                    variant = variant,
+                    value = toWrite,
+                    domain = domain,
+                    cachedAtEpochMs = now,
+                    ttlMs = item.ttlMs,
+                    expiresAtEpochMs = expiresAtEpochMs,
+                    lastAccessedAtEpochMs = now,
+                ),
+            )
+            descriptors.add(
+                CacheDescriptor(
+                    key = item.key,
+                    variant = variant,
+                    domain = domain,
+                    mode = CacheMode.PERSISTENT,
+                    cachedAtEpochMs = now,
+                    expiresAtEpochMs = expiresAtEpochMs,
+                ),
+            )
+        }
+
+        // 3. One transactional, lenient write.
+        cacheDao.upsertAllLenient(entities)
+        return descriptors
+    }
+
     override suspend fun invalidate(key: String, variant: String) = cacheDao.deleteByKey(key, variant)
 
     override suspend fun invalidateDomain(domain: String) = cacheDao.deleteByDomain(domain)
