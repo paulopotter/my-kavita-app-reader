@@ -1,35 +1,35 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { AppAlert, type AppAlertProps } from './app-alert.component';
+import { SplashAlert, type SplashAlertProps } from './alert.component';
 
-const base = (over: Partial<AppAlertProps> = {}): AppAlertProps => ({
+const base = (over: Partial<SplashAlertProps> = {}): SplashAlertProps => ({
   visible: true,
   title: 'Título',
   buttons: [{ label: 'OK', onPress: jest.fn() }],
   ...over,
 });
 
-describe('AppAlert', () => {
+describe('SplashAlert', () => {
   it('renders the title, the optional message and every button', () => {
-    const { getByText, queryByText, rerender } = render(<AppAlert {...base({ message: 'Detalhe' })} />);
+    const { getByText, queryByText, rerender } = render(<SplashAlert {...base({ message: 'Detalhe' })} />);
     expect(getByText('Título')).toBeTruthy();
     expect(getByText('Detalhe')).toBeTruthy();
     expect(getByText('OK')).toBeTruthy();
 
-    rerender(<AppAlert {...base()} />);
+    rerender(<SplashAlert {...base()} />);
     expect(queryByText('Detalhe')).toBeNull();
   });
 
   it('fires a button onPress when tapped', () => {
     const onPress = jest.fn();
-    const { getByText } = render(<AppAlert {...base({ buttons: [{ label: 'Ir', onPress }] })} />);
+    const { getByText } = render(<SplashAlert {...base({ buttons: [{ label: 'Ir', onPress }] })} />);
     fireEvent.press(getByText('Ir'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
   it('calls onDismiss from the backdrop when dismissible', () => {
     const onDismiss = jest.fn();
-    const { UNSAFE_getAllByType } = render(<AppAlert {...base({ dismissible: true, onDismiss })} />);
+    const { UNSAFE_getAllByType } = render(<SplashAlert {...base({ dismissible: true, onDismiss })} />);
     const { Pressable } = require('react-native');
     fireEvent.press(UNSAFE_getAllByType(Pressable)[0]); // outermost = backdrop
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -37,20 +37,20 @@ describe('AppAlert', () => {
 
   it('does NOT call onDismiss from the backdrop when not dismissible', () => {
     const onDismiss = jest.fn();
-    const { UNSAFE_getAllByType } = render(<AppAlert {...base({ dismissible: false, onDismiss })} />);
+    const { UNSAFE_getAllByType } = render(<SplashAlert {...base({ dismissible: false, onDismiss })} />);
     const { Pressable } = require('react-native');
     fireEvent.press(UNSAFE_getAllByType(Pressable)[0]);
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it('renders nothing while not visible', () => {
-    const { queryByText } = render(<AppAlert {...base({ visible: false })} />);
+    const { queryByText } = render(<SplashAlert {...base({ visible: false })} />);
     expect(queryByText('Título')).toBeNull();
   });
 
   it('applies the variant styles by button variant', () => {
     const { getByText } = render(
-      <AppAlert
+      <SplashAlert
         {...base({
           buttons: [
             { label: 'P', variant: 'primary', onPress: jest.fn() },

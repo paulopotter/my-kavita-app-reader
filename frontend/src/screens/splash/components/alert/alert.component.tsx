@@ -1,27 +1,27 @@
 import React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
-import { styles } from './app-alert.styles';
+import { styles } from './alert.styles';
 
-export interface AppAlertButton {
+export interface SplashAlertButton {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'destructive';
 }
 
-export interface AppAlertProps {
+export interface SplashAlertProps {
   visible: boolean;
   title: string;
   message?: string;
-  buttons: AppAlertButton[];
-  // When false, hardware back and backdrop tap do nothing (blocking alert).
+  buttons: SplashAlertButton[];
+  // When false, hardware back and backdrop tap do nothing (blocking alert — the OTA "required"
+  // flow uses this).
   dismissible?: boolean;
   onDismiss?: () => void;
 }
 
-// Generic modal alert. Dumb — the caller owns visibility, the copy, and every button's action;
-// this only lays out the card and routes taps. `dismissible: false` makes it a hard block
-// (backdrop + hardware back inert), used by the OTA "required" flow.
-export function AppAlert({ visible, title, message, buttons, dismissible = true, onDismiss }: AppAlertProps) {
+// The splash's modal alert — the only alert the app raises today (the OTA advisory / hard-block).
+// Dumb: the splash hook builds title/message/buttons; this only lays out the card and routes taps.
+export function SplashAlert({ visible, title, message, buttons, dismissible = true, onDismiss }: SplashAlertProps) {
   function handleBackdrop() {
     if (dismissible) {
       onDismiss?.();

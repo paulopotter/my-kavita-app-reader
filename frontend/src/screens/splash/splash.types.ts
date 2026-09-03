@@ -1,4 +1,4 @@
-import type { AppAlertButton } from '../../shared/components/app-alert';
+import type { SplashAlertButton } from './components';
 
 // The boot graph's own vocabulary for "where the app should go". Produced by runSplashBoot,
 // translated to a concrete nav action by the hook (one place, exhaustive). Kept as a typed union
@@ -24,12 +24,12 @@ export interface SplashNavAction {
 export type OtaDialogAction = 'dismiss' | 'open_notes';
 
 // The OTA advisory dialog, fully resolved by the hook (title/body/buttons already built from the
-// policy mode + Strings). The screen just feeds this straight into the generic <AppAlert>. null
+// policy mode + Strings). The screen just feeds this straight into the <SplashAlert>. null
 // when there's no advisory to show.
 export interface SplashOtaAlert {
   title: string;
   message: string;
-  buttons: AppAlertButton[];
+  buttons: SplashAlertButton[];
   dismissible: boolean;
 }
 

@@ -11,7 +11,7 @@ import {
 import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
 import { useStrings } from '../../../shared/i18n/useStrings';
 import { Routes } from '../../../navigation/routes';
-import type { AppAlertButton } from '../../../shared/components/app-alert';
+import type { SplashAlertButton } from '../components';
 import type { SplashDestination, SplashNavAction, SplashOtaAlert, SplashState } from '../splash.types';
 
 // Re-show the highly_recommended dialog this long after it's first dismissed. recommended is
@@ -291,7 +291,7 @@ export function useSplash(): SplashState {
   const otaAlert = useMemo<SplashOtaAlert | null>(() => {
     if (policyMode !== 'highly_recommended' || advisoryDismissed) { return null; }
 
-    const buttons: AppAlertButton[] = [
+    const buttons: SplashAlertButton[] = [
       { label: t.otaDismiss, variant: 'secondary', onPress: dismissAdvisory },
       { label: t.otaViewNotes, variant: 'primary', onPress: openReleaseNotes },
     ];

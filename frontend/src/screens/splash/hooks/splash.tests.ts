@@ -181,7 +181,7 @@ describe('useSplash — OTA required is a hard stop', () => {
     // Let the boot graph run to completion — a healthy boot would resolve `home`.
     await waitFor(() => expect(seed).toHaveBeenCalled());
     await act(async () => { await Promise.resolve(); });
-    // required never draws its own AppAlert — MainActivity's native dialog is the block.
+    // required never draws its own SplashAlert — MainActivity's native dialog is the block.
     expect(result.current.otaAlert).toBeNull();
     // ...and the redirect is discarded: the splash just freezes.
     expect(result.current.navigate).toBeNull();
