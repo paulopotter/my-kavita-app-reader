@@ -6,7 +6,7 @@ import type {
   ChapterDigestSuccess,
   ChapterNeighborDigestSuccess,
   SerialDigestSuccess,
-} from '../../../shared/bridge/digest';
+} from '../../../shared/bridge';
 import type {
   FocusMoveTrigger,
   LoadedChapterEntry,

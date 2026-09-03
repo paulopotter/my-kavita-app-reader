@@ -1,5 +1,5 @@
 import { createEvent } from '../../managers/events';
-import type { SerialDigestSuccess } from '../../bridge/digest';
+import type { SerialDigestSuccess } from '../../bridge';
 
 // EventBus tokens the "series" domain emits (plano 017, Task 013 — Mechanism 3, RN→RN). Declared
 // next to the emitter (serie.hooks.ts / SerieTool), per Task 013: an event lives with whichever

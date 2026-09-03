@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Check, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
-import type { Strings } from '../../../../shared/i18n/strings';
+import type { Strings } from '../../../../shared/i18n';
 import { styles } from './selection-bottom-bar.styles';
 
 const ICON_SIZE = 22;

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { AppVersions as Versions, OtaModule } from '../../../native/OtaModule';
-import { Strings } from '../../i18n/strings';
+import { AppVersions as Versions, OtaModule } from '../../../native';
+import { Strings } from '../../i18n';
 import { styles } from './app-versions.styles';
 
 interface Props {

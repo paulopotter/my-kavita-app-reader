@@ -1,5 +1,5 @@
-import { DigestBridge, type PageDigest } from '../../bridge/digest';
-import { ServerBridge, type PluginPageDimension } from '../../bridge/server';
+import { DigestBridge, ServerBridge } from '../../bridge';
+import type { PageDigest, PluginPageDimension } from '../../bridge';
 import { Methods } from '../../tools/methods';
 
 // Layer 4 — thin wrapper over DigestBridge.getPageDigest (get) and, for raw, ServerBridge

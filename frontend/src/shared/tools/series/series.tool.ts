@@ -1,4 +1,4 @@
-import type { SerialDigest } from '../../bridge/digest';
+import type { SerialDigest } from '../../bridge';
 import { SerieTool, type Serie } from './serie.tool';
 
 // SeriesTool — the "series" domain normalizer for a LIST of series (SerialsService.get(), which

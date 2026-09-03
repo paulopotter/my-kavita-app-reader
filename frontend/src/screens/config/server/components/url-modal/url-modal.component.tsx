@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../../shared/bridge/server';
-import type { Strings } from '../../../../../shared/i18n/strings';
+import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../../shared/bridge';
+import type { Strings } from '../../../../../shared/i18n';
 import { UrlTool } from '../../../../../shared/tools/url';
 import { Select } from '../select';
 import { styles } from './url-modal.styles';

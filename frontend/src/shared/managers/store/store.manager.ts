@@ -1,4 +1,4 @@
-import { CacheManager } from '../caches/cache.manager';
+import { CacheManager } from '../caches';
 
 // Store — a generic typed key/value store, one namespace per `domain`, backed by
 // CacheManager.persistent (Room via the Kotlin :cache module) so entries survive the app being

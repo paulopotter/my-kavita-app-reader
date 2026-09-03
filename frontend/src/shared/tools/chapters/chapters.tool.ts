@@ -1,10 +1,10 @@
-import { createNavigateAction, type ActionContract } from '../actions/action.tool';
+import { createNavigateAction, type ActionContract } from '../actions';
 import { Routes } from '../../../navigation/routes';
 import { ChapterService } from '../../services/chapters';
 import { EventBus, createEvent } from '../../managers/events';
 import { PreferencesManager } from '../../managers/preferences';
-import type { Strings } from '../../i18n/strings';
-import type { ChapterDigestSuccess, ChapterReadStatus, ImageDescriptor, ServerActiveInfo } from '../../bridge/digest';
+import type { Strings } from '../../i18n';
+import type { ChapterDigestSuccess, ChapterReadStatus, ImageDescriptor, ServerActiveInfo } from '../../bridge';
 
 // ChapterTool — normalizer/facade for the "chapter" domain: turns a ChapterDigestSuccess into the
 // canonical shape SerieTool (and any future caller) reads, plus the read/unread/toggle mark

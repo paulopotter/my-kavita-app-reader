@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { OtaModule } from '../../native/OtaModule';
+import { OtaModule } from '../../native';
 import { AppVersions } from '../../shared/components/app-versions';
-import { useStrings } from '../../shared/i18n/i18n.hooks';
+import { useStrings } from '../../shared/i18n';
 import { Progress, SplashAlert } from './components';
 import { useSplash } from './hooks';
 import { styles } from './splash.styles';

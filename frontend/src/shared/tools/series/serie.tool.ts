@@ -1,6 +1,6 @@
-import { ChapterTool, type SerieChapter } from '../chapters/chapters.tool';
-import { FollowedSeriesBridge } from '../../bridge/followed-series';
-import type { ChapterDigestSuccess, ImageDescriptor, SerialDigestSuccess, SerialResumePoint, ServerActiveInfo } from '../../bridge/digest';
+import { ChapterTool, type SerieChapter } from '../chapters';
+import { FollowedSeriesBridge } from '../../bridge';
+import type { ChapterDigestSuccess, ImageDescriptor, SerialDigestSuccess, SerialResumePoint, ServerActiveInfo } from '../../bridge';
 
 // SerieChapter is re-exported from chapters/ (its actual home — ChapterTool.normalize) via
 // shared/tools/index.ts already; not re-exported again from here to avoid the ambiguous-export

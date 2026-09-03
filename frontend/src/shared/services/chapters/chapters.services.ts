@@ -1,5 +1,5 @@
-import { DigestBridge, type ChapterDigest } from '../../bridge/digest';
-import { ServerBridge, type PluginChapter, type PluginProgress } from '../../bridge/server';
+import { DigestBridge, ServerBridge } from '../../bridge';
+import type { ChapterDigest, PluginChapter, PluginProgress } from '../../bridge';
 import { Methods } from '../../tools/methods';
 
 // Layer 4 — thin wrapper over DigestBridge.getChapterDigest (get/getFull) and, for raw/progress/

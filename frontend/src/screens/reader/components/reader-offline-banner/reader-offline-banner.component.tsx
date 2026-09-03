@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { Strings } from '../../../../shared/i18n/strings';
+import { Strings } from '../../../../shared/i18n';
 import { styles } from './reader-offline-banner.styles';
 
 interface Props {

@@ -13,9 +13,9 @@ import {
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, Settings } from 'lucide-react-native';
+import { Routes, originRouteFor } from '../../navigation/routes';
 import type { NavOrigin } from '../../navigation/routes';
-import { originRouteFor, Routes } from '../../navigation/routes';
-import { useStrings } from '../../shared/i18n/i18n.hooks';
+import { useStrings } from '../../shared/i18n';
 import { FollowStar } from '../../shared/components/follow-star';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
 import { ChapterListItem, ChapterSortFields, Header, SelectionBottomBar, sortModeLabel } from './components';

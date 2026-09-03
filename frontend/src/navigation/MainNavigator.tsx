@@ -6,7 +6,7 @@ import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library';
 import { ConfigScreen } from '../screens/config';
 import { useStartup } from '../shared/context/startup';
-import { useStrings } from '../shared/i18n/i18n.hooks';
+import { useStrings } from '../shared/i18n';
 
 const Tab = createBottomTabNavigator();
 

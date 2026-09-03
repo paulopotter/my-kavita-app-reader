@@ -1,5 +1,5 @@
 import { MemoryMode, NetworkMode, PersistentMode } from './modes';
-import type { CacheManagerModeHandler } from './modes/modes.types';
+import type { CacheManagerModeHandler } from './modes';
 import type {
   CacheManagerGetArgs,
   CacheManagerInvalidateArgs,

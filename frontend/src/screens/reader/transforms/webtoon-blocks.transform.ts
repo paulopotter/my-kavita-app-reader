@@ -1,5 +1,5 @@
 import { ChapterTool } from '../../../shared/tools/chapters';
-import type { Strings } from '../../../shared/i18n/strings';
+import type { Strings } from '../../../shared/i18n';
 import { buildFirstNode, buildLastNode } from '../reader-sdu';
 import type { LoadedChapterEntry, OrderedChapter, ReaderChapter, ReaderWindow } from '../reader.types';
 import type { ReaderChapterBlock } from '../components/reader-page-list-view';

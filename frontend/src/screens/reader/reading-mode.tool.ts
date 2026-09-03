@@ -1,5 +1,5 @@
 import { PreferencesManager } from '../../shared/managers/preferences';
-import type { ReadingMode } from './modes/reading-mode.types';
+import type { ReadingMode } from './modes';
 
 // ReadingModeTool — the reader's per-mode preference, with a global + per-series override cascade.
 // Cloned deliberately from ChaptersTool.sort (shared/tools/chapters/chapters.tool.ts): same

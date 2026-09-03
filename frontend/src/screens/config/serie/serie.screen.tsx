@@ -5,7 +5,7 @@ import { ScrollView, Text, View } from 'react-native';
 // there). It lives in screens/serie/, not shared/, because config + that one screen are its only
 // callers; promote it to shared/ if a third screen ever needs it.
 import { ChapterSortFields } from '../../../screens/serie/components/chapter-sort';
-import { useStrings } from '../../../shared/i18n/i18n.hooks';
+import { useStrings } from '../../../shared/i18n';
 import { styles as chrome } from '../config.styles';
 import { useSerieSort } from './serie.hooks';
 

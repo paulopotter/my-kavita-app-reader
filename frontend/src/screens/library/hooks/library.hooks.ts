@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { FollowedSeriesBridge } from '../../../shared/bridge/followed-series';
-import type { ExternalMetadataMatch } from '../../../shared/bridge/external';
-import { SeriesFollowedEmitter } from '../../../shared/bridge/series';
+import { FollowedSeriesBridge, SeriesFollowedEmitter } from '../../../shared/bridge';
+import type { ExternalMetadataMatch } from '../../../shared/bridge';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { SerialsService, SerialService } from '../../../shared/services/serials';
 import { ChapterEvents } from '../../../shared/tools/chapters';

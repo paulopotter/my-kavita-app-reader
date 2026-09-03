@@ -1,5 +1,5 @@
-import type { ExternalMetadataMatch } from '../../shared/bridge/external';
-import type { Strings } from '../../shared/i18n/strings';
+import type { ExternalMetadataMatch } from '../../shared/bridge';
+import type { Strings } from '../../shared/i18n';
 import type { Serie } from '../../shared/tools/series';
 import type { SeriesDigestIndexEntry } from '../../shared/managers/store';
 

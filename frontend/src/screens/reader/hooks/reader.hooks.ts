@@ -28,7 +28,7 @@ import {
   toOrderedChapters,
   webtoonReportToTrigger,
   withOrderNumber,
-} from '../transforms/reader.transform';
+} from '../transforms';
 import { initialState, reducer } from './reader.reducer';
 
 // Reader V2 hook — owns ALL reader state. The screen is dumb: it forwards the native payload

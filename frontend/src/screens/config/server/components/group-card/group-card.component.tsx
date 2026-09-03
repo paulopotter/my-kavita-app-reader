@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import type { ProviderCredentialField } from '../../../../../shared/bridge/server';
+import type { ProviderCredentialField } from '../../../../../shared/bridge';
 import { Row } from '../row';
 import { styles } from './group-card.styles';
 

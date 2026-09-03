@@ -1,4 +1,4 @@
-import type { CacheDescriptorBridge, CacheEntryBridge } from '../../../bridge/cache';
+import type { CacheDescriptorBridge, CacheEntryBridge } from '../../../bridge';
 import type {
   CacheManagerGetArgs,
   CacheManagerInvalidateArgs,

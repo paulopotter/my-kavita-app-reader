@@ -1,4 +1,4 @@
-import { PreferencesBridge, type PreferenceDescriptorBridge, type PreferenceEntryBridge } from '../../bridge/preferences';
+import { PreferencesBridge, type PreferenceDescriptorBridge, type PreferenceEntryBridge } from '../../bridge';
 import { Methods } from '../../tools/methods';
 import type {
   PreferencesManagerDeleteArgs,

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { StartupBridge } from '../../bridge/startup';
+import { StartupBridge } from '../../bridge';
 import type { StartupState } from './startup.types';
 
 const StartupContext = createContext<StartupState>({

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ConfigRepository, type UiPreferences } from '../../../shared/bridge/config';
+import { ConfigRepository, type UiPreferences } from '../../../shared/bridge';
 
 // The reading-preferences sub-screen's state: the two boolean toggles (keep-screen-on,
 // immersive mode) backed by ConfigRepository's UiPreferences. Contract unchanged from the old

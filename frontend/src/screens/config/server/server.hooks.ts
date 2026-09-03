@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import type {
-  ExternalMetadataGroupInfo,
-  ExternalMetadataUrlInfo,
-} from '../../../shared/bridge/external';
-import type {
-  ProviderInfo,
-  ServerGroupInfo,
-  ServerUrlInfo,
-  UrlProbeResult,
-} from '../../../shared/bridge/server';
-import type { Strings } from '../../../shared/i18n/strings';
-import { useStrings } from '../../../shared/i18n/i18n.hooks';
+import type { ExternalMetadataGroupInfo, ExternalMetadataUrlInfo, ProviderInfo, ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../shared/bridge';
+import { useStrings } from '../../../shared/i18n';
+import type { Strings } from '../../../shared/i18n';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import {
   ExternalService,

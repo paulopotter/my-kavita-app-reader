@@ -1,4 +1,4 @@
-import type { Strings } from '../../../shared/i18n/strings';
+import type { Strings } from '../../../shared/i18n';
 import type { FocusMoveTrigger, OrderedChapter, ReaderWindow } from '../reader.types';
 
 // The 3 reading modes the app will support. Only 'webtoon' is implemented now; 'horizontal' and

@@ -3,8 +3,8 @@ import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, Vi
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
-import { useStrings } from '../../shared/i18n/i18n.hooks';
-import type { Strings } from '../../shared/i18n/strings';
+import { useStrings } from '../../shared/i18n';
+import type { Strings } from '../../shared/i18n';
 import { NavOrigin, Routes } from '../../navigation/routes';
 import { SerieTool } from '../../shared/tools/series';
 import { DateTool } from '../../shared/tools/date';

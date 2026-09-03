@@ -1,4 +1,4 @@
-import type { Strings } from '../../i18n/strings';
+import type { Strings } from '../../i18n';
 
 // DateTool — generic, domain-agnostic date handling. Knows nothing about Series/Chapter/etc.
 // The one place the app parses/normalizes/formats a date string, so a provider quirk (e.g.

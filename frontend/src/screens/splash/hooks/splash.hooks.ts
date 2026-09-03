@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
-import { OtaEmitter, OtaModule, OtaPolicyMode } from '../../../native/OtaModule';
-import { StartupBridge } from '../../../shared/bridge/startup';
+import { OtaEmitter, OtaModule, OtaPolicyMode } from '../../../native';
+import { StartupBridge } from '../../../shared/bridge';
 import {
   ExternalsService,
   ExternalService,
   ServersService,
   ServerService,
 } from '../../../shared/services/servers';
-import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
-import { useStrings } from '../../../shared/i18n/i18n.hooks';
+import { assembleLibrary, seedLibrary } from '../../library/hooks';
+import { useStrings } from '../../../shared/i18n';
 import { Routes } from '../../../navigation/routes';
 import type { SplashAlertButton } from '../components';
 import type { SplashDestination, SplashNavAction, SplashOtaAlert, SplashState } from '../splash.types';

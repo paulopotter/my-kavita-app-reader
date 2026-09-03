@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
-import type { Strings } from '../../../../shared/i18n/strings';
+import type { Strings } from '../../../../shared/i18n';
 import type { ChapterSortMode } from '../../serie.types';
 import { styles } from './chapter-sort.styles';
 

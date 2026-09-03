@@ -1,6 +1,5 @@
-import { DigestBridge, type SerialDigest, type SerialsDigest } from '../../bridge/digest';
-import { ExternalMetadataBridge, type ExternalMetadataMatch } from '../../bridge/external';
-import { ServerBridge, type PluginChapter, type SerialData } from '../../bridge/server';
+import { DigestBridge, ExternalMetadataBridge, ServerBridge } from '../../bridge';
+import type { ExternalMetadataMatch, PluginChapter, SerialData, SerialDigest, SerialsDigest } from '../../bridge';
 import { Methods } from '../../tools/methods';
 
 // Layer 4 — SerialsService (plural) is the batch namespace. get() is the list counterpart of

@@ -1,11 +1,5 @@
-import {
-  ExternalMetadataBridge,
-  type ExternalMetadataActiveInfo,
-  type ExternalMetadataGroupFullInfo,
-  type ExternalMetadataGroupInfo,
-  type ExternalMetadataUrlInfo,
-} from '../../bridge/external';
-import type { ProviderInfo, UrlProbeResult } from '../../bridge/server';
+import { ExternalMetadataBridge } from '../../bridge';
+import type { ExternalMetadataActiveInfo, ExternalMetadataGroupFullInfo, ExternalMetadataGroupInfo, ExternalMetadataUrlInfo, ProviderInfo, UrlProbeResult } from '../../bridge';
 import { Methods } from '../../tools/methods';
 
 // Layer 4 — thin wrapper over ExternalMetadataBridge (ExternalMetadataServer, Layer 2). Same

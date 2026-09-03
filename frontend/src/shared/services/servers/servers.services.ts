@@ -4,7 +4,7 @@ import {
   type ServerGroupInfo,
   type ServerUrlInfo,
   type UrlProbeResult,
-} from '../../bridge/server';
+} from '../../bridge';
 import { Methods } from '../../tools/methods';
 import { ExternalService } from './external.services';
 

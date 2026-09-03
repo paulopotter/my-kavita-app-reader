@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import type { ProviderInfo } from '../../../../../shared/bridge/server';
-import type { Strings } from '../../../../../shared/i18n/strings';
+import type { ProviderInfo } from '../../../../../shared/bridge';
+import type { Strings } from '../../../../../shared/i18n';
 import { UrlTool } from '../../../../../shared/tools/url';
 import type { ServerCredentials } from '../../server.hooks';
 import { styles } from './modal.styles';
