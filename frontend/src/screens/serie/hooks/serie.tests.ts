@@ -40,6 +40,8 @@ jest.mock('../../../shared', () => ({
 
 import { useSerie } from './serie.hooks';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool } from '../../../shared';
+import { EventBus } from '../../../shared/managers/events';
+import { ChapterEvents } from '../../../shared/tools/chapters';
 import { getStrings } from '../../../shared/i18n/strings';
 
 const mockGet = SerialService.get as jest.Mock;
@@ -254,6 +256,70 @@ describe('useSerie', () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(typeof result.current.realize).toBe('function');
+  });
+
+  // A mark from another screen (the Reader, still-mounted serie underneath) reaches this hook via
+  // ChapterEvents.readStatusChanged on the real EventBus — no focus reload needed.
+  describe('reacts to ChapterEvents.readStatusChanged from another screen', () => {
+    it('applies an optimistic READ for a chapter of THIS series in place', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'c2', seriesId: 's1' },
+          changed: { readStatus: 'READ' },
+          phase: 'optimistic',
+        });
+      });
+      expect(result.current.chapters.find(c => c.id === 'c2')?.readStatus).toBe('READ');
+      expect(result.current.chapters.find(c => c.id === 'c1')?.readStatus).toBe('UNREAD'); // untouched
+    });
+
+    it('applies the reverted status when the mark failed downstream', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        chapters: [
+          { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+          { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'UNREAD' },
+        ],
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'c1', seriesId: 's1' },
+          changed: { readStatus: 'UNREAD' },
+          phase: 'reverted',
+        });
+      });
+      expect(result.current.chapters.find(c => c.id === 'c1')?.readStatus).toBe('UNREAD');
+    });
+
+    it('ignores the confirmed phase (nothing visible changed since optimistic)', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'c2', seriesId: 's1' },
+          changed: { readStatus: 'READ' },
+          phase: 'confirmed',
+        });
+      });
+      expect(result.current.chapters.find(c => c.id === 'c2')?.readStatus).toBe('UNREAD');
+    });
+
+    it('ignores a mark for a different series', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'cX', seriesId: 's2' },
+          changed: { readStatus: 'READ' },
+          phase: 'optimistic',
+        });
+      });
+      expect(result.current.chapters.every(c => c.readStatus === 'UNREAD')).toBe(true);
+    });
   });
 });
 

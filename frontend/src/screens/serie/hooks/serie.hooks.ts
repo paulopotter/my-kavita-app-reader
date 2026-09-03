@@ -3,7 +3,8 @@ import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 
 import { useFocusEffect } from '@react-navigation/native';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
-import { EventBus } from '../../../shared/managers/events';
+import { EventBus, useEvent } from '../../../shared/managers/events';
+import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
 import { useStrings } from '../../../shared/i18n';
 import type { NavOrigin } from '../../../navigation/routes';
@@ -220,6 +221,22 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
         },
     );
   }, []);
+
+  // A mark from ANOTHER screen (the Reader marks as read while you scroll a chapter through) —
+  // this screen is still mounted in the nav stack underneath, so it reacts here instead of
+  // waiting for a focus reload (which would read the still-cached Kotlin SeriesDigest and show
+  // the pre-mark status until its TTL expires — the "KNOWN GAP" in ChapterTool). Reuses
+  // applyMarkUpdate: same in-place readStatus swap the local mark.* calls go through.
+  //
+  // `phase` filter mirrors the Library's listener: 'optimistic' applies the change, 'reverted'
+  // applies the fallback status, 'confirmed' is a no-op (nothing visible changed since
+  // 'optimistic'). A mark that originated on THIS screen already ran applyMarkUpdate via its own
+  // `onUpdate` — reapplying the same readStatus by id is idempotent, no loop, no re-emit here.
+  useEvent(ChapterEvents.readStatusChanged, ({ chapter, changed, phase }) => {
+    if (phase === 'confirmed') {return;}
+    if (chapter.seriesId !== seriesId) {return;}
+    applyMarkUpdate({ seriesId, chapterId: chapter.id, readStatus: changed.readStatus });
+  });
 
   const markRead = useCallback(
     ({ chapterId, prevStatus }: { chapterId: string; prevStatus?: SerieChapter['readStatus'] }) => {
