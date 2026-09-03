@@ -25,6 +25,19 @@ export const colors = {
   versionLabel: '#44FFFFFF', // white ~27%
   versionValue: '#99FFFFFF', // white ~60%
   versionDivider: '#ffffff22', // white ~13%
+
+  // ── Config/Setup rewrite (Task 035) ──────────────────────────────────────────
+  // Pulled verbatim from the literals ConfigScreen/SetupScreen used inline. Same "role name,
+  // current dark value, not dynamic yet" contract as the tokens above.
+  card: '#16213E', // raised surface (rows, form cards, context menu)
+  deep: '#0F3460', // inset surface (inputs, dividers, chips)
+  positive: '#38A169', // active/ok dot
+  muted: '#A0AEC0', // secondary text / icons
+  mutedDim: '#4A5568', // inactive dot, placeholder text
+  sectionLabel: '#8892b0', // uppercase section headers
+  msgOk: '#68D391', // success message text
+  msgError: '#FC8181', // error message text
+  overlay: 'rgba(0,0,0,0.5)', // modal scrim
 } as const;
 
 export type ColorToken = keyof typeof colors;
