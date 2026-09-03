@@ -11,7 +11,7 @@ import {
 import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
 import { useStrings } from '../../../shared/i18n/useStrings';
 import { Routes } from '../../../navigation/routes';
-import type { AppAlertButton } from '../../../shared/components/AppAlert';
+import type { AppAlertButton } from '../../../shared/components/app-alert';
 import type { SplashDestination, SplashNavAction, SplashOtaAlert, SplashState } from '../splash.types';
 
 // Re-show the highly_recommended dialog this long after it's first dismissed. recommended is

@@ -1,4 +1,4 @@
-import type { AppAlertButton } from '../../shared/components/AppAlert';
+import type { AppAlertButton } from '../../shared/components/app-alert';
 
 // The boot graph's own vocabulary for "where the app should go". Produced by runSplashBoot,
 // translated to a concrete nav action by the hook (one place, exhaustive). Kept as a typed union

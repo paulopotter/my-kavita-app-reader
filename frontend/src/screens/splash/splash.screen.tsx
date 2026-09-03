@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { OtaModule } from '../../native/OtaModule';
-import { AppAlert } from '../../shared/components/AppAlert';
+import { AppAlert } from '../../shared/components/app-alert';
 import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { Progress } from './components';
