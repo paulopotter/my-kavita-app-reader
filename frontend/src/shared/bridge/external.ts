@@ -1,5 +1,5 @@
 import { NativeModules } from 'react-native';
-import type { ProviderInfo } from './server';
+import type { ProviderInfo, UrlProbeResult } from './server';
 
 // Mirrors :external-metadata-server's ExternalMetadataServer (android/external-metadata-server)
 // via ExternalMetadataBridgeModule.kt — same generalizer shape as ServerBridge (server.ts), with
@@ -83,16 +83,20 @@ interface ExternalMetadataBridgeModuleInterface {
     priority: number,
     linkedServerUrlId: string | undefined,
   ): Promise<ExternalMetadataUrlInfo>;
+  // timeoutMs / priority: pass -1 for "leave unchanged" — see ServerBridge.updateGroupUrl.
   updateGroupUrl(
     groupId: string,
     urlId: string,
     url: string | undefined,
-    timeoutMs: number | undefined,
-    priority: number | undefined,
+    timeoutMs: number,
+    priority: number,
     linkedServerUrlId: string | undefined,
   ): Promise<ExternalMetadataUrlInfo>;
   removeGroupUrl(groupId: string, urlId: string): Promise<void>;
   validateGroupUrls(groupId: string): Promise<ExternalMetadataUrlInfo>;
+  // Point check on one typed-in URL — never changes which URL is active (unlike
+  // validateGroupUrls). Same contract as :server's testGroupUrl.
+  testGroupUrl(groupId: string, url: string): Promise<UrlProbeResult>;
   getGroupActive(groupId: string): Promise<ExternalMetadataUrlInfo | null>;
 
   // active group

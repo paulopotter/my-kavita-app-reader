@@ -104,7 +104,7 @@ export const ServerService = {
       timeoutMs?: number;
       priority?: number;
     }): Promise<ServerUrlInfo> {
-      return ServerBridge.updateGroupUrl(groupId, urlId, url, timeoutMs, priority);
+      return ServerBridge.updateGroupUrl(groupId, urlId, url, timeoutMs ?? -1, priority ?? -1);
     },
     remove({ groupId, urlId }: { groupId: string; urlId: string }): Promise<void> {
       return ServerBridge.removeGroupUrl(groupId, urlId);

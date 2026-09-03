@@ -5,7 +5,7 @@ import {
   type ExternalMetadataGroupInfo,
   type ExternalMetadataUrlInfo,
 } from '../../bridge/external';
-import type { ProviderInfo } from '../../bridge/server';
+import type { ProviderInfo, UrlProbeResult } from '../../bridge/server';
 import { Methods } from '../../tools/methods';
 
 // Layer 4 — thin wrapper over ExternalMetadataBridge (ExternalMetadataServer, Layer 2). Same
@@ -115,13 +115,26 @@ export const ExternalService = {
       priority?: number;
       linkedServerUrlId?: string;
     }): Promise<ExternalMetadataUrlInfo> {
-      return ExternalMetadataBridge.updateGroupUrl(groupId, urlId, url, timeoutMs, priority, linkedServerUrlId);
+      return ExternalMetadataBridge.updateGroupUrl(
+        groupId,
+        urlId,
+        url,
+        timeoutMs ?? -1,
+        priority ?? -1,
+        linkedServerUrlId,
+      );
     },
     remove({ groupId, urlId }: { groupId: string; urlId: string }): Promise<void> {
       return ExternalMetadataBridge.removeGroupUrl(groupId, urlId);
     },
+    // Re-tests every URL and switches the active one. The group section's "test connection".
     validate({ groupId }: { groupId: string }): Promise<ExternalMetadataUrlInfo> {
       return ExternalMetadataBridge.validateGroupUrls(groupId);
+    },
+    // Point check on one URL — reachable now? — without changing which URL is active. The
+    // per-URL modal's "test connection".
+    test({ groupId, url }: { groupId: string; url: string }): Promise<UrlProbeResult> {
+      return ExternalMetadataBridge.testGroupUrl(groupId, url);
     },
     active: {
       get({ groupId }: { groupId: string }): Promise<ExternalMetadataUrlInfo | null> {

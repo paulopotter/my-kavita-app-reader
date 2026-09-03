@@ -33,6 +33,7 @@ describe('ServersService.providers.list', () => {
         displayName: 'Kavita',
         version: '1.0',
         credentialFields: [{ name: 'apiKey', label: 'Kavita API Key', type: 'string', required: true }],
+        defaultHealthCheckPath: '/api/Health',
       },
     ];
     (ServerBridge.listProviders as jest.Mock).mockResolvedValue(providers);
@@ -109,10 +110,12 @@ describe('ServerService.urls', () => {
     expect(ServerBridge.addGroupUrl).toHaveBeenCalledWith('g1', 'http://x', 5000, 1);
   });
 
-  it('update forwards args to ServerBridge.updateGroupUrl', async () => {
+  it('update forwards args to ServerBridge.updateGroupUrl, -1 for the omitted numeric fields', async () => {
     (ServerBridge.updateGroupUrl as jest.Mock).mockResolvedValue({});
     await ServerService.urls.update({ groupId: 'g1', urlId: 'u1', url: 'http://y' });
-    expect(ServerBridge.updateGroupUrl).toHaveBeenCalledWith('g1', 'u1', 'http://y', undefined, undefined);
+    // timeoutMs / priority default to -1 ("leave unchanged") — the RN bridge can't marshal a
+    // null through a primitive number arg.
+    expect(ServerBridge.updateGroupUrl).toHaveBeenCalledWith('g1', 'u1', 'http://y', -1, -1);
   });
 
   it('remove forwards args to ServerBridge.removeGroupUrl', async () => {

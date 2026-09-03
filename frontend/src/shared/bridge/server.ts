@@ -16,6 +16,9 @@ export interface ProviderInfo {
   displayName: string;
   version: string;
   credentialFields: ProviderCredentialField[];
+  // The liveness path this provider answers on — the config screen passes it straight into
+  // group.add so it never has to know a provider's endpoint (Kavita "/api/Health", M3 "/api/health").
+  defaultHealthCheckPath: string;
 }
 
 export interface ServerGroupInfo {
@@ -117,12 +120,14 @@ interface ServerBridgeModuleInterface {
   // group(id) urls
   getGroupUrls(groupId: string): Promise<ServerUrlInfo[]>;
   addGroupUrl(groupId: string, url: string, timeoutMs: number, priority: number): Promise<ServerUrlInfo>;
+  // timeoutMs / priority: pass -1 for "leave unchanged" (the RN bridge can't marshal a real
+  // null through a primitive number arg — see ServerBridgeModule.updateGroupUrl).
   updateGroupUrl(
     groupId: string,
     urlId: string,
     url: string | undefined,
-    timeoutMs: number | undefined,
-    priority: number | undefined,
+    timeoutMs: number,
+    priority: number,
   ): Promise<ServerUrlInfo>;
   removeGroupUrl(groupId: string, urlId: string): Promise<void>;
   validateGroupUrls(groupId: string): Promise<ServerUrlInfo>;
