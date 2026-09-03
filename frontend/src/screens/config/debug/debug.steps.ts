@@ -1,7 +1,7 @@
-import { ChapterService } from '../../shared/services/chapters';
-import { PageService } from '../../shared/services/pages';
-import { SerialService, SerialsService } from '../../shared/services/serials';
-import { ExternalsService, ExternalService, ServersService, ServerService } from '../../shared/services/servers';
+import { ChapterService } from '../../../shared/services/chapters';
+import { PageService } from '../../../shared/services/pages';
+import { SerialService, SerialsService } from '../../../shared/services/serials';
+import { ExternalsService, ExternalService, ServersService, ServerService } from '../../../shared/services/servers';
 
 export interface SmokeTestStep {
   label: string;
