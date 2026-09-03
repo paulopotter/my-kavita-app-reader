@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
-import { FollowStar } from '../../../../shared/components/FollowStar';
+import { FollowStar } from '../../../../shared/components/follow-star';
 import { styles } from './series-card.styles';
 
 // Dumb component: primitives + callbacks + render only. All labels are computed in the hook /

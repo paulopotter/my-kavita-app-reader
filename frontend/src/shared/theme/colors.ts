@@ -38,6 +38,7 @@ export const colors = {
   msgOk: '#68D391', // success message text
   msgError: '#FC8181', // error message text
   overlay: 'rgba(0,0,0,0.5)', // modal scrim
+  starActive: '#F6AD55', // "following" star, filled state
 } as const;
 
 export type ColorToken = keyof typeof colors;
