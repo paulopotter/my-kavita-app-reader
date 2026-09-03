@@ -322,7 +322,7 @@ describe('SerieScreen', () => {
     expect(mockToggleSortOrder).toHaveBeenCalledTimes(1);
   });
 
-  it('saves sort prefs and closes the modal from ChapterSortConfigModal', () => {
+  it('saves sort prefs and closes the sort modal on Save', () => {
     mockSerieState.loading = false;
     mockSerieState.serie = makeSerie();
     const { getByText, UNSAFE_getAllByType, queryByText } = render(<SerieScreen />);

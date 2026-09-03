@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   BackHandler,
   FlatList,
+  Modal,
+  Pressable,
   RefreshControl,
   Text,
   TouchableOpacity,
@@ -14,10 +16,9 @@ import { ArrowLeft, Settings } from 'lucide-react-native';
 import type { NavOrigin } from '../../navigation/routes';
 import { originRouteFor, Routes } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
-import type { Strings } from '../../shared/i18n/strings';
 import { FollowStar } from '../../shared/components/FollowStar';
 import { ScrollToTopButton } from '../../shared/components/ScrollToTopButton';
-import { ChapterListItem, ChapterSortConfigModal, Header, SelectionBottomBar } from './components';
+import { ChapterListItem, ChapterSortFields, Header, SelectionBottomBar, sortModeLabel } from './components';
 import { useSerie } from './hooks';
 import { styles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
@@ -32,22 +33,6 @@ type RouteParams = {
   Serie: { seriesId: string; origin?: NavOrigin };
 };
 
-// Rewritten here instead of reused from shared/transforms/sortConfig.ts (legacy) — same 4 modes,
-// same behavior. Purely presentational (which label a sort mode shows in the toggle button), so
-// it lives with the screen that renders it, not with any domain tool.
-function sortModeLabel(mode: ChapterSortMode, fixedThreshold: number | undefined, progressPercent: number, t: Strings): string {
-  switch (mode) {
-    case 'ASCENDING':
-      return t.seriesDetailSortAscending;
-    case 'DESCENDING':
-      return t.seriesDetailSortDescending;
-    case 'AUTO_FIXED':
-      return t.seriesDetailSortAutoFixed.replace('{0}', String(fixedThreshold ?? 0));
-    case 'AUTO_PROGRESS':
-      return t.seriesDetailSortAutoProgress.replace('{0}', String(progressPercent));
-  }
-}
-
 // serie.screen.tsx — zero domain logic. Everything it does with data comes straight from
 // useSerie(); it only orchestrates NAVIGATION and local visual-only state (sort modal
 // visibility, scroll-to-top button), neither of which useSerie needs to know about.
@@ -58,6 +43,12 @@ export function SerieScreen() {
   const t = useStrings();
 
   const [sortConfigVisible, setSortConfigVisible] = useState(false);
+  // The sort modal edits locally and only commits on Save — this holds the in-progress value.
+  const pendingSortRef = useRef<{ mode: ChapterSortMode; fixedThreshold: number | undefined; progressPercent: number }>({
+    mode: 'ASCENDING',
+    fixedThreshold: undefined,
+    progressPercent: 50,
+  });
   const listRef = useRef<FlatList>(null);
 
   const {
@@ -168,7 +159,14 @@ export function SerieScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.topBarButton}
-          onPress={() => setSortConfigVisible(true)}
+          onPress={() => {
+            pendingSortRef.current = {
+              mode: sortMode,
+              fixedThreshold: sortFixedThreshold,
+              progressPercent: sortProgressPercent,
+            };
+            setSortConfigVisible(true);
+          }}
           accessibilityRole="button"
           hitSlop={8}>
           <Settings size={22} color={ICON_MUTED} />
@@ -234,23 +232,59 @@ export function SerieScreen() {
         />
       )}
 
-      <ChapterSortConfigModal
+      <Modal
         visible={sortConfigVisible}
-        mode={sortMode}
-        fixedThreshold={sortFixedThreshold}
-        progressPercent={sortProgressPercent}
-        hasSeriesOverride={hasSeriesSortOverride}
-        t={t}
-        onSave={args => {
-          updateSortPrefs(args);
-          setSortConfigVisible(false);
-        }}
-        onReset={() => {
-          resetSortPrefs();
-          setSortConfigVisible(false);
-        }}
-        onCancel={() => setSortConfigVisible(false)}
-      />
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setSortConfigVisible(false)}>
+        <Pressable style={styles.sortModalBackdrop} onPress={() => setSortConfigVisible(false)}>
+          <Pressable style={styles.sortModalCard} onPress={() => {}}>
+            <Text style={styles.sortModalTitle}>{t.seriesDetailSortConfigTitle}</Text>
+
+            {hasSeriesSortOverride && (
+              <Text style={styles.sortModalOverrideNote}>{t.seriesDetailSortConfigOverrideNote}</Text>
+            )}
+
+            <ChapterSortFields
+              mode={sortMode}
+              fixedThreshold={sortFixedThreshold}
+              progressPercent={sortProgressPercent}
+              t={t}
+              onChange={(mode, fixedThreshold, progressPercent) => {
+                pendingSortRef.current = { mode, fixedThreshold, progressPercent };
+              }}
+            />
+
+            {hasSeriesSortOverride && (
+              <Pressable
+                style={styles.sortModalResetBtn}
+                onPress={() => {
+                  resetSortPrefs();
+                  setSortConfigVisible(false);
+                }}>
+                <Text style={styles.sortModalResetText}>{t.seriesDetailSortConfigReset}</Text>
+              </Pressable>
+            )}
+
+            <View style={styles.sortModalActions}>
+              <Pressable
+                style={[styles.sortModalBtn, styles.sortModalBtnSecondary]}
+                onPress={() => setSortConfigVisible(false)}>
+                <Text style={styles.sortModalBtnLabelSecondary}>{t.seriesDetailSortConfigCancel}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.sortModalBtn, styles.sortModalBtnPrimary]}
+                onPress={() => {
+                  updateSortPrefs(pendingSortRef.current);
+                  setSortConfigVisible(false);
+                }}>
+                <Text style={styles.sortModalBtnLabelPrimary}>{t.seriesDetailSortConfigSave}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

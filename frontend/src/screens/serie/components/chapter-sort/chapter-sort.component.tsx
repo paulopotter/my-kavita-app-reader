@@ -1,16 +1,54 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChapterSortMode } from '../tools/chapters/chapters.tool';
-import { Strings } from '../i18n/strings';
-import { parseSortConfigInput, sortModeLabel } from '../transforms/sortConfig';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import type { Strings } from '../../../../shared/i18n/strings';
+import type { ChapterSortMode } from '../../serie.types';
+import { styles } from './chapter-sort.styles';
 
 const MODES: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 'AUTO_PROGRESS'];
 
-export interface ChapterSortConfigFieldsHandle {
-  getValue: () => { mode: ChapterSortMode; fixedThreshold: number | undefined; progressPercent: number };
+// The label a sort mode shows on a button. Presentational only — exported because SerieScreen's
+// own sort-toggle button (outside the modal) shows the current mode with the exact same wording;
+// one formula, not two.
+export function sortModeLabel(
+  mode: ChapterSortMode,
+  fixedThreshold: number | undefined,
+  progressPercent: number,
+  t: Strings,
+): string {
+  switch (mode) {
+    case 'ASCENDING':
+      return t.seriesDetailSortAscending;
+    case 'DESCENDING':
+      return t.seriesDetailSortDescending;
+    case 'AUTO_FIXED':
+      return t.seriesDetailSortAutoFixed.replace('{0}', String(fixedThreshold ?? 0));
+    case 'AUTO_PROGRESS':
+      return t.seriesDetailSortAutoProgress.replace('{0}', String(progressPercent));
+  }
 }
 
-interface Props {
+// Turns the two free-text inputs into a valid { fixedThreshold, progressPercent }: threshold
+// NaN/negative → undefined; progress out of range → clamped to 0–100; empty → the fallback.
+function parseInputs(
+  thresholdText: string,
+  progressText: string,
+  fallbackProgressPercent: number,
+): { fixedThreshold: number | undefined; progressPercent: number } {
+  const parsedThreshold = parseFloat(thresholdText);
+  const parsedProgress = parseInt(progressText, 10);
+  const fixedThreshold = isNaN(parsedThreshold) || parsedThreshold < 0 ? undefined : parsedThreshold;
+  const progressPercent = isNaN(parsedProgress)
+    ? fallbackProgressPercent
+    : Math.min(100, Math.max(0, parsedProgress));
+  return { fixedThreshold, progressPercent };
+}
+
+// The chapter-sort fields: 4 mode buttons + the two free-text inputs the AUTO_* modes need.
+// Dumb — it holds only its own transient text state and emits the parsed value via onChange; the
+// screen that hosts it (SerieScreen's sort modal, and Config's "manga page" sub-screen) decides
+// whether to persist that globally or per-series (ChaptersTool.sort scope). Same component in
+// both places — the only difference is the scope of the save, which lives in each screen's hook.
+export interface ChapterSortFieldsProps {
   mode: ChapterSortMode;
   fixedThreshold?: number;
   progressPercent: number;
@@ -18,13 +56,13 @@ interface Props {
   onChange: (mode: ChapterSortMode, fixedThreshold: number | undefined, progressPercent: number) => void;
 }
 
-export function ChapterSortConfigFields({ mode, fixedThreshold, progressPercent, t, onChange }: Props) {
+export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, onChange }: ChapterSortFieldsProps) {
   const [selectedMode, setSelectedMode] = useState<ChapterSortMode>(mode);
   const [thresholdText, setThresholdText] = useState(String(fixedThreshold ?? ''));
   const [progressText, setProgressText] = useState(String(progressPercent));
 
   function emit(nextMode: ChapterSortMode, nextThresholdText: string, nextProgressText: string) {
-    const parsed = parseSortConfigInput(nextThresholdText, nextProgressText, progressPercent);
+    const parsed = parseInputs(nextThresholdText, nextProgressText, progressPercent);
     onChange(nextMode, parsed.fixedThreshold, parsed.progressPercent);
   }
 
@@ -92,30 +130,3 @@ export function ChapterSortConfigFields({ mode, fixedThreshold, progressPercent,
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { gap: 12 },
-  modeList: { gap: 8 },
-  modeOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  modeOptionSelected: { borderColor: '#E94560', backgroundColor: 'rgba(233,69,96,0.12)' },
-  modeOptionText: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
-  modeOptionTextSelected: { color: '#FFFFFF', fontWeight: '600' },
-  field: { gap: 4, marginTop: 8, marginBottom: 4 },
-  fieldLabel: { color: 'rgba(255,255,255,0.72)', fontSize: 12 },
-  fieldHint: { color: 'rgba(255,255,255,0.45)', fontSize: 11, fontStyle: 'italic' },
-  input: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-});

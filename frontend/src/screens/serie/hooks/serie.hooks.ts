@@ -13,9 +13,9 @@ const SORT_CYCLE: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 
 
 const DEFAULT_SORT_PREFS: ChapterSortPrefs = { mode: 'ASCENDING', progressPercent: 50 };
 
-// Rewritten here instead of reused from shared/transforms/chapter.ts (legacy — see that module's
-// own Chapter.number: string / parseFloat-based comparator, incompatible with SerieChapter's
-// already-numeric number/decimalNumber). Same 4 modes, same behavior, adapted to the new shape.
+// Chapter ordering lives with the screen that renders the list — SerieChapter's number is already
+// numeric (and decimalNumber carries the precise value, e.g. 5 vs 5.5), so this compares directly
+// rather than parsing strings. Same 4 modes the sort config exposes.
 function chapterNumberComparator(a: SerieChapter, b: SerieChapter): number {
   const na = a.decimalNumber ?? a.number;
   const nb = b.decimalNumber ?? b.number;

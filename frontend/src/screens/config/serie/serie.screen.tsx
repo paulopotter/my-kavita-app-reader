@@ -1,6 +1,10 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { ChapterSortConfigFields } from '../../../shared/components/ChapterSortConfigFields';
+// Config deliberately reaches into the screen it configures — ChapterSortFields is the exact same
+// fields the SerieScreen sort modal shows, only the save scope differs (global here, per-series
+// there). It lives in screens/serie/, not shared/, because config + that one screen are its only
+// callers; promote it to shared/ if a third screen ever needs it.
+import { ChapterSortFields } from '../../../screens/serie/components/chapter-sort';
 import { useStrings } from '../../../shared/i18n/useStrings';
 import { styles as chrome } from '../config.styles';
 import { useSerieSort } from './serie.hooks';
@@ -23,7 +27,7 @@ export function SerieSortScreen({ onBack }: { onBack: () => void }) {
       {!loading && (
         <ScrollView contentContainerStyle={chrome.scroll}>
           <Text style={chrome.section}>{t.configChapterSortGroupTitle}</Text>
-          <ChapterSortConfigFields
+          <ChapterSortFields
             mode={mode}
             fixedThreshold={fixedThreshold}
             progressPercent={progressPercent}
