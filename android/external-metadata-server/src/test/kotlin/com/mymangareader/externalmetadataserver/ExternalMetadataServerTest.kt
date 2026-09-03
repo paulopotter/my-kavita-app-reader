@@ -26,6 +26,7 @@ import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.ActiveUrlSelector
 import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
 import java.io.IOException
 import kotlin.test.assertFailsWith
@@ -137,6 +138,8 @@ private class FakeUrlSelector(private val url: String) : UrlSelector {
         return Result.success(url)
     }
     override fun getLastKnownUrl(): String? = url
+    override suspend fun probe(candidate: UrlCandidate) =
+        UrlProbeResult(candidate.url.trimEnd('/'), ok = true, status = 200, elapsedMs = 1)
 }
 
 // A minimal ExternalMetadataPlugin double — records what ExternalMetadataServer called it with.

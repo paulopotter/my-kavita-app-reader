@@ -18,6 +18,7 @@ import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.ActiveUrlSelector
 import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
 import java.io.IOException
 import kotlin.test.assertFailsWith
@@ -121,6 +122,11 @@ private class FakeCacheDao : CacheDao {
 private class FakeUrlSelector(private val url: String) : UrlSelector {
     var getActiveUrlCalls = 0
     var invalidateAndReselectCalls = 0
+    var probeCalls = 0
+    var lastProbedCandidate: UrlCandidate? = null
+    // What probe() returns; the default is "reachable, 200". Tests set this to check failure paths.
+    var probeResult: (UrlCandidate) -> UrlProbeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = true, status = 200, elapsedMs = 1) }
+
     override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> {
         getActiveUrlCalls++
         return Result.success(url)
@@ -130,6 +136,11 @@ private class FakeUrlSelector(private val url: String) : UrlSelector {
         return Result.success(url)
     }
     override fun getLastKnownUrl(): String? = url
+    override suspend fun probe(candidate: UrlCandidate): UrlProbeResult {
+        probeCalls++
+        lastProbedCandidate = candidate
+        return probeResult(candidate)
+    }
 }
 
 // A minimal ServerPlugin double — records what Server called it with, so tests can assert on
@@ -277,6 +288,32 @@ class ServerTest {
         assertEquals(1, providers.size)
         assertEquals("fake", providers.single().id)
         assertEquals("Fake fake", providers.single().displayName)
+    }
+
+    @Test
+    fun `providers list carries each provider's credential fields with required derived from validate`() {
+        val server = Server(
+            groupDao,
+            urlDao,
+            mapOf(
+                "req" to fakeRegistration(
+                    id = "req",
+                    credentialFields = listOf(
+                        CredentialField("apiKey", "API Key", "string") { v -> if (v.isBlank()) "must not be blank" else null },
+                        CredentialField("note", "Note", "string") { _ -> null }, // optional — validate("") passes
+                    ),
+                ),
+            ),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+            RequestTool(OkHttpClient()),
+        )
+
+        val fields = server.providers.list().single().credentialFields
+
+        assertEquals(listOf("apiKey", "note"), fields.map { it.name })
+        assertEquals("API Key", fields.first { it.name == "apiKey" }.label)
+        assertEquals(true, fields.first { it.name == "apiKey" }.required)
+        assertEquals(false, fields.first { it.name == "note" }.required)
     }
 
     // ── groups CRUD ──────────────────────────────────────────────────────
@@ -817,6 +854,46 @@ class ServerTest {
         val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
 
         assertFailsWith<ServerException> { server.group(group.id).validateUrls() }
+    }
+
+    // ── group.testUrl (point check, no selection) ────────────────────────────
+
+    @Test
+    fun `group testUrl probes the given url with the group's healthCheckPath and never reselects`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl)
+        val testingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+        val group = testingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/custom-health"))
+
+        val result = testingServer.group(group.id).testUrl("http://typed-by-user:9000")
+
+        assertEquals(true, result.ok)
+        assertEquals(200, result.status)
+        assertEquals("http://typed-by-user:9000", urlSelector.lastProbedCandidate?.url)
+        assertEquals("/custom-health", urlSelector.lastProbedCandidate?.healthCheckPath)
+        // A point check is not a selection.
+        assertEquals(0, urlSelector.getActiveUrlCalls)
+        assertEquals(0, urlSelector.invalidateAndReselectCalls)
+    }
+
+    @Test
+    fun `group testUrl reports the probe failure as-is`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl).apply {
+            probeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = false, status = 502, elapsedMs = 3) }
+        }
+        val testingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+        val group = testingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+
+        val result = testingServer.group(group.id).testUrl("http://x")
+
+        assertEquals(false, result.ok)
+        assertEquals(502, result.status)
+    }
+
+    @Test
+    fun `group testUrl rejects a blank url and a missing group`() = runTest {
+        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+        assertFailsWith<ServerException> { server.group(group.id).testUrl("  ") }
+        assertFailsWith<ServerException> { server.group("missing").testUrl("http://x") }
     }
 
     // ── group.getActive / Server.getActive ──────────────────────────────────

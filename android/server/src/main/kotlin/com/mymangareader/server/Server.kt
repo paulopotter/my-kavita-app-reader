@@ -14,6 +14,7 @@ import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
 import java.io.IOException
 import java.util.UUID
@@ -89,6 +90,19 @@ data class ProviderInfo(
     val id: String,
     val displayName: String,
     val version: String,
+    // What this provider needs the user to fill in — mirrors the plugin's CredentialField list,
+    // minus the non-serializable `validate` function. `required` is DERIVED from that validate
+    // (a field whose validate("") returns an error can't be left blank), so the RN form can put
+    // a "*" and block save without hardcoding any provider's field names. The real validation of
+    // the entered value still runs server-side in groups.add/update (validateCredentials).
+    val credentialFields: List<ProviderCredentialField>,
+)
+
+data class ProviderCredentialField(
+    val name: String,
+    val label: String,
+    val type: String,
+    val required: Boolean,
 )
 
 data class ServerGroupInfo(
@@ -490,6 +504,13 @@ class Server @Inject constructor(
         suspend fun updateUrl(urlId: String, url: String? = null, timeoutMs: Int? = null, priority: Int? = null): ServerUrlInfo
         suspend fun removeUrl(urlId: String)
 
+        // Point check on ONE URL (any string, not necessarily one of this group's configured
+        // URLs) — hits `<url><group healthCheckPath>` once and reports the outcome. Unlike
+        // validateUrls() this NEVER changes which URL is active and never touches the selector's
+        // cache; it's the config screen's "is this address I just typed reachable right now?"
+        // button. `timeoutMs` defaults to the same 5s the config screen uses for new URLs.
+        suspend fun testUrl(url: String, timeoutMs: Int = 5000): UrlProbeResult
+
         // Tests every configured URL for this group, highest priority (lowest number) first,
         // and returns the one that actually answered its health check — always a fresh test,
         // ignoring UrlSelector's 15-minute cache, since "validate my server" on the config
@@ -694,6 +715,21 @@ class Server @Inject constructor(
             serverUrlDao.deleteById(existing.id)
         }
 
+        override suspend fun testUrl(url: String, timeoutMs: Int): UrlProbeResult {
+            val group = serverGroupDao.getById(groupId) ?: throw ServerException("Server group not found: $groupId")
+            requireNotBlank("url", url)
+            requirePositive("timeoutMs", timeoutMs)
+            return urlSelector.probe(
+                UrlCandidate(
+                    id = "probe",
+                    url = url,
+                    timeoutMs = timeoutMs,
+                    priority = 0,
+                    healthCheckPath = group.healthCheckPath,
+                ),
+            )
+        }
+
         override suspend fun validateUrls(): ServerUrlInfo {
             val group = serverGroupDao.getById(groupId) ?: throw ServerException("Server group not found: $groupId")
             val candidates = urlCandidatesFor(groupId, group.healthCheckPath)
@@ -739,7 +775,20 @@ class Server @Inject constructor(
     }
 }
 
-private fun ServerPluginRegistration.toInfo() = ProviderInfo(id = id, displayName = displayName, version = version)
+private fun ServerPluginRegistration.toInfo() = ProviderInfo(
+    id = id,
+    displayName = displayName,
+    version = version,
+    credentialFields = credentialFields.map {
+        ProviderCredentialField(
+            name = it.name,
+            label = it.label,
+            type = it.type,
+            // "required" = the field's own validate rejects an empty value.
+            required = it.validate("") != null,
+        )
+    },
+)
 
 private fun ServerGroupEntity.toInfo() = ServerGroupInfo(
     id = id,

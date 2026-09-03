@@ -17,6 +17,7 @@ import com.mymangareader.server.ServerUrlInfo
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
+import com.mymangareader.tools.network.UrlProbeResult
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -123,6 +124,22 @@ class ServerBridgeModule @Inject constructor(
         scope.launch {
             runCatching { server.group(groupId).validateUrls() }
                 .resolveOrReject(promise, "VALIDATE_GROUP_URLS_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun testGroupUrl(groupId: String, url: String, promise: Promise) {
+        scope.launch {
+            runCatching { server.group(groupId).testUrl(url) }
+                .resolveOrReject(promise, "TEST_GROUP_URL_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun getGroupActive(groupId: String, promise: Promise) {
+        scope.launch {
+            runCatching { server.group(groupId).getActive() }
+                .resolveOrReject(promise, "GET_GROUP_ACTIVE_ERROR") { it?.toWritableMap() }
         }
     }
 
@@ -239,6 +256,21 @@ class ServerBridgeModule @Inject constructor(
         putString("id", id)
         putString("displayName", displayName)
         putString("version", version)
+        putArray(
+            "credentialFields",
+            Arguments.createArray().also { arr ->
+                credentialFields.forEach { field ->
+                    arr.pushMap(
+                        Arguments.createMap().apply {
+                            putString("name", field.name)
+                            putString("label", field.label)
+                            putString("type", field.type)
+                            putBoolean("required", field.required)
+                        },
+                    )
+                }
+            },
+        )
     }
 
     private fun List<ProviderInfo>.toProvidersWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
@@ -262,6 +294,14 @@ class ServerBridgeModule @Inject constructor(
     }
 
     private fun List<ServerUrlInfo>.toUrlsWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
+
+    private fun UrlProbeResult.toWritableMap() = Arguments.createMap().apply {
+        putString("url", url)
+        putBoolean("ok", ok)
+        val statusCode = status
+        if (statusCode != null) putInt("status", statusCode) else putNull("status")
+        putDouble("elapsedMs", elapsedMs.toDouble())
+    }
 
     private fun SerialData.toWritableMap() = Arguments.createMap().apply {
         putString("id", id)

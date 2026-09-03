@@ -180,4 +180,45 @@ class ActiveUrlSelectorTest {
 
         assertTrue(result.isSuccess)
     }
+
+    // ── probe (single-URL point check, no cache, no selection) ────────────
+
+    @Test
+    fun `probe reports ok with the response status on a healthy URL`() = runTest {
+        server1.enqueue(MockResponse().setResponseCode(200))
+
+        val result = selector.probe(candidate(server1))
+
+        assertTrue(result.ok)
+        assertEquals(200, result.status)
+        assertTrue(result.elapsedMs >= 0)
+    }
+
+    @Test
+    fun `probe reports not-ok with the status on a non-2xx response`() = runTest {
+        server1.enqueue(MockResponse().setResponseCode(503))
+
+        val result = selector.probe(candidate(server1))
+
+        assertEquals(false, result.ok)
+        assertEquals(503, result.status)
+    }
+
+    @Test
+    fun `probe reports not-ok with a null status when the URL is unreachable`() = runTest {
+        server1.shutdown()
+
+        val result = selector.probe(candidate(server1, timeoutMs = 200))
+
+        assertEquals(false, result.ok)
+        assertEquals(null, result.status)
+    }
+
+    @Test
+    fun `probe never populates the selection cache`() = runTest {
+        server1.enqueue(MockResponse().setResponseCode(200))
+        selector.probe(candidate(server1))
+        // A probe must not count as a selection — getLastKnownUrl stays null until a real select.
+        assertEquals(null, selector.getLastKnownUrl())
+    }
 }
