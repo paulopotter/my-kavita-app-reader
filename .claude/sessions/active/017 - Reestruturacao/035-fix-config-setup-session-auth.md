@@ -1,9 +1,6 @@
 # Task 035 — Correction: Config/Setup session & auth (401 on Library/Following) (Phase 5 — Corrections)
 
-**Status:** todo (blocked by Task 017 — needs the real `Server` module's session/reauthentication
-mechanism to exist; related to Task 021's RN Services but not blocked by it, since this task's
-scope is the Config/Setup screen and session lifecycle, not the Page/Chapter/Series Services
-built there)
+**Status:** done
 
 ## Objective
 
@@ -80,3 +77,49 @@ actually started. This task only registers the finding and the objective.
 - Tested on a real device by the user.
 - `make coverage` shows no drop relative to the current floor.
 - Explicit user approval before `finalizar-task`.
+
+---
+
+## Result
+
+### O que foi implementado
+
+**1. Auto-reautenticação de JWT no `:server` (o objetivo original — o 401)**
+- `ServerAuthException` (novo, `android/server/src/main/kotlin/com/mymangareader/server/plugins/ServerPlugin.kt`) — a exceção que um plugin levanta quando um content call autenticado volta 401.
+- `KavitaContentError.kt` (`kavitaRaiseIfSessionRejected`) chamado nos 8 content calls do Kavita (`KavitaSeries` ×3, `KavitaChapter` ×5): status 401 → `ServerAuthException` em vez da exceção genérica. Os endpoints de auth (`KavitaAuth`) ficam de fora — lá 401 é o erro terminal.
+- `Server.withUrlRetry` (`android/server/src/main/kotlin/com/mymangareader/server/Server.kt`): ao capturar `ServerAuthException`, chama `reauthenticateActiveGroup(groupId)` (login completo via apiKey, mesma URL) e refaz a chamada uma vez. 401 persistente após reauth → propaga (credencial inválida → volta pro setup). Independente do retry de `IOException` (esse re-seleciona URL; o 401 não).
+
+**2. Migração da tela Config/Setup para `:server`/`ServerService`**
+- Nova árvore `frontend/src/screens/config/` no padrão pasta-kebab: `config.screen.tsx` (router thin), sub-telas `server/`, `reader/`, `serie/`, `debug/`, `setup/`, cada uma com hook solto na raiz + `index.ts`. Componentes dumb: `language-toggle/`, `server/components/{row,modal,url-modal,group-card,select}/`, `debug/components/section/`.
+- `server.hooks.ts` — `useServer` (grupo + URLs via `:server`) e `useMetadataServer` (grupo + URLs do `:external-metadata-server` + associação URL→URL). Regra single-server/single-metadata: opera `groups[0]`, botão "adicionar" some quando já existe um. `MAX_URLS_PER_GROUP = 2`.
+- Seção de servidor de metadados: opcional, só renderiza se há um servidor; linhas de credencial só se o provider declara `credentialFields`; associação via `<Select>` (não chips).
+- i18n completo (pt-BR + en) para toda a tela nova, sempre genérico — nome do provider vem do `:server` (`provider.displayName`), nunca hardcoded "Kavita"/"BFF".
+
+**3. `healthCheckPath` vem do plugin, não do RN**
+- `ServerPluginRegistration.defaultHealthCheckPath` + `ExternalMetadataPluginRegistration.defaultHealthCheckPath` — Kavita `/api/Health`, M3 `/api/health`. Serializado no `ProviderInfo` pelas duas bridges. `addServer` usa `provider.defaultHealthCheckPath` — RN nunca chuta um endpoint.
+- `ExternalMetadataServer.groups.update`: ao mudar o `healthCheckPath`, invalida a seleção de URL cacheada (15 min) e re-testa ao vivo.
+
+**4. Idioma app ↔ sistema**
+- O per-app locale do SO (`LocaleManager`) vira a fonte única da verdade — `ConfigRepository.getAppLocale`/`setAppLocale`; `UiPreferences` perde o campo `language`.
+- `MainActivity.onConfigurationChanged` emite `appLocaleChanged` pro JS → o app reage a troca de idioma nas Configurações do Android sem restart. `onCreate(null)` + strip de fragments evita o crash do react-native-screens ao recriar a Activity. Manifest `configChanges += locale|layoutDirection`.
+
+**5. Cascata servidor → servidor de metadados**
+- `ServerEvents.activeUrlChanged` (EventBus RN→RN, `frontend/src/shared/services/servers/servers.events.ts`): emitido quando o `:server` (re)resolve a URL ativa. `useMetadataServer` escuta e re-ativa seu grupo. Splash: `resolveMetadataServer()` fire-and-forget após ativar/autenticar o servidor.
+
+**6. Router swap + deleção do legado**
+- `MainNavigator` → `screens/config` (barrel); `RootNavigator` SETUP → `screens/config/setup`.
+- Apagados: `ConfigScreen.tsx` (1005 linhas), `ConfigService.ts`, `ConfigTransform.ts`, `DebugSmokeTest.ts`, `useConfig.ts`, `screens/setup/` inteiro, os 5 componentes órfãos de `config/components/`, `server/components/form/`.
+- Limpeza extra de legado: `shared/transforms/` extinto por completo (`chapter.ts`, `series.ts`, `page.ts`, `kavitaApiKey.ts`, `sortConfig.ts` — lógica útil já reescrita nos tipos do digest); `ChapterSortConfigFields` migrado para `screens/serie/components/chapter-sort/` (padrão novo), modal de sort dissolvido na `serie.screen.tsx`.
+
+### Versões
+
+- Antes: `0.8.0-rc82` (APK) / `0.9.0-rc82` (bundle) — fim da Task 038.
+- Depois: `0.8.0-rc98` / `0.9.0-rc98`.
+
+### Testes
+
+- `make coverage` — verde. Kotlin: `koverVerify` OK (`COVERAGE_FLOOR_KOTLIN=83`). JS: 840 testes, floor bumpado (statements/lines 71→88, functions 78, branches 90).
+- `:server` — 60 testes (2 novos: 401 recupera / 401 persistente propaga).
+- `:content-digest` — testes do fix do SerieScreen vazia (cache só com a linha da lista).
+- `tsc --noEmit` limpo, `eslint src --quiet` limpo.
+- Device (`make redeploy-log`): usuário confirmou config + setup funcionando na árvore nova; dot do M3 verde ao abrir; SerieScreen abre com capítulos direto (fix rc95). O 401 em runtime não foi reproduzido no device durante o teste (JWT ainda válido) — coberto pelos 2 testes unitários do `:server`.
