@@ -318,10 +318,8 @@ export const ChapterTool = {
 
 // ── ChaptersTool.sort — chapter sort preferences (global + per-series override) ────────────
 
-// Deliberately duplicated from shared/bridge/series.ts's ChapterSortMode (legacy — see
-// shared/index.ts's Legacy* re-exports) instead of reusing it: this domain never depends on
-// legacy code, even for a plain string-literal union that happens to share the same 4 values
-// today.
+// The canonical chapter-sort mode union for the whole app — screens/serie's serie.types.ts
+// re-exports this one.
 export type ChapterSortMode = 'ASCENDING' | 'DESCENDING' | 'AUTO_FIXED' | 'AUTO_PROGRESS';
 
 export interface ChapterSortPrefs {

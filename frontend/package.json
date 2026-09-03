@@ -81,7 +81,6 @@
       "/__tests__/",
       "\\.d\\.ts$",
       "/index\\.ts$",
-      "/src/shared/bridge/chapter\\.ts$",
       "/src/shared/bridge/config\\.ts$",
       "/src/shared/bridge/network\\.ts$",
       "/src/shared/bridge/page\\.ts$",
