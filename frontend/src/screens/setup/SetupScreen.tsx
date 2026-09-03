@@ -12,7 +12,7 @@ import {
 import { ConfigRepository, ServerConfig, SetupBridge } from '../../shared/bridge/config';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
 import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
-import { addBffServer, savePreferences, saveServer } from '../config/ConfigService';
+import { addBffServer, saveServer } from '../config/ConfigService';
 
 const BG = '#1A1A2E';
 const CARD = '#16213E';
@@ -78,7 +78,7 @@ export function SetupScreen({ onComplete }: Props) {
   // ── Language ──────────────────────────────────────────────────────────────
   const handleLanguageSelect = async (code: string) => {
     setLanguage(code);
-    await savePreferences({ language: code });
+    await ConfigRepository.setAppLocale(code);
   };
 
   // ── Kavita servers ────────────────────────────────────────────────────────

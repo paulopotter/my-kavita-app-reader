@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { OtaEmitter, OtaModule, OtaPolicyMode } from '../../../native/OtaModule';
 import { StartupBridge } from '../../../shared/bridge/startup';
-import { ServersService, ServerService } from '../../../shared/services/servers';
+import {
+  ExternalsService,
+  ExternalService,
+  ServersService,
+  ServerService,
+} from '../../../shared/services/servers';
 import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
 import { useStrings } from '../../../shared/i18n/useStrings';
 import { Routes } from '../../../navigation/routes';
@@ -70,6 +75,11 @@ export async function runSplashBoot(opts: {
   }
   onProgress(P.authOk);
 
+  // The server's active URL is now resolved. If a metadata server exists, resolve it too against
+  // that URL — cascade, per the user's design. Best-effort, non-blocking: a missing metadata
+  // group or an unreachable one is fine, the Library's own metadata sync re-resolves lazily.
+  resolveMetadataServer();
+
   onStep('loading library');
   onProgress(P.warmingLibrary);
   await Promise.race([
@@ -93,6 +103,23 @@ function warmLibrary(): Promise<void> {
       seedLibrary(entries, lastUpdatedEpochMs);
     } catch {
       /* head start only */
+    }
+  })();
+}
+
+// Fire-and-forget: activate the (single) metadata server group so its active URL is resolved
+// against the server URL the splash just picked. No metadata group → nothing to do. Never
+// throws — an unreachable metadata endpoint is not a boot failure. The caller does not await it.
+function resolveMetadataServer(): Promise<void> {
+  return (async () => {
+    try {
+      const groups = await ExternalsService.groups.list();
+      const g = groups[0];
+      if (g) {
+        await ExternalService.group.active.set({ groupId: g.id });
+      }
+    } catch {
+      /* metadata resolves lazily on the first Library sync anyway */
     }
   })();
 }

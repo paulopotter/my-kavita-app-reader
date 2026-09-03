@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { DeviceEventEmitter, StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageContext } from './shared/i18n/LanguageContext';
@@ -10,15 +10,6 @@ import { AppShellStateProvider } from './shared/components/AppShellState';
 import { RootNavigator } from './navigation/RootNavigator';
 import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
 
-function detectSystemLanguage(): string {
-  try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
-    if (locale.startsWith('pt')) { return 'pt-BR'; }
-    return 'en';
-  } catch {
-    return 'en';
-  }
-}
 
 export default function App() {
   return (
@@ -33,14 +24,19 @@ function AppContent() {
 
   const navRef = useRef<NavigationContainerRef<any>>(null);
 
-  const applyLanguage = useCallback((lang: string) => setLanguageState(lang), []);
+  // Setting the language means setting the OS per-app locale, then reflecting that in the
+  // context. There is no app-side "language" preference — the OS is the single source of truth,
+  // so a change made in Android's App-languages settings shows up here on the next boot, and a
+  // change made here shows up in those settings.
+  const applyLanguage = useCallback((lang: string) => {
+    setLanguageState(lang);
+    ConfigRepository.setAppLocale(lang).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function boot() {
-      let prefs = null;
-      try { prefs = await ConfigRepository.getUiPreferences(); } catch {}
-      const lang = (prefs as any)?.language ?? detectSystemLanguage();
-      applyLanguage(lang);
+      const lang = await ConfigRepository.getAppLocale().catch(() => 'en');
+      setLanguageState(lang);
 
       // Restored-route boot (reopen on the last screen after the app was killed) — deferred.
       // The idea (to revisit): resolve `getRestoredRoute()` here and pass a dynamic
@@ -55,6 +51,19 @@ function AppContent() {
     }
     boot().catch(() => { /* splash runs and decides */ });
   }, [applyLanguage]);
+
+  // The user changed the language in Android's per-app settings while the app is open — the
+  // Activity handled the config change without a restart (configChanges includes `locale`) and
+  // pinged us. Re-read the effective locale and re-render; don't write it back (the OS already
+  // holds it).
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('appLocaleChanged', () => {
+      ConfigRepository.getAppLocale()
+        .then(setLanguageState)
+        .catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   const onNavigationStateChange = useCallback(() => {
     const currentRoute = navRef.current?.getCurrentRoute();

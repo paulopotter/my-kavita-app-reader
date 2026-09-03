@@ -27,6 +27,8 @@ jest.mock('../../../shared/services/servers', () => ({
     group: { active: { set: jest.fn() } },
     auth: { reauthenticate: jest.fn() },
   },
+  ExternalsService: { groups: { list: jest.fn().mockResolvedValue([]) } },
+  ExternalService: { group: { active: { set: jest.fn() } } },
 }));
 
 jest.mock('../../library/hooks/library.hooks', () => ({

@@ -17,7 +17,7 @@ import { ChapterSortConfigFields } from '../../shared/components/ChapterSortConf
 import { ChaptersTool, type ChapterSortMode } from '../../shared/tools/chapters';
 import { useLanguage, useStrings } from '../../shared/i18n/useStrings';
 import { extractKavitaApiKey } from '../../shared/transforms/kavitaApiKey';
-import { addBffServer, savePreferences, saveServer } from './ConfigService';
+import { addBffServer, saveServer } from './ConfigService';
 import {
   chapterSteps,
   discoverActiveGroupId,
@@ -106,7 +106,7 @@ function ConfigMenuScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
   const handleLanguageToggle = async () => {
     const next = language === 'en' ? 'pt-BR' : 'en';
     setLanguage(next);
-    savePreferences({ language: next }).catch(() => {});
+    ConfigRepository.setAppLocale(next).catch(() => {});
   };
 
   return (
