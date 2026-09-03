@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Routes } from './routes';
 import { MainNavigator } from './MainNavigator';
 import { SplashScreen } from '../screens/splash';
-import { SetupScreen } from '../screens/setup/SetupScreen';
+import { SetupScreen } from '../screens/config/setup';
 import { SerieScreen } from '../screens/serie';
 import { ReaderScreen } from '../screens/reader';
 import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
