@@ -25,8 +25,8 @@ jest.mock('../../../shared/bridge/followed-series', () => ({
 }));
 
 const mockIndexGet = jest.fn();
-jest.mock('../../../shared/tools/series', () => {
-  const actual = jest.requireActual('../../../shared/tools/series');
+jest.mock('../../../shared/managers/store', () => {
+  const actual = jest.requireActual('../../../shared/managers/store');
   return {
     ...actual,
     SeriesDigestIndex: { get: (...a: unknown[]) => mockIndexGet(...a) },

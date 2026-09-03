@@ -8,7 +8,7 @@ import type { SerialDigestSuccess } from '../../bridge/digest';
 // Emitted whenever any screen resolves a fresh SerialDigest for a series (SerieScreen's load,
 // and any future caller). Carries only the subset the Library card needs — NOT the whole digest
 // — so a listener can keep a lightweight per-series index warm without the emitter knowing who
-// listens or why. The Library's own index listener (series-digest.index.ts) is the first
+// listens or why. The SeriesDigestIndex listener (shared/managers/store/series-digest-index.ts) is the first
 // consumer: it lets a series the user opened once (followed or not) show its real chapter
 // counts / publication status in the Library without the Library itself fetching that digest.
 export interface SerieDigestResolvedPayload {

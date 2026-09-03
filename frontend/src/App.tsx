@@ -7,6 +7,7 @@ import { getStrings } from './shared/i18n/strings';
 import { ConfigRepository } from './shared/bridge/config';
 import { StartupBridge } from './shared/bridge/startup';
 import { StartupProvider } from './shared/context/startup';
+import { registerSeriesDigestIndexListener } from './shared/managers/store';
 import { RootNavigator } from './navigation/RootNavigator';
 import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
 
@@ -34,6 +35,10 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    // App-wide listeners that must run whether or not their consuming screen ever mounts. Kept
+    // as an explicit boot call, not an import side effect. Idempotent.
+    registerSeriesDigestIndexListener();
+
     async function boot() {
       const lang = await ConfigRepository.getAppLocale().catch(() => 'en');
       setLanguageState(lang);

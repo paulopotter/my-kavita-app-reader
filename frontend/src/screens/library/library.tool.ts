@@ -1,7 +1,7 @@
 import type { ExternalMetadataMatch } from '../../shared/bridge/external';
 import type { Strings } from '../../shared/i18n/strings';
 import type { Serie } from '../../shared/tools/series';
-import type { SeriesDigestIndexEntry } from '../../shared/tools/series';
+import type { SeriesDigestIndexEntry } from '../../shared/managers/store';
 
 // LibraryTool — the screen-local tool for the Library/Following screen (same pattern as
 // screens/reader/reading-mode.tool.ts). It takes what library.hooks.ts already fetched — Serie[]
