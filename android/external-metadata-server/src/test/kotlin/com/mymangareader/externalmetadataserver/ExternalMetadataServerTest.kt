@@ -103,6 +103,7 @@ private fun fakeServerRegistration(): ServerPluginRegistration = object : Server
     override val displayName = "Fake Server"
     override val version = "0.0.0"
     override val credentialFields: List<ServerCredentialField> = emptyList()
+    override val defaultHealthCheckPath = "/health"
     override val factory = { _: RequestTool, _: String, _: String ->
         object : ServerPlugin {
             override val id = "fake-server"
@@ -129,6 +130,10 @@ private fun fakeServerRegistration(): ServerPluginRegistration = object : Server
 private class FakeUrlSelector(private val url: String) : UrlSelector {
     var getActiveUrlCalls = 0
     var invalidateAndReselectCalls = 0
+    var probeCalls = 0
+    var lastProbedCandidate: UrlCandidate? = null
+    var probeResult: (UrlCandidate) -> UrlProbeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = true, status = 200, elapsedMs = 1) }
+
     override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> {
         getActiveUrlCalls++
         return Result.success(url)
@@ -138,8 +143,11 @@ private class FakeUrlSelector(private val url: String) : UrlSelector {
         return Result.success(url)
     }
     override fun getLastKnownUrl(): String? = url
-    override suspend fun probe(candidate: UrlCandidate) =
-        UrlProbeResult(candidate.url.trimEnd('/'), ok = true, status = 200, elapsedMs = 1)
+    override suspend fun probe(candidate: UrlCandidate): UrlProbeResult {
+        probeCalls++
+        lastProbedCandidate = candidate
+        return probeResult(candidate)
+    }
 }
 
 // A minimal ExternalMetadataPlugin double — records what ExternalMetadataServer called it with.
@@ -223,6 +231,7 @@ private fun fakeRegistration(
     override val displayName = "Fake $id"
     override val version = "0.0.0"
     override val credentialFields = credentialFields
+    override val defaultHealthCheckPath = "/version"
     override val factory = { requestTool: RequestTool, _: Cache, baseUrl: String, authJson: String ->
         val plugin = FakePlugin(authJson)
         onFactory(requestTool, baseUrl, authJson, plugin)
@@ -288,6 +297,33 @@ class ExternalMetadataServerTest {
         assertEquals(1, providers.size)
         assertEquals("fake", providers.single().id)
         assertEquals("Fake fake", providers.single().displayName)
+    }
+
+    @Test
+    fun `providers list carries the provider's credential fields, empty for an auth-less provider`() {
+        // The personal-BFF-style provider (no auth) reports no credential fields at all.
+        assertEquals(0, server.providers.list().single().credentialFields.size)
+
+        val withCreds = ExternalMetadataServer(
+            groupDao,
+            urlDao,
+            mapOf(
+                "req" to fakeRegistration(
+                    id = "req",
+                    credentialFields = listOf(
+                        CredentialField("token", "API Token", "string") { v -> if (v.isBlank()) "must not be blank" else null },
+                        CredentialField("note", "Note", "string") { _ -> null },
+                    ),
+                ),
+            ),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+            RequestTool(OkHttpClient()),
+            Cache(FakeCacheDao()),
+        )
+        val fields = withCreds.providers.list().single().credentialFields
+        assertEquals(listOf("token", "note"), fields.map { it.name })
+        assertEquals(true, fields.first { it.name == "token" }.required)
+        assertEquals(false, fields.first { it.name == "note" }.required)
     }
 
     // ── groups CRUD ──────────────────────────────────────────────────────
@@ -803,5 +839,39 @@ class ExternalMetadataServerTest {
         val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
         assertFailsWith<ExternalMetadataServerException> { server.group(group.id).validateUrls() }
+    }
+
+    // ── group.testUrl (point check, no selection) ────────────────────────────
+
+    @Test
+    fun `group testUrl probes the given url with the group's healthCheckPath and never reselects`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl)
+        val testingServer = ExternalMetadataServer(
+            groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()), Cache(FakeCacheDao()),
+        )
+        val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/custom-health"))
+
+        val result = testingServer.group(group.id).testUrl("http://typed:9000")
+
+        assertEquals(true, result.ok)
+        assertEquals("http://typed:9000", urlSelector.lastProbedCandidate?.url)
+        assertEquals("/custom-health", urlSelector.lastProbedCandidate?.healthCheckPath)
+        assertEquals(0, urlSelector.getActiveUrlCalls)
+        assertEquals(0, urlSelector.invalidateAndReselectCalls)
+    }
+
+    @Test
+    fun `group testUrl reports the probe failure as-is and rejects bad input`() = runTest {
+        val urlSelector = FakeUrlSelector(baseUrl).apply {
+            probeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = false, status = 502, elapsedMs = 2) }
+        }
+        val testingServer = ExternalMetadataServer(
+            groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()), Cache(FakeCacheDao()),
+        )
+        val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+
+        assertEquals(false, testingServer.group(group.id).testUrl("http://x").ok)
+        assertFailsWith<ExternalMetadataServerException> { testingServer.group(group.id).testUrl("  ") }
+        assertFailsWith<ExternalMetadataServerException> { testingServer.group("missing").testUrl("http://x") }
     }
 }

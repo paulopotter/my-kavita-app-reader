@@ -59,6 +59,8 @@ class M3Plugin(
 
         override val credentialFields: List<CredentialField> = emptyList()
 
+        override val defaultHealthCheckPath: String = "/api/health"
+
         override val factory = { requestTool: RequestTool, cache: Cache, baseUrl: String, _: String ->
             M3Plugin(baseUrl, requestTool, cache) as ExternalMetadataPlugin
         }

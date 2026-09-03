@@ -48,6 +48,35 @@ class ConfigRepository @Inject constructor(
         }
     }
 
+    // The OS's per-app language is the single source of truth for the UI language — there is no
+    // separate "language" preference in the app's own storage. This returns the effective
+    // language tag: the per-app override the user set (in the app or under Settings > App
+    // languages), or, when none is set, the device's own locale. Always one of the app's
+    // supported tags ("pt-BR" / "en"), so JS can use it directly.
+    @ReactMethod
+    fun getAppLocale(promise: Promise) {
+        runCatching {
+            val override = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                appContext.getSystemService(LocaleManager::class.java)?.applicationLocales
+            } else {
+                null
+            }
+            val tag = when {
+                override != null && !override.isEmpty -> override[0].toLanguageTag()
+                else -> Locale.getDefault().toLanguageTag()
+            }
+            promise.resolve(if (tag.startsWith("pt", ignoreCase = true)) "pt-BR" else "en")
+        }.onFailure { promise.resolve("en") }
+    }
+
+    // Sets the OS per-app language. This is the ONLY thing an in-app language switch does — no
+    // value is written to the app's storage; getAppLocale() reads it straight back from the OS.
+    @ReactMethod
+    fun setAppLocale(languageTag: String, promise: Promise) {
+        applyAppLocale(languageTag)
+        promise.resolve(null)
+    }
+
     // ── Server config ──────────────────────────────────────────────────────────
 
     @ReactMethod
@@ -144,7 +173,6 @@ class ConfigRepository @Inject constructor(
                     putString("chapterSortMode", prefs.chapterSortMode)
                     prefs.chapterSortFixedThreshold?.let { putDouble("chapterSortFixedThreshold", it) }
                     putInt("chapterSortProgressPercent", prefs.chapterSortProgressPercent)
-                    putString("language", prefs.language)
                     putString("libraryViewMode", prefs.libraryViewMode)
                     putString("librarySortMode", prefs.librarySortMode)
                 }.also { promise.resolve(it) }
@@ -156,7 +184,8 @@ class ConfigRepository @Inject constructor(
     fun upsertUiPreferences(data: ReadableMap, promise: Promise) {
         scope.launch {
             runCatching {
-                data.getString("language")?.let { applyAppLocale(it) }
+                // The UI language is not a stored preference — it lives in the OS per-app locale
+                // (see setAppLocale). A "language" key here is ignored.
                 store.upsertUiPreferences {
                     copy(
                         keepScreenOnDuringReading = if (data.hasKey("keepScreenOnDuringReading"))
@@ -168,7 +197,6 @@ class ConfigRepository @Inject constructor(
                             data.getDouble("chapterSortFixedThreshold") else chapterSortFixedThreshold,
                         chapterSortProgressPercent = if (data.hasKey("chapterSortProgressPercent"))
                             data.getInt("chapterSortProgressPercent") else chapterSortProgressPercent,
-                        language = data.getString("language") ?: language,
                         libraryViewMode = data.getString("libraryViewMode") ?: libraryViewMode,
                         librarySortMode = data.getString("librarySortMode") ?: librarySortMode,
                     )

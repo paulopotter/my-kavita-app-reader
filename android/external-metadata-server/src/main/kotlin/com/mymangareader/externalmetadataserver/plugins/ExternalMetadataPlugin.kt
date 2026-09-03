@@ -54,6 +54,10 @@ interface ExternalMetadataPluginRegistration {
     val displayName: String
     val version: String
     val credentialFields: List<CredentialField>
+    // The liveness path this provider answers on — the RN config screen passes it straight into
+    // groups.add so it never has to know a provider's endpoint. Same role as
+    // ServerPluginRegistration.defaultHealthCheckPath.
+    val defaultHealthCheckPath: String
     val factory: (requestTool: RequestTool, cache: Cache, baseUrl: String, authJson: String) -> ExternalMetadataPlugin
 }
 

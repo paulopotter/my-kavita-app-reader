@@ -2,6 +2,7 @@ package com.mymangareader
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.appcompat.app.AlertDialog
@@ -11,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.mymangareader.tools.ota.OtaDecision
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
@@ -50,7 +52,12 @@ class MainActivity : ReactActivity() {
                 !gateResolved || !BootUiReadySignal.ready.value
             }
         }
-        super.onCreate(savedInstanceState)
+        // Pass null, not savedInstanceState — react-native-screens' fragments must never be
+        // restored by the platform (they'd crash with "Screen fragments should never be
+        // restored"). RN rebuilds the whole view tree from JS anyway, so there's nothing of ours
+        // worth restoring here. This matters on any Activity recreate: rotation, and — the one
+        // that bit us — an in-app language change that flips the locale.
+        super.onCreate(null)
 
         val app = application as MainApplication
         lifecycleScope.launch {
@@ -94,6 +101,29 @@ class MainActivity : ReactActivity() {
                 startActivity(Intent(Intent.ACTION_VIEW, releaseNotesUrl.toUri()))
             }
             .show()
+    }
+
+    // The Activity handles `locale` in its configChanges (AndroidManifest), so an in-Settings
+    // language change lands here instead of recreating the Activity. Tell JS so App.tsx re-reads
+    // the effective locale and re-renders — no restart needed. RN itself doesn't need the
+    // newConfig; it re-queries via the ConfigRepository bridge.
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        (application as? MainApplication)
+            ?.reactNativeHost
+            ?.reactInstanceManager
+            ?.currentReactContext
+            ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+            ?.emit("appLocaleChanged", null)
+    }
+
+    // Strip the fragment/view hierarchy the platform would otherwise try to save and restore —
+    // react-native-screens can't survive that (see the null in onCreate). RN restores nothing
+    // from a Bundle; it rebuilds from JS.
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.remove("android:support:fragments")
+        outState.remove("androidx.lifecycle.BundlableSavedStateRegistry.key")
     }
 
     override fun onStop() {

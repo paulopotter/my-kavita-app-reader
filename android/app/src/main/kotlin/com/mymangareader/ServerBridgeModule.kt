@@ -104,11 +104,20 @@ class ServerBridgeModule @Inject constructor(
         }
     }
 
+    // timeoutMs / priority use a negative sentinel for "leave unchanged" — the RN bridge can't
+    // pass a real null through a primitive numeric arg (it throws before the method is even
+    // called), so the JS side sends -1 when it isn't editing that field.
     @ReactMethod
-    fun updateGroupUrl(groupId: String, urlId: String, url: String?, timeoutMs: Int?, priority: Int?, promise: Promise) {
+    fun updateGroupUrl(groupId: String, urlId: String, url: String?, timeoutMs: Double, priority: Double, promise: Promise) {
         scope.launch {
-            runCatching { server.group(groupId).updateUrl(urlId, url, timeoutMs, priority) }
-                .resolveOrReject(promise, "UPDATE_GROUP_URL_ERROR") { it.toWritableMap() }
+            runCatching {
+                server.group(groupId).updateUrl(
+                    urlId,
+                    url,
+                    timeoutMs.takeIf { it >= 0 }?.toInt(),
+                    priority.takeIf { it >= 0 }?.toInt(),
+                )
+            }.resolveOrReject(promise, "UPDATE_GROUP_URL_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -256,6 +265,7 @@ class ServerBridgeModule @Inject constructor(
         putString("id", id)
         putString("displayName", displayName)
         putString("version", version)
+        putString("defaultHealthCheckPath", defaultHealthCheckPath)
         putArray(
             "credentialFields",
             Arguments.createArray().also { arr ->

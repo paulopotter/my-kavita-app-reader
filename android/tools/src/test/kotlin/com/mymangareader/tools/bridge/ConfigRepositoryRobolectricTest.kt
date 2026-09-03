@@ -7,6 +7,7 @@ import com.facebook.react.bridge.ReadableMap
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
@@ -38,24 +39,39 @@ class ConfigRepositoryRobolectricTest {
     }
 
     @Test
-    fun `upsertUiPreferences com language aplica o locale e persiste sem lancar excecao`() = runTest {
+    fun `upsertUiPreferences ignora um campo language e nao persiste nada de idioma`() = runTest {
         val store = ConfigStore(FakeServerConfigDao(), FakeAuthConfigDao(), FakeUiPreferencesDao(), FakeBffServerConfigDao())
         val module = makeModule(store)
         val promise = FakePromise()
 
+        // The UI language is the OS per-app locale now — a "language" key here is a no-op.
         module.upsertUiPreferences(readableMapOf("language" to "en"), promise)
         promise.awaitResolved()
 
         assertNull(promise.rejectedCode)
-        assertEquals("en", store.getUiPreferences().language)
+        assertEquals("pt-BR", store.getUiPreferences().language) // untouched default
     }
 
     @Test
-    fun `upsertUiPreferences sem language nao tenta aplicar locale e resolve normalmente`() = runTest {
+    fun `getAppLocale resolve sempre um dos tags suportados, sem lancar`() = runTest {
         val module = makeModule()
         val promise = FakePromise()
 
-        module.upsertUiPreferences(readableMapOf(), promise)
+        module.getAppLocale(promise)
+        promise.awaitResolved()
+
+        // Robolectric's LocaleManager doesn't expose a real per-app override to drive here; the
+        // contract this test pins is "always resolves, always one of the app's supported tags".
+        assertNull(promise.rejectedCode)
+        assertTrue(promise.resolvedValue == "pt-BR" || promise.resolvedValue == "en")
+    }
+
+    @Test
+    fun `setAppLocale resolve sem lancar`() = runTest {
+        val module = makeModule()
+        val promise = FakePromise()
+
+        module.setAppLocale("en", promise)
         promise.awaitResolved()
 
         assertNull(promise.rejectedCode)

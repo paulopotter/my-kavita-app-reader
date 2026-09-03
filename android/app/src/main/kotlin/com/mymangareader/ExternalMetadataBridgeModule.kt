@@ -16,6 +16,7 @@ import com.mymangareader.externalmetadataserver.NewExternalMetadataUrl
 import com.mymangareader.externalmetadataserver.ProviderInfo
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
+import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.server.Server
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -111,10 +112,27 @@ class ExternalMetadataBridgeModule @Inject constructor(
     }
 
     @ReactMethod
-    fun updateGroupUrl(groupId: String, urlId: String, url: String?, timeoutMs: Int?, priority: Int?, linkedServerUrlId: String?, promise: Promise) {
+    // timeoutMs / priority use a negative sentinel for "leave unchanged" — see the same note on
+    // ServerBridgeModule.updateGroupUrl.
+    fun updateGroupUrl(
+        groupId: String,
+        urlId: String,
+        url: String?,
+        timeoutMs: Double,
+        priority: Double,
+        linkedServerUrlId: String?,
+        promise: Promise,
+    ) {
         scope.launch {
-            runCatching { externalMetadataServer.group(groupId).updateUrl(urlId, url, timeoutMs, priority, linkedServerUrlId) }
-                .resolveOrReject(promise, "UPDATE_GROUP_URL_ERROR") { it.toWritableMap() }
+            runCatching {
+                externalMetadataServer.group(groupId).updateUrl(
+                    urlId,
+                    url,
+                    timeoutMs.takeIf { it >= 0 }?.toInt(),
+                    priority.takeIf { it >= 0 }?.toInt(),
+                    linkedServerUrlId,
+                )
+            }.resolveOrReject(promise, "UPDATE_GROUP_URL_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -130,6 +148,14 @@ class ExternalMetadataBridgeModule @Inject constructor(
         scope.launch {
             runCatching { externalMetadataServer.group(groupId).validateUrls() }
                 .resolveOrReject(promise, "VALIDATE_GROUP_URLS_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun testGroupUrl(groupId: String, url: String, promise: Promise) {
+        scope.launch {
+            runCatching { externalMetadataServer.group(groupId).testUrl(url) }
+                .resolveOrReject(promise, "TEST_GROUP_URL_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -264,9 +290,33 @@ class ExternalMetadataBridgeModule @Inject constructor(
         putString("id", id)
         putString("displayName", displayName)
         putString("version", version)
+        putString("defaultHealthCheckPath", defaultHealthCheckPath)
+        putArray(
+            "credentialFields",
+            Arguments.createArray().also { arr ->
+                credentialFields.forEach { field ->
+                    arr.pushMap(
+                        Arguments.createMap().apply {
+                            putString("name", field.name)
+                            putString("label", field.label)
+                            putString("type", field.type)
+                            putBoolean("required", field.required)
+                        },
+                    )
+                }
+            },
+        )
     }
 
     private fun List<ProviderInfo>.toProvidersWritableArray() = Arguments.createArray().also { arr -> forEach { arr.pushMap(it.toWritableMap()) } }
+
+    private fun UrlProbeResult.toWritableMap() = Arguments.createMap().apply {
+        putString("url", url)
+        putBoolean("ok", ok)
+        val statusCode = status
+        if (statusCode != null) putInt("status", statusCode) else putNull("status")
+        putDouble("elapsedMs", elapsedMs.toDouble())
+    }
 
     private fun ExternalMetadataGroupInfo.toWritableMap() = Arguments.createMap().apply {
         putString("id", id)

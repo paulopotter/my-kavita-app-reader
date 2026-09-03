@@ -12,6 +12,7 @@ import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRe
 import com.mymangareader.server.Server
 import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
 import java.io.IOException
 import java.util.UUID
@@ -39,6 +40,21 @@ data class ProviderInfo(
     val id: String,
     val displayName: String,
     val version: String,
+    // Mirrors the plugin's CredentialField list minus the non-serializable `validate` — same
+    // shape as :server's ProviderInfo. A provider with no auth (e.g. the personal BFF) reports
+    // an empty list, so the RN config form just renders no credential fields for it. `required`
+    // is derived from the plugin's own validate (validate("") != null).
+    val credentialFields: List<ProviderCredentialField>,
+    // The liveness path this provider answers on — the RN config screen passes it into groups.add
+    // so it never has to know a provider's endpoint. Same role as :server's ProviderInfo.
+    val defaultHealthCheckPath: String,
+)
+
+data class ProviderCredentialField(
+    val name: String,
+    val label: String,
+    val type: String,
+    val required: Boolean,
 )
 
 data class ExternalMetadataGroupInfo(
@@ -183,6 +199,15 @@ class ExternalMetadataServer @Inject constructor(
             // — clear it so the next content call authenticates fresh instead of reusing it.
             if (credentialsJson != null && credentialsJson != existing.credentialsJson) {
                 activeMutex.withLock { sessionByGroupId.remove(groupId) }
+            }
+            // The URL selector caches its pick per group for 15 min. If the health-check path
+            // changed, that cache was computed against the OLD path — a URL that 404'd on
+            // "/health" might answer "/version". Drop it so the next resolve re-tests live.
+            if (healthCheckPath != null && healthCheckPath != existing.healthCheckPath) {
+                // MMR-DIAG (backlog 015-telemetria-interna-debug): healthCheckPath change + cache drop.
+                // Log.i("MMR-DIAG", "meta groups.update $groupId healthCheckPath '${existing.healthCheckPath}' → '$healthCheckPath'")
+                val candidates = urlCandidatesForGroup(groupId, externalMetadataGroupDao.getAll())
+                if (candidates.isNotEmpty()) urlSelector.invalidateAndReselect(candidates)
             }
             return updated.toInfo()
         }
@@ -379,10 +404,20 @@ class ExternalMetadataServer @Inject constructor(
             ?: throw ExternalMetadataServerException("Unknown providerId for group: ${group.providerId}")
 
         val candidates = urlCandidatesFor(groupId, group.healthCheckPath)
+        // MMR-DIAG (backlog 015-telemetria-interna-debug): what path/URL the metadata group resolves
+        // against. Uncomment when the "connected" dot stays grey — showed the "Unknown providerId"
+        // (pre-"m3" group) and the /api/health-vs-/version path mismatch.
+        // Log.i(
+        //     "MMR-DIAG",
+        //     "meta resolvePlugin $groupId provider=${group.providerId} healthCheckPath='${group.healthCheckPath}' " +
+        //         "candidates=${candidates.size} forceReselect=$forceUrlReselect",
+        // )
         val selection = if (forceUrlReselect) urlSelector.invalidateAndReselect(candidates) else urlSelector.getActiveUrl(candidates)
         val activeUrl = selection.getOrElse {
+            // Log.w("MMR-DIAG", "meta resolvePlugin $groupId FAILED: ${it.message}")
             throw ExternalMetadataServerException("Could not resolve a healthy URL for group $groupId: ${it.message}")
         }
+        // Log.i("MMR-DIAG", "meta resolvePlugin $groupId → activeUrl=$activeUrl")
 
         externalMetadataUrlDao.getByGroupId(groupId).firstOrNull { it.url.trimEnd('/') == activeUrl }?.let {
             lastActiveInfoByGroupId[groupId] = buildActiveInfo(group, it)
@@ -428,6 +463,9 @@ class ExternalMetadataServer @Inject constructor(
         suspend fun addUrl(url: NewExternalMetadataUrl): ExternalMetadataUrlInfo
         suspend fun updateUrl(urlId: String, url: String? = null, timeoutMs: Int? = null, priority: Int? = null, linkedServerUrlId: String? = null): ExternalMetadataUrlInfo
         suspend fun removeUrl(urlId: String)
+        // Point check on one typed-in URL — hits `<url><group healthCheckPath>` once, never
+        // changes which URL is active (unlike validateUrls). Same contract as :server's testUrl.
+        suspend fun testUrl(url: String, timeoutMs: Int = 5000): UrlProbeResult
         suspend fun validateUrls(): ExternalMetadataUrlInfo
         suspend fun getActive(): ExternalMetadataUrlInfo?
     }
@@ -498,6 +536,22 @@ class ExternalMetadataServer @Inject constructor(
             externalMetadataUrlDao.deleteById(existing.id)
         }
 
+        override suspend fun testUrl(url: String, timeoutMs: Int): UrlProbeResult {
+            val group = externalMetadataGroupDao.getById(groupId)
+                ?: throw ExternalMetadataServerException("External metadata group not found: $groupId")
+            requireNotBlank("url", url)
+            requirePositive("timeoutMs", timeoutMs)
+            return urlSelector.probe(
+                UrlCandidate(
+                    id = "probe",
+                    url = url,
+                    timeoutMs = timeoutMs,
+                    priority = 0,
+                    healthCheckPath = group.healthCheckPath,
+                ),
+            )
+        }
+
         override suspend fun validateUrls(): ExternalMetadataUrlInfo {
             val group = externalMetadataGroupDao.getById(groupId) ?: throw ExternalMetadataServerException("External metadata group not found: $groupId")
             val candidates = urlCandidatesFor(groupId, group.healthCheckPath)
@@ -515,7 +569,20 @@ class ExternalMetadataServer @Inject constructor(
     }
 }
 
-private fun ExternalMetadataPluginRegistration.toInfo() = ProviderInfo(id = id, displayName = displayName, version = version)
+private fun ExternalMetadataPluginRegistration.toInfo() = ProviderInfo(
+    id = id,
+    displayName = displayName,
+    version = version,
+    credentialFields = credentialFields.map {
+        ProviderCredentialField(
+            name = it.name,
+            label = it.label,
+            type = it.type,
+            required = it.validate("") != null,
+        )
+    },
+    defaultHealthCheckPath = defaultHealthCheckPath,
+)
 
 private fun ExternalMetadataGroupEntity.toInfo() = ExternalMetadataGroupInfo(
     id = id,
