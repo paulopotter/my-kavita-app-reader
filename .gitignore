@@ -65,6 +65,7 @@ Icon?
 .claude/sessions/.token-guard-checked*
 .claude/sessions/snapshot.md
 .claude/sessions/token-log.md
+.claude/sessions/.notification-*
 
 # Coverage reports (gerados localmente, não versionados)
 frontend/coverage/

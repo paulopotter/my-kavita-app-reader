@@ -1,6 +1,6 @@
 # Task 038 — Splash migration (Phase 5 — Corrections)
 
-**Status:** in progress
+**Status:** done
 
 > Referenced repeatedly by Tasks 028 and 036 as "a task da splash" but never created in the
 > INDEX. `SplashSyncCoordinator.sync()` was reduced to a no-op in Task 028, and
@@ -175,27 +175,57 @@ By the end of this task the splash references **nothing from the old model**. Co
   picker / N Server instances / aggregated library, and the impact on `:server`/digests/Library/
   Reader/Config).
 
+**Done in rc70+ (splash hook wired end to end):**
+- `runSplashBoot` (pure boot graph, sits next to the hook — same arrangement as
+  `assembleLibrary`): `groups.list` → activate `groups[0]` → `setActiveGroup`/`reauthenticate`
+  → LIGHT Library warm-up (`assembleLibrary({ light: true })` in a `Promise.race` with
+  `WARMUP_BUDGET_MS`, seeds even if it outlasts the cap) → a `SplashDestination`.
+- `activateFirstServerGroup.ts` folded into the hook (no separate file). Legacy `SplashScreen.tsx`
+  / `useSplash.ts` / the old hook test all deleted; `screens/splash/` has only the new convention.
+- `SplashDestination` is a typed union `{ kind: 'setup' | 'home' | 'serial' | 'reader' }`; the
+  `'following'` destination is gone (which tab opens is `MainNavigator`'s call via
+  `hasFollowedSeries`). `navActionFor()` is the one exhaustive kind→`navigation.reset()` mapping.
+- `RootNavigator` initial route = `Routes.SPLASH`; `App.tsx` just `boot()`s and the splash decides
+  (commit `3949d9a`). No `onDone` on `App.tsx` anymore.
+
+**Done in rc81 (perf — the real device-felt win):**
+- `:cache` gained `patch` + `patchAll` (JSON shallow/deep merge, one read + one transaction for a
+  batch) + `CacheFilter`/`JsonMerge`; `:core CacheDao` gained `queryFiltered` + `upsertAllLenient`.
+- `buildSerialsDigest` uses `patchAll` — the per-series `get()+copy()+put()` loop (≈238 Room ops,
+  ~11.6 s on a ~120-series library) is now 1 query + 1 transaction.
+- Library: `assembleLibrary({ light })` — `light` reads the progress index for FOLLOWED series
+  only; heavy per-series digest + BFF match moved to lazy per-viewport enrichment
+  (`onViewableIndices` → `ENRICH_LOOKAHEAD` / `ENRICH_CONCURRENCY`, dedup, queue).
+- The one other hand-rolled merge (`buildChapterDigest`'s prev/next neighbour merge) is
+  DELIBERATELY left as-is — its precedence is the inverse of `patch` (the on-disk value must win
+  so a neighbour-less write never erases neighbours a Series-driven write attached). Commented as
+  such; not a `patch` fit.
+
+**Done in rc83 (OTA policy behaviour, device-confirmed):**
+- **`required`** → `MainActivity` shows a native non-cancelable dialog ("download" → release page)
+  AND publishes `pendingPolicy = "required"` so the RN splash also freezes underneath (no
+  progress, no redirect). Redundant barrier — device-confirmed a background→foreground cycle stays
+  blocked (without the RN freeze the user could slip past the native dialog).
+- **`highly_recommended`** → RN advisory dialog only (no download — `ota-serve` skips it). Buttons
+  "dismiss" + "view notes" for now; the redirect is held while the dialog is up and released on
+  dismiss; re-shows after 5 min inside the app. An on-demand "download now" button needs a Kotlin
+  bridge that doesn't exist — **backlog 020**.
+- **`recommended`** → no dialog. Kotlin downloads in the background; when staged, the RN splash
+  shows only the "apply update" button (`applyOtaUpdate()` → restart onto the new bundle). Boot
+  holds the redirect `UPDATE_BUTTON_GRACE_MS` (5 s) so the button is actually seen, then
+  `acknowledgePolicy()` + redirect. Once applied, `OtaManager.check()` sees
+  `manifest.lastRNVersion == currentBundleVersion` → `NothingToDo` → no button next boot (the
+  button persisting under `make ota-*` is only the `-ota-test-` suffix in `ota-serve.sh`).
+- Diagnostic `console.log`s in `library.hooks.ts` / `splash.hooks.ts` commented (not deleted) with
+  a pointer to **backlog 015** (telemetry/debug panel).
+
 **Remaining:**
-4. **Frontend** — `OtaModule.ts`: `getOtaState` + `otaDownloadProgress` types. `startup.ts`: drop
-   `syncBlocking/syncInBackground/drainSyncQueue`.
-5. **Frontend** — extract `screens/library/library.assemble.ts` (pure `assembleLibrary` + helpers)
-   from `library.hooks.ts`; hook imports from it; move the assemble tests.
-6. **Frontend** — migrate `screens/splash/` to the current convention: `splash.screen.tsx`,
-   `splash.styles.ts`, `splash.types.ts`, `hooks/splash.hooks.ts` (+ `splash.tests.ts`),
-   `splash.boot.ts` (+ tests), `components/ota-policy-alert/`. Cut `'following'`. Warm-up +
-   `seedLibrary`. Progress bar consumes OTA + warm-up.
-7. **Frontend** — `App.tsx` `onDone` simplification; ~2s floor.
-8. `make coverage` (JS + Kotlin) — no drop; bump the floor if it rose
-   (`coverageThreshold` in `frontend/package.json`, `COVERAGE_FLOOR_KOTLIN` in
-   `android/build.gradle.kts`).
-9. `versionar-build` -rcN (APK + bundle), `make redeploy-log`. On device:
-   - **No intermediate screen on a normal boot** — system splash cross-fades straight into the RN
-     splash, no dark frame / no window jump between them. Only the blocked dialog for `required`.
-   - OTA download progress shows on the RN splash; `otaBundleReady` → "restart to update" still works.
-   - Library loads cache-first on first open (warm-up seeded it) and survives an app restart
-     (the original Task 028 gap).
-   - Pull-to-refresh forces a network fetch.
-   - Every card field correct (progress, chapter count, status, follow).
+- `make coverage` (JS + Kotlin) — done, no drop. JS floor bumped
+  (`statements`/`lines` 68→71, `functions` 77→78); Kotlin LINE 83.30 %, floor stays 83.
+- `versionar-build` -rcN + `make redeploy-log` — rc83 verified on device by the user across
+  `required` / `recommended`; boot has no intermediate screen; Library is cache-first and
+  survives a restart.
+- `finalizar-task` (INDEX + completion doc + prepared commit message) — pending explicit approval.
 
 ## Completion criteria
 
@@ -208,3 +238,51 @@ By the end of this task the splash references **nothing from the old model**. Co
 - OTA download no longer blocks the boot; progress visible on the RN splash.
 - All moved functions covered by tests in their new location; `make coverage` no drop.
 - Explicit user approval before `finalizar-task`.
+
+## Result
+
+**Delivered.** The Kotlin sync machinery is gone (`SplashSyncCoordinator`, the
+`syncBlocking/syncInBackground/drainSyncQueue` bridge methods, `features/startup/`).
+`SplashActivity` no longer exists — `MainActivity` is the launcher and owns the OTA
+gate via `androidx.core:core-splashscreen`, held until the OTA gate resolves AND the
+RN splash paints (`BootUiReadySignal` + `StartupModule.markUiReady`), with a 4s cap.
+`screens/splash/` is fully on the current convention (`splash.screen.tsx` +
+`splash.styles.ts` + `splash.types.ts` + `hooks/splash.hooks.ts` + `components/progress/`);
+the legacy `SplashScreen.tsx` / `useSplash.ts` / `activateFirstServerGroup.*` and their
+tests are deleted. The splash is a real `RootNavigator` route; the boot graph
+(`runSplashBoot`) does server → auth (`:server` `setActiveGroup`/`reauthenticate`, single
+active group = `groups[0]`) → light Library warm-up (`assembleLibrary({ light: true })` +
+`seedLibrary`) → a typed `SplashDestination`; the `'following'` destination is cut.
+
+**OTA policy behaviour (rc83, device-confirmed):**
+- `required` → native non-cancelable dialog in `MainActivity` (button → release page)
+  **and** `pendingPolicy = "required"` published so the RN splash freezes underneath
+  (double barrier — the user confirmed a background→foreground cycle stays blocked).
+- `highly_recommended` → RN advisory dialog only, no download; redirect held while the
+  dialog is up, released on dismiss, re-shown after 5 min. An on-demand "download now"
+  button needs a new Kotlin bridge → **backlog 020**.
+- `recommended` → background download; the RN splash shows only the "apply update"
+  button when the bundle is staged, held `UPDATE_BUTTON_GRACE_MS` (5s) before the
+  redirect, then `acknowledgePolicy()`.
+
+**Perf side-effect (rc81, the device-felt win):** `:cache` gained `patch`/`patchAll`
+(JSON merge + one read + one transaction for a batch) and `buildSerialsDigest` uses
+`patchAll` — the ~238-Room-op per-series loop (~11.6s on ~120 series) is now 1 query +
+1 transaction. Library moved heavy per-series work to lazy per-viewport enrichment.
+
+**Versions:** `0.8.0-rc72` (frontend `0.9.0-rc72`) → `0.8.0-rc83` (frontend `0.9.0-rc83`).
+
+**Tests:**
+- `cd frontend && yarn jest` — 56 suites, 769 tests, all green.
+- `cd frontend && yarn type-check` — clean. `yarn lint` — 0 errors.
+- `make coverage` — Kotlin `koverVerify` BUILD SUCCESSFUL (LINE 83.30%, floor 83);
+  JS threshold passes. JS floor bumped `statements`/`lines` 68→71, `functions` 77→78.
+- Device: user ran `make redeploy-log` across `make ota-required` and
+  `make ota-recommended` on rc82/rc83. Confirmed: no intermediate screen on a normal
+  boot; `required` stays blocked across an app background→foreground cycle;
+  `recommended` downloads in bg, shows the update button, restarts onto the new bundle;
+  Library is cache-first on first open and survives a restart.
+
+**Follow-ups:** backlog 015 (diagnostic `console.log`s left commented, pointing there),
+backlog 020 (OTA on-demand download button for `highly_recommended`). `buildChapterDigest`'s
+prev/next neighbour merge deliberately NOT converted to `patch` (inverse precedence).
