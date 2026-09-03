@@ -1,6 +1,6 @@
 ---
 name: finalizar-task
-description: Use when a task from a plan under .claude/sessions/active/ is implemented, tested, and approved by the user — walks through updating the plan's INDEX.md, creating the per-task completion doc, and preparing (never auto-running) the Conventional Commits message. Do not use to create new plans/tasks (see plan-manager) or before the user has explicitly approved the work.
+description: Use when a task from a plan under .claude/sessions/active/ is implemented, tested, and approved by the user — walks through updating the plan's INDEX.md, creating the per-task completion doc, and committing the closing paperwork. Do not use to create new plans/tasks (see plan-manager) or before the user has explicitly approved the work.
 ---
 
 # Finalizar Task
@@ -38,27 +38,37 @@ committing*. This skill only runs after that approval.
 5. **Check if the whole plan is done**. If every task is `done`, hand off to
    the `plan-manager` agent — do not archive the plan yourself.
 
-6. **Prepare the commit message — do not run `git commit`**. Draft a
-   Conventional Commits message in Portuguese following these rules:
+6. **Commit the closing paperwork.** The user has already approved the task in
+   this conversation; the reached-here act of invoking `finalizar-task` is the
+   go-ahead — do NOT ask for a separate commit confirmation.
 
-   - Scope indicates the layer and sub-path: `android/<layer>` or `front/<layer>`.
-     Examples: `feat(android/tools/ota)`, `feat(front/screen/config)`, `fix(android/app/splash)`.
-   - Keep commits small and focused — one concern per commit; separate Android from frontend.
-   - Message in pt-BR, imperative mood.
-   - No `Co-Authored-By` line — ever.
+   - Stage **only the session paperwork** this skill just wrote:
+     the task file, the plan's `INDEX.md`, the new completion doc (and
+     `.claude/sessions/INDEX.md` if a status line there changed). The
+     implementation code was already committed during the task — do not
+     re-stage or amend it here.
+   - Run `git commit --no-verify -m "<message>"` (no-verify because paperwork
+     never touches Kotlin/TS source, so the coverage pre-commit hook has
+     nothing to check).
+   - Commit message: Conventional Commits, pt-BR, imperative mood, no
+     `Co-Authored-By` line ever. Use the `docs(session)` type/scope:
+     ```
+     docs(session): fecha a task NNN (resumo curto)
+     ```
+   - After committing, show the resulting `git log --oneline -3` and state
+     plainly what was closed.
+   - If `git commit` fails (e.g. nothing staged, or a hook still fires),
+     stop and report — do not retry blindly.
 
-   Examples:
-   ```
-   feat(android/tools/ota): adiciona OtaManager com download e validação SHA-256
-   feat(front/screen/config): aplica tema escuro e exibe versões no rodapé
-   fix(android/app/splash): corrige bloqueio de app para policy required
-   ```
-   Show the message and the files that would be staged.
-   Staging/committing is a separate explicit step.
+   Product/code commits during the task itself still follow the usual rules
+   (small, one concern per commit, Android separate from frontend, user
+   approval before each) — this step is *only* the finalisation doc commit.
 
 ## What this skill does not do
 
 - Does not judge correctness — that's the conversation before this skill runs.
-- Does not run `git add`/`git commit`/`git push`.
+- Does not commit or amend the task's implementation code — only the closing
+  session paperwork (step 6).
+- Does not run `git push`.
 - Does not archive a whole plan — that's `plan-manager`.
 - Does not invent test results.
