@@ -3,7 +3,7 @@ import { fireEvent, render, renderHook } from '@testing-library/react-native';
 
 const mockSetLanguage = jest.fn();
 let mockLanguage = 'en';
-jest.mock('../../../shared/i18n/useStrings', () => ({
+jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('en'),
   useLanguage: () => ({ language: mockLanguage, setLanguage: mockSetLanguage }),
 }));

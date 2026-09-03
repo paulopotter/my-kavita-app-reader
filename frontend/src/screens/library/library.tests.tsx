@@ -60,7 +60,7 @@ jest.mock('./hooks', () => ({
   }),
 }));
 
-jest.mock('../../shared/i18n/useStrings', () => ({ useStrings: () => require('../../shared/i18n/strings').getStrings('pt-BR') }));
+jest.mock('../../shared/i18n/i18n.hooks', () => ({ useStrings: () => require('../../shared/i18n/strings').getStrings('pt-BR') }));
 
 import { LibraryScreen } from './library.screen';
 

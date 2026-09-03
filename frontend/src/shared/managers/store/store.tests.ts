@@ -5,7 +5,7 @@ jest.mock('../caches/cache.manager', () => ({
 }));
 
 import { CacheManager } from '../caches/cache.manager';
-import { ReadingProgressManager } from './reading-progress';
+import { ReadingProgressManager } from './reading-progress.store';
 import { Store } from './store.manager';
 
 const mockGet = CacheManager.persistent.get as jest.Mock;

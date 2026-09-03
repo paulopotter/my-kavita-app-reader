@@ -3,7 +3,7 @@ import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { OtaModule } from '../../native/OtaModule';
 import { AppVersions } from '../../shared/components/app-versions';
-import { useStrings } from '../../shared/i18n/useStrings';
+import { useStrings } from '../../shared/i18n/i18n.hooks';
 import { Progress, SplashAlert } from './components';
 import { useSplash } from './hooks';
 import { styles } from './splash.styles';

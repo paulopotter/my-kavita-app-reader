@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import type { ServerGroupInfo, ServerUrlInfo } from '../../../shared/bridge/server';
-import { useStrings } from '../../../shared/i18n/useStrings';
+import { useStrings } from '../../../shared/i18n/i18n.hooks';
 import { styles as chrome } from '../config.styles';
 import { GroupCard } from './components/group-card';
 import { ServerModal } from './components/modal';

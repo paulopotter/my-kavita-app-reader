@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DeviceEventEmitter, StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LanguageContext } from './shared/i18n/LanguageContext';
+import { LanguageContext } from './shared/i18n/language.context';
 import { getStrings } from './shared/i18n/strings';
 import { ConfigRepository } from './shared/bridge/config';
 import { StartupBridge } from './shared/bridge/startup';

@@ -1,3 +1,3 @@
 export * from './strings';
-export * from './LanguageContext';
-export * from './useStrings';
+export * from './language.context';
+export * from './i18n.hooks';

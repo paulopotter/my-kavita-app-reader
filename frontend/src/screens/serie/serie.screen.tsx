@@ -15,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, Settings } from 'lucide-react-native';
 import type { NavOrigin } from '../../navigation/routes';
 import { originRouteFor, Routes } from '../../navigation/routes';
-import { useStrings } from '../../shared/i18n/useStrings';
+import { useStrings } from '../../shared/i18n/i18n.hooks';
 import { FollowStar } from '../../shared/components/follow-star';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
 import { ChapterListItem, ChapterSortFields, Header, SelectionBottomBar, sortModeLabel } from './components';

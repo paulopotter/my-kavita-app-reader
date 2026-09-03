@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NavOrigin } from '../../navigation/routes';
-import { useStrings } from '../../shared/i18n/useStrings';
+import { useStrings } from '../../shared/i18n/i18n.hooks';
 import { ChapterTool } from '../../shared/tools/chapters';
 import {
   ReaderOfflineBanner,

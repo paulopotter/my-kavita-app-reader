@@ -10,7 +10,7 @@ import type {
   UrlProbeResult,
 } from '../../../shared/bridge/server';
 import type { Strings } from '../../../shared/i18n/strings';
-import { useStrings } from '../../../shared/i18n/useStrings';
+import { useStrings } from '../../../shared/i18n/i18n.hooks';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import {
   ExternalService,

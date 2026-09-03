@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useLanguage } from '../../shared/i18n/useStrings';
+import { useLanguage } from '../../shared/i18n/i18n.hooks';
 
 // ── useConfigLanguage ────────────────────────────────────────────────────────
 // The single "change the app language" action, shared by the Config menu and the onboarding

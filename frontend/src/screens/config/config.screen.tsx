@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BackHandler, Text, TouchableOpacity, View } from 'react-native';
 import { AppVersions } from '../../shared/components/app-versions';
-import { useStrings } from '../../shared/i18n/useStrings';
+import { useStrings } from '../../shared/i18n/i18n.hooks';
 import { LanguageToggle } from './components/language-toggle';
 import { useConfigLanguage, useConfigMenu } from './config.hooks';
 import { styles } from './config.styles';

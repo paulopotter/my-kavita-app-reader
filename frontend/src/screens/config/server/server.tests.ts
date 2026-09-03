@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 // ── mocks ────────────────────────────────────────────────────────────────────
 
-jest.mock('../../../shared/i18n/useStrings', () => ({
+jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('pt-BR'),
 }));
 

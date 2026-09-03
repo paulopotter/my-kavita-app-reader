@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
 import { EventBus } from '../../../shared/managers/events';
 import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
-import { useStrings } from '../../../shared/i18n/useStrings';
+import { useStrings } from '../../../shared/i18n/i18n.hooks';
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
 import type { NavOrigin } from '../../../navigation/routes';
 import type { ChapterSortMode } from '../serie.types';

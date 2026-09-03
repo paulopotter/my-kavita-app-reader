@@ -1,7 +1,7 @@
 import React from 'react';
 import { Switch, Text, View } from 'react-native';
 import { colors } from '../../../shared/theme';
-import { useStrings } from '../../../shared/i18n/useStrings';
+import { useStrings } from '../../../shared/i18n/i18n.hooks';
 import { styles as chrome } from '../config.styles';
 import { useReaderPrefs } from './reader.hooks';
 import { styles } from './reader.styles';

@@ -1,3 +1,3 @@
 export * from './store.manager';
-export * from './reading-progress';
-export * from './series-digest-index';
+export * from './reading-progress.store';
+export * from './series-digest.store';
