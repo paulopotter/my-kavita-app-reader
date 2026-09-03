@@ -828,6 +828,31 @@ class SerialsDigestTest {
     }
 
     @Test
+    fun `buildSerialDigest(id) after a list-only seed re-fetches instead of serving the chapterless entry`() = runTest {
+        activateGroup()
+        // The splash / Library route seeded this series' cache entry — list fields only, no chapters.
+        plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+        buildSerialsDigest(server, cache)
+        val seeded = cache.persistent.get("s1:false:false", variant = "full:external")!!.value
+        assertTrue(seeded.contains("\"chapters\":null")) // list route leaves it null
+        plugin.serialGetCallCount = 0
+
+        // Opening the SerieScreen: a plain cache-first build. The entry is a FRESH hit, but it has
+        // no chapters block — so it must NOT be served as-is; it falls through to a real fetch.
+        plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0)))
+        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the fetch
+        val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+
+        assertTrue(plugin.serialGetCallCount >= 1) // it actually re-fetched
+        assertEquals(1, digest.chapters?.list?.size) // and the caller got real chapters now
+
+        // The rewrite made the entry complete — a later mount is a normal cache hit again.
+        val onDisk = cache.persistent.get("s1:false:false", variant = "full:external")!!.value
+        assertTrue(!onDisk.contains("\"chapters\":null"))
+        assertTrue(onDisk.contains("\"ch1\""))
+    }
+
+    @Test
     fun `a list refresh shallow-merges into the per-series cache — chapters a prior buildSerialDigest wrote survive on disk`() = runTest {
         activateGroup()
         // Prior single-series build → cache entry WITH a chapters block.

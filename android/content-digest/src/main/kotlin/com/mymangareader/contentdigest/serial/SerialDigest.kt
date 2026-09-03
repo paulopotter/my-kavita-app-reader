@@ -221,12 +221,22 @@ suspend fun buildSerialDigest(
         if (cached != null) {
             val digest = serialDigestJson.decodeFromString<SerialDigest.Success>(cached.value)
                 .copy(cache = cached.toSerialCacheDescriptor(key))
-            if (cached.isExpired) {
-                serialDigestBackgroundScope.launch {
-                    buildSerialDigest(server, seriesId, cache, options, force = true)
+            // An entry seeded ONLY by the list route (buildSerialsDigest — the splash / Library
+            // batch) carries chapters == null: it never ran serial(id).chapters.list(). Serving
+            // that to the SerieScreen renders an empty chapter list until the user pulls to
+            // refresh. It's a fresh cache hit, so isExpired is false and nothing would refresh it
+            // — so treat "no chapters block" as a miss: DON'T return here, fall through to the
+            // synchronous fetch below (which also rewrites the cache, making a later mount a
+            // complete hit). `full=true`'s own richer per-page shape is a separate variant here.
+            val incomplete = digest.chapters == null
+            if (!incomplete) {
+                if (cached.isExpired) {
+                    serialDigestBackgroundScope.launch {
+                        buildSerialDigest(server, seriesId, cache, options, force = true)
+                    }
                 }
+                return digest
             }
-            return digest
         }
     }
 
