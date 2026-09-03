@@ -1,6 +1,6 @@
 # Task 037 — Kill the `Transform` layer (start with `reader/transforms/`) (Phase 6 — Reader)
 
-**Status:** todo
+**Status:** done
 
 > Design decision made by the user 2026-09-01, closing out the Reader work: **there is no
 > `Transform` layer.** No `transforms/` folder, no `*Transform.ts` file inside a screen. The
@@ -85,3 +85,47 @@ object, and re-verify on device that the crash doesn't come back.
 - All moved functions covered by tests in their new location; `make coverage` no drop.
 - Reader device-smoked (esp. the rc30 module-init path).
 - Explicit user approval before `finalizar-task`.
+
+## Result
+
+**Delivered.** `screens/reader/transforms/` deleted. Its 19 exports moved to:
+
+- **`screens/reader/reader.model.ts`** (new) — chapter shape / read-state for the reader:
+  `chapterFromDigest`, `withOrderNumber`, `toOrderedChapters`, `placeholderChapterFromOrder`,
+  `neighborsOfIn`, `adjacentChapterId`, `isChapterEffectivelyRead`, `shouldUnmarkOnReread`,
+  `resolveInitialPage`, `progressBarFraction`, `READ_THRESHOLD_FRACTION`. **Not** promoted to the
+  shared `ChapterTool` — verified only the reader consumes them, so per architecture.md § "No
+  `Transform` layer" they belong in a screen-local model file. (Deviation from the task text's
+  "→ ChapterTool" plan, cleared with the user in-session: "se dependem do reader, só o reader usa
+  → migra pro reader".)
+- **`screens/reader/reader.window.ts`** (new) — the `ReaderWindow` math: `buildWindow`,
+  `reconcileWindow`, `computeWindowAfterFocusMove`, `growEnds`/`placeholderEntry` (private),
+  `WINDOW_EDGE_LOOKAHEAD`, `FocusMoveOutcome`.
+- **`screens/reader/modes/webtoon.adapter.ts`** — absorbed `WebtoonPositionReport`,
+  `isWebtoonPositionReport`, `webtoonReportToTrigger`, `windowToWebtoonBlocks` (+ private
+  `toBlock`/`chapterNumberLabel`). `webtoon-blocks.transform.ts` deleted. The hook still imports
+  `webtoonReportToTrigger` as a direct named export of this file (never the `modes/` barrel or
+  `READER_MODE_ADAPTERS`) — the rc30 module-init guard.
+
+Importers updated: `reader.hooks.ts`, `reader.reducer.ts`, `reader.screen.tsx`,
+`modes/webtoon.adapter.ts`, `screens/reader/index.ts`. Tests ported 1:1 and split by destination
+(`reader.model.tests.ts` renamed from `reader.transform.tests.ts`, new `reader.window.tests.ts`,
+extra standalone-function coverage in `webtoon.adapter.tests.ts`).
+
+Docs: architecture.md § "No `Transform` layer" — past tense + the 3 real destinations; new
+"Screen file convention" bullet (a screen is its own micro-ecosystem). mistakes.md #21 — path fix
+for `READ_THRESHOLD_FRACTION`. `CLAUDE.md` data-flow line already had no `Transform` stage.
+
+**Versions:** APK `0.8.0-rc103` → `0.8.0-rc104`; bundle `0.9.0-rc103` → `0.9.0-rc104`.
+Coverage floor (JS) `functions` 78 → 79 (rose 78.34% → 79.34%).
+
+**Tests:** `tsc --noEmit` clean; `eslint src/screens/reader src/shared/tools/chapters` clean;
+`yarn test:coverage` — 70 suites / 848 tests pass; global coverage 91.79/90.88/79.34/91.79 (up
+from baseline 91.28/90.77/78.34/91.28). Device-smoked on the physical device at rc104 (`make
+redeploy-log`): chapter navigation + webtoon scroll working, no rc30-style module-init crash.
+
+**Out of scope, spun off:** user found the SeriesScreen shows stale read-status after returning
+from the reader (must pull-to-refresh). Pre-existing — it's the mirror of the "KNOWN GAP" already
+documented in `ChapterTool` (`serie.hooks.ts` doesn't listen to
+`ChapterEvents.readStatusChanged`, and its focus-reload reads the still-cached Kotlin
+`SeriesDigest`). To be fixed in a separate `fix` commit right after this task closes.
