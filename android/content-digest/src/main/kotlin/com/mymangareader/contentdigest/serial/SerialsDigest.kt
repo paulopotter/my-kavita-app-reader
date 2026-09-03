@@ -1,7 +1,8 @@
 package com.mymangareader.contentdigest.serial
 
 import com.mymangareader.cache.Cache
-import com.mymangareader.cache.CacheDescriptor
+import com.mymangareader.cache.CacheFilter
+import com.mymangareader.cache.PatchItem
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.server.SerialData
@@ -63,19 +64,35 @@ suspend fun buildSerialsDigest(server: Server, cache: Cache, force: Boolean = fa
     val serverInfo = response.serverInfo
     val resolvedAtEpochMs = response.resolvedAtEpochMs
 
-    val merged = response.data.serials.map { serial ->
-        val minimal = serialDigestFromListData(serial, serverInfo, resolvedAtEpochMs)
-        mergeIntoSerialCache(cache, serial.id, minimal)
-    }
+    val minimals = response.data.serials.map { serialDigestFromListData(it, serverInfo, resolvedAtEpochMs) }
 
-    val lastUpdatedEpochMs = merged.mapNotNull { it.descriptor?.cachedAtEpochMs }.maxOrNull()
+    // ONE read + ONE transactional write for the whole list, instead of a get()+put() per series
+    // (that per-series loop is what made a ~120-series library take ~12s on device). readFilter is
+    // domain+variant-scoped so the pre-merge read is a single query with no IN-list / host-param
+    // limit. Each entry is still SHALLOW-merged with whatever a prior buildSerialDigest(id) wrote,
+    // so chapters/metadata survive on disk; the response itself carries only the light digest
+    // (name/cover/pages — the card renders from that, richer blocks come from buildSerialDigest).
+    val descriptors = cache.persistent.patchAll(
+        minimals.map {
+            PatchItem(
+                serialsListCacheKey(it.id),
+                serialsDigestJson.encodeToString(SerialDigest.Success.serializer(), it),
+            )
+        },
+        domain = SERIAL_CACHE_DOMAIN,
+        variant = SERIAL_CACHE_VARIANT,
+        readFilter = CacheFilter(domain = SERIAL_CACHE_DOMAIN, variant = SERIAL_CACHE_VARIANT),
+    )
+    val persisted = minimals.zip(descriptors) { m, d -> m.copy(cache = d) }
+
+    val lastUpdatedEpochMs = persisted.mapNotNull { it.cache?.cachedAtEpochMs }.maxOrNull()
 
     if (!force && isSerialCacheStale(lastUpdatedEpochMs)) {
         serialsDigestBackgroundScope.launch { buildSerialsDigest(server, cache, force = true) }
     }
 
     return SerialsDigest.Success(
-        serials = merged.map { it.digest },
+        serials = persisted,
         lastUpdatedEpochMs = lastUpdatedEpochMs,
     )
 }
@@ -108,48 +125,3 @@ internal fun serialDigestFromListData(
     cache = null,
 )
 
-private data class MergedSerial(val digest: SerialDigest.Success, val descriptor: CacheDescriptor?)
-
-// Merge a freshly-listed minimal digest into that series' own per-series cache. If a richer entry
-// (from a prior buildSerialDigest) is already there, keep its chapters/metadata and only overlay
-// the fields the list actually refreshes. Always writes back so `cachedAtEpochMs` advances (that's
-// what `lastUpdatedEpochMs` is derived from).
-private suspend fun mergeIntoSerialCache(
-    cache: Cache,
-    seriesId: String,
-    minimal: SerialDigest.Success,
-): MergedSerial {
-    val key = serialsListCacheKey(seriesId)
-
-    val existing = runCatching {
-        cache.persistent.get(key, variant = SERIAL_CACHE_VARIANT)
-            ?.let { serialsDigestJson.decodeFromString<SerialDigest.Success>(it.value) }
-    }.getOrNull()
-
-    val toPersist = if (existing == null) {
-        minimal
-    } else {
-        // Overlay only the list-sourced fields; preserve the richer chapters/metadata blocks.
-        existing.copy(
-            name = minimal.name,
-            library = minimal.library,
-            lastUpdatesUTC = minimal.lastUpdatesUTC,
-            coverImage = minimal.coverImage,
-            otherNames = minimal.otherNames,
-            sortName = minimal.sortName,
-            otherIds = minimal.otherIds,
-            colors = minimal.colors,
-            pages = minimal.pages,
-            resolvedAtEpochMs = minimal.resolvedAtEpochMs,
-            server = minimal.server,
-        )
-    }
-
-    val descriptor = cache.persistent.put(
-        key,
-        serialsDigestJson.encodeToString(SerialDigest.Success.serializer(), toPersist),
-        SERIAL_CACHE_DOMAIN,
-        variant = SERIAL_CACHE_VARIANT,
-    )
-    return MergedSerial(digest = toPersist.copy(cache = descriptor), descriptor = descriptor)
-}

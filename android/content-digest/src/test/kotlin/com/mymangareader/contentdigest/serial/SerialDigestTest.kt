@@ -826,7 +826,7 @@ class SerialsDigestTest {
     }
 
     @Test
-    fun `a list refresh preserves a richer entry a prior buildSerialDigest wrote`() = runTest {
+    fun `a list refresh shallow-merges into the per-series cache — chapters a prior buildSerialDigest wrote survive on disk`() = runTest {
         activateGroup()
         // Prior single-series build → cache entry WITH a chapters block.
         plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0)))
@@ -834,12 +834,20 @@ class SerialsDigestTest {
         val withChapters = cache.persistent.get("s1:false:false", variant = "full:external")
         assertTrue(withChapters!!.value.contains("\"chapters\""))
 
-        // List refresh renames the series and must NOT drop chapters.
+        // List refresh renames the series.
         plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", name = "Renamed")))
         val result = buildSerialsDigest(server, cache, force = true) as SerialsDigest.Success
 
-        val merged = result.serials.single() as SerialDigest.Success
-        assertEquals("Renamed", merged.name)
-        assertTrue(merged.chapters != null)
+        // The RESPONSE carries only the light (list-sourced) digest — no chapters. The card gets
+        // those from a later buildSerialDigest(id); the list itself doesn't need them.
+        val fromList = result.serials.single() as SerialDigest.Success
+        assertEquals("Renamed", fromList.name)
+        assertNull(fromList.chapters)
+
+        // The cache ENTRY, though, was patch()'d — shallow-merged — so the rename landed AND the
+        // richer chapters block a prior single-series fetch wrote is still there.
+        val onDisk = cache.persistent.get("s1:false:false", variant = "full:external")!!.value
+        assertTrue(onDisk.contains("\"name\":\"Renamed\""))
+        assertTrue(onDisk.contains("\"chapters\""))
     }
 }
