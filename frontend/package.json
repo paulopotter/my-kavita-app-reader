@@ -60,13 +60,15 @@
       "**/*.tests.ts?(x)"
     ],
     "setupFiles": [
-      "./node_modules/@shopify/react-native-skia/jestSetup.js"
+      "./node_modules/@shopify/react-native-skia/jestSetup.js",
+      "./jest.setup.js"
     ],
     "transformIgnorePatterns": [
       "node_modules/(?!(@react-native|react-native|@shopify/react-native-skia)/)"
     ],
     "moduleNameMapper": {
-      "^lucide-react-native$": "<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js"
+      "^lucide-react-native$": "<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js",
+      "react-native/Libraries/EventEmitter/NativeEventEmitter": "<rootDir>/node_modules/react-native/Libraries/EventEmitter/__mocks__/NativeEventEmitter.js"
     },
     "coverageProvider": "v8",
     "collectCoverage": false,
