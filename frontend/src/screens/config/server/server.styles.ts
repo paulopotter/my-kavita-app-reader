@@ -1,10 +1,48 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '../../../shared/theme';
 
-// Lifted from ConfigScreen's server/auth/BFF styles. The row/form dumb components carry their
-// own; this file has what the server.screen container itself uses (sections, action buttons,
-// status messages, the context-menu modal).
+// Lifted from ConfigScreen's server/auth/BFF styles. The row/form/modal dumb components carry
+// their own; this file has what the server.screen container itself uses (the group section
+// card, sub-labels, action buttons, status messages, the context-menu modal).
 export const styles = StyleSheet.create({
+  // ── group section card ──
+  groupCard: { borderWidth: 0.5, borderColor: colors.deep, borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: colors.card,
+  },
+  groupHeaderName: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  groupName: { fontSize: 14, fontWeight: '500', color: colors.textOnDark, flex: 1 },
+  groupBody: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12, borderTopWidth: 0.5, borderTopColor: colors.deep },
+
+  dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  dotActive: { backgroundColor: colors.positive },
+  dotInactive: { backgroundColor: colors.mutedDim },
+  dots: { color: colors.muted, fontSize: 20, paddingHorizontal: 4 },
+
+  subLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  credRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  credValue: { flex: 1, color: colors.textOnDark, fontSize: 13, letterSpacing: 1 },
+
   addDashedBtn: {
     marginTop: 6,
     padding: 12,

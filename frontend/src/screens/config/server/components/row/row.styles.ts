@@ -20,5 +20,6 @@ export const styles = StyleSheet.create({
   primary: { color: colors.textOnDark, fontSize: 13 },
   secondary: { color: colors.muted, fontSize: 11, marginTop: 2 },
   secondaryNone: { color: colors.mutedDim, fontSize: 11, marginTop: 2, fontStyle: 'italic' },
+  trailing: { color: colors.mutedDim, fontSize: 11, fontWeight: '500' },
   dots: { color: colors.muted, fontSize: 20, paddingHorizontal: 4 },
 });

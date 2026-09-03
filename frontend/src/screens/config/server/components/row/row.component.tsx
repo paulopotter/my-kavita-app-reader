@@ -11,10 +11,12 @@ export interface RowProps {
   secondary?: string;
   // When secondary is meant to read as "nothing linked" — renders italic/dim.
   secondaryEmpty?: boolean;
+  // A small dim label right before the "⋯" (e.g. a URL's priority: "P0").
+  trailing?: string;
   onMenu: () => void;
 }
 
-export function Row({ active, primary, secondary, secondaryEmpty, onMenu }: RowProps) {
+export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMenu }: RowProps) {
   return (
     <View style={styles.row}>
       <View style={[styles.dot, active ? styles.dotActive : styles.dotInactive]} />
@@ -28,6 +30,7 @@ export function Row({ active, primary, secondary, secondaryEmpty, onMenu }: RowP
           </Text>
         )}
       </View>
+      {trailing != null && <Text style={styles.trailing}>{trailing}</Text>}
       <TouchableOpacity onPress={onMenu} hitSlop={8}>
         <Text style={styles.dots}>⋯</Text>
       </TouchableOpacity>

@@ -23,14 +23,23 @@ export const styles = StyleSheet.create({
   subHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 4,
+    paddingLeft: 8,
     paddingRight: 16,
     paddingTop: 8,
     paddingBottom: 8,
-    gap: 4,
+    gap: 8,
   },
   backBtnArea: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  backChevron: { color: colors.accent, fontSize: 32, fontWeight: '300', lineHeight: 40 },
+  // Tap target for the "‹" — the new sub-screens render it as a bare <Text onPress>, so it needs
+  // its own hit area + spacing here (the legacy config.screen wraps it in backBtnArea instead).
+  backChevron: {
+    color: colors.accent,
+    fontSize: 32,
+    fontWeight: '300',
+    lineHeight: 40,
+    paddingHorizontal: 8,
+    marginRight: 2,
+  },
   subTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.textOnDark },
 
   scroll: { padding: 16, paddingBottom: 48 },
