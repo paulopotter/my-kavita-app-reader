@@ -7,12 +7,16 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 const mockGet = jest.fn();
 const mockExternalSync = jest.fn();
 const mockGetDigest = jest.fn();
+const mockExternalDetailSync = jest.fn();
 jest.mock('../../../shared/services/serials', () => ({
   SerialsService: {
     get: (...a: unknown[]) => mockGet(...a),
     externalDetails: { sync: (...a: unknown[]) => mockExternalSync(...a) },
   },
-  SerialService: { get: (...a: unknown[]) => mockGetDigest(...a) },
+  SerialService: {
+    get: (...a: unknown[]) => mockGetDigest(...a),
+    externalDetail: { sync: (...a: unknown[]) => mockExternalDetailSync(...a) },
+  },
 }));
 
 const mockGetAllIds = jest.fn();
@@ -173,51 +177,79 @@ describe('useLibrary — mount / assembly', () => {
   });
 });
 
-describe('useLibrary — followed digests + index', () => {
-  it('fetches followed digests, marks followed, uses chapter counts — WITHOUT re-emitting digestResolved', async () => {
+describe('useLibrary — mount is light (no per-series digests)', () => {
+  it('the mount does NOT fetch a per-series digest for followed series — the list renders from the batch alone', async () => {
     mockGet.mockResolvedValue(serialsDigest([serialData('1'), serialData('2')]));
     mockGetAllIds.mockResolvedValue(['1']);
     mockGetDigest.mockResolvedValue(seriesDigest('1', 3, 10));
-    const digestSpy = jest.fn();
-    const off = EventBus.on(SerieEvents.digestResolved, digestSpy);
 
     const { result } = renderHook(() => useLibrary({ filter: e => e.isFollowed }));
     await waitFor(() => expect(result.current.data).toHaveLength(1));
 
-    expect(mockGetDigest).toHaveBeenCalledWith({ seriesId: '1', force: false });
-    // The list's own followed-digest fetch must NOT bounce SerieEvents.digestResolved back into
-    // this hook (it would be one re-render per followed series).
-    expect(digestSpy).not.toHaveBeenCalled();
+    expect(mockGetDigest).not.toHaveBeenCalled(); // enrichment is lazy, per viewport
     const e1 = result.current.data[0];
     expect(e1.id).toBe('1');
     expect(e1.isFollowed).toBe(true);
-    expect(e1.readChapters).toBe(3);
-    expect(e1.chapterCount).toBe(10);
-    expect(e1.progressFraction).toBeCloseTo(0.3);
-    off();
+    // page-based progress from the batch list until a viewport enrich lands
+    expect(e1.readChapters).toBeUndefined();
   });
 
-  it('a failed followed digest falls back to page-based progress for that series', async () => {
-    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 20, totalPages: 100 })]));
-    mockGetAllIds.mockResolvedValue(['1']);
-    mockGetDigest.mockRejectedValue(new Error('digest failed'));
+  it('onViewableIndices enriches the visible range (+ lookahead): SerialService.get + BFF per-item, patched in', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1'), serialData('2'), serialData('3')]));
+    mockGetAllIds.mockResolvedValue([]);
+    mockGetDigest.mockResolvedValue(seriesDigest('1', 3, 10));
+    mockExternalDetailSync.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useLibrary());
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    expect(mockGetDigest).not.toHaveBeenCalled();
+
+    act(() => { result.current.onViewableIndices(0, 0); });
+    await waitFor(() => expect(result.current.data[0].readChapters).toBe(3));
+    expect(mockGetDigest).toHaveBeenCalledWith({ seriesId: '1' });
+    expect(result.current.data[0].chapterCount).toBe(10);
+    expect(result.current.data[0].progressFraction).toBeCloseTo(0.3);
+  });
+
+  it('a series is only enriched once, even if it re-enters the viewport', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
+    mockGetAllIds.mockResolvedValue([]);
+    mockGetDigest.mockResolvedValue(seriesDigest('1', 1, 10));
+    mockExternalDetailSync.mockResolvedValue(null);
+
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data).toHaveLength(1));
-    expect(result.current.data[0].readChapters).toBeUndefined();
-    expect(result.current.data[0].progressFraction).toBe(0.2);
+
+    act(() => { result.current.onViewableIndices(0, 0); });
+    await waitFor(() => expect(result.current.data[0].readChapters).toBe(1));
+    act(() => { result.current.onViewableIndices(0, 0); });
+    act(() => { result.current.onViewableIndices(0, 0); });
+    await new Promise<void>(r => setTimeout(r, 20));
+    expect(mockGetDigest).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the persistent SeriesDigestIndex for a non-followed series opened before', async () => {
-    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 0, totalPages: 100 })]));
-    mockGetAllIds.mockResolvedValue([]);
+  it('reads the persistent SeriesDigestIndex at mount for FOLLOWED series (a small set), not the whole list', async () => {
+    mockGet.mockResolvedValue(
+      serialsDigest([serialData('1', { pagesRead: 0, totalPages: 100 }), serialData('2', { pagesRead: 0, totalPages: 100 })]),
+    );
+    mockGetAllIds.mockResolvedValue(['1']); // only '1' is followed
     mockIndexGet.mockImplementation((id: string) =>
-      id === '1' ? Promise.resolve({ readChapters: 5, totalChapters: 8 }) : Promise.resolve(null),
+      id === '1'
+        ? Promise.resolve({ readChapters: 5, totalChapters: 8 })
+        : Promise.resolve({ readChapters: 99, totalChapters: 99 }),
     );
     const { result } = renderHook(() => useLibrary());
-    await waitFor(() => expect(result.current.data).toHaveLength(1));
-    expect(result.current.data[0].readChapters).toBe(5);
-    expect(result.current.data[0].chapterCount).toBe(8);
-    expect(result.current.data[0].readStatus).toBe('IN_PROGRESS');
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+
+    // followed → index used
+    const followed = result.current.data.find(e => e.id === '1')!;
+    expect(followed.readChapters).toBe(5);
+    expect(followed.chapterCount).toBe(8);
+    // not followed → index NOT read at mount (only '1' was queried)
+    expect(mockIndexGet).toHaveBeenCalledWith('1');
+    expect(mockIndexGet).not.toHaveBeenCalledWith('2');
+    const notFollowed = result.current.data.find(e => e.id === '2')!;
+    expect(notFollowed.readChapters).toBeUndefined();
   });
 });
 
@@ -276,7 +308,10 @@ describe('useLibrary — cross-screen events', () => {
   it('patches chapter counts on SerieEvents.digestResolved', async () => {
     mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     mockGetAllIds.mockResolvedValue(['1']);
-    mockGetDigest.mockResolvedValue(seriesDigest('1', 1, 10));
+    // Counts come from the index cache at mount (light assembly), not a per-series digest fetch.
+    mockIndexGet.mockImplementation((id: string) =>
+      id === '1' ? Promise.resolve({ readChapters: 1, totalChapters: 10 }) : Promise.resolve(null),
+    );
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data[0].readChapters).toBe(1));
     act(() => {
@@ -291,7 +326,9 @@ describe('useLibrary — cross-screen events', () => {
     jest.useFakeTimers();
     mockGet.mockResolvedValue(serialsDigest([serialData('1')]));
     mockGetAllIds.mockResolvedValue(['1']);
-    mockGetDigest.mockResolvedValue(seriesDigest('1', 2, 10));
+    mockIndexGet.mockImplementation((id: string) =>
+      id === '1' ? Promise.resolve({ readChapters: 2, totalChapters: 10 }) : Promise.resolve(null),
+    );
     const { result } = renderHook(() => useLibrary());
     await waitFor(() => expect(result.current.data[0].readChapters).toBe(2));
     mockGet.mockClear();

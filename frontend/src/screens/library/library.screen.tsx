@@ -50,6 +50,7 @@ export function LibraryScreen() {
     showScrollTop,
     hideScrollTop,
     handleScroll,
+    onViewableIndices,
     refresh,
     toggleSortMode,
     toggleViewMode,
@@ -92,6 +93,17 @@ export function LibraryScreen() {
   );
 
   const keyExtractor = useCallback((item: LibraryEntry | null, idx: number) => (item ? item.id : `pad-${idx}`), []);
+
+  // Feed the hook the visible index range so it can lazily enrich those cards (+ a lookahead).
+  // A low area threshold + no min-view-time so a fast flick still triggers the fetches.
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 1, minimumViewTime: 0 }).current;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      const idx = viewableItems.map(v => v.index).filter((n): n is number => n != null);
+      if (idx.length === 0) { return; }
+      onViewableIndices(Math.min(...idx), Math.max(...idx));
+    },
+  ).current;
 
   // The alphabet rail calls scrollToIndex on a letter tap. Rows have no fixed height (no
   // getItemLayout), so a jump to a still-unrendered index throws "Invariant Violation:
@@ -181,6 +193,8 @@ export function LibraryScreen() {
           onScroll={handleScroll}
           scrollEventThrottle={100}
           onScrollToIndexFailed={onScrollToIndexFailed}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           // A re-order re-mounts nothing (stable keys) and the rows are React.memo'd, so the cost
           // is FlatList diffing 119 items. These caps keep the work per frame bounded.
           initialNumToRender={12}

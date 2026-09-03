@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { OtaEmitter, OtaModule, OtaPolicyMode } from '../../../native/OtaModule';
 import { StartupBridge } from '../../../shared/bridge/startup';
-import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
 import { ServersService, ServerService } from '../../../shared/services/servers';
-import { SerialService } from '../../../shared/services/serials';
 import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
 import { useStrings } from '../../../shared/i18n/useStrings';
 import { Routes } from '../../../navigation/routes';
@@ -18,13 +16,19 @@ const HIGHLY_REC_RESHOW_MS = 5 * 60_000;
 // Discrete progress checkpoints for the boot graph. The bar isn't a real percentage — it's "how
 // far along the known steps we are", so a slow network still shows forward motion.
 const P = {
-  start: 0.05,
-  serverOk: 0.25,
-  authOk: 0.5,
-  followWarm: 0.7,
-  libraryWarm: 0.95,
+  start: 0.1,
+  serverOk: 0.35,
+  authOk: 0.6,
+  warmingLibrary: 0.85,
   done: 1,
 } as const;
+
+// Safety cap on waiting for the (light) Library warm-up. The warm-up is just the list + the BFF
+// batch match now — no per-series digest fetches (those were the ~25s tail; they move to lazy
+// per-viewport fetches on the Library/Following screen). So this normally resolves well under the
+// cap; the cap only matters if the BFF call hangs. On timeout the splash navigates anyway and
+// the warm-up keeps running and still seeds.
+const WARMUP_BUDGET_MS = 2000;
 
 // ── boot graph ───────────────────────────────────────────────────────────────
 // Pure async orchestration — no React. Same "sits next to the hook, not in a separate file"
@@ -32,9 +36,10 @@ const P = {
 //
 // Two independent front-runners with the same priority: the OTA policy check (handled by the
 // hook's effect, can hard-stop on `required`) and the server check here. If there's no server,
-// nothing else matters — bail to 'setup'. Once a server is active and authenticated, warm the
-// followed series' cache, then assemble the full Library list and seed it, then land on 'home'.
-// Everything after the auth gate is best-effort: a warm-up failure never changes the destination.
+// nothing else matters — bail to 'setup'. Once a server is active and authenticated, the splash
+// runs the LIGHT Library warm-up (list + BFF match only) with a small safety cap, then navigates.
+// The warm-up still seeds the handoff even if it outlasts the cap. The heavy per-series digests
+// no longer run here — the Library/Following screen fetches those lazily per viewport.
 export async function runSplashBoot(opts: {
   onStep: (label: string) => void;
   onProgress: (value: number) => void;
@@ -60,22 +65,31 @@ export async function runSplashBoot(opts: {
   }
   onProgress(P.authOk);
 
-  // Best-effort from here on.
   onStep('loading library');
-  const followedIds = await FollowedSeriesBridge.getAllIds().catch(() => [] as string[]);
-  await Promise.allSettled(followedIds.map(seriesId => SerialService.get({ seriesId })));
-  onProgress(P.followWarm);
-
-  try {
-    const { entries, lastUpdatedEpochMs } = await assembleLibrary({ force: false });
-    seedLibrary(entries, lastUpdatedEpochMs);
-  } catch {
-    // The Library screen will assemble on its own mount; the seed is just a head start.
-  }
-  onProgress(P.libraryWarm);
+  onProgress(P.warmingLibrary);
+  await Promise.race([
+    warmLibrary(),
+    new Promise<void>(resolve => setTimeout(resolve, WARMUP_BUDGET_MS)),
+  ]);
 
   onProgress(P.done);
   return { destination: { kind: 'home' } };
+}
+
+// Runs the light Library assembly (list + BFF batch match; no per-series digests) and seeds the
+// module-level handoff so a Library mount right after can paint without its own fetch. Detached
+// from any component (only services + the seedLibrary module var, never React state), so it's
+// safe outside a mounted tree — runSplashBoot may stop awaiting it (cap) while it's still going.
+// All failures swallowed; the Library screen assembles on its own mount anyway.
+function warmLibrary(): Promise<void> {
+  return (async () => {
+    try {
+      const { entries, lastUpdatedEpochMs } = await assembleLibrary({ force: false, light: true });
+      seedLibrary(entries, lastUpdatedEpochMs);
+    } catch {
+      /* head start only */
+    }
+  })();
 }
 
 async function activateAndAuth(groupId: string): Promise<boolean> {

@@ -10,7 +10,7 @@ import { SeriesDigestIndex, SeriesTool, SerieEvents, serieDigestResolvedPayload 
 import type { SeriesDigestIndexEntry } from '../../../shared/tools/series';
 import { LibraryEvents } from '../library.events';
 import { LibraryPrefs, DEFAULT_SORT_MODE, DEFAULT_VIEW_MODE } from '../library.prefs';
-import { LibraryTool, type LibraryEntry } from '../library.tool';
+import { LibraryTool, normalizePublicationStatus, type LibraryEntry } from '../library.tool';
 import type { LibrarySortMode, LibraryViewMode, UseLibraryOptions } from '../library.types';
 
 // Debounce for the background reconcile after a cross-screen chapter-read event: marking several
@@ -309,21 +309,30 @@ function settledOr<T>(result: PromiseSettledResult<T>, fallback: T): T {
   return result.status === 'fulfilled' ? result.value : fallback;
 }
 
-// Assembles LibraryEntry[] from the batch sources. Only SerialsService.get() is critical — if it
-// rejects, or comes back a Failure, this rejects. getAllIds / the BFF batch / each followed
-// digest are best-effort: a rejection degrades that piece, the rest of the list still renders.
-// SerialsService.get() is cache-first on the Kotlin side (each series merged into its own
-// per-series cache), so a warm mount resolves without a network round trip — no RN-side snapshot
-// needed. `lastUpdatedEpochMs` is the newest of those per-series cache timestamps.
+// Assembles LibraryEntry[] from the batch sources.
 //
-// Exported (not just used by useLibrary's load) so the splash can run the same assembly on boot
-// and hand the result to seedLibrary() — same file, same function, no duplicated logic. Importing
-// this module pulls React in but runs no hook at import time, so it's fine under Jest/Metro.
+// `light` (the default now) is the fast path: ONE cache-first SerialsService.get() for the list +
+// whatever the SeriesDigestIndex cache already holds locally (series opened before). It does NOT
+// fetch a per-series digest for every followed series, nor the batch BFF match — those two were
+// the ~17-25s / heap-blowing tail on device (see Task 038). The Library/Following screen fills
+// each card in lazily, per viewport (enrichEntries below).
+//
+// `light: false` keeps the old all-at-once behaviour (list + batch BFF + every followed digest +
+// full index) for any caller that genuinely needs the whole thing up front. Nothing uses it
+// today; kept because the cost of removing vs. keeping is a wash and it documents the contrast.
+//
+// Only SerialsService.get() is critical — if it rejects or comes back a Failure, this rejects.
+// Everything else degrades that piece and the rest of the list still renders.
+//
+// Exported so the splash can run the same assembly on boot and hand the result to seedLibrary().
 export async function assembleLibrary({
   force,
+  light = true,
 }: {
   force: boolean;
+  light?: boolean;
 }): Promise<{ entries: LibraryEntry[]; lastUpdatedEpochMs: number | null }> {
+  const t0 = Date.now();
   const [serialsResult, followedResult] = await Promise.allSettled([
     SerialsService.get({ force }),
     FollowedSeriesBridge.getAllIds(),
@@ -339,23 +348,58 @@ export async function assembleLibrary({
   const series = SeriesTool.normalize({ serials: digest.serials });
   const followedIds = settledOr(followedResult, [] as string[]);
   const followedSet = new Set(followedIds);
+  // eslint-disable-next-line no-console
+  console.log(`[library] assemble light=${light} serials=${series.length} listMs=${Date.now() - t0}`);
 
-  const [matchesResult] = await Promise.allSettled([
-    SerialsService.externalDetails.sync({
-      series: series.map(s => ({ seriesId: s.id, seriesName: s.name })),
-    }),
-  ]);
-  const matches = settledOr(matchesResult, [] as (ExternalMetadataMatch | null)[]);
+  let matches: (ExternalMetadataMatch | null)[] = [];
+  let indexBySeriesId: Map<string, SeriesDigestIndexEntry> = new Map();
 
-  const freshDigests = await loadFollowedDigests(followedIds, force);
-  const idsNeedingIndex = series.map(s => s.id).filter(id => !freshDigests.has(id));
-  const staleIndex = await readIndexFor(idsNeedingIndex);
-  const indexBySeriesId = new Map<string, SeriesDigestIndexEntry>([...staleIndex, ...freshDigests]);
+  if (light) {
+    // Read the local index for the FOLLOWED series only, never the whole library —
+    // SeriesDigestIndex.get is one Room bridge call each, so reading all N (300+) was the "light"
+    // assembly's real cost. Followed is a small set and it's what the Following tab renders; a
+    // non-followed card gets its index/digest via the viewport enrichment below.
+    indexBySeriesId = await readIndexFor(followedIds);
+  } else {
+    const [matchesResult] = await Promise.allSettled([
+      SerialsService.externalDetails.sync({
+        series: series.map(s => ({ seriesId: s.id, seriesName: s.name })),
+      }),
+    ]);
+    matches = settledOr(matchesResult, [] as (ExternalMetadataMatch | null)[]);
 
+    const freshDigests = await loadFollowedDigests(followedIds, force);
+    const idsNeedingIndex = series.map(s => s.id).filter(id => !freshDigests.has(id));
+    const staleIndex = await readIndexFor(idsNeedingIndex);
+    indexBySeriesId = new Map<string, SeriesDigestIndexEntry>([...staleIndex, ...freshDigests]);
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`[library] assemble done light=${light} totalMs=${Date.now() - t0}`);
   return {
     entries: LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet }),
     lastUpdatedEpochMs: digest.lastUpdatedEpochMs,
   };
+}
+
+// ── lazy per-viewport enrichment ─────────────────────────────────────────────
+
+// How many entries past the last visible one to enrich ahead (scroll direction only — scrolling
+// back up almost always hits already-enriched cards).
+const ENRICH_LOOKAHEAD = 10;
+// Max concurrent enrich fetches. The all-at-once version fired N and blew the heap; this caps it.
+const ENRICH_CONCURRENCY = 4;
+
+// Runs `worker` over `items` with at most `limit` in flight at once.
+async function mapWithLimit<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let i = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      await worker(items[idx]).catch(() => undefined);
+    }
+  });
+  await Promise.all(runners);
 }
 
 // ── hook ─────────────────────────────────────────────────────────────────────
@@ -371,6 +415,12 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   if (instanceIdRef.current === '') {
     instanceIdRef.current = `lib-${(libraryInstanceSeq += 1)}`;
   }
+
+  // "Already enriched (or in flight)" series ids — reset whenever a fresh list replaces state.data
+  // (a load/refresh/hydrate), NOT on a per-card PATCH_ENTRY (that would loop: patch → reset →
+  // re-enrich → patch). See onViewableIndices below.
+  const enrichedRef = useRef<Set<string>>(new Set());
+  const enrichInFlightRef = useRef(false);
 
   // Assemble (or refresh) the list. Guards against a second concurrent run (mount kicks one, and
   // a cross-screen event could kick another before the first settles). No RN-side snapshot write —
@@ -388,6 +438,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     dispatch(force ? { type: 'REFRESHING' } : { type: 'LOADING' });
     assembleLibrary({ force })
       .then(({ entries, lastUpdatedEpochMs }) => {
+        enrichedRef.current = new Set();
         dispatch({ type: 'LOADED', data: entries, lastUpdatedEpochMs, forced: force });
         seedLibrary(entries, lastUpdatedEpochMs);
         EventBus.emit(LibraryEvents.assembled, {
@@ -420,6 +471,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     if (instanceId === instanceIdRef.current) {
       return;
     }
+    enrichedRef.current = new Set();
     dispatch({ type: 'HYDRATE', data: entries, lastUpdatedEpochMs });
   });
 
@@ -562,6 +614,77 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   }, []);
   const hideScrollTop = useCallback(() => setShowScrollTop(false), []);
 
+  // ── lazy per-viewport enrichment ───────────────────────────────────────────
+  // The list renders from the light assembly (name + cover + whatever the index cache had). This
+  // fills the rest of each card in — chapter counts / progress / status (SerialService.get) and
+  // the BFF match (SerialService.externalDetail.sync, per-item) — but only for series near the
+  // viewport, and only once each (enrichedRef, declared up top; reset on a fresh list). `data`
+  // here is the sorted/filtered list, so viewable indices map straight onto it.
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
+  const enrichSeries = useCallback(async (seriesId: string, seriesName: string) => {
+    const t0 = Date.now();
+    const [digestRes, matchRes] = await Promise.allSettled([
+      SerialService.get({ seriesId }),
+      SerialService.externalDetail.sync({ seriesId, seriesName }),
+    ]);
+    // eslint-disable-next-line no-console
+    console.log(`[library] enrich ${seriesId} ms=${Date.now() - t0}`);
+
+    const patch: Partial<LibraryEntry> = {};
+    if (digestRes.status === 'fulfilled' && digestRes.value.isSuccess) {
+      const p = serieDigestResolvedPayload(digestRes.value);
+      if (p.readChapters != null) { patch.readChapters = p.readChapters; }
+      if (p.totalChapters != null) { patch.chapterCount = p.totalChapters; }
+    }
+    if (matchRes.status === 'fulfilled' && matchRes.value) {
+      const m = matchRes.value;
+      if (m.downloadedChapters != null) { patch.downloadedChapters = m.downloadedChapters; }
+      patch.hasErrors = m.hasErrors;
+      const status = normalizePublicationStatus(m.status);
+      if (status != null) { patch.publicationStatus = status; }
+    }
+    if (Object.keys(patch).length > 0) {
+      dispatch({ type: 'PATCH_ENTRY', seriesId, patch });
+    }
+  }, []);
+
+  // Called by the FlatList's onViewableItemsChanged. Takes the visible index range, expands it by
+  // ENRICH_LOOKAHEAD downward, drops anything already enriched, and works through the rest
+  // ENRICH_CONCURRENCY at a time. If a batch is already running, the new ids are queued (kept in
+  // pendingEnrichRef) rather than marked-and-dropped, so scrolling during a batch never loses a
+  // card.
+  const pendingEnrichRef = useRef<LibraryEntry[]>([]);
+
+  const drainEnrichQueue = useCallback(() => {
+    if (enrichInFlightRef.current) { return; }
+    const batch = pendingEnrichRef.current;
+    if (batch.length === 0) { return; }
+    pendingEnrichRef.current = [];
+    enrichInFlightRef.current = true;
+    // eslint-disable-next-line no-console
+    console.log(`[library] enrich batch n=${batch.length}`);
+    mapWithLimit(batch, ENRICH_CONCURRENCY, e => enrichSeries(e.id, e.name)).finally(() => {
+      enrichInFlightRef.current = false;
+      drainEnrichQueue();
+    });
+  }, [enrichSeries]);
+
+  const onViewableIndices = useCallback((firstVisible: number, lastVisible: number) => {
+    const list = dataRef.current;
+    if (list.length === 0) { return; }
+    const end = Math.min(list.length - 1, lastVisible + ENRICH_LOOKAHEAD);
+    for (let i = Math.max(0, firstVisible); i <= end; i++) {
+      const e = list[i];
+      if (e && !enrichedRef.current.has(e.id)) {
+        enrichedRef.current.add(e.id);
+        pendingEnrichRef.current.push(e);
+      }
+    }
+    drainEnrichQueue();
+  }, [drainEnrichQueue]);
+
   return {
     loading: state.loading,
     refreshing: state.refreshing,
@@ -575,6 +698,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     showScrollTop,
     hideScrollTop,
     handleScroll,
+    onViewableIndices,
     refresh,
     setViewMode,
     setSortMode,

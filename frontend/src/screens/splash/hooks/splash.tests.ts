@@ -29,14 +29,6 @@ jest.mock('../../../shared/services/servers', () => ({
   },
 }));
 
-jest.mock('../../../shared/bridge/followedSeries', () => ({
-  FollowedSeriesBridge: { getAllIds: jest.fn() },
-}));
-
-jest.mock('../../../shared/services/serials', () => ({
-  SerialService: { get: jest.fn() },
-}));
-
 jest.mock('../../library/hooks/library.hooks', () => ({
   assembleLibrary: jest.fn(),
   seedLibrary: jest.fn(),
@@ -45,8 +37,6 @@ jest.mock('../../library/hooks/library.hooks', () => ({
 import { StartupBridge } from '../../../shared/bridge/startup';
 import { OtaModule } from '../../../native/OtaModule';
 import { ServersService, ServerService } from '../../../shared/services/servers';
-import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
-import { SerialService } from '../../../shared/services/serials';
 import { assembleLibrary, seedLibrary } from '../../library/hooks/library.hooks';
 import { runSplashBoot, useSplash } from './splash.hooks';
 
@@ -57,8 +47,6 @@ const acknowledgePolicy = OtaModule.acknowledgePolicy as jest.Mock;
 const listGroups = ServersService.groups.list as jest.Mock;
 const setActiveGroup = ServerService.group.active.set as jest.Mock;
 const reauthenticate = ServerService.auth.reauthenticate as jest.Mock;
-const getAllIds = FollowedSeriesBridge.getAllIds as jest.Mock;
-const serialGet = SerialService.get as jest.Mock;
 const assemble = assembleLibrary as jest.Mock;
 const seed = seedLibrary as jest.Mock;
 
@@ -78,8 +66,6 @@ beforeEach(() => {
   listGroups.mockResolvedValue([{ id: 'g1', name: 'S1' }]);
   setActiveGroup.mockResolvedValue(undefined);
   reauthenticate.mockResolvedValue(undefined);
-  getAllIds.mockResolvedValue([]);
-  serialGet.mockResolvedValue({ isSuccess: true });
   assemble.mockResolvedValue({ entries: [], lastUpdatedEpochMs: null });
   seed.mockReturnValue(undefined);
 });
@@ -101,14 +87,33 @@ describe('runSplashBoot', () => {
     expect(r.destination).toEqual({ kind: 'setup' });
   });
 
-  it('server + auth ok → activates groups[0], warms, seeds, lands on home', async () => {
-    getAllIds.mockResolvedValue(['s1', 's2']);
+  it('server + auth ok → activates groups[0], warms the library (light), lands on home', async () => {
     const r = await runSplashBoot(noopSteps);
     expect(setActiveGroup).toHaveBeenCalledWith({ groupId: 'g1' });
-    expect(serialGet).toHaveBeenCalledTimes(2);
-    expect(assemble).toHaveBeenCalledWith({ force: false });
+    expect(assemble).toHaveBeenCalledTimes(1);
     expect(seed).toHaveBeenCalledTimes(1);
     expect(r.destination).toEqual({ kind: 'home' });
+  });
+
+  it('navigates anyway if the warm-up outlasts the cap, then seeds when it finishes', async () => {
+    jest.useFakeTimers();
+    let resolveAssemble!: (v: { entries: []; lastUpdatedEpochMs: null }) => void;
+    assemble.mockReturnValue(new Promise(res => { resolveAssemble = res; }));
+
+    const p = runSplashBoot(noopSteps);
+    // flush the awaited server/auth microtasks, then fire the safety cap
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(2000);
+
+    const r = await p;
+    expect(r.destination).toEqual({ kind: 'home' });
+    expect(seed).not.toHaveBeenCalled(); // assemble still pending when the splash gave up
+
+    resolveAssemble({ entries: [], lastUpdatedEpochMs: null });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(seed).toHaveBeenCalledTimes(1); // background warm-up still seeded after the fact
+
+    jest.useRealTimers();
   });
 
   it('setActiveGroup fails once → reauthenticate + retry → home', async () => {
@@ -119,7 +124,7 @@ describe('runSplashBoot', () => {
     expect(r.destination).toEqual({ kind: 'home' });
   });
 
-  it('setActiveGroup fails and reauth also fails → setup', async () => {
+  it('setActiveGroup fails and reauth also fails → setup, no warm-up', async () => {
     setActiveGroup.mockRejectedValue(new Error('401'));
     reauthenticate.mockRejectedValue(new Error('bad key'));
     const r = await runSplashBoot(noopSteps);
