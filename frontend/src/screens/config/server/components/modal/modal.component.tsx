@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { ProviderInfo } from '../../../../../shared/bridge/server';
+import type { Strings } from '../../../../../shared/i18n/strings';
 import { UrlTool } from '../../../../../shared/tools/url';
 import type { ServerCredentials } from '../../server.hooks';
 import { styles } from './modal.styles';
@@ -11,6 +12,7 @@ import { styles } from './modal.styles';
 // On 'add' it also asks for the first URL (a server needs at least one) — priority is always 0
 // there; further URLs and their priorities are managed by the per-URL modal afterwards.
 export interface ServerModalProps {
+  t: Strings;
   mode: 'add' | 'edit';
   providers: ProviderInfo[];
   // Which provider this server uses. For 'add' it's providers[0]; for 'edit' it's the group's.
@@ -24,6 +26,7 @@ export interface ServerModalProps {
 }
 
 export function ServerModal({
+  t,
   mode,
   providers,
   providerId,
@@ -52,23 +55,25 @@ export function ServerModal({
       <View style={styles.scrim}>
         <View style={styles.card}>
           <View style={styles.header}>
-            <Text style={styles.title}>{mode === 'add' ? 'Novo servidor' : 'Editar servidor'}</Text>
+            <Text style={styles.title}>
+              {mode === 'add' ? t.serverModalNewTitle : t.serverModalEditTitle}
+            </Text>
             <Text onPress={onClose} style={styles.close} suppressHighlighting>
               ✕
             </Text>
           </View>
 
-          <Text style={styles.label}>Provider</Text>
+          <Text style={styles.label}>{t.serverModalProviderLabel}</Text>
           <View style={[styles.input, styles.inputDisabled]}>
             <Text style={{ color: '#FFF', fontSize: 13 }}>{provider?.displayName ?? '—'}</Text>
           </View>
 
-          <Text style={styles.label}>Nome</Text>
+          <Text style={styles.label}>{t.serverModalNameLabel}</Text>
           <TextInput
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Kavita de casa"
+            placeholder={t.serverModalNamePlaceholder}
             placeholderTextColor="#4A5568"
             autoCapitalize="none"
             autoCorrect={false}
@@ -97,14 +102,14 @@ export function ServerModal({
           {mode === 'add' && (
             <>
               <Text style={styles.label}>
-                URL
+                {t.urlModalUrlLabel}
                 <Text style={styles.required}> *</Text>
               </Text>
               <TextInput
                 style={styles.input}
                 value={firstUrl}
                 onChangeText={setFirstUrl}
-                placeholder="http://192.168.1.100:5000"
+                placeholder={t.urlModalUrlPlaceholder}
                 placeholderTextColor="#4A5568"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -116,13 +121,13 @@ export function ServerModal({
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelTxt}>Cancelar</Text>
+              <Text style={styles.cancelTxt}>{t.serverFormCancel}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
               onPress={() => canSave && onSubmit(name, creds, firstUrl)}
               disabled={!canSave}>
-              <Text style={styles.saveTxt}>Salvar</Text>
+              <Text style={styles.saveTxt}>{t.serverFormSave}</Text>
             </TouchableOpacity>
           </View>
         </View>

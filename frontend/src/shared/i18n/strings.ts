@@ -189,6 +189,43 @@ export interface Strings {
   libraryUpdatedAt: string; // "{0}" = absolute HH:MM:SS — shown briefly after a network refresh
   libraryOfflineStale: string; // "{0}" = relative text — "(Sem conexão) Atualizado {0}"
   libraryOfflineNoDate: string; // couldn't reach the server and no cache timestamp known
+
+  // ── Server screen (Task 035 — server + metadata server sections) ─────────
+  serverSectionTitle: string; // "{0}" = provider display name — "Servidores {0}"
+  serverMetadataSectionFallback: string; // when the metadata provider name isn't loaded yet
+  serverAddServer: string;
+  serverAddMetadataServer: string;
+  serverUrlsLabel: string;
+  serverAddUrl: string;
+  serverModalNewTitle: string;
+  serverModalEditTitle: string;
+  serverModalProviderLabel: string;
+  serverModalNameLabel: string;
+  serverModalNamePlaceholder: string;
+  urlModalNewTitle: string;
+  urlModalEditTitle: string;
+  urlModalUrlLabel: string;
+  urlModalUrlPlaceholder: string;
+  urlModalTestConnection: string;
+  urlModalTesting: string;
+  urlModalTestOk: string;
+  urlModalTestFail: string;
+  urlModalServerLabel: string;
+  urlModalAssociateToUrl: string;
+  urlModalNoUrlsInServer: string;
+  urlModalPickServer: string;
+  urlModalPickUrl: string;
+  selectPlaceholder: string;
+  serverConnErrorNoUrl: string;
+  serverConnErrorNoActiveGroup: string;
+  serverConnErrorGeneric: string;
+  serverErrorNoProvider: string;
+  serverErrorNoMetadataProvider: string;
+  serverErrorNoServerToEdit: string;
+  serverErrorNoMetadataServerToEdit: string;
+  serverErrorNoServer: string;
+  serverErrorNoMetadataServer: string;
+  serverErrorUrlInvalid: string;
 }
 
 const ptBR: Strings = {
@@ -357,6 +394,42 @@ const ptBR: Strings = {
   libraryUpdatedAt: 'Atualizado às {0}',
   libraryOfflineStale: '(Sem conexão) Atualizado {0}',
   libraryOfflineNoDate: 'Sem conexão — mostrando dados salvos',
+
+  serverSectionTitle: 'Servidores {0}',
+  serverMetadataSectionFallback: 'Servidores de metadados',
+  serverAddServer: '+ Adicionar servidor',
+  serverAddMetadataServer: '+ Adicionar servidor de metadados',
+  serverUrlsLabel: 'URLs',
+  serverAddUrl: '+ Adicionar URL',
+  serverModalNewTitle: 'Novo servidor',
+  serverModalEditTitle: 'Editar servidor',
+  serverModalProviderLabel: 'Provedor',
+  serverModalNameLabel: 'Nome',
+  serverModalNamePlaceholder: 'Servidor de casa',
+  urlModalNewTitle: 'Nova URL',
+  urlModalEditTitle: 'Editar URL',
+  urlModalUrlLabel: 'URL',
+  urlModalUrlPlaceholder: 'http://192.168.1.100:5000',
+  urlModalTestConnection: 'Testar conexão',
+  urlModalTesting: 'Testando…',
+  urlModalTestOk: '✓ conectou',
+  urlModalTestFail: '✗ falhou',
+  urlModalServerLabel: 'Servidor',
+  urlModalAssociateToUrl: 'Associar a uma URL do servidor',
+  urlModalNoUrlsInServer: 'Nenhuma URL nesse servidor',
+  urlModalPickServer: 'Selecione um servidor',
+  urlModalPickUrl: 'Selecione uma URL',
+  selectPlaceholder: 'Selecione…',
+  serverConnErrorNoUrl: 'Nenhuma URL respondeu. Verifique os endereços e se o servidor está no ar.',
+  serverConnErrorNoActiveGroup: 'Nenhum servidor ativo.',
+  serverConnErrorGeneric: 'Não foi possível conectar.',
+  serverErrorNoProvider: 'Nenhum provedor de servidor disponível',
+  serverErrorNoMetadataProvider: 'Nenhum provedor de servidor de metadados disponível',
+  serverErrorNoServerToEdit: 'Nenhum servidor para editar',
+  serverErrorNoMetadataServerToEdit: 'Nenhum servidor de metadados para editar',
+  serverErrorNoServer: 'Nenhum servidor',
+  serverErrorNoMetadataServer: 'Nenhum servidor de metadados',
+  serverErrorUrlInvalid: 'URL inválida (use http:// ou https://)',
 };
 
 const en: Strings = {
@@ -525,6 +598,42 @@ const en: Strings = {
   libraryUpdatedAt: 'Updated at {0}',
   libraryOfflineStale: '(Offline) Updated {0}',
   libraryOfflineNoDate: 'Offline — showing saved data',
+
+  serverSectionTitle: '{0} servers',
+  serverMetadataSectionFallback: 'Metadata servers',
+  serverAddServer: '+ Add server',
+  serverAddMetadataServer: '+ Add metadata server',
+  serverUrlsLabel: 'URLs',
+  serverAddUrl: '+ Add URL',
+  serverModalNewTitle: 'New server',
+  serverModalEditTitle: 'Edit server',
+  serverModalProviderLabel: 'Provider',
+  serverModalNameLabel: 'Name',
+  serverModalNamePlaceholder: 'Home server',
+  urlModalNewTitle: 'New URL',
+  urlModalEditTitle: 'Edit URL',
+  urlModalUrlLabel: 'URL',
+  urlModalUrlPlaceholder: 'http://192.168.1.100:5000',
+  urlModalTestConnection: 'Test connection',
+  urlModalTesting: 'Testing…',
+  urlModalTestOk: '✓ connected',
+  urlModalTestFail: '✗ failed',
+  urlModalServerLabel: 'Server',
+  urlModalAssociateToUrl: 'Associate with a server URL',
+  urlModalNoUrlsInServer: 'No URLs in that server',
+  urlModalPickServer: 'Select a server',
+  urlModalPickUrl: 'Select a URL',
+  selectPlaceholder: 'Select…',
+  serverConnErrorNoUrl: 'No URL responded. Check the addresses and that the server is up.',
+  serverConnErrorNoActiveGroup: 'No active server.',
+  serverConnErrorGeneric: 'Could not connect.',
+  serverErrorNoProvider: 'No server provider available',
+  serverErrorNoMetadataProvider: 'No metadata server provider available',
+  serverErrorNoServerToEdit: 'No server to edit',
+  serverErrorNoMetadataServerToEdit: 'No metadata server to edit',
+  serverErrorNoServer: 'No server',
+  serverErrorNoMetadataServer: 'No metadata server',
+  serverErrorUrlInvalid: 'Invalid URL (use http:// or https://)',
 };
 
 export const allStrings: Record<Language, Strings> = { 'pt-BR': ptBR, en };

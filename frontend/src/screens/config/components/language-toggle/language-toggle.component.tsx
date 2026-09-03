@@ -18,11 +18,11 @@ export function LanguageToggle({ language, onChange }: LanguageToggleProps) {
     <View style={styles.row}>
       <TouchableOpacity
         style={[styles.option, isPt && styles.optionActive]}
-        onPress={() => !isPt || onChange('pt-BR')}>
+        onPress={() => isPt || onChange('pt-BR')}>
         <Text style={[styles.optionTxt, isPt && styles.optionTxtActive]}>🇧🇷 PT</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.track} onPress={toggle}>
+      <TouchableOpacity testID="language-toggle-track" style={styles.track} onPress={toggle}>
         <View style={[styles.thumb, !isPt && styles.thumbRight]} />
       </TouchableOpacity>
 

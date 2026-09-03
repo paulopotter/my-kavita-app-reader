@@ -16,8 +16,23 @@ export const styles = StyleSheet.create({
   inputError: { borderWidth: 1, borderColor: colors.accent },
   errorTxt: { color: colors.msgError, fontSize: 11, marginTop: 6 },
 
+  assocToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.mutedDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  checkboxMark: { color: colors.textOnDark, fontSize: 12, fontWeight: '700' },
+  assocLabel: { color: colors.textOnDark, fontSize: 13 },
+
   testRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
   testBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 0.5, borderColor: colors.accent },
+  testBtnBusy: { opacity: 0.7 },
   testTxt: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   testStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   testMuted: { color: colors.muted, fontSize: 13 },
