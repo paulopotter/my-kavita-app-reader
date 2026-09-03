@@ -1,6 +1,6 @@
 {
   "name": "mymangareader",
-  "version": "0.9.0-rc94",
+  "version": "0.9.0-rc95",
   "private": true,
   "scripts": {
     "start": "react-native start",
