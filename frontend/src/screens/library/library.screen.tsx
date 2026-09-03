@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ScrollToTopButton } from '../../shared/components/ScrollToTopButton';
+import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
 import { useStrings } from '../../shared/i18n/useStrings';
 import type { Strings } from '../../shared/i18n/strings';
 import { NavOrigin, Routes } from '../../navigation/routes';

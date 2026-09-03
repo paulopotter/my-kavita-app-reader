@@ -17,7 +17,7 @@ import type { NavOrigin } from '../../navigation/routes';
 import { originRouteFor, Routes } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n/useStrings';
 import { FollowStar } from '../../shared/components/follow-star';
-import { ScrollToTopButton } from '../../shared/components/ScrollToTopButton';
+import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
 import { ChapterListItem, ChapterSortFields, Header, SelectionBottomBar, sortModeLabel } from './components';
 import { useSerie } from './hooks';
 import { styles } from './serie.styles';
