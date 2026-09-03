@@ -1,1 +1,1 @@
-export { ReaderThinProgressBar } from './reader-thin-progress-bar.component';
+export * from './reader-thin-progress-bar.component';

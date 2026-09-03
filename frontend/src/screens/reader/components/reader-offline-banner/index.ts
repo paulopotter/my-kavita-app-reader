@@ -1,1 +1,1 @@
-export { ReaderOfflineBanner } from './reader-offline-banner.component';
+export * from './reader-offline-banner.component';

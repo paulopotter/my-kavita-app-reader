@@ -1,1 +1,1 @@
-export { ReaderOverlayFooter } from './reader-overlay-footer.component';
+export * from './reader-overlay-footer.component';

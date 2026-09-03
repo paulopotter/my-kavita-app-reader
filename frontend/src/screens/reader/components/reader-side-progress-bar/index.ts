@@ -1,1 +1,1 @@
-export { ReaderSideProgressBar } from './reader-side-progress-bar.component';
+export * from './reader-side-progress-bar.component';

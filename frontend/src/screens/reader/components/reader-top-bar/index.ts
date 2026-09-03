@@ -1,1 +1,1 @@
-export { ReaderTopBar } from './reader-top-bar.component';
+export * from './reader-top-bar.component';
