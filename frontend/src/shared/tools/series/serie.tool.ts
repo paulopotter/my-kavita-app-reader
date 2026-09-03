@@ -1,5 +1,5 @@
 import { ChapterTool, type SerieChapter } from '../chapters/chapters.tool';
-import { FollowedSeriesBridge } from '../../bridge/followedSeries';
+import { FollowedSeriesBridge } from '../../bridge/followed-series';
 import type { ChapterDigestSuccess, ImageDescriptor, SerialDigestSuccess, SerialResumePoint, ServerActiveInfo } from '../../bridge/digest';
 
 // SerieChapter is re-exported from chapters/ (its actual home — ChapterTool.normalize) via

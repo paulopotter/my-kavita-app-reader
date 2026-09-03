@@ -20,7 +20,7 @@ jest.mock('../../../shared/services/serials', () => ({
 }));
 
 const mockGetAllIds = jest.fn();
-jest.mock('../../../shared/bridge/followedSeries', () => ({
+jest.mock('../../../shared/bridge/followed-series', () => ({
   FollowedSeriesBridge: { getAllIds: (...a: unknown[]) => mockGetAllIds(...a) },
 }));
 

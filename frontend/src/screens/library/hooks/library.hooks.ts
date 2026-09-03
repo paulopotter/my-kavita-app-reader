@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { FollowedSeriesBridge } from '../../../shared/bridge/followedSeries';
+import { FollowedSeriesBridge } from '../../../shared/bridge/followed-series';
 import type { ExternalMetadataMatch } from '../../../shared/bridge/external';
 import { SeriesFollowedEmitter } from '../../../shared/bridge/series';
 import { EventBus, useEvent } from '../../../shared/managers/events';

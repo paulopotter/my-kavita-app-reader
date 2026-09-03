@@ -8,7 +8,7 @@ export * from './config';
 export * from './db-validator';
 export * from './digest';
 export * from './external';
-export * from './followedSeries';
+export * from './followed-series';
 export * from './network';
 export * from './page';
 export * from './preferences';

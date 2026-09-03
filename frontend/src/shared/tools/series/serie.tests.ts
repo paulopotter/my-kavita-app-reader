@@ -1,4 +1,4 @@
-jest.mock('../../bridge/followedSeries', () => ({
+jest.mock('../../bridge/followed-series', () => ({
   FollowedSeriesBridge: {
     toggle: jest.fn(),
     isFollowed: jest.fn(),
@@ -6,7 +6,7 @@ jest.mock('../../bridge/followedSeries', () => ({
 }));
 
 import { SerieTool } from './serie.tool';
-import { FollowedSeriesBridge } from '../../bridge/followedSeries';
+import { FollowedSeriesBridge } from '../../bridge/followed-series';
 import type { ChapterDigestSuccess, SerialDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
 const mockToggle = FollowedSeriesBridge.toggle as jest.Mock;
