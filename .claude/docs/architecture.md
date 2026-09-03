@@ -62,6 +62,11 @@ rewritten under plan 017) and the target for any new or migrated screen:
 - Each dumb component gets its own subfolder: `components/<comp>/<comp>.component.tsx` +
   `<comp>.styles.ts` + `<comp>.tests.tsx` + `index.ts`. Style is always a separate file (no
   inline `StyleSheet.create` in a `.component.tsx`).
+- Pure state-shape logic that only this screen has goes in a screen-local model file
+  (`<name>.model.ts` / `<name>.window.ts` — see "No `Transform` layer" below), never a
+  `transforms/` folder. A screen is its own micro-ecosystem: it may keep its own `hooks/`,
+  `components/`, local model/adapter files — anything that concerns only itself. Shared domain
+  logic still lives in `shared/tools/<domain>/` or `shared/transforms/<domain>.ts`.
 
 The **legacy** one — `config/`, `following/`, `library/`, `search/`, `setup/`, `splash/`:
 `LibraryScreen.tsx`, `useLibrary.ts`, `LibraryTransform.ts` (PascalCase, flat, `use*` hook).
@@ -87,9 +92,13 @@ derivation lives in one of:
   that is the *shared* layer, not a per-screen `Transform`.
 
 `serie/` already follows this (`sortChapters` inline in `serie.hooks.ts`, normalization in
-`SerieTool`/`ChapterTool`). `reader/` still has a `transforms/` folder from its rewrite —
-Task 037 dissolves it. The `CLAUDE.md` "Tool → Hook → Service → Transform → Screen → Component"
-line is stale on the `Transform` step; treat it as "Tool/model → Hook → …".
+`SerieTool`/`ChapterTool`). `reader/` used to have a `transforms/` folder from its rewrite —
+Task 037 dissolved it: the chapter-shape/read-state helpers went to `screens/reader/reader.model.ts`
+(a screen-local model file — only the reader consumes them), the `ReaderWindow` math to
+`screens/reader/reader.window.ts`, and the webtoon report/blocks functions folded into
+`screens/reader/modes/webtoon.adapter.ts`. No `screens/*/` folder has a `transforms/` folder or a
+`*Transform.ts` file any more. The `CLAUDE.md` "Tool → Hook → Service → Transform → Screen →
+Component" line is stale on the `Transform` step; treat it as "Tool/model → Hook → …".
 
 ## Domain Composition
 

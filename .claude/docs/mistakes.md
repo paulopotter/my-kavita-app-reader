@@ -489,7 +489,8 @@ the threshold, the mark flow works 100% — the bug was purely the
 constant.
 
 **Reference**: `READ_THRESHOLD_FRACTION = 0.95` in
-`screens/reader/transforms/reader.transform.ts` (was 0.98).
+`screens/reader/reader.model.ts` (was 0.98; was in the now-deleted
+`screens/reader/transforms/reader.transform.ts` before Task 037).
 
 ---
 
