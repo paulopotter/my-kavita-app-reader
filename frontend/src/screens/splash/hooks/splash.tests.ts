@@ -173,26 +173,40 @@ describe('useSplash — mount', () => {
 });
 
 describe('useSplash — OTA required is a hard stop', () => {
-  it('required → alert shown, navigate stays null even though the graph would finish', async () => {
+  it('required → no RN alert (native dialog covers it), navigate stays null even though the graph would finish', async () => {
     getOtaPolicy.mockResolvedValue({ mode: 'required', releaseNotesUrl: 'https://n' });
     const { result } = renderHook(() => useSplash());
-    await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
-    expect(result.current.otaAlert!.dismissible).toBe(false);
-    // give the boot graph time to settle; navigate must remain null
+    // Let the boot graph run to completion — a healthy boot would resolve `home`.
+    await waitFor(() => expect(seed).toHaveBeenCalled());
     await act(async () => { await Promise.resolve(); });
+    // required never draws its own AppAlert — MainActivity's native dialog is the block.
+    expect(result.current.otaAlert).toBeNull();
+    // ...and the redirect is discarded: the splash just freezes.
     expect(result.current.navigate).toBeNull();
   });
 });
 
-describe('useSplash — OTA advisory + staged bundle', () => {
-  it('recommended → dismissible 2-button alert; dismiss clears it', async () => {
-    getOtaPolicy.mockResolvedValue({ mode: 'recommended', releaseNotesUrl: 'https://n' });
+describe('useSplash — highly_recommended (alert, no download, no button)', () => {
+  it('shows a dismissible 2-button alert; dismiss clears it and acknowledges', async () => {
+    getOtaPolicy.mockResolvedValue({ mode: 'highly_recommended', releaseNotesUrl: 'https://n' });
     const { result } = renderHook(() => useSplash());
     await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
     expect(result.current.otaAlert!.buttons).toHaveLength(2);
     act(() => { result.current.otaAlert!.buttons[0].onPress(); });
     await waitFor(() => expect(result.current.otaAlert).toBeNull());
     expect(OtaModule.acknowledgePolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the redirect while the alert is up, releases it after dismiss', async () => {
+    getOtaPolicy.mockResolvedValue({ mode: 'highly_recommended', releaseNotesUrl: 'https://n' });
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(seed).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.otaAlert).not.toBeNull());
+    expect(result.current.navigate).toBeNull();
+    act(() => { result.current.otaAlert!.buttons[0].onPress(); });
+    await waitFor(() =>
+      expect(result.current.navigate).toEqual({ index: 0, routes: [{ name: 'hub' }] }),
+    );
   });
 
   it('"view notes" opens the URL', async () => {
@@ -203,6 +217,36 @@ describe('useSplash — OTA advisory + staged bundle', () => {
     act(() => { result.current.otaAlert!.buttons[1].onPress(); });
     expect(openURL).toHaveBeenCalledWith('https://notes');
     openURL.mockRestore();
+  });
+});
+
+describe('useSplash — recommended (no alert, bg download, update button + grace)', () => {
+  it('never shows an alert', async () => {
+    getOtaPolicy.mockResolvedValue({ mode: 'recommended', releaseNotesUrl: 'https://n' });
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(seed).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.otaAlert).toBeNull();
+  });
+
+  it('once the bundle is staged, holds the redirect for the grace period, then navigates + acknowledges', async () => {
+    jest.useFakeTimers();
+    getOtaPolicy.mockResolvedValue({ mode: 'recommended', releaseNotesUrl: 'https://n' });
+    getOtaState.mockResolvedValue({ phase: 'ready', progress: 1, policy: null });
+    const { result } = renderHook(() => useSplash());
+
+    // Boot graph + the "ready" pull both settle → button is up, decision is ready, but held.
+    await act(async () => { await jest.advanceTimersByTimeAsync(2100); });
+    expect(result.current.otaUpdateReady).toBe(true);
+    expect(result.current.navigate).toBeNull();
+    expect(OtaModule.acknowledgePolicy).not.toHaveBeenCalled();
+
+    // Grace elapses → acknowledge + redirect.
+    await act(async () => { await jest.advanceTimersByTimeAsync(5000); });
+    expect(OtaModule.acknowledgePolicy).toHaveBeenCalledTimes(1);
+    expect(result.current.navigate).toEqual({ index: 0, routes: [{ name: 'hub' }] });
+
+    jest.useRealTimers();
   });
 
   it('otaBundleReady flips otaUpdateReady', async () => {

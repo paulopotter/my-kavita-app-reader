@@ -13,6 +13,11 @@ import type { SplashDestination, SplashNavAction, SplashOtaAlert, SplashState } 
 // dismissed once and never re-shown.
 const HIGHLY_REC_RESHOW_MS = 5 * 60_000;
 
+// When the boot finishes and a downloaded OTA bundle is already staged (the "apply update" button
+// is showing), hold the splash this long before redirecting — long enough for the user to see the
+// button and tap it if they want. They can still just wait it out; the redirect fires after.
+const UPDATE_BUTTON_GRACE_MS = 5_000;
+
 // Discrete progress checkpoints for the boot graph. The bar isn't a real percentage — it's "how
 // far along the known steps we are", so a slow network still shows forward motion.
 const P = {
@@ -142,11 +147,18 @@ export function useSplash(): SplashState {
   const t = useStrings();
 
   const [progress, setProgress] = useState(0);
-  const [navigate, setNavigate] = useState<SplashNavAction | null>(null);
+  // The boot graph's decision, held here until it's safe to hand to navigation.reset():
+  // - null while the graph hasn't decided (or `required` blocked it — it's never set then).
+  // - set but NOT forwarded while an advisory dialog (highly_recommended / recommended) is still
+  //   on screen — the redirect only fires once the user dismisses it. `navigate` (below) applies
+  //   that gate.
+  const [pendingNav, setPendingNav] = useState<SplashNavAction | null>(null);
 
-  const reportStep = useCallback((label: string) => {
-    // eslint-disable-next-line no-console
-    console.log('[splash] step:', label);
+  const reportStep = useCallback((_label: string) => {
+    // Boot-graph step trace — kept for the debug task (backlog 015-telemetria-interna-debug).
+    // Uncomment (with an eslint-disable-next-line no-console) when profiling splash timing on
+    // device; not wired to the return yet.
+    // console.log('[splash] step:', _label);
   }, []);
 
   // ── OTA state ───────────────────────────────────────────────────────────────
@@ -193,8 +205,9 @@ export function useSplash(): SplashState {
     const progressSub = OtaEmitter.addListener('otaDownloadProgress', (e: { phase: string; progress: number }) => {
       if (cancelled) { return; }
       setOtaDownloadProgress(e.progress);
-      // eslint-disable-next-line no-console
-      console.log('[splash] ota download:', e.phase, e.progress);
+      // OTA download trace — kept for the debug task (backlog 015-telemetria-interna-debug).
+      // Uncomment (with an eslint-disable-next-line no-console) when profiling on device.
+      // console.log('[splash] ota download:', e.phase, e.progress);
     });
 
     // Front-runner 2: the boot graph. Runs in parallel with the OTA check; if OTA came back
@@ -207,7 +220,9 @@ export function useSplash(): SplashState {
       }).catch(() => ({ destination: { kind: 'setup' } as SplashDestination })),
     ]).then(([blocked, boot]) => {
       if (cancelled || blocked) { return; }
-      setNavigate(navActionFor(boot.destination));
+      // Decision is ready. Whether it's forwarded now or held for an advisory dismiss is decided
+      // by the `navigate` gate below, not here.
+      setPendingNav(navActionFor(boot.destination));
     });
 
     return () => {
@@ -234,27 +249,54 @@ export function useSplash(): SplashState {
     if (policyMode !== 'required') { dismissAdvisory(); }
   }, [releaseNotesUrl, policyMode, dismissAdvisory]);
 
-  // ── otaAlert: derive the AppAlert props from the policy mode + Strings ───────
+  // ── otaAlert: the advisory dialog — ONLY for highly_recommended ─────────────
+  // Mode-by-mode, what the splash does:
+  //  - required            → no RN alert; MainActivity shows a native blocking dialog and this
+  //                          hook just freezes (no progress, no redirect).
+  //  - highly_recommended  → this dialog. The bundle is NOT downloaded (ota-serve: "download
+  //                          skipped"); the splash holds the redirect until the dialog is
+  //                          dismissed, then re-shows it after 5 min inside the app. The buttons
+  //                          are "dismiss" + "view notes" for now — an on-demand "download now"
+  //                          button needs a Kotlin bridge that doesn't exist yet (backlog 020).
+  //  - recommended         → NO dialog. The bundle downloads in the background; when it's staged
+  //                          the "apply update" button appears and the grace period below gives
+  //                          the user a moment to tap it before the redirect.
   const otaAlert = useMemo<SplashOtaAlert | null>(() => {
-    if (!policyMode) { return null; }
-    if (policyMode !== 'required' && advisoryDismissed) { return null; }
+    if (policyMode !== 'highly_recommended' || advisoryDismissed) { return null; }
 
-    const isRequired = policyMode === 'required';
-    const title = isRequired
-      ? t.otaRequiredTitle
-      : policyMode === 'highly_recommended'
-        ? t.otaHighlyRecTitle
-        : t.otaRecommendedTitle;
-    const message = isRequired ? t.otaRequiredBody : t.otaAdvisoryBody;
-    const buttons: AppAlertButton[] = isRequired
-      ? [{ label: t.otaViewNotes, variant: 'primary', onPress: openReleaseNotes }]
-      : [
-          { label: t.otaDismiss, variant: 'secondary', onPress: dismissAdvisory },
-          { label: t.otaViewNotes, variant: 'primary', onPress: openReleaseNotes },
-        ];
+    const buttons: AppAlertButton[] = [
+      { label: t.otaDismiss, variant: 'secondary', onPress: dismissAdvisory },
+      { label: t.otaViewNotes, variant: 'primary', onPress: openReleaseNotes },
+    ];
 
-    return { title, message, buttons, dismissible: !isRequired };
+    return { title: t.otaHighlyRecTitle, message: t.otaAdvisoryBody, buttons, dismissible: true };
   }, [policyMode, advisoryDismissed, t, openReleaseNotes, dismissAdvisory]);
+
+  // The redirect is held while an advisory dialog is still up: the boot decision may be ready, but
+  // navigating out from under the dialog would flash the app behind it. `required` never reaches
+  // here (pendingNav stays null — the boot result is discarded on `blocked`).
+  const advisoryBlockingNav = otaAlert !== null;
+
+  // Grace period: once the boot has decided AND a staged bundle's "apply update" button is
+  // showing, hold the redirect UPDATE_BUTTON_GRACE_MS so the user actually gets to see/tap it.
+  // Armed only when both are true and no advisory is still blocking; the timer flips `graceOver`
+  // and the redirect goes through. Tapping the button applies the OTA (restarts) before this
+  // fires anyway.
+  const [graceOver, setGraceOver] = useState(false);
+  const needsGrace = pendingNav !== null && otaUpdateReady && !advisoryBlockingNav;
+  useEffect(() => {
+    if (!needsGrace || graceOver) { return; }
+    const h = setTimeout(() => {
+      // The user saw the "apply update" button for the grace period and didn't tap it — treat
+      // that as acknowledgement so the Kotlin side stops re-offering this (recommended) policy,
+      // then let the redirect through.
+      OtaModule.acknowledgePolicy().catch(() => undefined);
+      setGraceOver(true);
+    }, UPDATE_BUTTON_GRACE_MS);
+    return () => clearTimeout(h);
+  }, [needsGrace, graceOver]);
+
+  const navigate = advisoryBlockingNav || (needsGrace && !graceOver) ? null : pendingNav;
 
   return {
     progress,
