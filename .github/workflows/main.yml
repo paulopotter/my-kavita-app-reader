@@ -56,5 +56,7 @@ jobs:
     name: Generate Tag
     needs: check-unreleased
     if: needs.check-unreleased.outputs.has_content == 'true'
+    permissions:
+      contents: write
     uses: ./.github/workflows/release-tag.yml
     secrets: inherit
