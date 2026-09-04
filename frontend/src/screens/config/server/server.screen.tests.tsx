@@ -1,11 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
-
-// ServerScreen is a heavy screen (multiple modals + forms) and this suite mounts the whole tree
-// ~20 times. Under full-suite CI load the async modal-close assertions (findByText + waitFor)
-// have been seen to exceed Jest's 5s default — scheduler starvation, not the code. Raise the
-// per-test timeout for this file only.
-jest.setTimeout(20000);
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('en'),
@@ -107,11 +101,15 @@ describe('ServerScreen — manage mode', () => {
     fireEvent.changeText(getByPlaceholderText(t.serverModalNamePlaceholder), 'Home');
     fireEvent.changeText(getByPlaceholderText('API Key'), 'k-1');
     fireEvent.changeText(getByPlaceholderText(t.urlModalUrlPlaceholder), 'http://host');
-    fireEvent.press(await findByText(t.serverFormSave));
+    // act(async) so the awaited submit + the setState that closes the modal both flush before we
+    // assert. (A `waitFor(() => expect(...).toBeNull())` here spins its full retry budget — a
+    // negative assertion never lets waitFor settle early — costing ~1s per test.)
+    await act(async () => {
+      fireEvent.press(await findByText(t.serverFormSave));
+    });
 
     expect(hook.addServer).toHaveBeenCalledWith('Home', { apiKey: 'k-1' }, 'http://host');
-    // modal closes once the (resolved) submit reports no error
-    await waitFor(() => expect(queryByText(t.serverModalNewTitle)).toBeNull());
+    expect(queryByText(t.serverModalNewTitle)).toBeNull(); // modal closed on success
   });
 
   it('with a group, renders the GroupCard (name + masked credential + URL) and NO add-server button', () => {
@@ -165,9 +163,11 @@ describe('ServerScreen — group / URL editing flows', () => {
     // name pre-filled from the group
     expect(getByDisplayValue('Home')).toBeTruthy();
 
-    fireEvent.press(getByText(t.serverFormSave));
+    await act(async () => {
+      fireEvent.press(getByText(t.serverFormSave));
+    });
     expect(hook.updateServer).toHaveBeenCalledWith('Home', { apiKey: 'secret-key' });
-    await waitFor(() => expect(queryByText(t.serverModalEditTitle)).toBeNull());
+    expect(queryByText(t.serverModalEditTitle)).toBeNull();
   });
 
   it('the "+ add URL" button (canAddUrl) opens the URL modal and submit calls addUrl', async () => {
@@ -178,10 +178,12 @@ describe('ServerScreen — group / URL editing flows', () => {
     fireEvent.press(getByText(t.serverAddUrl));
     expect(getByText(t.urlModalNewTitle)).toBeTruthy();
     fireEvent.changeText(getByPlaceholderText(t.urlModalUrlPlaceholder), 'http://second');
-    fireEvent.press(getByText(t.serverFormSave));
+    await act(async () => {
+      fireEvent.press(getByText(t.serverFormSave));
+    });
 
     expect(hook.addUrl).toHaveBeenCalledWith('http://second', 1, undefined);
-    await waitFor(() => expect(queryByText(t.urlModalNewTitle)).toBeNull());
+    expect(queryByText(t.urlModalNewTitle)).toBeNull();
   });
 
   it('URL ⋯ → Edit opens the URL modal pre-filled and submit calls updateUrl', async () => {
