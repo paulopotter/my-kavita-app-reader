@@ -44,7 +44,7 @@ changelog entry by hand.
 | [029](029-reader-chapter-switch-contract.md) | 6 — Reader | Reader — chapter-switch contract + 3-mechanism consumption (was Task 001) | done (2026-09-01 — ground-up reader rewrite: `ReaderWindow` + `moveFocus` + `nativeListKey`; validated rc42–rc45) |
 | [030](030-reader-progress-sync-audit.md) | 6 — Reader | Reader — progress sync audit local↔server (was Task 002) | done (2026-09-01 — audit + 3 sync gaps fixed: AppState flush, openChapter flush, 2s timer guard) |
 | [031](031-reader-dummy-components-review.md) | 6 — Reader | Reader — dumb components review (was Task 003) | done (2026-09-01 — resolved by the reader rewrite; screen forwards native events verbatim, overlay in the dumb-component structure) |
-| [032](032-claude-md-contract-rule.md) | 7 — Safeguards | CLAUDE.md contract-change rule with concrete examples (was Task 004) | todo |
+| [032](032-claude-md-contract-rule.md) | 7 — Safeguards | CLAUDE.md contract-change rule with concrete examples (was Task 004) | done (2026-09-04 — grew into a full doc review: CLAUDE.md → repo root + regrouped by theme + contract-change/i18n/log rules; architecture.md rewritten for the new Kotlin model; architecture-refactor-map.md deleted; mistakes.md compacted 521→160 lines) |
 | [033](033-architectural-compliance-skill.md) | 7 — Safeguards | Architectural compliance skill/agent | todo (blocked by 032) |
 | [034](034-changelog-skill-origin-tag.md) | 7 — Safeguards | `atualizar-changelog` skill — use `<origin-tag>..HEAD` diff as cross-check | todo |
 | [035](035-fix-config-setup-session-auth.md) | 5 — Corrections | Correction — Config/Setup session & auth (401 on Library/Following, migrate to `:server`/`ServerService`) | done |
