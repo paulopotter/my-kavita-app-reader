@@ -116,6 +116,8 @@ jobs:
       - name: Install JS dependencies
         working-directory: frontend
         run: yarn install --frozen-lockfile
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
       - name: Run ktlint
         working-directory: android
         run: ./gradlew ktlintCheck
