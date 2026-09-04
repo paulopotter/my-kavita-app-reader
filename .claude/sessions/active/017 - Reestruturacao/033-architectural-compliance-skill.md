@@ -1,6 +1,6 @@
 # Task 033 — Architectural compliance skill/agent (Phase 7 — Safeguards)
 
-**Status:** todo (blocked by Task 032)
+**Status:** done
 
 ## Objective
 
@@ -37,3 +37,51 @@ additional check.
 - Skill/agent implemented and reviewed by the user.
 - Invocation point and failure mode (block vs. report) explicitly decided and documented.
 - Validated against at least one known real violation before being considered functional.
+
+## Result
+
+**Delivered as a skill**, `checar-arquitetura` (`.claude/skills/checar-arquitetura/SKILL.md`).
+Skill over hook, decided with the user: a hook can't bind to "before `finalizar-task`"
+specifically, and the checks need judgment (distinguish deliberate legacy from a new violation,
+ignore comments) that bash regex can't do cleanly. A blocking hook on a false positive would
+also jam the whole commit flow, not just the task close.
+
+**Invocation point**: step 0 of `finalizar-task`, blocking (edited into
+`finalizar-task/SKILL.md`). `finalizar-task` invokes it first; a BLOCKING finding stops it until
+the code is fixed or the user confirms a false positive. Also invocable directly
+(`/checar-arquitetura`). REPORT-ONLY findings (i18n) surface but don't block.
+
+**Scope**: only the task's own diff — the range from the task's "abre a task" commit (or the
+first commit whose message references the task) to `HEAD`. A pre-existing violation the task
+merely moved is noted, not blocked.
+
+**The 6 checks**:
+1. Dumb component (`components/`) imports a service / `NativeModules.` / a `*Bridge` — BLOCKS.
+2. A screen imports from another screen — BLOCKS.
+3. Provider knowledge (`Kavita`/`m3`/`Bff`) in new non-comment code outside `plugins/` — BLOCKS
+   if newly introduced. Allowlist: `features/kavita/**`, `server/plugins/kavita/**`,
+   `external-metadata-server/plugins/m3/**`, `shared/bridge/*`, the legacy bridges
+   (`SeriesModule`, `ReaderChapterModule`, `SetupModule`, `StartupModule`), `AppReactPackage` /
+   `MainApplication`.
+4. A `*.services.ts` imports another domain's `Digest`/`Service` — BLOCKS.
+5. Hardcoded UI string in JSX (no `{t.…}`) — REPORT-ONLY.
+6. Kotlin coupling reversed (`core/` → `tools`/`features`; `tools/` → `features`) — BLOCKS.
+   `:tools` may import `:cache` (documented exception).
+
+**Validation**: each grep was run against a synthetic violating sample (checks 1–3 catch the
+violation, ignore comments, ignore `shared/`) and against the current codebase (checks 4–6
+clean, zero false positives). Two BSD-grep bugs fixed during validation: the comment filter used
+`\s` (macOS `grep -E` needs `[[:space:]]`), and check 3 used `\bKavita\b` (no word boundary after
+`Kavita` in `KavitaAuthFeature` — switched to substring match). Then the skill was run for real
+against Task 033's own diff → `✓ passed, no blocking findings` (it only touched 2 `SKILL.md`
+files).
+
+**Not done**: the "run it against `KavitaSeriesFeature.listSeries()` reading `chapterCacheDao`
+directly" example from step 5 — that violation is `chapterCacheDao` access from a legacy
+`features/kavita/` file, which is *allowlisted* legacy, not a check-3 target. The synthetic
+"new Service names Kavita" test covers the same rule against a real would-be violation instead.
+
+**Commit**: `91846b2`.
+
+**Approval**: user confirmed the skill+step-0 approach and the blocking-before-`finalizar-task`
+behavior in this conversation.
