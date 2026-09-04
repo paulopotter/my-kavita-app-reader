@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 # Formats changelog draft using AI providers in priority order:
-#   1. Gemini (Google) — primary
+#   1. Gemini (Google) — primary, model discovered dynamically (see call_gemini)
 #   2. Groq             — fallback 1 (set GROQ_API_KEY secret)
 #   3. Cloudflare AI    — fallback 2 (set CF_ACCOUNT_ID + CF_API_TOKEN secrets)
 #   4. OpenAI           — fallback 3 (set OPENAI_API_KEY secret)
 #
-# Single AI call produces BOTH outputs (user entry + tag annotation) to reduce RPM usage.
+# Two independent calls per provider — one for the user-facing entry, one for the tag
+# annotation — instead of one combined prompt split by a ---SPLIT--- delimiter. A provider
+# can now succeed at one and fail the other; each is retried/validated on its own instead of
+# an ambiguous delimiter parse deciding pass/fail for both at once.
+#
+# validate_bilingual() rejects a user entry whose [en] section is empty or is a near-duplicate
+# of [pt-BR] — the class of failure this file previously shipped in a real release (Gemini
+# returned malformed output, the whole thing fell through to the static fallback, and nobody
+# caught that [en] was just [pt-BR] copy-pasted until reading the published CHANGELOG).
 #
 # Env vars required:
 #   ANDROID_DRAFT   — raw bullets from ### Backend section
@@ -22,7 +30,11 @@ set -euo pipefail
 NO_CHANGES_PT="Sem alterações nesta versão"
 NO_CHANGES_EN="No changes in this version"
 
-# Ensures each non-empty line starts with "- " exactly once
+# Ensures each non-empty line starts with "- " exactly once. Used only by the last-resort
+# fallback (no provider produced valid output at all) — joins nothing, so a draft bullet that
+# wraps across multiple lines stays wrapped. That's an acceptable degradation for a fallback
+# that already means every AI provider failed; the real fix is validate_bilingual() catching
+# bad output before it reaches this path.
 fmt_bullets() {
   local text="$1" fallback="$2"
   if [ -z "$text" ]; then
@@ -32,14 +44,13 @@ fmt_bullets() {
   fi
 }
 
-# ── Prompt (shared across all providers) ──────────────────────────────────────
+# ── Prompts (shared across all providers) ──────────────────────────────────────
 
-COMBINED_PROMPT=$(cat <<EOF
+USER_PROMPT=$(cat <<EOF
 You are a changelog editor for an Android manga reading app called My Manga Reader.
-Your audience for Section 1 is the END USER — someone who just wants to know what is new or fixed in the app, not a developer.
-Produce TWO sections separated by exactly this delimiter on its own line: ---SPLIT---
+Your audience is the END USER — someone who just wants to know what is new or fixed in the app, not a developer.
 
-SECTION 1: User-facing CHANGELOG.md entry in this exact markdown structure:
+Produce a user-facing CHANGELOG.md entry in this exact markdown structure:
 
 Uma frase em português que resume o tema principal desta release baseada nos bullets abaixo — seja específico, mencione o que realmente mudou (ex: "Agora o app se atualiza sozinho sem precisar reinstalar." ou "Correções de estabilidade e nova tela de configurações."). Não use frases genéricas como "melhorias e correções". / Same sentence translated to English.
 
@@ -60,21 +71,9 @@ Uma frase em português que resume o tema principal desta release baseada nos bu
 **[en]**
 - bullet in English
 
----SPLIT---
-
-SECTION 2: Git tag annotation in this exact markdown structure:
-
-### Kotlin - \`${KOTLIN_NEXT}\`
-
-- feat: bullet in English
-
-### React Native - \`${RN_NEXT}\`
-
-- feat: bullet in English
-
-Rules for Section 1 (user-facing):
-- Output ONLY the two sections and the delimiter, nothing else. No code fences.
-- REWRITE bullets in plain language — do NOT copy technical terms like scaffold, Room, Native Module, bridge, Hilt, JWT, semver, CI/CD pipeline, apiKey. Replace with what the user actually experiences.
+Rules:
+- Output ONLY the entry above, nothing else. No code fences, no preamble, no explanation.
+- REWRITE bullets in plain language — do NOT copy technical terms like scaffold, Room, Native Module, bridge, Hilt, JWT, semver, CI/CD pipeline, apiKey, cache, digest. Replace with what the user actually experiences.
   Examples of good pt-BR rewrites (use these as style reference — note the correct accents):
     feat: add Room v1 database -> Suas configurações são salvas mesmo ao fechar o app
     feat: add Kavita authentication via apiKey -> Agora você pode fazer login na sua biblioteca Kavita
@@ -83,21 +82,14 @@ Rules for Section 1 (user-facing):
     feat: add ConfigScreen -> Nova tela de configurações com seções para servidor, login e preferências
     feat: add TypeScript bridges -> Interface visual conectada ao servidor nativo
 - IMPORTANT: pt-BR bullets MUST use full Brazilian Portuguese orthography with all accents: ã, õ, ç, é, ê, á, â, í, ó, ô, ú, ü. Never write "configuracoes" — always "configurações". Never "secoes" — always "seções". Never "preferencias" — always "preferências".
+- CRITICAL: the [en] bullets MUST be an actual English translation, never a copy of the [pt-BR] text. Every single word must differ (translation, not transliteration).
 - Always produce BOTH pt-BR and en for every bullet. Translate naturally, not word-for-word.
+- Each bullet MUST be a single line — do not wrap a bullet's text across multiple "-" lines. If a thought needs more words, keep it on one long line.
 - Past tense. Max 5 bullets per language per section.
 - Backend and Frontend sections MUST have DIFFERENT bullets. Backend = server/data/auth features. Frontend = UI/screens/visual features. Do not repeat the same bullet in both sections.
 - If a component has NO bullets at all (empty draft): use exactly one bullet: pt-BR: ${NO_CHANGES_PT} | en: ${NO_CHANGES_EN}. Never add this bullet if there is already content — do NOT pad with filler bullets.
 - If android draft is empty: Backend version stays \`${KOTLIN_CURRENT}\`
 - If frontend draft is empty: Frontend version stays \`${RN_CURRENT}\`
-
-Rules for Section 2 (technical tag annotation):
-- Output ONLY two subsections separated by a blank line. No extra text.
-- MUST include BOTH subsection headers: ### Kotlin - \`${KOTLIN_NEXT}\` and ### React Native - \`${RN_NEXT}\`
-- Assign each bullet to the correct subsection: android/ changes go under Kotlin, frontend/ changes go under React Native
-- English only, precise, keep technical terms
-- Conventional commit prefixes: feat, fix, perf, chore, refactor, style
-- If a subsection has no changes: - No changes
-- Max 10 bullets per subsection
 
 android/ changes (Kotlin/Backend):
 ${ANDROID_DRAFT:-none}
@@ -107,19 +99,130 @@ ${FRONTEND_DRAFT:-none}
 EOF
 )
 
+TAG_PROMPT=$(cat <<EOF
+You are writing a technical git tag annotation for an Android manga reading app called My Manga Reader.
+Your audience is a developer/contributor reading git history — keep technical terms, do not simplify.
+
+Produce the annotation in this exact markdown structure:
+
+### Kotlin - \`${KOTLIN_NEXT}\`
+
+- feat: bullet in English
+
+### React Native - \`${RN_NEXT}\`
+
+- feat: bullet in English
+
+Rules:
+- Output ONLY the two subsections above, nothing else. No code fences, no preamble.
+- MUST include BOTH subsection headers, even if one has no changes.
+- Assign each bullet to the correct subsection: android/ changes go under Kotlin, frontend/ changes go under React Native.
+- English only, precise, keep technical terms.
+- Conventional commit prefixes: feat, fix, perf, chore, refactor, style.
+- Each bullet MUST be a single line — do not wrap a bullet's text across multiple "-" lines.
+- If a subsection has no changes: - No changes
+- Max 10 bullets per subsection.
+
+android/ changes (Kotlin/Backend):
+${ANDROID_DRAFT:-none}
+
+frontend/ changes (React Native/Frontend):
+${FRONTEND_DRAFT:-none}
+EOF
+)
+
+# ── Validation ──────────────────────────────────────────────────────────────────
+
+# Rejects the class of failure this file actually shipped once: an [en] section that's
+# empty, missing, or close enough to [pt-BR] to be a copy rather than a translation.
+# Heuristic, not a real language check — good enough to catch "didn't translate at all"
+# without needing another API call to verify.
+validate_bilingual() {
+  local entry="$1"
+
+  if ! echo "$entry" | grep -q '\*\*\[pt-BR\]\*\*' || ! echo "$entry" | grep -q '\*\*\[en\]\*\*'; then
+    echo "Validation failed: missing [pt-BR] or [en] marker" >&2
+    return 1
+  fi
+
+  # Compare each pt-BR block to the en block that immediately follows it (per-section, since
+  # there are two of each — Backend and Frontend).
+  local pt_blocks en_blocks
+  pt_blocks=$(echo "$entry" | awk '/\*\*\[pt-BR\]\*\*/{f=1; next} /\*\*\[en\]\*\*/{f=0} f' )
+  en_blocks=$(echo "$entry" | awk '/\*\*\[en\]\*\*/{f=1; next} /^###|^\*\*\[pt-BR\]\*\*/{f=0} f')
+
+  if [ -z "$en_blocks" ]; then
+    echo "Validation failed: [en] section is empty" >&2
+    return 1
+  fi
+
+  # Normalize (strip accents/case/whitespace) and compare — an exact or near-exact match means
+  # [en] is a copy of [pt-BR], not a translation.
+  local pt_norm en_norm
+  pt_norm=$(echo "$pt_blocks" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+  en_norm=$(echo "$en_blocks" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+  if [ "$pt_norm" = "$en_norm" ]; then
+    echo "Validation failed: [en] section is an exact copy of [pt-BR]" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# Rejects a bullet block where a line's continuation got split into its own "- " bullet
+# instead of staying part of the previous line — the other real failure this file shipped
+# (a mid-sentence line becoming a standalone, context-less bullet). Heuristic: a bullet
+# starting with a lowercase letter and no verb-like conventional-commit prefix is very
+# likely a wrapped continuation, not a new thought.
+validate_no_fragments() {
+  local entry="$1"
+  local bad_line
+  bad_line=$(echo "$entry" | grep -E '^- [a-z]' | grep -vE '^- (feat|fix|perf|refactor|chore|style)[:!(]' | head -1)
+  if [ -n "$bad_line" ]; then
+    echo "Validation failed: bullet looks like a wrapped line fragment: $bad_line" >&2
+    return 1
+  fi
+  return 0
+}
+
 # ── Provider call functions ────────────────────────────────────────────────────
+# Each takes the prompt as $1 and echoes the raw text response (or returns non-zero).
+
+# Model is discovered from ListModels rather than hardcoded — a hardcoded id inevitably goes
+# stale when Google retires it (this file shipped that exact failure once: gemini-2.0-flash-lite
+# and gemini-2.0-flash both 404'd as "no longer available"). ListModels doesn't expose price or
+# free-tier status, so cost is approximated from Google's own naming convention instead:
+# "flash-lite" is cheapest, then "flash", "pro" only as a last resort — same ordering the old
+# hardcoded list was already trying to express, just not hardcoded to specific version numbers.
+gemini_pick_model() {
+  local list_response
+  list_response=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}")
+  echo "$list_response" \
+    | jq -r '.models[]? | select(.supportedGenerationMethods[]? == "generateContent") | .name | sub("^models/"; "")' \
+    | awk '
+        /flash-lite/ { print 0, $0; next }
+        /flash/      { print 1, $0; next }
+                     { print 2, $0 }
+      ' \
+    | sort -n -s \
+    | awk '{print $2}'
+}
 
 call_gemini() {
-  # gemini-2.0-flash-lite/gemini-2.0-flash were retired (404, "no longer available") —
-  # Google's own error response names the replacements to use.
-  local models=("gemini-3.5-flash-lite" "gemini-3.6-flash")
-  local response text
-  for model in "${models[@]}"; do
+  local prompt="$1"
+  local models response text
+  models=$(gemini_pick_model)
+  if [ -z "$models" ]; then
+    echo "Gemini: ListModels returned no usable model" >&2
+    return 1
+  fi
+  while IFS= read -r model; do
+    [ -z "$model" ] && continue
     echo "Trying Gemini model $model..." >&2
     response=$(curl -s \
       "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}" \
       -H 'Content-Type: application/json' \
-      -d "$(jq -n --arg text "$COMBINED_PROMPT" '{contents:[{parts:[{text:$text}]}]}')")
+      -d "$(jq -n --arg text "$prompt" '{contents:[{parts:[{text:$text}]}]}')")
     echo "Gemini response (first 200 chars): $(echo "$response" | head -c 200)" >&2
     if echo "$response" | grep -q '"code": 429'; then
       echo "Gemini $model rate limited, trying next model..." >&2
@@ -128,18 +231,19 @@ call_gemini() {
     fi
     text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // empty')
     if [ -n "$text" ]; then echo "$text"; return 0; fi
-  done
+  done <<< "$models"
   return 1
 }
 
 call_groq() {
+  local prompt="$1"
   [ -z "${GROQ_API_KEY:-}" ] && return 1
   echo "Trying Groq..." >&2
   local response text
   response=$(curl -s https://api.groq.com/openai/v1/chat/completions \
     -H "Authorization: Bearer ${GROQ_API_KEY}" \
     -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg text "$COMBINED_PROMPT" '{
+    -d "$(jq -n --arg text "$prompt" '{
       model: "llama-3.3-70b-versatile",
       messages: [{role: "user", content: $text}],
       temperature: 0.3
@@ -155,6 +259,7 @@ call_groq() {
 }
 
 call_cloudflare() {
+  local prompt="$1"
   [ -z "${CF_ACCOUNT_ID:-}" ] || [ -z "${CF_API_TOKEN:-}" ] && return 1
   echo "Trying Cloudflare AI..." >&2
   local response text
@@ -162,7 +267,7 @@ call_cloudflare() {
     "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast" \
     -H "Authorization: Bearer ${CF_API_TOKEN}" \
     -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg text "$COMBINED_PROMPT" '{
+    -d "$(jq -n --arg text "$prompt" '{
       messages: [{role: "user", content: $text}]
     }')")
   echo "Cloudflare response (first 200 chars): $(echo "$response" | head -c 200)" >&2
@@ -172,13 +277,14 @@ call_cloudflare() {
 }
 
 call_openai() {
+  local prompt="$1"
   [ -z "${OPENAI_API_KEY:-}" ] && return 1
   echo "Trying OpenAI..." >&2
   local response text
   response=$(curl -s https://api.openai.com/v1/chat/completions \
     -H "Authorization: Bearer ${OPENAI_API_KEY}" \
     -H 'Content-Type: application/json' \
-    -d "$(jq -n --arg text "$COMBINED_PROMPT" '{
+    -d "$(jq -n --arg text "$prompt" '{
       model: "gpt-4o-mini",
       messages: [{role: "user", content: $text}],
       temperature: 0.3
@@ -189,53 +295,67 @@ call_openai() {
   return 1
 }
 
-# ── Call providers in order ────────────────────────────────────────────────────
+# Strips code fences a provider might wrap the answer in, despite being told not to.
+strip_fences() {
+  echo "$1" | sed 's/^```[a-z]*$//' | sed 's/^```$//'
+}
 
-AI_OUTPUT=""
+# Ensures a blank line precedes ### headers and **[xx]** markers so markdown renders correctly.
+add_spacing() {
+  echo "$1" | awk 'NR>1 && /^(###|\*\*\[)/ && prev!="" {print ""} {print; prev=$0}'
+}
 
-if [ -n "${GEMINI_API_KEY:-}" ]; then
-  AI_OUTPUT=$(call_gemini) || true
-fi
+# Tries every configured provider in order for one prompt, running the given validators
+# (function names) against each candidate response before accepting it — a provider that
+# responds but fails validation is treated the same as one that didn't respond at all, and
+# the next provider in the cascade gets a turn.
+try_providers() {
+  local prompt="$1"
+  shift
+  local validators=("$@")
+  local candidate cleaned ok validator
 
-if [ -z "$AI_OUTPUT" ] && [ -n "${GROQ_API_KEY:-}" ]; then
-  AI_OUTPUT=$(call_groq) || true
-fi
+  for fn in call_gemini call_groq call_cloudflare call_openai; do
+    case "$fn" in
+      call_gemini)     [ -z "${GEMINI_API_KEY:-}" ] && continue ;;
+      call_groq)       [ -z "${GROQ_API_KEY:-}" ] && continue ;;
+      call_cloudflare) { [ -z "${CF_ACCOUNT_ID:-}" ] || [ -z "${CF_API_TOKEN:-}" ]; } && continue ;;
+      call_openai)     [ -z "${OPENAI_API_KEY:-}" ] && continue ;;
+    esac
 
-if [ -z "$AI_OUTPUT" ] && [ -n "${CF_ACCOUNT_ID:-}" ] && [ -n "${CF_API_TOKEN:-}" ]; then
-  AI_OUTPUT=$(call_cloudflare) || true
-fi
+    candidate=$("$fn" "$prompt") || continue
+    [ -z "$candidate" ] && continue
+    cleaned=$(strip_fences "$candidate")
 
-if [ -z "$AI_OUTPUT" ] && [ -n "${OPENAI_API_KEY:-}" ]; then
-  AI_OUTPUT=$(call_openai) || true
-fi
+    ok=true
+    for validator in "${validators[@]}"; do
+      if [ -n "$validator" ] && ! "$validator" "$cleaned"; then
+        ok=false
+        break
+      fi
+    done
 
-# ── Split output or use fallback ───────────────────────────────────────────────
+    if [ "$ok" = "true" ]; then
+      add_spacing "$cleaned"
+      return 0
+    fi
+    echo "$fn produced output but it failed validation — trying next provider" >&2
+  done
+  return 1
+}
 
-echo "=== Full AI output ===" >&2
-echo "$AI_OUTPUT" >&2
-echo "=== End AI output ===" >&2
+# ── Generate the two entries independently ──────────────────────────────────────
 
-# Normalize: strip code fences, collapse any ---*SPLIT*--- variant to ---SPLIT---
-AI_OUTPUT_CLEAN=$(echo "$AI_OUTPUT" \
-  | sed 's/^```[a-z]*$//' \
-  | sed 's/^```$//' \
-  | sed 's/^[[:space:]]*-\{3,\}SPLIT-\{3,\}[[:space:]]*$/---SPLIT---/' \
-  | sed 's/^[[:space:]]*---[[:space:]]*SPLIT[[:space:]]*---[[:space:]]*$/---SPLIT---/')
-
-if [ -n "$AI_OUTPUT_CLEAN" ] && echo "$AI_OUTPUT_CLEAN" | grep -q '^---SPLIT---$'; then
-  USER_ENTRY=$(echo "$AI_OUTPUT_CLEAN" | awk '/^---SPLIT---$/{exit} {print}')
-  TAG_ENTRY=$(echo "$AI_OUTPUT_CLEAN"  | awk 'found{print} /^---SPLIT---$/{found=1}')
-  # Ensure blank line before ### headers and **[xx]** markers so markdown renders correctly
-  USER_ENTRY=$(echo "$USER_ENTRY" | awk 'NR>1 && /^(###|\*\*\[)/ && prev!="" {print ""} {print; prev=$0}')
-  TAG_ENTRY=$(echo "$TAG_ENTRY"   | awk 'NR>1 && /^###/ && prev!="" {print ""} {print; prev=$0}')
+USER_ENTRY=""
+if USER_ENTRY=$(try_providers "$USER_PROMPT" validate_bilingual validate_no_fragments); then
+  echo "User entry: generated by AI, validated bilingual + unfragmented" >&2
 else
-  echo "WARNING: No AI output or ---SPLIT--- delimiter missing — using fallback" >&2
+  echo "WARNING: no provider produced a valid user entry — using static fallback" >&2
   ANDROID_BULLETS_PT=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_PT")
   ANDROID_BULLETS_EN=$(fmt_bullets "$ANDROID_DRAFT" "$NO_CHANGES_EN")
   FRONTEND_BULLETS_PT=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_PT")
   FRONTEND_BULLETS_EN=$(fmt_bullets "$FRONTEND_DRAFT" "$NO_CHANGES_EN")
-
-  USER_ENTRY="Melhorias internas nesta versao. / Internal improvements in this version.
+  USER_ENTRY="Melhorias internas nesta versão. / Internal improvements in this version.
 
 ### **Backend** - \`${KOTLIN_NEXT}\`
 
@@ -252,7 +372,13 @@ ${FRONTEND_BULLETS_PT}
 
 **[en]**
 ${FRONTEND_BULLETS_EN}"
+fi
 
+TAG_ENTRY=""
+if TAG_ENTRY=$(try_providers "$TAG_PROMPT" validate_no_fragments); then
+  echo "Tag entry: generated by AI, validated unfragmented" >&2
+else
+  echo "WARNING: no provider produced a valid tag entry — using static fallback" >&2
   TAG_ENTRY="### Kotlin - \`${KOTLIN_NEXT}\`
 
 $(fmt_bullets "$ANDROID_DRAFT" "No changes")
