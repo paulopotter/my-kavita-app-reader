@@ -1,0 +1,124 @@
+name: Generate Release Tag
+
+# Reusable job — computes next semver, bumps version files, formats CHANGELOG via AI, tags.
+# Called from two places:
+#   - main.yml, on a direct push to main (hotfix committed straight to main with [Unreleased]
+#     already filled in by hand)
+#   - pr.yml's update-changelog job, sequentially right after it commits the changelog for a
+#     merged PR — calling this directly (rather than relying on that commit's own push to
+#     re-trigger main.yml) avoids the race where main.yml's check-unreleased, triggered by the
+#     merge commit itself, can run and see an empty [Unreleased] *before* update-changelog has
+#     finished writing to it — and the run triggered by the bot's own subsequent push is always
+#     skipped by the `github.actor != 'github-actions[bot]'` guard, so that tag would otherwise
+#     never be generated.
+on:
+  workflow_call: {}
+
+jobs:
+  tag:
+    name: Generate Tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.CHANGELOG_TOKEN }}
+
+      - name: Compute next semver versions
+        id: semver
+        run: |
+          chmod +x scripts/ci/compute-semver-bumps.sh
+          bash scripts/ci/compute-semver-bumps.sh >> "$GITHUB_OUTPUT"
+
+      - name: Update version files
+        id: update_versions
+        run: |
+          KOTLIN_NEXT="${{ steps.semver.outputs.kotlin_next }}"
+          RN_NEXT="${{ steps.semver.outputs.rn_next }}"
+
+          # Update versionName in build.gradle.kts
+          sed -i "s/versionName = \".*\"/versionName = \"${KOTLIN_NEXT}\"/" android/app/build.gradle.kts
+
+          # Update version in package.json
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('frontend/package.json', 'utf8'));
+            pkg.version = '${RN_NEXT}';
+            fs.writeFileSync('frontend/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          echo "done=true" >> "$GITHUB_OUTPUT"
+
+      - name: Generate datetime tag
+        id: datetag
+        run: |
+          BASE=$(date -u '+%Y.%m.%d.%H%M')
+          echo "tag=$BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Generate AI entries for CHANGELOG and tag
+        env:
+          GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
+          CF_ACCOUNT_ID:   ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN:    ${{ secrets.CF_API_TOKEN }}
+          OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+          PR_TITLE: "Release ${{ steps.datetag.outputs.tag }}"
+          KOTLIN_CURRENT: ${{ steps.semver.outputs.kotlin_current }}
+          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
+          RN_CURRENT: ${{ steps.semver.outputs.rn_current }}
+          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
+          OUTPUT_USER: /tmp/user-entry.md
+          OUTPUT_TAG: /tmp/tag-entry.md
+        run: |
+          OUTPUT_ANDROID=/tmp/android-draft.txt OUTPUT_FRONTEND=/tmp/frontend-draft.txt \
+            python3 scripts/ci/extract-unreleased-content.py
+          ANDROID_DRAFT=$(cat /tmp/android-draft.txt)
+          FRONTEND_DRAFT=$(cat /tmp/frontend-draft.txt)
+          export ANDROID_DRAFT FRONTEND_DRAFT
+          chmod +x scripts/ci/gemini-format-changelog.sh
+          bash scripts/ci/gemini-format-changelog.sh
+          echo "=== tag-entry.md ===" && cat /tmp/tag-entry.md && echo "=== end ==="
+
+      - name: Update CHANGELOG — move Unreleased to versioned entry
+        id: changelog
+        env:
+          TAG: ${{ steps.datetag.outputs.tag }}
+          REPO: ${{ github.repository }}
+          USER_ENTRY_FILE: /tmp/user-entry.md
+          TAG_ENTRY_FILE: /tmp/tag-entry.md
+          TAG_MSG_FILE: /tmp/tag-msg.txt
+        run: python3 scripts/ci/move-unreleased-to-version.py
+
+      - name: Copy changelog and version info to docs
+        env:
+          TAG: ${{ steps.datetag.outputs.tag }}
+          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
+          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
+        run: |
+          mkdir -p docs/external
+          cp CHANGELOG.md docs/external/CHANGELOG.md
+          python3 scripts/ci/write-current-version.py
+
+      - name: Commit version bumps + changelog + docs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add \
+            android/app/build.gradle.kts \
+            frontend/package.json \
+            CHANGELOG.md \
+            docs/external/CHANGELOG.md \
+            docs/external/current-version.md \
+            docs/external/version.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: bump versoes e fecha changelog para ${{ steps.datetag.outputs.tag }}"
+          git push origin main
+
+      - name: Create annotated tag
+        run: |
+          TAG="${{ steps.datetag.outputs.tag }}"
+          git tag -a "$TAG" -F /tmp/tag-msg.txt
+          git push origin "$TAG"

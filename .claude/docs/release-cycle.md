@@ -102,13 +102,25 @@ Rules:
 
 ## RC builds (test builds before merge)
 
-On any open PR, post a comment with `/rc` to trigger a test APK build.
+Separate workflow (`rc-build.yml`), `issue_comment`-only — kept out of `pr.yml` so it never shows
+up as a "skipped" check on the pull_request event. No manual "Run workflow" button (unlike a
+GitLab-style pipeline): the only trigger is the `/rc` comment below.
+
+On any open PR, post a comment with exactly `/rc` to trigger a test APK build.
 Only the repository owner can trigger this.
 
 The pipeline:
-1. Stamps `-rcN` suffix on `versionName` (does NOT bump semver)
-2. Builds the APK
-3. Posts a comment on the PR with the download link
+1. Posts a "building" comment immediately (with a link to the run) — there's no other
+   in-progress notification, so this is the only signal until it finishes
+2. Runs `compute-semver-bumps.sh` against the PR branch to get the version this PR would
+   actually release as (honors any `Release-As:` override already on the branch) — not
+   whatever `versionName` happens to be sitting on disk
+3. Stamps `<target-version>-rc.pr<N>.<UTC-datetime>` on `versionName` (does NOT bump semver
+   for real, nor write it anywhere) — PR number + datetime keeps successive RCs, and RCs from
+   different PRs, from ever colliding
+4. Builds the APK
+5. Edits the same "building" comment in place with the result (success + download link, or
+   failure + link to logs)
 
 RC builds never create a tag or update the CHANGELOG.
 

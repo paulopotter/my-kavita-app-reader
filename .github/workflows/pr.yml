@@ -4,8 +4,6 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, closed]
-  issue_comment:
-    types: [created]
 
 jobs:
   # ─── Checks (open/update only) ──────────────────────────────────────────────
@@ -174,124 +172,9 @@ jobs:
       #   working-directory: frontend
       #   run: yarn bundle
 
-  # ─── RC build (triggered by /rc comment, maintainer only) ───────────────────
-
-  rc-build:
-    name: Build RC APK
-    if: |
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request != null &&
-      github.event.comment.body == '/rc' &&
-      github.event.comment.user.login == github.repository_owner
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Get PR branch
-        id: pr
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            });
-            core.setOutput('ref', pr.data.head.sha);
-            core.setOutput('branch', pr.data.head.ref);
-
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.pr.outputs.ref }}
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'yarn'
-          cache-dependency-path: frontend/yarn.lock
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
-
-      - name: Write local.properties
-        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
-
-      - name: Install JS dependencies
-        working-directory: frontend
-        run: yarn install --frozen-lockfile
-
-      - name: Create android/node_modules symlink
-        run: ln -s "$(pwd)/frontend/node_modules" android/node_modules
-
-      - name: Read versions
-        id: versions
-        run: |
-          KOTLIN_VER=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "0.0.0")
-          RN_VER=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "0.0.0")
-          echo "kotlin=$KOTLIN_VER" >> "$GITHUB_OUTPUT"
-          echo "rn=$RN_VER" >> "$GITHUB_OUTPUT"
-
-      - name: Stamp RC suffix on versionName
-        run: |
-          PR_NUM="${{ github.event.issue.number }}"
-          SHA="${{ steps.pr.outputs.ref }}"
-          SHORT_SHA="${SHA:0:7}"
-          sed -i "s/versionName = \".*\"/versionName = \"${{ steps.versions.outputs.kotlin }}-rc.pr${PR_NUM}.${SHORT_SHA}\"/" \
-            android/app/build.gradle.kts
-
-      # Placeholder: uncomment when build is stable in CI
-      # - name: Install JS dependencies
-      #   working-directory: frontend
-      #   run: yarn install --frozen-lockfile
-      #
-      # - name: Build JS bundle
-      #   working-directory: frontend
-      #   run: yarn react-native bundle --platform android --dev false \
-      #     --entry-file index.tsx \
-      #     --bundle-output ../android/app/src/main/assets/index.android.bundle
-      #
-      # - name: Build debug APK
-      #   working-directory: android
-      #   run: ./gradlew :app:assembleDebug
-
-      - name: Upload RC APK
-        id: upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: rc-pr${{ github.event.issue.number }}-${{ steps.pr.outputs.ref }}
-          # path: android/app/build/outputs/apk/debug/app-debug.apk
-          path: android/local.properties  # placeholder — troca pelo APK quando o build estiver ativo
-          retention-days: 7
-
-      - name: Comment on PR with artifact link
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const kotlinVer = '${{ steps.versions.outputs.kotlin }}';
-            const rnVer = '${{ steps.versions.outputs.rn }}';
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `### RC Build gerado ✅\n\n` +
-                    `| | Versão |\n|---|---|\n` +
-                    `| Kotlin | \`${kotlinVer}-rc\` |\n` +
-                    `| RN | \`${rnVer}\` |\n\n` +
-                    `Artefato disponível por 7 dias: [Ver no Actions](${runUrl})`
-            });
-
   # ─── Changelog on merge ──────────────────────────────────────────────────────
+  # RC builds live in rc-build.yml (issue_comment-only workflow) — keeping them out of this
+  # file means they never show up as a "skipped" check on the pull_request event.
 
   update-changelog:
     name: Update CHANGELOG on merge
@@ -302,6 +185,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
+    outputs:
+      has_content: ${{ steps.draft.outputs.has_content }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -320,6 +206,7 @@ jobs:
             | grep -v '^[[:space:]]*$' | grep -v '^<!--' | grep -v '^-->' | head -1)
           if [ -n "$UNRELEASED" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "has_content=true" >> "$GITHUB_OUTPUT"
             echo "CHANGELOG already has unreleased content, skipping"
             exit 0
           fi
@@ -327,10 +214,53 @@ jobs:
           # Extract android/ and frontend/ sections from PR body
           if python3 scripts/ci/extract-pr-changelog.py; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "has_content=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "has_content=false" >> "$GITHUB_OUTPUT"
             echo "No changelog content in PR body, skipping"
           fi
+
+      # Only meaningful when has_content=false — tells apart "nobody filled in the changelog"
+      # (needs a heads-up, PR touched android/ or frontend/ code) from "this PR was never meant
+      # to release" (nothing under android/ or frontend/ changed — same allowlist
+      # compute-semver-bumps.sh already uses to decide what counts toward a bump — so docs/CI/
+      # site/root-file-only PRs fall out of this naturally instead of needing their own
+      # denylist that has to be kept in sync with every new top-level folder).
+      - name: Check if PR touched release-relevant code
+        id: scope
+        if: steps.draft.outputs.has_content == 'false'
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD 2>/dev/null || echo "")
+          TOUCHES_RELEASE_CODE=false
+          while IFS= read -r f; do
+            case "$f" in
+              android/*|frontend/*) TOUCHES_RELEASE_CODE=true ;;
+            esac
+          done <<< "$FILES"
+          echo "touches_release_code=$TOUCHES_RELEASE_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Comment when no release will be generated
+        if: steps.draft.outputs.has_content == 'false'
+        uses: actions/github-script@v7
+        env:
+          TOUCHES_RELEASE_CODE: ${{ steps.scope.outputs.touches_release_code }}
+        with:
+          script: |
+            const touchesReleaseCode = process.env.TOUCHES_RELEASE_CODE === 'true';
+            const body = touchesReleaseCode
+              ? `⚠️ **Changelog vazio — nenhuma release será gerada.**\n\n` +
+                `Este PR mudou \`android/\` e/ou \`frontend/\`, mas nem o \`[Unreleased]\` do ` +
+                `CHANGELOG.md nem a seção "Changelog" do corpo do PR tinham conteúdo. Se essa ` +
+                `mudança deveria virar uma versão, edite o CHANGELOG.md manualmente (outro ` +
+                `commit/push), ou preencha as seções do template no próximo PR.`
+              : `ℹ️ **Sem release** — este PR não tocou \`android/\` nem \`frontend/\`, nenhuma tag será gerada (comportamento esperado).`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
 
       - name: Read component versions
         id: versions
@@ -380,3 +310,14 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "docs: atualiza changelog via PR #${PR_NUMBER}"
           git push origin main
+
+  # Runs sequentially right after update-changelog, whether it just wrote [Unreleased] or found
+  # it already filled in — either way main now has content to release. Calling this directly
+  # (rather than relying on update-changelog's own push to re-trigger main.yml) is what actually
+  # closes the race described in release-tag.yml's header comment.
+  tag:
+    name: Generate Tag
+    needs: update-changelog
+    if: needs.update-changelog.outputs.has_content == 'true'
+    uses: ./.github/workflows/release-tag.yml
+    secrets: inherit

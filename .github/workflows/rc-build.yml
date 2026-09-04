@@ -1,0 +1,160 @@
+name: RC Build
+
+# Separate workflow from pr.yml on purpose: this only ever fires on issue_comment, so it never
+# shows up as a check on the pull_request event (a job living in pr.yml with an issue_comment-only
+# condition still gets listed — and shown "skipped" — on every push/open, which is confusing).
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  rc-build:
+    name: Build RC APK
+    if: |
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/rc' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Get PR branch
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('ref', pr.data.head.sha);
+            core.setOutput('branch', pr.data.head.ref);
+
+      - name: Post "building" comment
+        id: building_comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### RC Build em andamento ⏳\n\n[Acompanhar no Actions](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            });
+            core.setOutput('comment_id', comment.data.id);
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      - name: Install JS dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Create android/node_modules symlink
+        run: ln -s "$(pwd)/frontend/node_modules" android/node_modules
+
+      # Computes what the release version WOULD BE if this PR merged now (same script
+      # main.yml uses on merge, including any Release-As: override) — so the RC number
+      # reflects the real target version instead of whatever versionName happens to be
+      # sitting on disk at PR time.
+      - name: Compute target release versions
+        id: semver
+        run: |
+          chmod +x scripts/ci/compute-semver-bumps.sh
+          bash scripts/ci/compute-semver-bumps.sh >> "$GITHUB_OUTPUT"
+
+      - name: Build RC suffix
+        id: rc_suffix
+        run: |
+          PR_NUM="${{ github.event.issue.number }}"
+          DATETIME=$(date -u '+%Y%m%d%H%M')
+          echo "suffix=pr${PR_NUM}.${DATETIME}" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp RC suffix on versionName
+        run: |
+          KOTLIN_NEXT="${{ steps.semver.outputs.kotlin_next }}"
+          SUFFIX="${{ steps.rc_suffix.outputs.suffix }}"
+          sed -i "s/versionName = \".*\"/versionName = \"${KOTLIN_NEXT}-rc.${SUFFIX}\"/" \
+            android/app/build.gradle.kts
+
+      # Placeholder: uncomment when build is stable in CI
+      # - name: Build JS bundle
+      #   working-directory: frontend
+      #   run: yarn react-native bundle --platform android --dev false \
+      #     --entry-file index.tsx \
+      #     --bundle-output ../android/app/src/main/assets/index.android.bundle
+      #
+      # - name: Build debug APK
+      #   working-directory: android
+      #   run: ./gradlew :app:assembleDebug
+
+      - name: Upload RC APK
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-pr${{ github.event.issue.number }}-${{ steps.rc_suffix.outputs.suffix }}
+          # path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/local.properties  # placeholder — troca pelo APK quando o build estiver ativo
+          retention-days: 7
+
+      - name: Update comment with result
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+          KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
+          RN_NEXT: ${{ steps.semver.outputs.rn_next }}
+          RC_SUFFIX: ${{ steps.rc_suffix.outputs.suffix }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const status = process.env.JOB_STATUS;
+            let body;
+            if (status === 'success') {
+              const kotlinVer = process.env.KOTLIN_NEXT;
+              const rnVer = process.env.RN_NEXT;
+              const rcSuffix = process.env.RC_SUFFIX;
+              const artifactId = process.env.ARTIFACT_ID;
+              const artifactUrl = artifactId
+                ? `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts/${artifactId}`
+                : runUrl;
+              body = `### RC Build gerado ✅\n\n` +
+                     `| | Versão |\n|---|---|\n` +
+                     `| Kotlin | \`${kotlinVer}-rc.${rcSuffix}\` |\n` +
+                     `| RN | \`${rnVer}\` |\n\n` +
+                     `Artefato disponível por 7 dias: [Baixar](${artifactUrl})`;
+            } else {
+              body = `### RC Build falhou ❌\n\n[Ver logs](${runUrl})`;
+            }
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: ${{ steps.building_comment.outputs.comment_id }},
+              body,
+            });
