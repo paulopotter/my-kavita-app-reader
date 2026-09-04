@@ -18,13 +18,16 @@ and `.claude/completions/`. Follow the structure exactly.
 
 ## Closing a finished plan (every task is `done`)
 
-1. Move the whole plan folder from `.claude/sessions/active/` to
+1. Invoke the `atualizar-changelog` skill — it cross-checks the
+   `<origin-tag>..HEAD` diff against the plan's work and updates
+   `CHANGELOG.md`'s `[Unreleased]` block. Show its diff to the user.
+2. Move the whole plan folder from `.claude/sessions/active/` to
    `.claude/completions/archive/` — never delete, never rewrite content.
-2. Update `.claude/sessions/INDEX.md` — remove from "In progress".
-3. Update `.claude/completions/archive/INDEX.md` — add with a one-line
+3. Update `.claude/sessions/INDEX.md` — remove from "In progress".
+4. Update `.claude/completions/archive/INDEX.md` — add with a one-line
    description.
-4. Fix any relative links inside moved files.
-5. Translate all documents to English when archiving.
+5. Fix any relative links inside moved files.
+6. Translate all documents to English when archiving.
 
 ## Per-task completion doc (task without a plan)
 
