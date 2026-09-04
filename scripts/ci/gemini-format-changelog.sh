@@ -110,7 +110,9 @@ EOF
 # ── Provider call functions ────────────────────────────────────────────────────
 
 call_gemini() {
-  local models=("gemini-2.0-flash-lite" "gemini-2.0-flash")
+  # gemini-2.0-flash-lite/gemini-2.0-flash were retired (404, "no longer available") —
+  # Google's own error response names the replacements to use.
+  local models=("gemini-3.5-flash-lite" "gemini-3.6-flash")
   local response text
   for model in "${models[@]}"; do
     echo "Trying Gemini model $model..." >&2
@@ -142,6 +144,10 @@ call_groq() {
       messages: [{role: "user", content: $text}],
       temperature: 0.3
     }')")
+  # Log the raw response BEFORE extraction — unlike a curl/network failure, an API error
+  # (bad model id, rate limit, invalid key) still returns 200 with an error body, so
+  # `.choices[0].message.content` silently resolves to empty with no clue why.
+  echo "Groq response (first 300 chars): $(echo "$response" | head -c 300)" >&2
   text=$(echo "$response" | jq -r '.choices[0].message.content // empty')
   echo "Groq extracted text (first 500 chars): $(echo "$text" | head -c 500)" >&2
   if [ -n "$text" ]; then echo "$text"; return 0; fi
