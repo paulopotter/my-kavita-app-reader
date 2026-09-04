@@ -20,7 +20,7 @@ jobs:
 
   # This only covers a commit landing on main OUTSIDE the PR flow (e.g. a hotfix pushed
   # directly with [Unreleased] already filled in by hand). A PR merge triggers the tag via
-  # pr.yml's update-changelog job calling release-tag.yml directly instead — see the comment
+  # pr-merge.yml's update-changelog job calling release-tag.yml directly instead — see the comment
   # there for why waiting on this push to fire is unreliable for that path.
   check-unreleased:
     name: Check for unreleased changelog content

@@ -14,7 +14,7 @@ promotion path to Room when a table stabilises.
 - Separate SQLite file for JS-owned tables (not AppDatabase)
 - `js_migration_history` internal table tracks schema changes
 - Schema validator: JS warns in dev if a generic query reinvents an existing repo
-- CI step: Room migration affecting JS-referenced columns requires a JS migration (placeholder in `pr.yml`)
+- CI step: Room migration affecting JS-referenced columns requires a JS migration (placeholder in `pr-code.yml`)
 - Promotion protocol: active → deprecated (Room copies data, JS freezes) → removed (after N opens)
 
 ## Dependencies

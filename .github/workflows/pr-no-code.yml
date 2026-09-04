@@ -1,0 +1,27 @@
+name: PR Checks (no-code)
+
+# Complements pr-code.yml, which only fires on android/frontend/OTA-file changes. This one
+# covers everything else (workflows, .claude/, docs/, site/, root *.md) so a PR touching only
+# those paths still gets a passing check — if branch protection ever requires status checks by
+# name, a docs-only PR that never triggers pr-code.yml (path-filtered) would otherwise be stuck
+# waiting on checks that can never run.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - 'android/**'
+      - 'frontend/**'
+      - 'policy-pending.json'
+      - 'latest.json'
+
+jobs:
+  validate-workflows:
+    name: Validate workflow files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint .github/workflows/*.yml

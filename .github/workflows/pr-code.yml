@@ -1,9 +1,14 @@
-name: PR Checks
+name: PR Checks (code)
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+    paths:
+      - 'android/**'
+      - 'frontend/**'
+      - 'policy-pending.json'
+      - 'latest.json'
 
 jobs:
   # ─── Checks (open/update only) ──────────────────────────────────────────────

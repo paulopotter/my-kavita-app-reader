@@ -102,9 +102,9 @@ Rules:
 
 ## RC builds (test builds before merge)
 
-Separate workflow (`rc-build.yml`), `issue_comment`-only — kept out of `pr.yml` so it never shows
-up as a "skipped" check on the pull_request event. No manual "Run workflow" button (unlike a
-GitLab-style pipeline): the only trigger is the `/rc` comment below.
+Separate workflow (`rc-build.yml`), `issue_comment`-only — kept out of `pr-code.yml` so it never
+shows up as a "skipped" check on the pull_request event. No manual "Run workflow" button (unlike
+a GitLab-style pipeline): the only trigger is the `/rc` comment below.
 
 On any open PR, post a comment with exactly `/rc` to trigger a test APK build.
 Only the repository owner can trigger this.
