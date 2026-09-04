@@ -11,7 +11,9 @@ jobs:
     name: CLA Check
     runs-on: ubuntu-latest
     steps:
-      - uses: contributor-assistant/github-action@v2
+      # Own fork of contributor-assistant/github-action (upstream archived 2026-03, floating
+      # `v2` tag no longer resolves). Pinned to the exact tag; v2.6.1 is the last upstream release.
+      - uses: paulopotter/CLA-Assistant-GitHub-Action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Personal access token with repo scope — add as repository secret
