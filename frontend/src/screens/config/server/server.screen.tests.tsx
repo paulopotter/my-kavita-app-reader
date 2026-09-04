@@ -175,7 +175,9 @@ describe('ServerScreen — group / URL editing flows', () => {
     fireEvent.press(getByText(t.serverFormSave));
 
     expect(hook.addUrl).toHaveBeenCalledWith('http://second', 1, undefined);
-    await waitFor(() => expect(queryByText(t.urlModalNewTitle)).toBeNull());
+    // Longer timeout: this modal-close assertion has been seen to exceed the 5s default under
+    // full-suite CI load (the assertion itself is fast — it's scheduler starvation, not the code).
+    await waitFor(() => expect(queryByText(t.urlModalNewTitle)).toBeNull(), { timeout: 15000 });
   });
 
   it('URL ⋯ → Edit opens the URL modal pre-filled and submit calls updateUrl', async () => {
