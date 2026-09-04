@@ -11,27 +11,20 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.UiThreadUtil
-import com.mymangareader.core.database.UiPreferencesDao
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 // Generic Android screen-control primitives — not reader-specific, reusable by any screen that
-// needs to keep the display awake (e.g. a future video/animation viewer). getKeepScreenOnDuringReading
-// lives here (not in ReaderChapterModule) because it's a generic UiPreferencesDao read, same
-// category as keepScreenOn/allowScreenOff — not chapter/page data.
+// needs to keep the display awake (e.g. a future video/animation viewer) or go fullscreen.
+// Side-effect-only: the reading preferences that drive these (keep-screen-on / immersive mode)
+// are read on the RN side now (ReaderPrefs → :preferences, Task 039); this module just applies
+// the WindowManager effect it's told to.
 @Singleton
 class ScreenControlModule @Inject constructor(
-    private val uiPreferencesDao: UiPreferencesDao,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
 
     override fun getName(): String = "ScreenControlModule"
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @ReactMethod
     fun keepScreenOn(promise: Promise) {
@@ -46,13 +39,6 @@ class ScreenControlModule @Inject constructor(
         UiThreadUtil.runOnUiThread {
             currentActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             promise.resolve(null)
-        }
-    }
-
-    @ReactMethod
-    fun getKeepScreenOnDuringReading(promise: Promise) {
-        scope.launch {
-            runCatching { uiPreferencesDao.getKeepScreenOnDuringReading() ?: true }.resolveOrReject(promise, "KEEP_SCREEN_ON_ERROR")
         }
     }
 
@@ -109,13 +95,6 @@ class ScreenControlModule @Inject constructor(
             // próximo evento natural, ex: rotação), tanto ao ligar quanto ao desligar.
             window.decorView.requestApplyInsets()
             promise.resolve(null)
-        }
-    }
-
-    @ReactMethod
-    fun getImmersiveModeDuringReading(promise: Promise) {
-        scope.launch {
-            runCatching { uiPreferencesDao.getImmersiveModeDuringReading() ?: false }.resolveOrReject(promise, "IMMERSIVE_MODE_ERROR")
         }
     }
 

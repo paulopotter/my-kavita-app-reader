@@ -10,7 +10,6 @@ import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
-import com.mymangareader.core.database.UiPreferencesDao
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
@@ -41,7 +40,6 @@ class AppReactPackage(
     private val followedSeriesDao: FollowedSeriesDao,
     private val serverConfigDao: ServerConfigDao,
     private val chapterCacheDao: ChapterCacheDao,
-    private val uiPreferencesDao: UiPreferencesDao,
     private val activeUrlWatcher: ActiveUrlWatcher,
     private val server: Server,
     private val externalMetadataServer: ExternalMetadataServer,
@@ -66,7 +64,7 @@ class AppReactPackage(
                 context,
             ),
             ReaderChapterModule(chapterDataSource, context),
-            ScreenControlModule(uiPreferencesDao, context),
+            ScreenControlModule(context),
             NetworkStatusModule(activeUrlWatcher, context),
             ServerBridgeModule(server, context),
             DigestBridgeModule(server, externalMetadataServer, cache, context),

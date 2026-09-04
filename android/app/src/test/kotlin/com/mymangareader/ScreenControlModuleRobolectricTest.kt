@@ -27,7 +27,7 @@ class ScreenControlModuleRobolectricTest {
     private fun makeModule(activity: Activity): ScreenControlModule {
         val context: ReactApplicationContext = mock()
         whenever(context.currentActivity).thenReturn(activity)
-        return ScreenControlModule(mock(), context)
+        return ScreenControlModule(context)
     }
 
     @Test
