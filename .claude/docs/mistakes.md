@@ -1,521 +1,160 @@
-# Common Mistakes — load when debugging or before implementing a new feature
+# Common Mistakes — load when debugging or before a new feature
 
-**CRITICAL — Read at session start**
+The invariants in `CLAUDE.md` § Code structure are also common mistakes — not repeated here
+(screen imports screen, dummy component imports a service, Kotlin tool screen-coupled, feature
+gated by an `if`, coupling direction reversed).
 
----
-
-## Top Mistakes
-
-### 1. Screen imports from another screen
-
-**Symptom**: `LibraryScreen` imports a component or hook directly from
-`ReaderScreen/`.
-
-**Rule**: screens are isolated. A component/function/hook used by a second
-screen must first move to `shared/` before either screen imports it.
-Never cross-link screens directly.
-
-**Fix**: move the shared artifact to the appropriate `shared/` subfolder,
-update both import sites, and proceed.
+Each entry: the symptom, then the rule. The `→ file` pointer is where the fix lives if you need
+the full context.
 
 ---
 
-### 2. Dummy component imports a service
-
-**Symptom**: a component under `screens/*/components/` or
-`shared/components/` calls a service, makes a network request, or reads
-from the bridge directly.
-
-**Rule**: dummy components only render data received via props. All
-orchestration lives in the hook. Components must be pure render functions.
-
-**Fix**: lift the service call into the hook, pass the resulting data as a
-prop.
-
----
-
-### 3. Kotlin tool coupled to a specific screen
-
-**Symptom**: a Kotlin Native Module is named after a screen
-(`LibraryModule`, `ReaderModule`) or contains screen-specific logic.
-
-**Rule**: Kotlin tools are always global and domain-agnostic. They expose
-primitives (`request`, `db.query`) or domain repos (`kavita.*`), never
-screen-specific operations.
-
-**Fix**: extract the screen-specific logic to the JS layer (hook/service).
-Rename the Kotlin module to a domain or primitive name.
-
----
-
-### 4. Feature gated by `if` instead of missing config
-
-**Symptom**: code contains `if (BuildConfig.IS_OPEN_SOURCE)`, `if (bffEnabled)`,
-or any boolean flag toggling a feature on/off.
-
-**Rule**: if a plugin isn't configured (e.g. `BFF_URL` is empty), the
-feature simply doesn't activate — no branch needed. The absence of config
-is the gate.
-
-**Fix**: check for the config value at initialisation time; if absent, skip
-registering the plugin. No runtime `if` elsewhere.
-
----
-
-### 5. "Wrong state" bug attacked by rewriting logic without logging first
-
-**Symptom**: the UI shows wrong data after a logic fix in the most obvious
-layer. The error is deterministic (always off by one, always the wrong item).
-
-**Rule**: before rewriting the same layer a second time, instrument the
-full chain from user action to rendered output with logs. Install and
-capture `adb logcat` — read the actual values before forming a new
-hypothesis.
-
-**Reference**: in the mymangar reader (plan 003), the "I click chapter X,
-it opens X-1" bug survived three ViewModel rewrites. One log capture
-revealed the data was always correct; the cause was the navigation stack
-(`popUpTo` missing in `AppNavHost`).
-
----
-
-### 6. Coupling direction reversed in Kotlin layers
-
-**Symptom**: `core/` imports from `tools/` or `features/`; `tools/`
-imports from `features/`.
-
-**Rule**: coupling is unidirectional — `core` ← `tools` ← `features`.
-`core` must know nothing about tools or features. `tools` must know nothing
-about features.
-
-**Fix**: extract the shared concept into `core/` and have both layers
-depend on it.
-
----
-
-### 7. Room migration written as destructive fallback
-
-**Symptom**: `fallbackToDestructiveMigration()` in the Room database builder,
-or a migration that DROPs and recreates a table.
-
-**Rule**: always write a real SQL migration. Data loss is never acceptable.
-Every Room migration must also be accompanied by a JS migration if any JS
-table references the affected Room columns.
-
-**Rule — always pair with a downgrade migration.** Every `Migration(N, N+1)`
-added to `AppDatabase.kt` must ship alongside a `Migration(N+1, N)` (both
-registered in `DatabaseModule.kt`'s `.addMigrations(...)`), even though the
-project has no current scenario that exercises a downgrade. `Room` has no
-automatic rollback — omitting the reverse migration means a downgrade
-(app rolled back, or a bug forces a Room open at an older expected version)
-falls through to a crash or silent data loss instead of a controlled path.
-Cover the downgrade with the same `MigrationTestHelper` pattern used for the
-forward migration (see `Migration_8_9_Test.kt`'s downgrade test for the
-reference shape).
-
----
-
-### 8. ProcessLifecycleMarker set in module `init {}` instead of on first navigation
-
-**Symptom**: splash is always skipped even after a force-stop, because
-`getRestoredRoute` returns a saved route instead of null.
-
-**Root cause**: `ProcessLifecycleMarker.isAlive = true` placed inside the
-Kotlin module's `init {}` block runs on every process creation — including
-fresh boots after force-stop. The OS kills the process on force-stop, but
-the new process immediately re-runs `init {}` before any navigation happens.
-
-**Rule**: "process is alive" means the app has actually navigated to a screen
-in *this* process lifetime. Set the marker only inside `notifyRouteChanged`,
-not in the module constructor.
-
-**Fix**: remove the assignment from `init {}` and move it to the first line
-of `notifyRouteChanged()`.
-
----
-
-### 9. Using `useState` instead of `useRef` to gate a `setTimeout` closure
-
-**Symptom**: a hard timeout (e.g. the 25s splash fallback) fires even though
-a dialog is open and navigation should be blocked.
-
-**Root cause**: `setTimeout` captures the value of a state variable at
-closure creation time. If the state is still `false` when the timeout is
-registered, the closure always sees `false` — state updates do not reach
-already-created closures.
-
-**Rule**: values that need to be readable inside long-lived closures (timers,
-event listeners) must be `useRef`, not `useState`. Use state only for values
-that drive re-renders.
-
-**Fix**: replace `const [blockedByPolicy, setBlockedByPolicy] = useState(false)`
-with `const blockedByPolicyRef = useRef(false)` and read
-`blockedByPolicyRef.current` inside the timeout callback.
-
----
-
-### 10. Sequential `await` instead of `Promise.all` for a minimum-duration guarantee
-
-**Symptom**: the splash closes immediately after sync finishes, even though a
-5-second minimum was intended. The timer is always 0 when sync takes longer
-than 5 s.
-
-**Root cause**: running `await runSync()` then `await waitForMinDuration()`
-means the timer only starts *after* sync ends. If sync took 7 s, the remaining
-time is already negative and the timer resolves instantly.
-
-**Rule**: to guarantee both "sync finished" and "at least N seconds have
-passed since start", run both in parallel with `Promise.all`. Pass the
-*start timestamp* to `waitForMinDuration`, not the time after sync.
-
-**Fix**:
-```typescript
-await Promise.all([
-  runSyncWithMilestones(cancelled),
-  waitForMinDuration(startMs),   // startMs captured before both start
-]);
-```
-
----
-
-### 11. Logic placed in the wrong domain layer
-
-**Symptom**: `LibraryTransform` formats series data; `SeriesModule` handles
-chapter operations; a screen-level transform duplicates logic from a shared
-domain.
-
-**Rule**: each domain only knows its own concern. Library calls Series to
-handle series data; Series calls Chapter to handle chapter data. Shared domain
-logic lives in `shared/transforms/<domain>.ts`, never inside a screen folder
-or a parent domain file.
-
-**Fix**: move the function to the correct domain transform. Update all import
-sites.
-
----
-
-### 12. New RN native module (with native code) installed but not linked into `:app`
-
-**Symptom**: `IllegalViewOperationException: No ViewManager found for class
-RNSVGPath` (or similar) crashes the app at runtime, even though the JS
-package resolves fine and the build compiles.
-
-**Root cause**: `android/app/build.gradle.kts` declares third-party RN
-native modules as explicit Gradle project dependencies — see the comment
-above them: `// Third-party RN modules (autolinking generates PackageList
-but doesn't inject deps in this layout)`. Gradle's `autolinkLibrariesFromCommand`
-(in `settings.gradle.kts`) only discovers the module and adds it as a
-buildable subproject; it does **not** wire it into `:app`'s dependency list
-in this repo's custom layout. `PackageList.java` gets generated correctly
-(so the module *looks* linked), but the native view manager class is never
-on `:app`'s classpath, so it's missing at runtime.
-
-**Rule**: after `yarn add`-ing any RN library with native Android code
-(anything under `<pkg>/android/`, not pure-JS), add
-`implementation(project(":<package-name>"))` to the `dependencies {}` block
-in `android/app/build.gradle.kts`, next to `react-native-screens` /
-`react-native-safe-area-context`. Then run
-`rm -rf android/build/generated/autolinking` before rebuilding, since that
-file caches the dependency list from before the install.
-
----
-
-### 13. OTA bundle version string alone can't detect staleness
-
-**Symptom**: after testing an OTA update (`make ota-none` or similar) and
-later doing a full native rebuild + deploy (`make build-all` + `make
-deploy`), the app keeps loading the old JS bundle indefinitely — even
-across a full reinstall. UI fixes that were clearly shipped in the new
-build never show up on device.
-
-**Root cause**: `OtaStore.bundleFile` lives in app-private storage
-(`filesDir/ota/bundle.js`), which survives reinstalls untouched.
-`MainApplication.getJSBundleFile()` always prefers that file over the
-bundle packaged inside the APK if it exists, with no check for staleness.
-Comparing bundle *version strings* to decide staleness doesn't work either:
-a test OTA version like `"0.6.0-ota-test-none"` and a clean rebuild's
-`"0.6.0"` compare equal under semver (the suffix is ignored), so the app
-keeps serving the stale test bundle forever.
-
-**Rule**: staleness must be detected by **build time**, not version
-string. `make build-bundle` writes `android/app/bundle-build-time.txt`
-right after generating the JS bundle; `android/app/build.gradle.kts`
-reads it into `BuildConfig.EMBEDDED_BUNDLE_BUILD_TIME_MS`. The OTA
-manifest (`latest.json`) carries the same kind of timestamp as
-`bundleBuildTimeMs`, saved into `OtaState.bundleBuildTimeMs` on every
-download. `OtaManager.discardStaleBundleIfNeeded()` (called from
-`MainApplication.onCreate()`, before the bundle is resolved) compares the
-two timestamps and wipes the OTA bundle if the embedded one is newer —
-regardless of how the version strings compare.
-
----
-
-### 14. Screen state doesn't reflect a change made from another screen
-
-**Symptom**: toggling state in one screen (e.g. favoriting a series in
-`SeriesDetailScreen`) doesn't show up in another screen that's still
-mounted in the navigation stack (e.g. the star in `LibraryScreen` stays
-unfilled, or an item doesn't appear/disappear from a filtered list like
-`FollowingScreen`) — until a manual pull-to-refresh.
-
-**Root cause, two variants seen in this codebase**:
-1. **Missing initial fetch**: a screen initializes state to a default
-   (`isFollowed: false`) and only updates it by listening to a native
-   event (`SeriesFollowedEmitter`). If that event was already emitted
-   before this screen's listener subscribed (the normal case — the
-   `NativeModule`'s `init {}` runs once at app boot, long before the user
-   navigates here), the listener never receives the current value. Fix:
-   fetch the current state explicitly (e.g. a dedicated
-   `isSeriesFollowed(seriesId)` bridge call) in the same
-   `Promise.all` as the rest of the initial load — the event listener is
-   still useful for *live* updates while the screen stays mounted, but it
-   can't be the only source of truth for the initial value.
-2. **Filter applied once at fetch time, not reactively**: a screen filters
-   a list (e.g. `FollowingScreen`'s `filter: s => s.isFollowed`) inside the
-   `refresh()`/fetch callback, then stores only the filtered result in
-   state. Once stored, an item that becomes newly matching (just followed)
-   never enters the list, and one that stops matching (just unfollowed)
-   never leaves it — because nothing re-evaluates the filter after the
-   fetch. Fix: keep the *unfiltered* list in state, and apply the filter
-   on every render (e.g. `useMemo(() => data.filter(filter), [data,
-   filter])`) so it reacts to any state change, not just a refetch.
-
-Screens that stay alive in the navigation stack (React Navigation doesn't
-remount on back) are exactly where this bites — always ask "what happens
-if this state changes while I'm not focused" for anything shared across
-screens.
-
-**Fix**: `implementation(project(":react-native-svg"))` added to
-`android/app/build.gradle.kts`.
-
----
-
-### 15. Scroll-position math anchored to the wrong zero point
-
-**Symptom**: a reader progress bar or chapter-switch trigger fires early,
-late, or reads a value from the wrong chapter — deterministic, but the
-error scales with how far the user has scrolled into a long list.
-
-**Root cause**: every `compute*` function that turns
-`firstVisibleItemIndex`/`firstVisibleItemScrollOffset` into a pixel
-position (`ReaderPageList.kt`'s `computeVisiblePageAndFraction`,
-`computeBottomVisiblePageIndex`, `computeChapterFraction`,
-`computeChapterSwitchTarget`) must treat **the top of
-`firstVisibleItemIndex` as pixel zero**, never sum from item 0 or from a
-fixed landmark like the chapter's header. A tempting-looking earlier
-version seeded a running total with `firstVisibleItemScrollOffset` itself
-as the base (double-counting it once as the base and again via the
-comparison line), which made a page hundreds of pixels from a boundary
-read as already past it. The same class of bug: using the *previous*
-chapter's header as a reference point stops working the moment a user
-scrolls backward into a chapter's last pages without ever having
-physically passed its earlier pages — those items were never measured,
-so anything anchored to them silently breaks.
-
-**Rule**: before touching scroll-math code, write out on paper what pixel
-position is "zero" for this specific computation, and confirm every
-summed term is relative to that same zero — never relative to an item
-that might not have been measured yet.
-
-**Reference**: fixed on-device via `reader-log-v53.txt`
-(`computeChapterSwitchTarget`) after a chapter switch fired mid-chapter,
-nowhere near either boundary.
-
----
-
-### 16. Single shared "last known good value" leaking across independent entities
-
-**Symptom**: a payload sent to RN has fields that individually look
-plausible but describe two different chapters at once — e.g. `chapterId`
-from chapter 39 alongside a `pageIndex`/`fraction` still holding chapter
-40's last computed value.
-
-**Root cause**: a fallback variable (`var lastGoodValue`) shared across
-all entities being tracked, instead of keyed per entity
-(`Map<EntityId, Value>`). When the "real" computation fails for one tick
-(a landmark isn't measured yet), falling back to the single shared
-variable can return a value that was actually computed for a *different*
-entity on a previous tick — two independently-failing/succeeding signals
-get stitched into one inconsistent payload.
-
-**Rule**: any "last known good" fallback for a value that's naturally
-scoped per-entity (per chapter, per page, per session) must be keyed by
-that entity's id, never a single shared variable — even if it "usually"
-tracks the same entity across ticks.
-
-**Fix reference**: `ReaderPageList.kt`'s `lastChapterFractionByChapterId:
-HashMap<String, Float>` replacing a single `var lastChapterFraction`.
-
----
-
-### 17. Generic helper's default parameter silently passes `kotlin.Unit` across a native bridge
-
-**Symptom**: the app crashes with `RuntimeException: Cannot convert
-argument of type class kotlin.Unit` from `Arguments.fromJavaArgs`, deep in
-a coroutine worker thread — no compile error, no test failure, only
-visible on-device.
-
-**Root cause**: a shared helper extracted to remove repeated
-`result.onSuccess{ promise.resolve(x) }.onFailure{ promise.reject(...) }`
-boilerplate (`resolveOrReject(promise, errorCode, transform: (T) -> Any?
-= { it })`) used an identity default for `transform`. For every call site
-built on `Result<Unit>` (the common "fire an action, then
-`promise.resolve(null)`" shape — most `@ReactMethod`s that don't return a
-value), the identity default returned the `kotlin.Unit` object itself,
-not `null`. React Native's bridge (`Arguments.fromJavaArgs`) has no
-conversion for `Unit` and crashes immediately the first time any such
-method runs. Every hand-written `onSuccess { promise.resolve(null) }`
-this helper replaced had gotten the `null` right explicitly — the
-extraction lost that behavior silently because `Result<Unit>` type-checks
-fine with an identity transform.
-
-**Rule**: when writing a generic default for a transform/mapper over a
-`Result<T>`/`Promise` boundary, `Unit` is not equivalent to `null` on the
-other side of that boundary — map it explicitly. More generally: JVM-only
-unit tests that only assert "the promise resolved without rejecting"
-don't catch this class of bug — assert the *actual value* passed to
-`resolve()`, not just that it was called.
-
-**Fix**: `transform: (T) -> Any? = { if (it == Unit) null else it }` in
-`ReactBridgeSupport.kt`. Caught by `ReactBridgeSupportTest`'s explicit
-`assertNull(promise.resolvedValue)` assertion (not just "no rejection").
-
----
-
-### 18. Compose `LazyColumn` won't reliably jump when its data changes and an old item survives
-
-**Symptom**: `listState.scrollToItem(targetIndex)` (or, after switching to
-`RecyclerView`, `LinearLayoutManager.scrollToPositionWithOffset`) is
-called, the app even reports it consumed the request, but the list does
-not move to the target — it stays anchored on wherever it was, or jumps
-and then snaps back. Deterministic once the new item list shares any item
-with the old one; fine on a fully-fresh list.
-
-**Root cause**: when RN hands the native list a new `blocks`/`items`
-collection where some entries survive from the previous one (same keys),
-the list keeps its scroll anchored to a surviving item. A programmatic
-`scrollToItem` fights that anchor and loses — silently. Proven across 9
-device builds in the reader rewrite (rc34–rc41), for both `LazyColumn`
-and a `RecyclerView` spike.
-
-**Rule**: to force a native list to a specific position when its data is
-also changing, **remount the whole native view** instead of scrolling it.
-On the RN side, bump a counter in state on the reload (`nativeListKey`)
-and pass it as the `key` of the native component — React unmounts the old
-view and mounts a fresh one, so the list is created directly at the
-target with no inherited scroll state to fight. Only for a genuine
-"navigate to a different place" (a chapter switch); a natural in-place
-scroll must NOT bump the key (it would jank mid-scroll).
-
-**Reference**: `screens/reader/reader.screen.tsx` `key={reader.nativeListKey}`,
-bumped only in the `WINDOW_READY` reducer case; `architecture.md`
-§ "Chapter-switch contract".
-
----
-
-### 19. Two mechanisms writing the same navigation state with no coordination
-
-**Symptom**: pressing "next chapter" once advances two chapters (real
-log: chapter 26 → 28). Intermittent, timing-dependent, "fixed" repeatedly
-by adding settle timers that only lower the odds.
-
-**Root cause**: two independent flows both mutate the same field — a
-native continuous-scroll report and a manual arrow — via async
-read-modify-write with no lock. When they run close together, the second
-write clobbers the first with a value captured before the first landed.
-Settle timers ("ignore scroll reports for 1200ms after an arrow") only
-shrink the race window; a slow network or fast taps still hit it.
-
-**Rule**: a piece of navigation state must have exactly one write path. If
-several triggers can move it (scroll, arrow, jump), they all dispatch a
-*description of the intent* and a single owner (a reducer) computes the
-new state synchronously against its own current value — never each
-trigger doing its own async fetch-then-write on a shared ref. Model the
-state as a position + index ("ruler + pointer"), not named mutable slots
-two writers can grab.
-
-**Reference**: `screens/reader/hooks/reader.reducer.ts` owns the
-`ReaderWindow`; `moveFocus(trigger)` only dispatches. `architecture.md`
-§ "Chapter-switch contract".
-
----
-
-### 20. Looping a single-item endpoint instead of using the batch one
-
-**Symptom**: "mark all selected as read" marks one chapter and the rest
-silently un-mark themselves a moment later. Looks like an optimistic-mark
-bug.
-
-**Root cause**: the batch action did
-`selectedIds.forEach(id => markRead({ chapterId: id }))` — N parallel
-POSTs to a per-item endpoint. The server can't take N at once, some
-requests fail, and the optimistic-mark helper's own error path reverts
-exactly the failed ones. The provider had a real batch endpoint
-(`/api/Reader/mark-multiple-read`, one request for N ids) and the bridge
-already exposed it (`ServerBridge.setChaptersRead`) — it just wasn't
-wired past the Service layer.
-
-**Rule**: before looping a mutation over a collection, check whether the
-provider/bridge has a batch form. If it does, wire a `setMany`/`markMany`
-that does one request and applies the optimistic/confirm/revert cycle to
-every id in the set (revert falls back per-id via a `prevStatusById`
-map). N parallel writes to one host is a load problem waiting to surface
-as a "flaky UI" bug report.
-
-**Reference**: `ChapterTool.mark.readMany`/`unreadMany` +
-`ChapterService.status.setMany`; `serie.hooks.ts` `markSelectedRead`.
-
----
-
-### 21. "Read" threshold as a scroll fraction never reaches 1.0 on a tall last page
-
-**Symptom**: the series' last chapter (or any chapter whose last page is
-much taller than the viewport) never auto-marks as read even after the
-user scrolls to the visible end.
-
-**Root cause**: the progress fraction measures the viewport's *bottom
-edge* against the chapter's total pixel height. The final ~1 viewport of
-content can never be scrolled past the bottom edge (there is nothing
-below it to scroll into), so on a webtoon whose last page is ~19,000px
-tall, the fraction climbs past 0.98 only in the last few hundred px — the
-user reaches the visible end, stops, and the fraction sits at ~0.95–0.97.
-
-**Rule**: a "practically finished" threshold driven by a scroll fraction
-that structurally can't reach 1.0 must leave headroom for that last
-viewport — pick the cutoff against what the fraction actually maxes out
-at in the field (0.95 here), not the arithmetic ideal (0.98). Confirmed
-by device logs before changing the constant: when the fraction does cross
-the threshold, the mark flow works 100% — the bug was purely the
-constant.
-
-**Reference**: `READ_THRESHOLD_FRACTION = 0.95` in
-`screens/reader/reader.model.ts` (was 0.98; was in the now-deleted
-`screens/reader/transforms/reader.transform.ts` before Task 037).
-
----
-
-### 22. Screen re-sorts a list one frame after first paint (async preference)
-
-**Symptom**: opening a series briefly shows the chapter list in the wrong
-order, then it visibly re-sorts (e.g. ascending → descending).
-
-**Root cause**: the sort mode is a `useState` seeded with a default
-(`ASCENDING`). The series data loads cache-first and fast, so the first
-paint uses the default. A *separate* effect reads the saved per-series
-sort preference asynchronously (native bridge, no sync path) and
-`setSortMode`s it — the memoized sorted list then re-runs one frame
-later.
-
-**Rule**: when a list's order (or any layout-affecting derived state)
-depends on an async-loaded preference, either gate the list render on a
-`prefsLoaded` flag (the loading spinner already covers it), or seed the
-`useState` from a synchronously-readable value. Don't let the first paint
-use a default the async read is about to overturn.
-
-**Reference**: `serie.hooks.ts` — `sortMode` default vs.
-`ChaptersTool.sort.get`. Not reproducible in practice per the user (the
-loading gate usually holds); fix deferred as optional. Task 029 file.
-
----
-
-**Last Updated**: 2026-09-01
+### 1. "Wrong state" bug rewritten without logging first
+A deterministic UI-data bug (always off by one, always the wrong item) survives repeated fixes
+in the most obvious layer.
+**Rule**: before rewriting the same layer twice, instrument the full chain user-action →
+rendered output and read the real values (`adb logcat`) before forming a new hypothesis. (Plan
+003: "click X, opens X-1" survived 3 ViewModel rewrites — the data was always right, the cause
+was a missing `popUpTo` in navigation.)
+
+### 2. Room migration as a destructive fallback
+`fallbackToDestructiveMigration()`, or a migration that DROPs + recreates a table with data.
+**Rule**: write a real SQL migration — data loss is never acceptable. Every `Migration(N, N+1)`
+ships with its `Migration(N+1, N)` reverse (both registered in `DatabaseModule.kt`), covered by
+the same `MigrationTestHelper` pattern. If a JS table references the affected Room columns, a JS
+migration ships too. → `android/core/.../database/migrations/`
+
+### 3. Lifecycle marker set in module `init {}` instead of on first navigation
+Splash always skipped even after a force-stop, because a "process is alive" flag was set in the
+Kotlin module's `init {}` — which re-runs on every fresh process before any navigation.
+**Rule**: "process is alive" = the app actually navigated to a screen in *this* process
+lifetime. Set such a marker inside `notifyRouteChanged`, never in a constructor / `init {}`.
+
+### 4. `useState` instead of `useRef` to gate a `setTimeout` closure
+A hard timeout fires even though state should have blocked it — `setTimeout` captured the state
+value at closure-creation time and never sees the update.
+**Rule**: values read inside long-lived closures (timers, listeners) must be `useRef`. Use
+state only for values that drive re-renders.
+
+### 5. Sequential `await` instead of `Promise.all` for a minimum-duration guarantee
+A "close after sync **and** ≥ N seconds" timer resolves instantly when sync took longer than N —
+`await runSync()` then `await waitForMin()` only starts the timer *after* sync.
+**Rule**: run both in parallel with `Promise.all`, and pass the *start timestamp* to the
+min-duration wait, not the time after sync finished.
+
+### 6. New RN native module installed but not linked into `:app`
+`No ViewManager found for class RNSVGPath` (or similar) at runtime — JS resolves, build
+compiles, but the native class isn't on `:app`'s classpath. This repo's autolinking discovers
+the module but doesn't wire it into `:app`.
+**Rule**: after `yarn add`-ing any RN lib with native Android code, add
+`implementation(project(":<package-name>"))` to `android/app/build.gradle.kts` (next to
+`react-native-screens`), then `rm -rf android/build/generated/autolinking` before rebuilding.
+
+### 7. OTA staleness detected by version string instead of build time
+After an OTA test then a full rebuild+deploy, the app keeps loading the old JS bundle across
+reinstalls — the OTA bundle in app-private storage survives, and semver compares
+`"0.6.0-ota-test"` == `"0.6.0"` so a version check never flags it stale.
+**Rule**: staleness is a **build-time** comparison, never a version string.
+`make build-bundle` writes `bundle-build-time.txt` → `BuildConfig.EMBEDDED_BUNDLE_BUILD_TIME_MS`;
+`OtaManager.discardStaleBundleIfNeeded()` (on `MainApplication.onCreate`) wipes the OTA bundle if
+the embedded one is newer. → `mistakes.md` predecessor of the OTA design in `architecture.md`
+
+### 8. Screen state doesn't reflect a change made from another screen
+Toggling state in screen A (favoriting a series) doesn't show in screen B still mounted in the
+nav stack, until a manual pull-to-refresh. Two variants seen:
+1. **Missing initial fetch** — B seeds state to a default and only updates via a native event
+   that already fired before B's listener subscribed. Fix: fetch the current value explicitly in
+   the same `Promise.all` as the rest of the initial load; keep the listener for *live* updates.
+2. **Filter applied once at fetch time** — B stores only the filtered result, so a
+   newly-matching item never enters and a no-longer-matching one never leaves. Fix: keep the
+   *unfiltered* list in state, apply the filter in a `useMemo` on every render.
+
+**Rule**: for anything shared across screens, always ask "what if this changes while I'm not
+focused" — React Navigation doesn't remount on back. (RN→RN cross-screen updates now go through
+the `EventBus` — `ChapterEvents.readStatusChanged`.)
+
+### 9. Scroll-position math anchored to the wrong zero point
+A reader progress bar / chapter-switch trigger fires early or late, and the error scales with
+how far the user scrolled. A `compute*` seeded its running total with
+`firstVisibleItemScrollOffset` as the base (double-counting it), or anchored to an item that was
+never measured (the previous chapter's header, after scrolling backward into a chapter's last
+pages).
+**Rule**: before touching scroll-math, write down what pixel position is "zero" for *this*
+computation, and confirm every summed term is relative to that same zero — never to an item that
+might not have been measured yet. → `ReaderPageList.kt` `compute*`
+
+### 10. Single shared "last known good value" leaking across independent entities
+A payload has fields that individually look plausible but describe two entities at once
+(`chapterId` from ch. 39 alongside a `fraction` still holding ch. 40's value). A fallback
+`var lastGoodValue` shared across all tracked entities instead of keyed per entity.
+**Rule**: any "last known good" fallback for a value naturally scoped per-entity (per chapter /
+page / session) must be keyed by that entity's id, never a single shared variable. →
+`ReaderPageList.kt` `lastChapterFractionByChapterId: HashMap<String, Float>`
+
+### 11. Generic helper's default silently passes `kotlin.Unit` across the bridge
+`RuntimeException: Cannot convert argument of type class kotlin.Unit` deep in a coroutine
+worker, only on-device. A `resolveOrReject(promise, code, transform = { it })` identity default,
+used on every `Result<Unit>` call site, returned the `Unit` object instead of `null`; RN's
+bridge has no conversion for `Unit`.
+**Rule**: across a `Result<T>` / `Promise` boundary, `Unit` is not `null` — map it explicitly
+(`{ if (it == Unit) null else it }`). JVM tests that only assert "resolved without rejecting"
+miss this — assert the *actual value* passed to `resolve()`. → `ReactBridgeSupport.kt`
+
+### 12. Compose `LazyColumn` won't reliably jump when its data changes and an old item survives
+`scrollToItem` / `scrollToPositionWithOffset` is reported consumed but the list stays anchored
+(or jumps then snaps back). Deterministic once the new item list shares any key with the old —
+the list keeps its anchor on a surviving item and a programmatic scroll loses to it. Proven
+across 9 device builds.
+**Rule**: to force a native list to a position while its data is also changing, **remount the
+whole native view** — bump a counter in state on the reload and pass it as the `key` of the
+native component. Only for a genuine "navigate elsewhere" (chapter switch); a natural in-place
+scroll must NOT bump the key. → `reader.screen.tsx` `key={reader.nativeListKey}`;
+`architecture.md` § Chapter-switch contract
+
+### 13. Two mechanisms writing the same navigation state with no coordination
+Pressing "next chapter" once advances two chapters (26 → 28). Intermittent, timing-dependent,
+"fixed" repeatedly by settle timers that only lower the odds. Two independent flows (native
+scroll report + manual arrow) do async read-modify-write on the same field with no lock.
+**Rule**: a piece of navigation state has exactly one write path. Every trigger dispatches a
+*description of intent*; one owner (a reducer) computes the new state synchronously against its
+own current value. Model it as position + index ("ruler + pointer"), not named mutable slots. →
+`reader.reducer.ts` owns `ReaderWindow`; `architecture.md` § Chapter-switch contract
+
+### 14. Looping a single-item endpoint instead of the batch one
+"Mark all selected as read" marks one and the rest un-mark themselves a moment later. The batch
+action did `selectedIds.forEach(id => markRead({id}))` — N parallel POSTs; some fail; the
+optimistic-mark error path reverts exactly the failed ones. A real batch endpoint existed and
+the bridge already exposed it.
+**Rule**: before looping a mutation over a collection, check for a batch form. Wire a
+`setMany`/`markMany` that does one request and applies optimistic/confirm/revert to every id
+(revert per-id via a `prevStatusById` map). → `ChapterTool.mark.readMany` +
+`ChapterService.status.setMany`
+
+### 15. Test suite slow because of a negative `waitFor` assertion
+A suite mysteriously takes ~20s and flakes on CI under load. A test ends with
+`await waitFor(() => expect(queryByText(x)).toBeNull())` — a **negative** assertion never lets
+`waitFor` settle early, so it spins its full retry budget (~1s) running a full `act()`
+re-render every 50ms.
+**Rule**: to assert something is *gone* after an async action, do the action inside
+`await act(async () => { … })` (flushes the awaited work + the closing `setState`) and then
+assert synchronously — or use `waitForElementToBeRemoved`. Never `waitFor(... toBeNull())`. →
+`server.screen.tests.tsx`
+
+### 16. "Read" threshold as a scroll fraction never reaches 1.0 on a tall last page
+A chapter whose last page is much taller than the viewport never auto-marks as read even at the
+visible end — the final ~1 viewport can't be scrolled past the bottom edge, so the fraction
+maxes out around 0.95–0.97 on a ~19,000px page.
+**Rule**: a "practically finished" threshold on a scroll fraction that structurally can't reach
+1.0 must leave headroom for that last viewport — pick the cutoff from what the fraction actually
+maxes at in the field (0.95), not the arithmetic ideal (0.98). →
+`READ_THRESHOLD_FRACTION` in `reader.model.ts`
+
+### 17. Screen re-sorts a list one frame after first paint (async preference)
+Opening a series briefly shows the chapter list in the wrong order, then it visibly re-sorts.
+The sort mode is a `useState` seeded with a default; the data loads cache-first and fast, so the
+first paint uses the default; a separate effect reads the saved preference async and
+`setSortMode`s it a frame later.
+**Rule**: when a list's order depends on an async-loaded preference, gate the list render on a
+`prefsLoaded` flag (the loading spinner already covers it) or seed the `useState` from a
+synchronously-readable value. Don't let the first paint use a default the async read will
+overturn. → `serie.hooks.ts` (fix deferred as optional — the loading gate usually holds)
