@@ -160,52 +160,6 @@ class ConfigRepository @Inject constructor(
         }
     }
 
-    // ── UI preferences ─────────────────────────────────────────────────────────
-
-    @ReactMethod
-    fun getUiPreferences(promise: Promise) {
-        scope.launch {
-            runCatching {
-                val prefs = store.getUiPreferences()
-                Arguments.createMap().apply {
-                    putBoolean("keepScreenOnDuringReading", prefs.keepScreenOnDuringReading)
-                    putBoolean("immersiveModeDuringReading", prefs.immersiveModeDuringReading)
-                    putString("chapterSortMode", prefs.chapterSortMode)
-                    prefs.chapterSortFixedThreshold?.let { putDouble("chapterSortFixedThreshold", it) }
-                    putInt("chapterSortProgressPercent", prefs.chapterSortProgressPercent)
-                    putString("libraryViewMode", prefs.libraryViewMode)
-                    putString("librarySortMode", prefs.librarySortMode)
-                }.also { promise.resolve(it) }
-            }.onFailure { promise.reject("DB_ERROR", it.message, it) }
-        }
-    }
-
-    @ReactMethod
-    fun upsertUiPreferences(data: ReadableMap, promise: Promise) {
-        scope.launch {
-            runCatching {
-                // The UI language is not a stored preference — it lives in the OS per-app locale
-                // (see setAppLocale). A "language" key here is ignored.
-                store.upsertUiPreferences {
-                    copy(
-                        keepScreenOnDuringReading = if (data.hasKey("keepScreenOnDuringReading"))
-                            data.getBoolean("keepScreenOnDuringReading") else keepScreenOnDuringReading,
-                        immersiveModeDuringReading = if (data.hasKey("immersiveModeDuringReading"))
-                            data.getBoolean("immersiveModeDuringReading") else immersiveModeDuringReading,
-                        chapterSortMode = data.getString("chapterSortMode") ?: chapterSortMode,
-                        chapterSortFixedThreshold = if (data.hasKey("chapterSortFixedThreshold"))
-                            data.getDouble("chapterSortFixedThreshold") else chapterSortFixedThreshold,
-                        chapterSortProgressPercent = if (data.hasKey("chapterSortProgressPercent"))
-                            data.getInt("chapterSortProgressPercent") else chapterSortProgressPercent,
-                        libraryViewMode = data.getString("libraryViewMode") ?: libraryViewMode,
-                        librarySortMode = data.getString("librarySortMode") ?: librarySortMode,
-                    )
-                }
-                promise.resolve(null)
-            }.onFailure { promise.reject("DB_ERROR", it.message, it) }
-        }
-    }
-
     // ── BFF server config ──────────────────────────────────────────────────────
 
     @ReactMethod

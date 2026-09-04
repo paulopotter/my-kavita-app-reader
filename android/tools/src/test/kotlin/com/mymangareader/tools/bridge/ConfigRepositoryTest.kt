@@ -13,7 +13,7 @@ import org.mockito.kotlin.whenever
 class ConfigRepositoryTest {
 
     private fun makeStore(): ConfigStore =
-        ConfigStore(FakeServerConfigDao(), FakeAuthConfigDao(), FakeUiPreferencesDao(), FakeBffServerConfigDao())
+        ConfigStore(FakeServerConfigDao(), FakeAuthConfigDao(), FakeBffServerConfigDao())
 
     private fun makeModule(store: ConfigStore = makeStore()): ConfigRepository {
         val context = mock<ReactApplicationContext>()
@@ -33,12 +33,11 @@ class ConfigRepositoryTest {
         assertEquals("ConfigRepository", makeModule().name)
     }
 
-    // getUiPreferences/getServerConfigs/getAuthConfig usam Arguments.createMap()/createArray()
+    // getServerConfigs/getAuthConfig usam Arguments.createMap()/createArray()
     // (com.facebook.react.bridge), que exigem a lib nativa reactnativejni — indisponível mesmo sob
     // Robolectric (Arguments não tem um shadow do RN; mesma limitação documentada em
-    // ReaderChapterModuleTest.kt). Cobertos indiretamente pelos testes de upsertUiPreferences em
-    // ConfigRepositoryRobolectricTest, que não passam por Arguments, e por smoke test manual em
-    // dispositivo físico.
+    // ReaderChapterModuleTest.kt). Cobertos por ConfigRepositoryRobolectricTest e por smoke test
+    // manual em dispositivo físico.
 
     @Test
     fun `getAuthConfig resolve nulo quando nao ha auth salva`() = runTest {

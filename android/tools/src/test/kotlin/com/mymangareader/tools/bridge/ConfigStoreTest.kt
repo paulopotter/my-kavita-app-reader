@@ -6,8 +6,6 @@ import com.mymangareader.core.database.BffServerConfigDao
 import com.mymangareader.core.database.BffServerConfigEntity
 import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.core.database.ServerConfigEntity
-import com.mymangareader.core.database.UiPreferencesDao
-import com.mymangareader.core.database.UiPreferencesEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,17 +40,6 @@ internal class FakeAuthConfigDao : AuthConfigDao {
     override suspend fun get(): AuthConfigEntity? = stored
 }
 
-internal class FakeUiPreferencesDao : UiPreferencesDao {
-    private var stored: UiPreferencesEntity? = null
-    private val _flow = MutableStateFlow<UiPreferencesEntity?>(null)
-
-    override suspend fun upsert(entity: UiPreferencesEntity) { stored = entity; _flow.value = entity }
-    override fun observe(): Flow<UiPreferencesEntity?> = _flow.asStateFlow()
-    override suspend fun get(): UiPreferencesEntity? = stored
-    override suspend fun getKeepScreenOnDuringReading(): Boolean? = stored?.keepScreenOnDuringReading
-    override suspend fun getImmersiveModeDuringReading(): Boolean? = stored?.immersiveModeDuringReading
-}
-
 internal class FakeBffServerConfigDao : BffServerConfigDao {
     private val store = mutableMapOf<String, BffServerConfigEntity>()
     override suspend fun getAll() = store.values.toList()
@@ -66,7 +53,6 @@ class ConfigStoreTest {
 
     private lateinit var serverDao: FakeServerConfigDao
     private lateinit var authDao: FakeAuthConfigDao
-    private lateinit var prefsDao: FakeUiPreferencesDao
     private lateinit var bffDao: FakeBffServerConfigDao
     private lateinit var store: ConfigStore
 
@@ -74,9 +60,8 @@ class ConfigStoreTest {
     fun setUp() {
         serverDao = FakeServerConfigDao()
         authDao = FakeAuthConfigDao()
-        prefsDao = FakeUiPreferencesDao()
         bffDao = FakeBffServerConfigDao()
-        store = ConfigStore(serverDao, authDao, prefsDao, bffDao)
+        store = ConfigStore(serverDao, authDao, bffDao)
     }
 
     // ── Server config ──────────────────────────────────────────────────────────
@@ -140,33 +125,5 @@ class ConfigStoreTest {
         store.upsertAuthConfig(AuthConfigEntity(apiKey = "new-key"))
 
         assertEquals("new-key", store.getAuthConfig()?.apiKey)
-    }
-
-    // ── UI preferences ─────────────────────────────────────────────────────────
-
-    @Test
-    fun `getUiPreferences returns defaults when nothing stored`() = runTest {
-        val prefs = store.getUiPreferences()
-        assertEquals(true, prefs.keepScreenOnDuringReading)
-        assertEquals("ASCENDING", prefs.chapterSortMode)
-        assertEquals(50, prefs.chapterSortProgressPercent)
-    }
-
-    @Test
-    fun `upsertUiPreferences persists changes`() = runTest {
-        store.upsertUiPreferences { copy(chapterSortMode = "DESCENDING", keepScreenOnDuringReading = false) }
-
-        val prefs = store.getUiPreferences()
-        assertEquals("DESCENDING", prefs.chapterSortMode)
-        assertEquals(false, prefs.keepScreenOnDuringReading)
-    }
-
-    @Test
-    fun `upsertUiPreferences preserves unchanged fields`() = runTest {
-        store.upsertUiPreferences { copy(chapterSortProgressPercent = 75) }
-
-        val prefs = store.getUiPreferences()
-        assertEquals(75, prefs.chapterSortProgressPercent)
-        assertEquals("ASCENDING", prefs.chapterSortMode)
     }
 }
