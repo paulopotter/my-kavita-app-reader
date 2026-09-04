@@ -1,16 +1,22 @@
 name: Generate Release Tag
 
 # Reusable job — computes next semver, bumps version files, formats CHANGELOG via AI, tags.
-# Called from two places:
+# Called from two places, which can both fire from the very same push: pushing straight to main
+# a commit that also happens to fast-forward-close an open PR (rather than merging through
+# GitHub's own "Merge pull request" button) raises both a `push` event (main.yml) and a
+# `pull_request: closed` event (pr-merge.yml) — GitHub doesn't expose anything in either
+# payload that distinguishes this from a normal push/merge, so neither workflow can tell up
+# front that the other is about to do the same work. The already-tagged check below is what
+# actually prevents the double release in that case, regardless of which one gets there first:
 #   - main.yml, on a direct push to main (hotfix committed straight to main with [Unreleased]
-#     already filled in by hand)
+#     already filled in by hand, or the fast-forward-close case above)
 #   - pr-merge.yml's update-changelog job, sequentially right after it commits the changelog
 #     for a merged PR — calling this directly (rather than relying on that commit's own push to
-#     re-trigger main.yml) avoids the race where main.yml's check-unreleased, triggered by the
-#     merge commit itself, can run and see an empty [Unreleased] *before* update-changelog has
-#     finished writing to it — and the run triggered by the bot's own subsequent push is always
-#     skipped by the `github.actor != 'github-actions[bot]'` guard, so that tag would otherwise
-#     never be generated.
+#     re-trigger main.yml) avoids the separate race where main.yml's check-unreleased, triggered
+#     by the merge commit itself, can run and see an empty [Unreleased] *before* update-changelog
+#     has finished writing to it — and the run triggered by the bot's own subsequent push is
+#     always skipped by the `github.actor != 'github-actions[bot]'` guard, so that tag would
+#     otherwise never be generated.
 on:
   workflow_call: {}
 
@@ -27,14 +33,27 @@ jobs:
           ref: main
           token: ${{ secrets.CHANGELOG_TOKEN }}
 
+      - name: Skip if this commit was already tagged
+        id: already_tagged
+        run: |
+          EXISTING=$(git tag --points-at HEAD)
+          if [ -n "$EXISTING" ]; then
+            echo "Commit already tagged ($EXISTING) — another run already released this, skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compute next semver versions
         id: semver
+        if: steps.already_tagged.outputs.skip == 'false'
         run: |
           chmod +x scripts/ci/compute-semver-bumps.sh
           bash scripts/ci/compute-semver-bumps.sh >> "$GITHUB_OUTPUT"
 
       - name: Update version files
         id: update_versions
+        if: steps.already_tagged.outputs.skip == 'false'
         run: |
           KOTLIN_NEXT="${{ steps.semver.outputs.kotlin_next }}"
           RN_NEXT="${{ steps.semver.outputs.rn_next }}"
@@ -54,11 +73,13 @@ jobs:
 
       - name: Generate datetime tag
         id: datetag
+        if: steps.already_tagged.outputs.skip == 'false'
         run: |
           BASE=$(date -u '+%Y.%m.%d.%H%M')
           echo "tag=$BASE" >> "$GITHUB_OUTPUT"
 
       - name: Generate AI entries for CHANGELOG and tag
+        if: steps.already_tagged.outputs.skip == 'false'
         env:
           GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
@@ -84,6 +105,7 @@ jobs:
 
       - name: Update CHANGELOG — move Unreleased to versioned entry
         id: changelog
+        if: steps.already_tagged.outputs.skip == 'false'
         env:
           TAG: ${{ steps.datetag.outputs.tag }}
           REPO: ${{ github.repository }}
@@ -93,6 +115,7 @@ jobs:
         run: python3 scripts/ci/move-unreleased-to-version.py
 
       - name: Copy changelog and version info to docs
+        if: steps.already_tagged.outputs.skip == 'false'
         env:
           TAG: ${{ steps.datetag.outputs.tag }}
           KOTLIN_NEXT: ${{ steps.semver.outputs.kotlin_next }}
@@ -103,6 +126,7 @@ jobs:
           python3 scripts/ci/write-current-version.py
 
       - name: Commit version bumps + changelog + docs
+        if: steps.already_tagged.outputs.skip == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -118,6 +142,7 @@ jobs:
           git push origin main
 
       - name: Create annotated tag
+        if: steps.already_tagged.outputs.skip == 'false'
         run: |
           TAG="${{ steps.datetag.outputs.tag }}"
           git tag -a "$TAG" -F /tmp/tag-msg.txt
