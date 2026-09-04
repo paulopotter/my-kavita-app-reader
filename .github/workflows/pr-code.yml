@@ -110,6 +110,8 @@ jobs:
       - name: Install JS dependencies
         working-directory: frontend
         run: yarn install --frozen-lockfile
+      - name: Create android/node_modules symlink
+        run: ln -s "$(pwd)/frontend/node_modules" android/node_modules
       - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
       - name: Run ktlint
