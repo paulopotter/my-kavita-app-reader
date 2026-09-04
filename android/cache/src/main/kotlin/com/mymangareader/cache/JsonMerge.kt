@@ -24,26 +24,35 @@ private val mergeJson = Json { ignoreUnknownKeys = true }
  * every sub-object it knows about in full each write, so there's nothing partial to deep-merge.
  * `deep = true` exists for a future caller that sends genuinely partial nested payloads.
  */
-internal fun jsonMerge(existing: String, incoming: String, deep: Boolean = false): String {
+internal fun jsonMerge(
+    existing: String,
+    incoming: String,
+    deep: Boolean = false,
+): String {
     val existingObj = existing.toJsonObjectOrNull() ?: return incoming
     val incomingObj = incoming.toJsonObjectOrNull() ?: return incoming
     val merged = if (deep) deepMerge(existingObj, incomingObj) else JsonObject(existingObj + incomingObj)
     return mergeJson.encodeToString(JsonObject.serializer(), merged)
 }
 
-private fun deepMerge(base: JsonObject, over: JsonObject): JsonObject {
+private fun deepMerge(
+    base: JsonObject,
+    over: JsonObject,
+): JsonObject {
     val out = base.toMutableMap()
     for ((k, overValue) in over) {
         val baseValue = out[k]
-        out[k] = if (baseValue is JsonObject && overValue is JsonObject) {
-            deepMerge(baseValue, overValue)
-        } else {
-            overValue
-        }
+        out[k] =
+            if (baseValue is JsonObject && overValue is JsonObject) {
+                deepMerge(baseValue, overValue)
+            } else {
+                overValue
+            }
     }
     return JsonObject(out)
 }
 
-private fun String.toJsonObjectOrNull(): JsonObject? = runCatching {
-    mergeJson.parseToJsonElement(this).jsonObject
-}.getOrNull()
+private fun String.toJsonObjectOrNull(): JsonObject? =
+    runCatching {
+        mergeJson.parseToJsonElement(this).jsonObject
+    }.getOrNull()

@@ -1,35 +1,36 @@
 package com.mymangareader.features.kavita.reader.ui
 
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 class PageDecodeCoordinatorTest {
-
     @Test
-    fun `withUrlLock serializes concurrent callers for the same key`() = runBlocking {
-        val concurrentCount = AtomicInteger(0)
-        var maxObservedConcurrency = 0
+    fun `withUrlLock serializes concurrent callers for the same key`() =
+        runBlocking {
+            val concurrentCount = AtomicInteger(0)
+            var maxObservedConcurrency = 0
 
-        val jobs = List(5) {
-            async {
-                PageDecodeCoordinator.withUrlLock("same-key") {
-                    val current = concurrentCount.incrementAndGet()
-                    maxObservedConcurrency = maxOf(maxObservedConcurrency, current)
-                    delay(10)
-                    concurrentCount.decrementAndGet()
+            val jobs =
+                List(5) {
+                    async {
+                        PageDecodeCoordinator.withUrlLock("same-key") {
+                            val current = concurrentCount.incrementAndGet()
+                            maxObservedConcurrency = maxOf(maxObservedConcurrency, current)
+                            delay(10)
+                            concurrentCount.decrementAndGet()
+                        }
+                    }
                 }
-            }
-        }
-        jobs.forEach { it.await() }
+            jobs.forEach { it.await() }
 
-        assertEquals(1, maxObservedConcurrency)
-    }
+            assertEquals(1, maxObservedConcurrency)
+        }
 
     // Regression test for a real on-device race: single-threaded coroutine dispatchers (like the
     // one runBlocking above uses) never expose ConcurrentHashMap.getOrPut's lack of atomicity,
@@ -67,22 +68,24 @@ class PageDecodeCoordinatorTest {
     }
 
     @Test
-    fun `withUrlLock allows different keys to run concurrently`() = runBlocking {
-        val concurrentCount = AtomicInteger(0)
-        var maxObservedConcurrency = 0
+    fun `withUrlLock allows different keys to run concurrently`() =
+        runBlocking {
+            val concurrentCount = AtomicInteger(0)
+            var maxObservedConcurrency = 0
 
-        val jobs = listOf("key-a", "key-b", "key-c").map { key ->
-            async {
-                PageDecodeCoordinator.withUrlLock(key) {
-                    val current = concurrentCount.incrementAndGet()
-                    maxObservedConcurrency = maxOf(maxObservedConcurrency, current)
-                    delay(10)
-                    concurrentCount.decrementAndGet()
+            val jobs =
+                listOf("key-a", "key-b", "key-c").map { key ->
+                    async {
+                        PageDecodeCoordinator.withUrlLock(key) {
+                            val current = concurrentCount.incrementAndGet()
+                            maxObservedConcurrency = maxOf(maxObservedConcurrency, current)
+                            delay(10)
+                            concurrentCount.decrementAndGet()
+                        }
+                    }
                 }
-            }
-        }
-        jobs.forEach { it.await() }
+            jobs.forEach { it.await() }
 
-        assertEquals(3, maxObservedConcurrency)
-    }
+            assertEquals(3, maxObservedConcurrency)
+        }
 }

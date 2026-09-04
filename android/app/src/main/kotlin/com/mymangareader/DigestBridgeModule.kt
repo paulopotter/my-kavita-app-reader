@@ -16,12 +16,12 @@ import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 
 // RN→Kotlin bridge for :content-digest's builder functions (Layer 3, Tasks 018-020) — a separate
 // module from ServerBridgeModule (Layer 2, :server) on purpose, same "a plugin/module lives with
@@ -43,118 +43,166 @@ import kotlinx.coroutines.launch
 // toWritableMap() functions in reverse) once a real RN caller actually has this data in hand and
 // wants to avoid a redundant fetch — do not build this mapping speculatively before that.
 @Singleton
-class DigestBridgeModule @Inject constructor(
-    private val server: Server,
-    private val externalMetadataServer: ExternalMetadataServer,
-    private val cache: Cache,
-    context: ReactApplicationContext,
-) : ReactContextBaseJavaModule(context) {
+class DigestBridgeModule
+    @Inject
+    constructor(
+        private val server: Server,
+        private val externalMetadataServer: ExternalMetadataServer,
+        private val cache: Cache,
+        context: ReactApplicationContext,
+    ) : ReactContextBaseJavaModule(context) {
+        override fun getName(): String = "DigestBridgeModule"
 
-    override fun getName(): String = "DigestBridgeModule"
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        @ReactMethod
+        fun getPageDigest(
+            seriesId: String,
+            chapterId: String,
+            pageIndex: Int,
+            promise: Promise,
+        ) {
+            scope.launch {
+                // buildPageDigest only ever reads chapter.id/chapter.seriesId from the ChapterSummary
+                // it receives (see :content-digest's own README — every other field is passed
+                // through unfiltered into PageDigest.Success.chapter, never read). Both are already
+                // known from this method's own parameters, so no chapter fetch happens here at all —
+                // fetching the real chapter (even with full=false) would still cost a real get() +
+                // getCoverImage() round trip for data this call never needs.
+                val minimalChapterSummary =
+                    ChapterSummary(
+                        id = chapterId,
+                        seriesId = seriesId,
+                        decimalNumber = null,
+                        number = null,
+                        specialLabel = null,
+                        isSpecial = null,
+                        title = "",
+                        createdUtc = null,
+                        coverImage =
+                            ImageDescriptor(
+                                url = "",
+                                hasFetchedDimensions = false,
+                                width = null,
+                                height = null,
+                                aspectRatio = null,
+                                orientation = null,
+                                resolvedAtEpochMs = 0L,
+                                server =
+                                    ServerActiveInfo(
+                                        groupId = "",
+                                        groupName = "",
+                                        providerId = "",
+                                        urlId = "",
+                                        url = "",
+                                        timeoutMs = 0,
+                                        priority = 0,
+                                    ),
+                                cache = null,
+                            ),
+                        resolvedAtEpochMs = 0L,
+                        server =
+                            ServerActiveInfo(
+                                groupId = "",
+                                groupName = "",
+                                providerId = "",
+                                urlId = "",
+                                url = "",
+                                timeoutMs = 0,
+                                priority = 0,
+                            ),
+                    )
+                runCatching { buildPageDigest(server, minimalChapterSummary, pageIndex, cache) }
+                    .resolveOrReject(promise, "GET_PAGE_DIGEST_ERROR") { it.toWritableMap() }
+            }
+        }
 
-    @ReactMethod
-    fun getPageDigest(seriesId: String, chapterId: String, pageIndex: Int, promise: Promise) {
-        scope.launch {
-            // buildPageDigest only ever reads chapter.id/chapter.seriesId from the ChapterSummary
-            // it receives (see :content-digest's own README — every other field is passed
-            // through unfiltered into PageDigest.Success.chapter, never read). Both are already
-            // known from this method's own parameters, so no chapter fetch happens here at all —
-            // fetching the real chapter (even with full=false) would still cost a real get() +
-            // getCoverImage() round trip for data this call never needs.
-            val minimalChapterSummary = ChapterSummary(
-                id = chapterId,
-                seriesId = seriesId,
-                decimalNumber = null,
-                number = null,
-                specialLabel = null,
-                isSpecial = null,
-                title = "",
-                createdUtc = null,
-                coverImage = ImageDescriptor(
-                    url = "",
-                    hasFetchedDimensions = false,
-                    width = null,
-                    height = null,
-                    aspectRatio = null,
-                    orientation = null,
-                    resolvedAtEpochMs = 0L,
-                    server = ServerActiveInfo(
-                        groupId = "", groupName = "", providerId = "",
-                        urlId = "", url = "", timeoutMs = 0, priority = 0,
-                    ),
-                    cache = null,
-                ),
-                resolvedAtEpochMs = 0L,
-                server = ServerActiveInfo(
-                    groupId = "", groupName = "", providerId = "",
-                    urlId = "", url = "", timeoutMs = 0, priority = 0,
-                ),
-            )
-            runCatching { buildPageDigest(server, minimalChapterSummary, pageIndex, cache) }
-                .resolveOrReject(promise, "GET_PAGE_DIGEST_ERROR") { it.toWritableMap() }
+        // [options] carries full/force — a ReadableMap instead of separate parameters, same "2+
+        // fields → one named object" shape getSerialDigest already uses. force (default false) skips
+        // the cache entirely and re-fetches from the server, same meaning as buildChapterDigest's own
+        // force parameter — used by a manual pull-to-refresh, never by a plain mount/focus load.
+        @ReactMethod
+        fun getChapterDigest(
+            seriesId: String,
+            chapterId: String,
+            options: ReadableMap,
+            promise: Promise,
+        ) {
+            scope.launch {
+                val full = if (options.hasKey("full")) options.getBoolean("full") else false
+                val force = if (options.hasKey("force")) options.getBoolean("force") else false
+
+                runCatching { buildChapterDigest(server, seriesId, chapterId, cache, full = full, force = force) }
+                    .resolveOrReject(promise, "GET_CHAPTER_DIGEST_ERROR") { it.toWritableMap() }
+            }
+        }
+
+        // [options] carries full/includeExternalMetadata/externalMetadataGroupId/force — a ReadableMap
+        // instead of separate parameters since this already mirrors SerialDigestOptions' own
+        // "2+ fields → one named object" shape on the Kotlin side. includeExternalMetadata (default
+        // false) is what actually turns on the BFF/M3 enrichment — omitting it keeps today's
+        // behavior (no extra network call to ExternalMetadataServer) unchanged for existing callers.
+        // force (default false) skips the cache entirely and re-fetches from the server — used by a
+        // manual pull-to-refresh, never by a plain mount/focus load.
+        @ReactMethod
+        fun getSerialDigest(
+            seriesId: String,
+            options: ReadableMap,
+            promise: Promise,
+        ) {
+            scope.launch {
+                val full = if (options.hasKey("full")) options.getBoolean("full") else false
+                val includeExternalMetadata =
+                    if (options.hasKey(
+                            "includeExternalMetadata",
+                        )
+                    ) {
+                        options.getBoolean("includeExternalMetadata")
+                    } else {
+                        false
+                    }
+                val externalMetadataGroupId =
+                    if (options.hasKey(
+                            "externalMetadataGroupId",
+                        )
+                    ) {
+                        options.getString("externalMetadataGroupId")
+                    } else {
+                        null
+                    }
+                val force = if (options.hasKey("force")) options.getBoolean("force") else false
+
+                runCatching {
+                    buildSerialDigest(
+                        server,
+                        seriesId,
+                        cache,
+                        SerialDigestOptions(
+                            full = full,
+                            includeExternalMetadata = includeExternalMetadata,
+                            externalMetadataServer = if (includeExternalMetadata) externalMetadataServer else null,
+                            externalMetadataGroupId = externalMetadataGroupId,
+                        ),
+                        force = force,
+                    )
+                }.resolveOrReject(promise, "GET_SERIES_DIGEST_ERROR") { it.toWritableMap() }
+            }
+        }
+
+        // The list counterpart of getSerialDigest. [options] carries only `force` (default false) —
+        // used by the Library's pull-to-refresh. buildSerialsDigest owns no cache of its own; it
+        // merges every listed series into that series' own per-series cache (the same entries
+        // getSerialDigest reads), so a Library mount right after this is a series-by-series cache hit.
+        @ReactMethod
+        fun getSerialsDigest(
+            options: ReadableMap,
+            promise: Promise,
+        ) {
+            scope.launch {
+                val force = if (options.hasKey("force")) options.getBoolean("force") else false
+
+                runCatching { buildSerialsDigest(server, cache, force = force) }
+                    .resolveOrReject(promise, "GET_SERIALS_DIGEST_ERROR") { it.toWritableMap() }
+            }
         }
     }
-
-    // [options] carries full/force — a ReadableMap instead of separate parameters, same "2+
-    // fields → one named object" shape getSerialDigest already uses. force (default false) skips
-    // the cache entirely and re-fetches from the server, same meaning as buildChapterDigest's own
-    // force parameter — used by a manual pull-to-refresh, never by a plain mount/focus load.
-    @ReactMethod
-    fun getChapterDigest(seriesId: String, chapterId: String, options: ReadableMap, promise: Promise) {
-        scope.launch {
-            val full = if (options.hasKey("full")) options.getBoolean("full") else false
-            val force = if (options.hasKey("force")) options.getBoolean("force") else false
-
-            runCatching { buildChapterDigest(server, seriesId, chapterId, cache, full = full, force = force) }
-                .resolveOrReject(promise, "GET_CHAPTER_DIGEST_ERROR") { it.toWritableMap() }
-        }
-    }
-
-    // [options] carries full/includeExternalMetadata/externalMetadataGroupId/force — a ReadableMap
-    // instead of separate parameters since this already mirrors SerialDigestOptions' own
-    // "2+ fields → one named object" shape on the Kotlin side. includeExternalMetadata (default
-    // false) is what actually turns on the BFF/M3 enrichment — omitting it keeps today's
-    // behavior (no extra network call to ExternalMetadataServer) unchanged for existing callers.
-    // force (default false) skips the cache entirely and re-fetches from the server — used by a
-    // manual pull-to-refresh, never by a plain mount/focus load.
-    @ReactMethod
-    fun getSerialDigest(seriesId: String, options: ReadableMap, promise: Promise) {
-        scope.launch {
-            val full = if (options.hasKey("full")) options.getBoolean("full") else false
-            val includeExternalMetadata = if (options.hasKey("includeExternalMetadata")) options.getBoolean("includeExternalMetadata") else false
-            val externalMetadataGroupId = if (options.hasKey("externalMetadataGroupId")) options.getString("externalMetadataGroupId") else null
-            val force = if (options.hasKey("force")) options.getBoolean("force") else false
-
-            runCatching {
-                buildSerialDigest(
-                    server,
-                    seriesId,
-                    cache,
-                    SerialDigestOptions(
-                        full = full,
-                        includeExternalMetadata = includeExternalMetadata,
-                        externalMetadataServer = if (includeExternalMetadata) externalMetadataServer else null,
-                        externalMetadataGroupId = externalMetadataGroupId,
-                    ),
-                    force = force,
-                )
-            }.resolveOrReject(promise, "GET_SERIES_DIGEST_ERROR") { it.toWritableMap() }
-        }
-    }
-
-    // The list counterpart of getSerialDigest. [options] carries only `force` (default false) —
-    // used by the Library's pull-to-refresh. buildSerialsDigest owns no cache of its own; it
-    // merges every listed series into that series' own per-series cache (the same entries
-    // getSerialDigest reads), so a Library mount right after this is a series-by-series cache hit.
-    @ReactMethod
-    fun getSerialsDigest(options: ReadableMap, promise: Promise) {
-        scope.launch {
-            val force = if (options.hasKey("force")) options.getBoolean("force") else false
-
-            runCatching { buildSerialsDigest(server, cache, force = force) }
-                .resolveOrReject(promise, "GET_SERIALS_DIGEST_ERROR") { it.toWritableMap() }
-        }
-    }
-}

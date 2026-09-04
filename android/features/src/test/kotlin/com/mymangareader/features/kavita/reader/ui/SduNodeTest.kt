@@ -12,7 +12,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class SduNodeTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -24,10 +23,11 @@ class SduNodeTest {
             SduNodeView(
                 SduNode.Container(
                     backgroundColor = "#000000",
-                    children = listOf(
-                        SduNode.TextNode(text = "Capítulo 41", color = "#FFFFFF", fontSizeSp = 20, bold = true),
-                        SduNode.TextNode(text = "One Piece", color = "#A0AEC0", fontSizeSp = 13),
-                    ),
+                    children =
+                        listOf(
+                            SduNode.TextNode(text = "Capítulo 41", color = "#FFFFFF", fontSizeSp = 20, bold = true),
+                            SduNode.TextNode(text = "One Piece", color = "#A0AEC0", fontSizeSp = 13),
+                        ),
                 ),
             )
         }
@@ -42,15 +42,17 @@ class SduNodeTest {
         composeRule.setContent {
             SduNodeView(
                 SduNode.Container(
-                    children = listOf(
-                        SduNode.Container(
-                            direction = SduNode.Container.Direction.HORIZONTAL,
-                            children = listOf(
-                                SduNode.TextNode(text = "left"),
-                                SduNode.TextNode(text = "right"),
+                    children =
+                        listOf(
+                            SduNode.Container(
+                                direction = SduNode.Container.Direction.HORIZONTAL,
+                                children =
+                                    listOf(
+                                        SduNode.TextNode(text = "left"),
+                                        SduNode.TextNode(text = "right"),
+                                    ),
                             ),
                         ),
-                    ),
                 ),
             )
         }

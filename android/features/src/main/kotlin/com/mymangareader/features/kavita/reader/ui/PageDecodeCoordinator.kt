@@ -1,8 +1,8 @@
 package com.mymangareader.features.kavita.reader.ui
 
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Coil has no built-in in-flight request dedup for plain execute()/enqueue() calls — two
@@ -24,6 +24,8 @@ internal object PageDecodeCoordinator {
     // two SafeBitmapDecoder.decode() calls for the same URL entering within milliseconds of each
     // other with no serialization between them. ConcurrentHashMap.computeIfAbsent is atomic per key
     // and is what actually guarantees a single Mutex instance is ever installed for a given URL.
-    suspend fun <T> withUrlLock(url: String, block: suspend () -> T): T =
-        locks.computeIfAbsent(url) { Mutex() }.withLock { block() }
+    suspend fun <T> withUrlLock(
+        url: String,
+        block: suspend () -> T,
+    ): T = locks.computeIfAbsent(url) { Mutex() }.withLock { block() }
 }

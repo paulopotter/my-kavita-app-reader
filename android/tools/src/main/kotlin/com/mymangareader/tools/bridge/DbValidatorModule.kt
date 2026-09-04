@@ -10,20 +10,23 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DbValidatorModule @Inject constructor(
-    private val dbStatus: DbStatusProvider,
-    context: ReactApplicationContext,
-) : ReactContextBaseJavaModule(context) {
+class DbValidatorModule
+    @Inject
+    constructor(
+        private val dbStatus: DbStatusProvider,
+        context: ReactApplicationContext,
+    ) : ReactContextBaseJavaModule(context) {
+        override fun getName(): String = "DbValidator"
 
-    override fun getName(): String = "DbValidator"
-
-    @ReactMethod
-    fun getDbStatus(promise: Promise) {
-        runCatching {
-            Arguments.createMap().apply {
-                putInt("version", dbStatus.getVersion())
-                putBoolean("isOpen", dbStatus.isOpen())
-            }.also { promise.resolve(it) }
-        }.onFailure { promise.reject("DB_ERROR", it.message, it) }
+        @ReactMethod
+        fun getDbStatus(promise: Promise) {
+            runCatching {
+                Arguments
+                    .createMap()
+                    .apply {
+                        putInt("version", dbStatus.getVersion())
+                        putBoolean("isOpen", dbStatus.isOpen())
+                    }.also { promise.resolve(it) }
+            }.onFailure { promise.reject("DB_ERROR", it.message, it) }
+        }
     }
-}

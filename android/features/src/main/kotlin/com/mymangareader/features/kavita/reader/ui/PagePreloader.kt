@@ -4,12 +4,12 @@ import android.content.Context
 import coil.ImageLoader
 import coil.imageLoader
 import coil.request.ImageRequest
-import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 internal const val PAGE_PRELOAD_RADIUS = 3
 private const val PRELOAD_PARALLELISM = 3
@@ -45,11 +45,16 @@ internal class PagePreloader(
 
         orderedUrls.forEach { url ->
             if (url !in activeJobs) {
-                activeJobs[url] = scope.launch {
-                    imageLoader.execute(
-                        ImageRequest.Builder(context).data(url).diskCacheKey(url).build(),
-                    )
-                }
+                activeJobs[url] =
+                    scope.launch {
+                        imageLoader.execute(
+                            ImageRequest
+                                .Builder(context)
+                                .data(url)
+                                .diskCacheKey(url)
+                                .build(),
+                        )
+                    }
             }
         }
     }
@@ -66,7 +71,10 @@ internal class PagePreloader(
  * before and after, nearest first — that ordering is the only "priority" signal Coil 2.x offers
  * (it launches requests in the order given).
  */
-internal fun computePreloadWindow(pageUrls: List<String>, visibleIndex: Int): List<String> {
+internal fun computePreloadWindow(
+    pageUrls: List<String>,
+    visibleIndex: Int,
+): List<String> {
     val range = (visibleIndex - PAGE_PRELOAD_RADIUS)..(visibleIndex + PAGE_PRELOAD_RADIUS)
     return range
         .filter { it != visibleIndex && it in pageUrls.indices }

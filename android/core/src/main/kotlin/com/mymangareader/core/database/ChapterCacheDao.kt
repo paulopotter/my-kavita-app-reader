@@ -8,7 +8,6 @@ import androidx.room.Transaction
 
 @Dao
 interface ChapterCacheDao {
-
     @Query("SELECT * FROM chapter_cache WHERE seriesId = :seriesId ORDER BY sortOrder ASC")
     suspend fun getBySeriesId(seriesId: String): List<ChapterCacheEntity>
 
@@ -29,7 +28,10 @@ interface ChapterCacheDao {
     suspend fun deleteBySeriesId(seriesId: String)
 
     @Transaction
-    suspend fun replaceForSeries(seriesId: String, chapters: List<ChapterCacheEntity>) {
+    suspend fun replaceForSeries(
+        seriesId: String,
+        chapters: List<ChapterCacheEntity>,
+    ) {
         deleteBySeriesId(seriesId)
         insertAll(chapters)
     }

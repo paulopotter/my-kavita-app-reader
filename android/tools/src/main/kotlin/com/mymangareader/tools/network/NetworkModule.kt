@@ -12,11 +12,11 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
-
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -26,7 +26,6 @@ object NetworkModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class NetworkBindingsModule {
-
     @Binds
     @Singleton
     abstract fun bindUrlSelector(impl: ActiveUrlSelector): UrlSelector

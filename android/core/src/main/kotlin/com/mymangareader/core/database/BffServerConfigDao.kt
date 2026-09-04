@@ -7,7 +7,6 @@ import androidx.room.Query
 
 @Dao
 interface BffServerConfigDao {
-
     @Query("SELECT * FROM bff_server_config ORDER BY priority ASC")
     suspend fun getAll(): List<BffServerConfigEntity>
 

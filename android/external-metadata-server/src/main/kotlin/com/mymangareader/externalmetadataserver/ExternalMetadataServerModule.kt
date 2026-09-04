@@ -16,7 +16,8 @@ object ExternalMetadataServerModule {
     // nowhere else in ExternalMetadataServer.kt) when a second one is implemented.
     @Provides
     @Singleton
-    fun providePluginRegistrations(): Map<String, ExternalMetadataPluginRegistration> = mapOf(
-        M3Plugin.Info.id to M3Plugin.Info,
-    )
+    fun providePluginRegistrations(): Map<String, ExternalMetadataPluginRegistration> =
+        mapOf(
+            M3Plugin.Info.id to M3Plugin.Info,
+        )
 }

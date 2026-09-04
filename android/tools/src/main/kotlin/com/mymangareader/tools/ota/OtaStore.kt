@@ -10,21 +10,25 @@ private val json = Json { ignoreUnknownKeys = true }
 // filesDir is injected by OtaModule via @OtaFilesDir qualifier.
 // In tests, construct directly with any File as filesDir.
 @Singleton
-class OtaStore @Inject constructor(@OtaFilesDir filesDir: File) {
+class OtaStore
+    @Inject
+    constructor(
+        @OtaFilesDir filesDir: File,
+    ) {
+        private val otaDir = File(filesDir, "ota").also { it.mkdirs() }
 
-    private val otaDir = File(filesDir, "ota").also { it.mkdirs() }
+        val bundleFile: File get() = File(otaDir, "bundle.js")
+        val prevBundleFile: File get() = File(otaDir, "bundle.prev.js")
+        val tempBundleFile: File get() = File(otaDir, "bundle.tmp.js")
 
-    val bundleFile: File get() = File(otaDir, "bundle.js")
-    val prevBundleFile: File get() = File(otaDir, "bundle.prev.js")
-    val tempBundleFile: File get() = File(otaDir, "bundle.tmp.js")
+        private val metaFile: File get() = File(otaDir, "meta.json")
 
-    private val metaFile: File get() = File(otaDir, "meta.json")
+        fun readState(): OtaState =
+            runCatching {
+                json.decodeFromString<OtaState>(metaFile.readText())
+            }.getOrDefault(OtaState())
 
-    fun readState(): OtaState = runCatching {
-        json.decodeFromString<OtaState>(metaFile.readText())
-    }.getOrDefault(OtaState())
-
-    fun writeState(state: OtaState) {
-        metaFile.writeText(json.encodeToString(OtaState.serializer(), state))
+        fun writeState(state: OtaState) {
+            metaFile.writeText(json.encodeToString(OtaState.serializer(), state))
+        }
     }
-}

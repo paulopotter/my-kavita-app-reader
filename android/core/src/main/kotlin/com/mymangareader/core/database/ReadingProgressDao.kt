@@ -7,7 +7,6 @@ import androidx.room.Query
 
 @Dao
 interface ReadingProgressDao {
-
     @Query("SELECT * FROM reading_progress WHERE chapterId = :chapterId")
     suspend fun get(chapterId: String): ReadingProgressEntity?
 

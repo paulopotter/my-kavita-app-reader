@@ -8,9 +8,11 @@ import androidx.room.Transaction
 
 @Dao
 interface CacheDao {
-
     @Query("SELECT * FROM cache WHERE `key` = :key AND variant = :variant")
-    suspend fun getByKey(key: String, variant: String): CacheEntity?
+    suspend fun getByKey(
+        key: String,
+        variant: String,
+    ): CacheEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: CacheEntity)
@@ -27,7 +29,12 @@ interface CacheDao {
           AND (:variant IS NULL OR variant = :variant)
         """,
     )
-    suspend fun queryFiltered(keys: List<String>, hasKeys: Int, domain: String?, variant: String?): List<CacheEntity>
+    suspend fun queryFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheEntity>
 
     // Batch upsert in ONE transaction (one commit / fsync, not one per row — that difference is
     // the whole point). Lenient: a row that somehow fails to upsert is skipped, the rest still go
@@ -49,10 +56,17 @@ interface CacheDao {
     }
 
     @Query("UPDATE cache SET lastAccessedAtEpochMs = :lastAccessedAtEpochMs WHERE `key` = :key AND variant = :variant")
-    suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long)
+    suspend fun touchLastAccessed(
+        key: String,
+        variant: String,
+        lastAccessedAtEpochMs: Long,
+    )
 
     @Query("DELETE FROM cache WHERE `key` = :key AND variant = :variant")
-    suspend fun deleteByKey(key: String, variant: String)
+    suspend fun deleteByKey(
+        key: String,
+        variant: String,
+    )
 
     @Query("DELETE FROM cache WHERE domain = :domain")
     suspend fun deleteByDomain(domain: String)
@@ -60,7 +74,10 @@ interface CacheDao {
     // Scoped by domain AND variant together — variant alone ("full") is not globally unique, two
     // unrelated domains could coincidentally use the same variant name.
     @Query("DELETE FROM cache WHERE domain = :domain AND variant = :variant")
-    suspend fun deleteByVariant(domain: String, variant: String)
+    suspend fun deleteByVariant(
+        domain: String,
+        variant: String,
+    )
 
     @Query("SELECT * FROM cache WHERE expiresAtEpochMs <= :nowEpochMs")
     suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity>

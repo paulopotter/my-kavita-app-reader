@@ -10,7 +10,6 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 class OtaStoreTest {
-
     @get:Rule
     val tempFolder = TemporaryFolder()
 
@@ -35,12 +34,13 @@ class OtaStoreTest {
 
     @Test
     fun `writeState and readState round-trip`() {
-        val original = OtaState(
-            currentBundleVersion = "1.2.3",
-            bootCount = 5,
-            isStable = true,
-            crashDetected = false,
-        )
+        val original =
+            OtaState(
+                currentBundleVersion = "1.2.3",
+                bootCount = 5,
+                isStable = true,
+                crashDetected = false,
+            )
         store.writeState(original)
         val recovered = store.readState()
         assertEquals(original, recovered)

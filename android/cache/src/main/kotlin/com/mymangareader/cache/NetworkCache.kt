@@ -15,7 +15,11 @@ import kotlinx.coroutines.sync.withLock
 // expired," "clean up what's gone stale and unread") even though run()'s own shape (no
 // value/domain/variant, just a key + a suspend block) differs from get/put.
 interface Network {
-    suspend fun <T> run(key: String, ttlMs: Long = DEFAULT_TTL_MS, block: suspend () -> T): T
+    suspend fun <T> run(
+        key: String,
+        ttlMs: Long = DEFAULT_TTL_MS,
+        block: suspend () -> T,
+    ): T
 
     // Forces the next run() for this key to re-execute block, ignoring whatever was memoized —
     // e.g. ActiveUrlSelector.invalidateAndReselect's own "ignore the cache, pick fresh" need.
@@ -31,7 +35,12 @@ interface Network {
 }
 
 internal class NetworkHandle : Network {
-    private data class Entry(val value: Any?, val cachedAtEpochMs: Long, val ttlMs: Long, val lastAccessedAtEpochMs: Long)
+    private data class Entry(
+        val value: Any?,
+        val cachedAtEpochMs: Long,
+        val ttlMs: Long,
+        val lastAccessedAtEpochMs: Long,
+    )
 
     // One Mutex per key, not a single global Mutex — two different keys must never block each
     // other. mapMutex only protects mutexesByKey/entries themselves (concurrent access to a plain
@@ -40,7 +49,11 @@ internal class NetworkHandle : Network {
     private val mutexesByKey = mutableMapOf<String, Mutex>()
     private val entries = mutableMapOf<String, Entry>()
 
-    override suspend fun <T> run(key: String, ttlMs: Long, block: suspend () -> T): T {
+    override suspend fun <T> run(
+        key: String,
+        ttlMs: Long,
+        block: suspend () -> T,
+    ): T {
         val keyMutex = mapMutex.withLock { mutexesByKey.getOrPut(key) { Mutex() } }
         return keyMutex.withLock {
             val cached = mapMutex.withLock { entries[key] }
@@ -64,17 +77,19 @@ internal class NetworkHandle : Network {
     override suspend fun purgeExpired() {
         val now = System.currentTimeMillis()
         mapMutex.withLock {
-            entries.keys.filter { (entries[it]?.let { e -> e.cachedAtEpochMs + e.ttlMs } ?: Long.MAX_VALUE) <= now }
+            entries.keys
+                .filter { (entries[it]?.let { e -> e.cachedAtEpochMs + e.ttlMs } ?: Long.MAX_VALUE) <= now }
                 .forEach { entries.remove(it) }
         }
     }
 
     override suspend fun purgeOlderThan(cutoffEpochMs: Long) {
         mapMutex.withLock {
-            entries.keys.filter { key ->
-                val entry = entries[key] ?: return@filter false
-                entry.cachedAtEpochMs < cutoffEpochMs && entry.lastAccessedAtEpochMs < cutoffEpochMs
-            }.forEach { entries.remove(it) }
+            entries.keys
+                .filter { key ->
+                    val entry = entries[key] ?: return@filter false
+                    entry.cachedAtEpochMs < cutoffEpochMs && entry.lastAccessedAtEpochMs < cutoffEpochMs
+                }.forEach { entries.remove(it) }
         }
     }
 }

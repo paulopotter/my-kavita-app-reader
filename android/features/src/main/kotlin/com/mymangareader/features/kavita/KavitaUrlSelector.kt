@@ -10,42 +10,52 @@ private const val KAVITA_HEALTH_PATH = "/api/Health"
 
 interface KavitaUrlSource {
     suspend fun getActiveUrl(): Result<String>
+
     suspend fun invalidateAndReselect(): Result<String>
+
     fun getLastKnownUrl(): String?
 }
 
 @Singleton
-class KavitaUrlSelector @Inject constructor(
-    private val serverConfigDao: ServerConfigDao,
-    private val selector: UrlSelector,
-) : KavitaUrlSource {
-    override suspend fun getActiveUrl(): Result<String> {
-        val candidates = serverConfigDao.getAll().map { entity ->
-            UrlCandidate(
-                id = entity.id,
-                url = entity.url,
-                timeoutMs = entity.timeoutMs,
-                priority = entity.priority,
-                healthCheckPath = entity.healthCheckPath.ifBlank { KAVITA_HEALTH_PATH }
-                    .let { if (it.equals("/api/health", ignoreCase = true)) KAVITA_HEALTH_PATH else it },
-            )
+class KavitaUrlSelector
+    @Inject
+    constructor(
+        private val serverConfigDao: ServerConfigDao,
+        private val selector: UrlSelector,
+    ) : KavitaUrlSource {
+        override suspend fun getActiveUrl(): Result<String> {
+            val candidates =
+                serverConfigDao.getAll().map { entity ->
+                    UrlCandidate(
+                        id = entity.id,
+                        url = entity.url,
+                        timeoutMs = entity.timeoutMs,
+                        priority = entity.priority,
+                        healthCheckPath =
+                            entity.healthCheckPath
+                                .ifBlank { KAVITA_HEALTH_PATH }
+                                .let { if (it.equals("/api/health", ignoreCase = true)) KAVITA_HEALTH_PATH else it },
+                    )
+                }
+            return selector.getActiveUrl(candidates)
         }
-        return selector.getActiveUrl(candidates)
-    }
 
-    override suspend fun invalidateAndReselect(): Result<String> {
-        val candidates = serverConfigDao.getAll().map { entity ->
-            UrlCandidate(
-                id = entity.id,
-                url = entity.url,
-                timeoutMs = entity.timeoutMs,
-                priority = entity.priority,
-                healthCheckPath = entity.healthCheckPath.ifBlank { KAVITA_HEALTH_PATH }
-                    .let { if (it.equals("/api/health", ignoreCase = true)) KAVITA_HEALTH_PATH else it },
-            )
+        override suspend fun invalidateAndReselect(): Result<String> {
+            val candidates =
+                serverConfigDao.getAll().map { entity ->
+                    UrlCandidate(
+                        id = entity.id,
+                        url = entity.url,
+                        timeoutMs = entity.timeoutMs,
+                        priority = entity.priority,
+                        healthCheckPath =
+                            entity.healthCheckPath
+                                .ifBlank { KAVITA_HEALTH_PATH }
+                                .let { if (it.equals("/api/health", ignoreCase = true)) KAVITA_HEALTH_PATH else it },
+                    )
+                }
+            return selector.invalidateAndReselect(candidates)
         }
-        return selector.invalidateAndReselect(candidates)
-    }
 
-    override fun getLastKnownUrl(): String? = selector.getLastKnownUrl()
-}
+        override fun getLastKnownUrl(): String? = selector.getLastKnownUrl()
+    }

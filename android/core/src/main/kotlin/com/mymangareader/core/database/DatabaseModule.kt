@@ -12,11 +12,13 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "mymangareader.db")
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+    ): AppDatabase =
+        Room
+            .databaseBuilder(context, AppDatabase::class.java, "mymangareader.db")
             .addMigrations(
                 AppDatabase.MIGRATION_1_2,
                 AppDatabase.MIGRATION_2_3,
@@ -37,8 +39,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_13_12,
                 AppDatabase.MIGRATION_13_14,
                 AppDatabase.MIGRATION_14_13,
-            )
-            .build()
+            ).build()
 
     @Provides
     fun provideServerConfigDao(db: AppDatabase): ServerConfigDao = db.serverConfigDao()

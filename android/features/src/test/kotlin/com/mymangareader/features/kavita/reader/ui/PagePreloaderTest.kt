@@ -18,7 +18,6 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class PagePreloaderTest {
-
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test
@@ -49,33 +48,36 @@ class PagePreloaderTest {
     }
 
     @Test
-    fun `updateWindow launches a request for each url in the window`() = runBlocking {
-        val requested = mutableListOf<String>()
-        val preloader = PagePreloader(context, RecordingImageLoader { requested.add(it) })
+    fun `updateWindow launches a request for each url in the window`() =
+        runBlocking {
+            val requested = mutableListOf<String>()
+            val preloader = PagePreloader(context, RecordingImageLoader { requested.add(it) })
 
-        preloader.updateWindow(listOf("url1", "url2"))
-        awaitUntil { requested.size >= 2 }
+            preloader.updateWindow(listOf("url1", "url2"))
+            awaitUntil { requested.size >= 2 }
 
-        assertEquals(setOf("url1", "url2"), requested.toSet())
-        preloader.clear()
-    }
+            assertEquals(setOf("url1", "url2"), requested.toSet())
+            preloader.clear()
+        }
 
     @Test
-    fun `updateWindow does not relaunch a url still in flight`() = runBlocking {
-        var executions = 0
-        val preloader = PagePreloader(
-            context,
-            RecordingImageLoader(delayMs = 50) { executions++ },
-        )
+    fun `updateWindow does not relaunch a url still in flight`() =
+        runBlocking {
+            var executions = 0
+            val preloader =
+                PagePreloader(
+                    context,
+                    RecordingImageLoader(delayMs = 50) { executions++ },
+                )
 
-        preloader.updateWindow(listOf("url1"))
-        preloader.updateWindow(listOf("url1"))
-        awaitUntil { executions >= 1 }
-        delay(20)
+            preloader.updateWindow(listOf("url1"))
+            preloader.updateWindow(listOf("url1"))
+            awaitUntil { executions >= 1 }
+            delay(20)
 
-        assertEquals(1, executions)
-        preloader.clear()
-    }
+            assertEquals(1, executions)
+            preloader.clear()
+        }
 
     private class RecordingImageLoader(
         private val delayMs: Long = 0,
@@ -88,7 +90,10 @@ class PagePreloaderTest {
         }
     }
 
-    private suspend fun awaitUntil(timeoutMs: Long = 2000, condition: () -> Boolean) {
+    private suspend fun awaitUntil(
+        timeoutMs: Long = 2000,
+        condition: () -> Boolean,
+    ) {
         val start = System.currentTimeMillis()
         while (!condition()) {
             if (System.currentTimeMillis() - start > timeoutMs) error("Timed out waiting for condition")
@@ -105,7 +110,10 @@ private object NotImplementedImageLoader : ImageLoader {
     override val diskCache get() = throw NotImplementedError()
 
     override fun enqueue(request: ImageRequest): Disposable = throw NotImplementedError()
+
     override suspend fun execute(request: ImageRequest): ImageResult = throw NotImplementedError()
+
     override fun newBuilder() = throw NotImplementedError()
+
     override fun shutdown() = Unit
 }

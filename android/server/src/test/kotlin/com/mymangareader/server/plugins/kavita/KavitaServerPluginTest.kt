@@ -1,7 +1,6 @@
 package com.mymangareader.server.plugins.kavita
 
 import com.mymangareader.tools.network.RequestTool
-import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -12,9 +11,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import kotlin.test.assertFailsWith
 
 class KavitaServerPluginTest {
-
     private lateinit var server: MockWebServer
     private lateinit var plugin: KavitaServerPlugin
     private lateinit var baseUrl: String
@@ -44,25 +43,28 @@ class KavitaServerPluginTest {
     // ── auth ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `auth authenticate succeeds on 200`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"t"}"""))
+    fun `auth authenticate succeeds on 200`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"t"}"""))
 
-        plugin.auth.authenticate()
-    }
-
-    @Test
-    fun `auth checkToken returns expiry`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"expiresAt":"2027-01-01T00:00:00Z"}"""))
-
-        val expiry = plugin.auth.checkToken()
-
-        assertEquals("2027-01-01T00:00:00Z", expiry)
-    }
+            plugin.auth.authenticate()
+        }
 
     @Test
-    fun `auth logout succeeds as a no-op`() = runTest {
-        plugin.auth.logout()
-    }
+    fun `auth checkToken returns expiry`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"expiresAt":"2027-01-01T00:00:00Z"}"""))
+
+            val expiry = plugin.auth.checkToken()
+
+            assertEquals("2027-01-01T00:00:00Z", expiry)
+        }
+
+    @Test
+    fun `auth logout succeeds as a no-op`() =
+        runTest {
+            plugin.auth.logout()
+        }
 
     @Test
     fun `getSession returns null before any authentication`() {
@@ -77,142 +79,158 @@ class KavitaServerPluginTest {
     }
 
     @Test
-    fun `authenticate updates the session returned by getSession`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"fresh-jwt"}"""))
+    fun `authenticate updates the session returned by getSession`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"fresh-jwt"}"""))
 
-        plugin.auth.authenticate()
+            plugin.auth.authenticate()
 
-        assertEquals("""{"jwt":"fresh-jwt"}""", plugin.auth.getSession())
-    }
-
-    @Test
-    fun `logout clears the held session`() = runTest {
-        plugin.auth.logout()
-
-        assertNull(plugin.auth.getSession())
-    }
+            assertEquals("""{"jwt":"fresh-jwt"}""", plugin.auth.getSession())
+        }
 
     @Test
-    fun `an operation lazily authenticates when no jwt was supplied`() = runTest {
-        val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "api-key-123", RequestTool(OkHttpClient()))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"lazy-jwt"}"""))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
+    fun `logout clears the held session`() =
+        runTest {
+            plugin.auth.logout()
 
-        fresh.serials.list()
-
-        assertEquals("""{"jwt":"lazy-jwt"}""", fresh.auth.getSession())
-        val authRequest = server.takeRequest()
-        assertTrue(authRequest.path?.contains("/api/Plugin/authenticate") == true)
-    }
+            assertNull(plugin.auth.getSession())
+        }
 
     @Test
-    fun `an operation throws when lazy authentication fails`() = runTest {
-        val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "bad-api-key", RequestTool(OkHttpClient()))
-        server.enqueue(MockResponse().setResponseCode(401))
+    fun `an operation lazily authenticates when no jwt was supplied`() =
+        runTest {
+            val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "api-key-123", RequestTool(OkHttpClient()))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"lazy-jwt"}"""))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
 
-        assertFailsWith<Throwable> { fresh.serials.list() }
-        assertNull(fresh.auth.getSession())
-    }
+            fresh.serials.list()
+
+            assertEquals("""{"jwt":"lazy-jwt"}""", fresh.auth.getSession())
+            val authRequest = server.takeRequest()
+            assertTrue(authRequest.path?.contains("/api/Plugin/authenticate") == true)
+        }
 
     @Test
-    fun `an operation reuses an already-held jwt without re-authenticating`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
+    fun `an operation throws when lazy authentication fails`() =
+        runTest {
+            val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "bad-api-key", RequestTool(OkHttpClient()))
+            server.enqueue(MockResponse().setResponseCode(401))
 
-        plugin.serials.list()
+            assertFailsWith<Throwable> { fresh.serials.list() }
+            assertNull(fresh.auth.getSession())
+        }
 
-        // only one request was made — the series list itself, no authenticate call in between
-        assertEquals(1, server.requestCount)
-    }
+    @Test
+    fun `an operation reuses an already-held jwt without re-authenticating`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
+
+            plugin.serials.list()
+
+            // only one request was made — the series list itself, no authenticate call in between
+            assertEquals(1, server.requestCount)
+        }
 
     // ── auth reauthenticate ──────────────────────────────────────────────
 
     @Test
-    fun `auth reauthenticate fails when never authenticated`() = runTest {
-        val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "api-key-123", RequestTool(OkHttpClient()))
+    fun `auth reauthenticate fails when never authenticated`() =
+        runTest {
+            val fresh = KavitaServerPlugin(baseUrl, initialJwt = null, "api-key-123", RequestTool(OkHttpClient()))
 
-        assertFailsWith<KavitaServerPluginException> { fresh.auth.reauthenticate() }
-    }
-
-    @Test
-    fun `auth reauthenticate fails when authenticated without a refreshToken`() = runTest {
-        // plugin was constructed with an initialJwt directly (no refreshToken ever received)
-        assertFailsWith<KavitaServerPluginException> { plugin.auth.reauthenticate() }
-    }
+            assertFailsWith<KavitaServerPluginException> { fresh.auth.reauthenticate() }
+        }
 
     @Test
-    fun `auth reauthenticate renews jwt and refreshToken using the ones held`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"first-jwt","refreshToken":"first-refresh"}"""))
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"renewed-jwt","refreshToken":"renewed-refresh"}"""))
-
-        plugin.auth.authenticate()
-        plugin.auth.reauthenticate()
-
-        assertEquals("""{"jwt":"renewed-jwt"}""", plugin.auth.getSession())
-        val recorded = server.takeRequest() // authenticate
-        server.takeRequest() // reauthenticate
-        assertTrue(recorded.path?.contains("/api/Plugin/authenticate") == true)
-    }
+    fun `auth reauthenticate fails when authenticated without a refreshToken`() =
+        runTest {
+            // plugin was constructed with an initialJwt directly (no refreshToken ever received)
+            assertFailsWith<KavitaServerPluginException> { plugin.auth.reauthenticate() }
+        }
 
     @Test
-    fun `auth reauthenticate throws on non-200 from Kavita`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"first-jwt","refreshToken":"first-refresh"}"""))
-        server.enqueue(MockResponse().setResponseCode(401))
+    fun `auth reauthenticate renews jwt and refreshToken using the ones held`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"first-jwt","refreshToken":"first-refresh"}"""),
+            )
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"renewed-jwt","refreshToken":"renewed-refresh"}"""))
 
-        plugin.auth.authenticate()
+            plugin.auth.authenticate()
+            plugin.auth.reauthenticate()
 
-        assertFailsWith<Throwable> { plugin.auth.reauthenticate() }
-    }
+            assertEquals("""{"jwt":"renewed-jwt"}""", plugin.auth.getSession())
+            val recorded = server.takeRequest() // authenticate
+            server.takeRequest() // reauthenticate
+            assertTrue(recorded.path?.contains("/api/Plugin/authenticate") == true)
+        }
+
+    @Test
+    fun `auth reauthenticate throws on non-200 from Kavita`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""{"username":"u","token":"first-jwt","refreshToken":"first-refresh"}"""),
+            )
+            server.enqueue(MockResponse().setResponseCode(401))
+
+            plugin.auth.authenticate()
+
+            assertFailsWith<Throwable> { plugin.auth.reauthenticate() }
+        }
 
     // ── serials (group) ──────────────────────────────────────────────────
 
     @Test
-    fun `serials list maps dtos without metadata`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":1,"name":"Serial A","pages":100,"pagesRead":40,"lastChapterAddedUtc":"2026-01-01"}]""",
-            ),
-        )
+    fun `serials list maps dtos without metadata`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":1,"name":"Serial A","pages":100,"pagesRead":40,"lastChapterAddedUtc":"2026-01-01"}]""",
+                ),
+            )
 
-        val serial = plugin.serials.list().single()
+            val serial = plugin.serials.list().single()
 
-        assertEquals("1", serial.id)
-        assertEquals("Serial A", serial.name)
-        assertEquals(40, serial.pagesRead)
-        assertEquals(100, serial.totalPages)
-        assertEquals("$baseUrl/api/Image/series-cover?seriesId=1&apiKey=api-key-123", serial.coverUrl)
-    }
+            assertEquals("1", serial.id)
+            assertEquals("Serial A", serial.name)
+            assertEquals(40, serial.pagesRead)
+            assertEquals(100, serial.totalPages)
+            assertEquals("$baseUrl/api/Image/series-cover?seriesId=1&apiKey=api-key-123", serial.coverUrl)
+        }
 
     // ── serial(id).get() / getMetadata() — two separate network calls ──
 
     @Test
-    fun `serial get maps SeriesDto fields without a second call`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"id":7,"name":"Serial B","pages":50,"pagesRead":10}"""))
+    fun `serial get maps SeriesDto fields without a second call`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"id":7,"name":"Serial B","pages":50,"pagesRead":10}"""))
 
-        val serial = plugin.serial("7").get()
+            val serial = plugin.serial("7").get()
 
-        assertEquals("Serial B", serial.name)
-        assertEquals(1, server.requestCount)
-    }
+            assertEquals("Serial B", serial.name)
+            assertEquals(1, server.requestCount)
+        }
 
     @Test
-    fun `serial getMetadata maps SeriesMetadataDto fields via its own call`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """{"seriesId":7,"summary":"A great story","genres":[{"id":1,"title":"Action"}],"tags":[{"id":2,"title":"Isekai"}],"publicationStatus":0,"ageRating":8,"releaseYear":2020,"language":"en"}""",
-            ),
-        )
+    fun `serial getMetadata maps SeriesMetadataDto fields via its own call`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """{"seriesId":7,"summary":"A great story","genres":[{"id":1,"title":"Action"}],"tags":[{"id":2,"title":"Isekai"}],"publicationStatus":0,"ageRating":8,"releaseYear":2020,"language":"en"}""",
+                ),
+            )
 
-        val metadata = plugin.serial("7").getMetadata()
+            val metadata = plugin.serial("7").getMetadata()
 
-        assertEquals("A great story", metadata.description)
-        assertEquals(listOf("1" to "Action"), metadata.genres.map { it.id to it.name })
-        assertEquals(listOf("2" to "Isekai"), metadata.tags.map { it.id to it.name })
-        assertEquals("OnGoing", metadata.publicationStatus)
-        assertEquals("Teen", metadata.ageRating?.rating)
-        assertEquals("Kavita", metadata.ageRating?.system)
-        assertEquals(2020, metadata.releaseYear)
-        assertEquals("en", metadata.language)
-    }
+            assertEquals("A great story", metadata.description)
+            assertEquals(listOf("1" to "Action"), metadata.genres.map { it.id to it.name })
+            assertEquals(listOf("2" to "Isekai"), metadata.tags.map { it.id to it.name })
+            assertEquals("OnGoing", metadata.publicationStatus)
+            assertEquals("Teen", metadata.ageRating?.rating)
+            assertEquals("Kavita", metadata.ageRating?.system)
+            assertEquals(2020, metadata.releaseYear)
+            assertEquals("en", metadata.language)
+        }
 
     @Test
     fun `serial getCoverUrl builds a series cover url`() {
@@ -222,88 +240,112 @@ class KavitaServerPluginTest {
     }
 
     @Test
-    fun `serial get throws when series fetch fails`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(500))
+    fun `serial get throws when series fetch fails`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(500))
 
-        assertFailsWith<Throwable> { plugin.serial("7").get() }
-    }
+            assertFailsWith<Throwable> { plugin.serial("7").get() }
+        }
 
     @Test
-    fun `serial getMetadata throws when metadata fetch fails`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(500))
+    fun `serial getMetadata throws when metadata fetch fails`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(500))
 
-        assertFailsWith<Throwable> { plugin.serial("7").getMetadata() }
-    }
+            assertFailsWith<Throwable> { plugin.serial("7").getMetadata() }
+        }
 
     // ── serial(id).chapters (group) ─────────────────────────────────────
 
     @Test
-    fun `chapters list flattens volumes into a single chapter list`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"},{"id":101,"title":"Ch 2"}]},{"id":11,"seriesId":7,"chapters":[{"id":102,"title":"Ch 3"}]}]""",
-            ),
-        )
+    fun `chapters list flattens volumes into a single chapter list`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"},{"id":101,"title":"Ch 2"}]},{"id":11,"seriesId":7,"chapters":[{"id":102,"title":"Ch 3"}]}]""",
+                ),
+            )
 
-        val titles = plugin.serial("7").chapters.list().map { it.title }
+            val titles =
+                plugin
+                    .serial("7")
+                    .chapters
+                    .list()
+                    .map { it.title }
 
-        assertEquals(listOf("Ch 1", "Ch 2", "Ch 3"), titles)
-    }
+            assertEquals(listOf("Ch 1", "Ch 2", "Ch 3"), titles)
+        }
 
     @Test
-    fun `chapters list maps decimalNumber specialLabel createdUtc and fileFormat`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[
+    fun `chapters list maps decimalNumber specialLabel createdUtc and fileFormat`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[
                     |{"id":100,"title":"Ch 1","range":"1","sortOrder":1.0,"createdUtc":"2026-01-01T00:00:00Z","format":3}
-                    |]}]""".trimMargin(),
-            ),
-        )
+                    |]}]
+                    """.trimMargin(),
+                ),
+            )
 
-        val chapter = plugin.serial("7").chapters.list().single()
+            val chapter =
+                plugin
+                    .serial("7")
+                    .chapters
+                    .list()
+                    .single()
 
-        assertEquals(1.0, chapter.decimalNumber)
-        assertEquals("1", chapter.specialLabel)
-        assertEquals("2026-01-01T00:00:00Z", chapter.createdUtc)
-        assertEquals("epub", chapter.fileFormat)
-    }
+            assertEquals(1.0, chapter.decimalNumber)
+            assertEquals("1", chapter.specialLabel)
+            assertEquals("2026-01-01T00:00:00Z", chapter.createdUtc)
+            assertEquals("epub", chapter.fileFormat)
+        }
 
     @Test
-    fun `chapters list maps every MangaFormat value`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[
+    fun `chapters list maps every MangaFormat value`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[
                     |{"id":100,"format":0},
                     |{"id":101,"format":1},
                     |{"id":102,"format":2},
                     |{"id":103,"format":3},
                     |{"id":104,"format":4}
-                    |]}]""".trimMargin(),
-            ),
-        )
+                    |]}]
+                    """.trimMargin(),
+                ),
+            )
 
-        val formats = plugin.serial("7").chapters.list().map { it.fileFormat }
+            val formats =
+                plugin
+                    .serial("7")
+                    .chapters
+                    .list()
+                    .map { it.fileFormat }
 
-        assertEquals(listOf("image", "archive", "unknown", "epub", "pdf"), formats)
-    }
+            assertEquals(listOf("image", "archive", "unknown", "epub", "pdf"), formats)
+        }
 
     @Test
-    fun `chapter get maps decimalNumber specialLabel createdUtc and fileFormat`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[
+    fun `chapter get maps decimalNumber specialLabel createdUtc and fileFormat`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[
                     |{"id":100,"title":"Ch 1","range":"Special","sortOrder":2.5,"createdUtc":"2026-02-02T00:00:00Z","format":1}
-                    |]}]""".trimMargin(),
-            ),
-        )
+                    |]}]
+                    """.trimMargin(),
+                ),
+            )
 
-        val chapter = plugin.serial("7").chapter("100").get()
+            val chapter = plugin.serial("7").chapter("100").get()
 
-        assertEquals(2.5, chapter.decimalNumber)
-        assertEquals("Special", chapter.specialLabel)
-        assertEquals("2026-02-02T00:00:00Z", chapter.createdUtc)
-        assertEquals("archive", chapter.fileFormat)
-    }
+            assertEquals(2.5, chapter.decimalNumber)
+            assertEquals("Special", chapter.specialLabel)
+            assertEquals("2026-02-02T00:00:00Z", chapter.createdUtc)
+            assertEquals("archive", chapter.fileFormat)
+        }
 
     @Test
     fun `chapter getCoverUrl builds a chapter cover url`() {
@@ -313,117 +355,130 @@ class KavitaServerPluginTest {
     }
 
     @Test
-    fun `chapters setRead true marks as read for the batch`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200))
+    fun `chapters setRead true marks as read for the batch`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200))
 
-        plugin.serial("7").chapters.setRead(true, listOf("100", "101"))
+            plugin.serial("7").chapters.setRead(true, listOf("100", "101"))
 
-        val recorded = server.takeRequest()
-        assertTrue(recorded.path?.endsWith("/api/Reader/mark-multiple-read") == true)
-    }
-
-    @Test
-    fun `chapters setRead false marks as unread for the batch`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200))
-
-        plugin.serial("7").chapters.setRead(false, listOf("100"))
-
-        val recorded = server.takeRequest()
-        assertTrue(recorded.path?.endsWith("/api/Reader/mark-multiple-unread") == true)
-    }
+            val recorded = server.takeRequest()
+            assertTrue(recorded.path?.endsWith("/api/Reader/mark-multiple-read") == true)
+        }
 
     @Test
-    fun `chapters list and chapter get on the same Serial share one request`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"},{"id":101,"title":"Ch 2"}]}]""",
-            ),
-        )
+    fun `chapters setRead false marks as unread for the batch`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200))
 
-        val serial = plugin.serial("7")
-        serial.chapters.list()
-        val chapter = serial.chapter("101").get()
+            plugin.serial("7").chapters.setRead(false, listOf("100"))
 
-        assertEquals("Ch 2", chapter.title)
-        assertEquals(1, server.requestCount)
-    }
+            val recorded = server.takeRequest()
+            assertTrue(recorded.path?.endsWith("/api/Reader/mark-multiple-unread") == true)
+        }
 
     @Test
-    fun `a fresh serial(id) call does not reuse the previous instance's memoized volumes`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
-        )
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
-        )
+    fun `chapters list and chapter get on the same Serial share one request`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"},{"id":101,"title":"Ch 2"}]}]""",
+                ),
+            )
 
-        plugin.serial("7").chapters.list()
-        plugin.serial("7").chapters.list()
+            val serial = plugin.serial("7")
+            serial.chapters.list()
+            val chapter = serial.chapter("101").get()
 
-        assertEquals(2, server.requestCount)
-    }
-
-    @Test
-    fun `chapters setRead invalidates the memoized volumes so the next list refetches`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1","pagesRead":0}]}]"""),
-        )
-        server.enqueue(MockResponse().setResponseCode(200)) // mark-multiple-read
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1","pagesRead":20}]}]"""),
-        )
-
-        val serial = plugin.serial("7")
-        serial.chapters.list()
-        serial.chapters.setRead(true, listOf("100"))
-        val afterWrite = serial.chapters.list().single()
-
-        assertEquals(20, afterWrite.pagesRead)
-        assertEquals(3, server.requestCount)
-    }
+            assertEquals("Ch 2", chapter.title)
+            assertEquals(1, server.requestCount)
+        }
 
     @Test
-    fun `chapter setRead invalidates the owning Serial's memoized volumes`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
-        )
-        server.enqueue(MockResponse().setResponseCode(200)) // mark-multiple-read
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
-        )
+    fun `a fresh serial(id) call does not reuse the previous instance's memoized volumes`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
+            )
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
+            )
 
-        val serial = plugin.serial("7")
-        serial.chapters.list()
-        serial.chapter("100").setRead(true)
-        serial.chapters.list()
+            plugin.serial("7").chapters.list()
+            plugin.serial("7").chapters.list()
 
-        assertEquals(3, server.requestCount)
-    }
+            assertEquals(2, server.requestCount)
+        }
 
     @Test
-    fun `chapter setProgress invalidates the owning Serial's memoized volumes`() = runTest {
-        // 1: serial.chapters.list() — memoized volumes lookup
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]"""),
-        )
-        // 2: setProgress's own internal volumes lookup (to resolve volumeId — separate from the memoized one, saveProgress doesn't go through KavitaSerial)
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]"""),
-        )
-        // 3: the actual save-progress POST
-        server.enqueue(MockResponse().setResponseCode(200))
-        // 4: serial.chapters.list() again — memoized volumes must have been invalidated, so this refetches
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]"""),
-        )
+    fun `chapters setRead invalidates the memoized volumes so the next list refetches`() =
+        runTest {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(
+                        200,
+                    ).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1","pagesRead":0}]}]"""),
+            )
+            server.enqueue(MockResponse().setResponseCode(200)) // mark-multiple-read
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(
+                        200,
+                    ).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1","pagesRead":20}]}]"""),
+            )
 
-        val serial = plugin.serial("7")
-        serial.chapters.list()
-        serial.chapter("100").setProgress(5)
-        serial.chapters.list()
+            val serial = plugin.serial("7")
+            serial.chapters.list()
+            serial.chapters.setRead(true, listOf("100"))
+            val afterWrite = serial.chapters.list().single()
 
-        assertEquals(4, server.requestCount)
-    }
+            assertEquals(20, afterWrite.pagesRead)
+            assertEquals(3, server.requestCount)
+        }
+
+    @Test
+    fun `chapter setRead invalidates the owning Serial's memoized volumes`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
+            )
+            server.enqueue(MockResponse().setResponseCode(200)) // mark-multiple-read
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"}]}]"""),
+            )
+
+            val serial = plugin.serial("7")
+            serial.chapters.list()
+            serial.chapter("100").setRead(true)
+            serial.chapters.list()
+
+            assertEquals(3, server.requestCount)
+        }
+
+    @Test
+    fun `chapter setProgress invalidates the owning Serial's memoized volumes`() =
+        runTest {
+            // 1: serial.chapters.list() — memoized volumes lookup
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]"""),
+            )
+            // 2: setProgress's own internal volumes lookup (to resolve volumeId — separate from the memoized one, saveProgress doesn't go through KavitaSerial)
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]"""),
+            )
+            // 3: the actual save-progress POST
+            server.enqueue(MockResponse().setResponseCode(200))
+            // 4: serial.chapters.list() again — memoized volumes must have been invalidated, so this refetches
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody("""[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]"""),
+            )
+
+            val serial = plugin.serial("7")
+            serial.chapters.list()
+            serial.chapter("100").setProgress(5)
+            serial.chapters.list()
+
+            assertEquals(4, server.requestCount)
+        }
 
     // Protection-window expiry (real wall-clock time, via System.currentTimeMillis()) isn't
     // covered by an automated test — kotlinx.coroutines.test's virtual clock only advances
@@ -433,98 +488,122 @@ class KavitaServerPluginTest {
     // ── serial(id).chapter(id) ───────────────────────────────────────────
 
     @Test
-    fun `chapter get filters the matching chapter from the series listing`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"},{"id":101,"title":"Ch 2"}]}]""",
-            ),
-        )
+    fun `chapter get filters the matching chapter from the series listing`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[{"id":100,"title":"Ch 1"},{"id":101,"title":"Ch 2"}]}]""",
+                ),
+            )
 
-        val chapter = plugin.serial("7").chapter("101").get()
+            val chapter = plugin.serial("7").chapter("101").get()
 
-        assertEquals("Ch 2", chapter.title)
-    }
-
-    @Test
-    fun `chapter get throws when chapter is not in the series`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
-
-        assertFailsWith<KavitaServerPluginException> { plugin.serial("7").chapter("999").get() }
-    }
+            assertEquals("Ch 2", chapter.title)
+        }
 
     @Test
-    fun `chapter setRead true marks this single chapter as read`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200))
+    fun `chapter get throws when chapter is not in the series`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
 
-        plugin.serial("7").chapter("100").setRead(true)
-
-        val recorded = server.takeRequest()
-        assertTrue(recorded.body.readUtf8().contains("\"chapterIds\":[100]"))
-    }
+            assertFailsWith<KavitaServerPluginException> { plugin.serial("7").chapter("999").get() }
+        }
 
     @Test
-    fun `chapter getProgress maps dto including bookScrollId source fields`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """{"volumeId":10,"chapterId":100,"pageNum":5,"seriesId":7,"lastModifiedUtc":"2026-01-01T00:00:00Z"}""",
-            ),
-        )
+    fun `chapter setRead true marks this single chapter as read`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200))
 
-        val progress = plugin.serial("7").chapter("100").getProgress()
+            plugin.serial("7").chapter("100").setRead(true)
 
-        assertEquals(5, progress?.pageIndex)
-        assertEquals("2026-01-01T00:00:00Z", progress?.updatedAtUtc)
-    }
+            val recorded = server.takeRequest()
+            assertTrue(recorded.body.readUtf8().contains("\"chapterIds\":[100]"))
+        }
 
     @Test
-    fun `chapter getProgress returns null when there is no saved progress`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(404))
+    fun `chapter getProgress maps dto including bookScrollId source fields`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """{"volumeId":10,"chapterId":100,"pageNum":5,"seriesId":7,"lastModifiedUtc":"2026-01-01T00:00:00Z"}""",
+                ),
+            )
 
-        assertNull(plugin.serial("7").chapter("100").getProgress())
-    }
+            val progress = plugin.serial("7").chapter("100").getProgress()
+
+            assertEquals(5, progress?.pageIndex)
+            assertEquals("2026-01-01T00:00:00Z", progress?.updatedAtUtc)
+        }
 
     @Test
-    fun `chapter setProgress looks up volume and saves`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]""",
-            ),
-        )
-        server.enqueue(MockResponse().setResponseCode(200))
+    fun `chapter getProgress returns null when there is no saved progress`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(404))
 
-        plugin.serial("7").chapter("100").setProgress(3)
+            assertNull(plugin.serial("7").chapter("100").getProgress())
+        }
 
-        server.takeRequest()
-        val recorded = server.takeRequest()
-        assertTrue(recorded.path?.endsWith("/api/Reader/progress") == true)
-    }
+    @Test
+    fun `chapter setProgress looks up volume and saves`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"chapters":[{"id":100,"volumeId":10}]}]""",
+                ),
+            )
+            server.enqueue(MockResponse().setResponseCode(200))
+
+            plugin.serial("7").chapter("100").setProgress(3)
+
+            server.takeRequest()
+            val recorded = server.takeRequest()
+            assertTrue(recorded.path?.endsWith("/api/Reader/progress") == true)
+        }
 
     // ── serial(id).chapter(id).page(index) ──────────────────────────────
 
     @Test
-    fun `page getDimensions returns the dimension at that index`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """{"pageDimensions":[{"width":800,"height":1100,"pageNumber":0},{"width":800,"height":1200,"pageNumber":1}]}""",
-            ),
-        )
+    fun `page getDimensions returns the dimension at that index`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """{"pageDimensions":[{"width":800,"height":1100,"pageNumber":0},{"width":800,"height":1200,"pageNumber":1}]}""",
+                ),
+            )
 
-        val dimension = plugin.serial("7").chapter("100").page(1).getDimensions()
+            val dimension =
+                plugin
+                    .serial("7")
+                    .chapter("100")
+                    .page(1)
+                    .getDimensions()
 
-        assertEquals(800, dimension.width)
-        assertEquals(1200, dimension.height)
-    }
+            assertEquals(800, dimension.width)
+            assertEquals(1200, dimension.height)
+        }
 
     @Test
-    fun `page getDimensions throws when index is out of range`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"pageDimensions":[]}"""))
+    fun `page getDimensions throws when index is out of range`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"pageDimensions":[]}"""))
 
-        assertFailsWith<KavitaServerPluginException> { plugin.serial("7").chapter("100").page(5).getDimensions() }
-    }
+            assertFailsWith<KavitaServerPluginException> {
+                plugin
+                    .serial("7")
+                    .chapter("100")
+                    .page(5)
+                    .getDimensions()
+            }
+        }
 
     @Test
     fun `page getUrl builds a single page url`() {
-        val url = plugin.serial("7").chapter("100").page(2).getUrl()
+        val url =
+            plugin
+                .serial("7")
+                .chapter("100")
+                .page(2)
+                .getUrl()
 
         assertEquals("$baseUrl/api/reader/image?chapterId=100&page=2&apiKey=api-key-123", url)
     }

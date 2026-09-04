@@ -13,11 +13,11 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.soloader.SoLoader
 import com.mymangareader.cache.Cache
-import com.mymangareader.preferences.Preferences
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
@@ -27,8 +27,8 @@ import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
+import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
-import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.ota.OtaCheckResult
 import com.mymangareader.tools.ota.OtaDecision
@@ -46,59 +46,82 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
-class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
-
+class MainApplication :
+    Application(),
+    ReactApplication,
+    ImageLoaderFactory {
     @Inject lateinit var configStore: ConfigStore
+
     @Inject lateinit var dbStatus: DbStatusProvider
+
     @Inject lateinit var otaStore: OtaStore
+
     @Inject lateinit var otaManager: OtaManager
+
     @Inject lateinit var crashGuard: CrashGuard
+
     @Inject lateinit var kavitaUrlSource: KavitaUrlSource
+
     @Inject lateinit var kavitaAuthFeature: KavitaAuthFeature
+
     @Inject lateinit var kavitaSeriesFeature: KavitaSeriesFeature
+
     @Inject lateinit var kavitaChapterFeature: KavitaChapterFeature
+
     // Typed as the interface (not KavitaChapterFeature) so ReaderChapterModule's provider stays
     // swappable without touching this wiring — see ChapterDataSource's doc for the rationale.
     @Inject lateinit var chapterDataSource: ChapterDataSource
+
     @Inject lateinit var bffFeature: BffFeature
+
     @Inject lateinit var followedSeriesDao: FollowedSeriesDao
+
     @Inject lateinit var serverConfigDao: ServerConfigDao
+
     @Inject lateinit var chapterCacheDao: ChapterCacheDao
+
     @Inject lateinit var activeUrlWatcher: ActiveUrlWatcher
+
     @Inject lateinit var server: Server
+
     @Inject lateinit var externalMetadataServer: ExternalMetadataServer
+
     @Inject lateinit var cache: Cache
+
     @Inject lateinit var preferences: Preferences
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
-                PackageList(this).packages + AppReactPackage(
-                    configStore = configStore,
-                    dbStatus = dbStatus,
-                    otaStore = otaStore,
-                    kavitaUrlSource = kavitaUrlSource,
-                    kavitaAuthFeature = kavitaAuthFeature,
-                    kavitaSeriesFeature = kavitaSeriesFeature,
-                    kavitaChapterFeature = kavitaChapterFeature,
-                    chapterDataSource = chapterDataSource,
-                    bffFeature = bffFeature,
-                    followedSeriesDao = followedSeriesDao,
-                    serverConfigDao = serverConfigDao,
-                    chapterCacheDao = chapterCacheDao,
-                    activeUrlWatcher = activeUrlWatcher,
-                    server = server,
-                    externalMetadataServer = externalMetadataServer,
-                    cache = cache,
-                    preferences = preferences,
-                )
+                PackageList(this).packages +
+                    AppReactPackage(
+                        configStore = configStore,
+                        dbStatus = dbStatus,
+                        otaStore = otaStore,
+                        kavitaUrlSource = kavitaUrlSource,
+                        kavitaAuthFeature = kavitaAuthFeature,
+                        kavitaSeriesFeature = kavitaSeriesFeature,
+                        kavitaChapterFeature = kavitaChapterFeature,
+                        chapterDataSource = chapterDataSource,
+                        bffFeature = bffFeature,
+                        followedSeriesDao = followedSeriesDao,
+                        serverConfigDao = serverConfigDao,
+                        chapterCacheDao = chapterCacheDao,
+                        activeUrlWatcher = activeUrlWatcher,
+                        server = server,
+                        externalMetadataServer = externalMetadataServer,
+                        cache = cache,
+                        preferences = preferences,
+                    )
 
             override fun getJSMainModuleName(): String = "index"
+
             override fun getUseDeveloperSupport(): Boolean = false
+
             override val isNewArchEnabled: Boolean = false
             override val isHermesEnabled: Boolean = true
-            override fun getJSBundleFile(): String? =
-                otaStore.bundleFile.takeIf { it.exists() }?.absolutePath
+
+            override fun getJSBundleFile(): String? = otaStore.bundleFile.takeIf { it.exists() }?.absolutePath
         }
     }
 
@@ -145,16 +168,18 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     fun startOtaDownload(decision: OtaDecision.DownloadPending) {
         OtaEventBridge.markDownloadStarted()
         applicationScope.launch {
-            val progressJob = launch {
-                otaManager.downloadProgress.collect {
-                    OtaEventBridge.notifyDownloadProgress("downloading", it)
+            val progressJob =
+                launch {
+                    otaManager.downloadProgress.collect {
+                        OtaEventBridge.notifyDownloadProgress("downloading", it)
+                    }
                 }
-            }
-            val result = try {
-                otaManager.download(decision.manifest)
-            } finally {
-                progressJob.cancel()
-            }
+            val result =
+                try {
+                    otaManager.download(decision.manifest)
+                } finally {
+                    progressJob.cancel()
+                }
             when (result) {
                 is OtaCheckResult.Updated -> {
                     OtaEventBridge.notifyDownloadProgress("ready", 1f)
@@ -169,14 +194,16 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
     // very tall images in tiles via BitmapRegionDecoder instead of asking BitmapFactory to decode
     // the raw resolution in one shot — see SafeBitmapDecoder for why that matters on-device.
     override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this)
+        ImageLoader
+            .Builder(this)
             .components { add(SafeBitmapDecoder.Factory()) }
             // Coil's default disk cache is 2% of free disk space, which on a nearly-full device
             // can be too small to hold more than a couple of chapters — pages get evicted and
             // re-downloaded on every reopen even though nothing on the server changed. A manga
             // reader's pages are exactly the kind of content worth a generous, explicit floor.
             .diskCache {
-                DiskCache.Builder()
+                DiskCache
+                    .Builder()
                     .directory(cacheDir.resolve("coil_page_cache"))
                     .maxSizeBytes(READER_DISK_CACHE_MAX_BYTES)
                     .build()
@@ -184,16 +211,20 @@ class MainApplication : Application(), ReactApplication, ImageLoaderFactory {
             // Temporary diagnostic: confirms whether a failing request ever reached
             // SafeBitmapDecoder.Factory.create() at all. Remove once the tiled decode is confirmed
             // working.
-            .eventListener(object : coil.EventListener {
-                override fun onError(request: coil.request.ImageRequest, result: coil.request.ErrorResult) {
-                    android.util.Log.e(
-                        "CoilDiagnostic",
-                        "onError url=${request.data} throwable=${result.throwable}",
-                        result.throwable,
-                    )
-                }
-            })
-            .build()
+            .eventListener(
+                object : coil.EventListener {
+                    override fun onError(
+                        request: coil.request.ImageRequest,
+                        result: coil.request.ErrorResult,
+                    ) {
+                        android.util.Log.e(
+                            "CoilDiagnostic",
+                            "onError url=${request.data} throwable=${result.throwable}",
+                            result.throwable,
+                        )
+                    }
+                },
+            ).build()
 
     companion object {
         private const val READER_DISK_CACHE_MAX_BYTES = 500L * 1024 * 1024

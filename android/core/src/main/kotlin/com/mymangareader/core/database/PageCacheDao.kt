@@ -21,7 +21,10 @@ interface PageCacheDao {
     suspend fun deleteByChapterId(chapterId: String)
 
     @Transaction
-    suspend fun replaceForChapter(chapterId: String, pages: List<PageCacheEntity>) {
+    suspend fun replaceForChapter(
+        chapterId: String,
+        pages: List<PageCacheEntity>,
+    ) {
         deleteByChapterId(chapterId)
         insertAll(pages)
     }

@@ -12,7 +12,6 @@ import org.mockito.kotlin.mock
 // only thing verifiable here is wiring — getName() — with resolve/reject behavior covered by the
 // real-device smoke test.
 class CacheBridgeModuleTest {
-
     @Test
     fun `getName retorna CacheBridgeModule`() {
         val module = CacheBridgeModule(mock<Cache>(), mock<ReactApplicationContext>())

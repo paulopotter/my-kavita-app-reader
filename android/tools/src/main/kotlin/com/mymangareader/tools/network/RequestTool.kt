@@ -1,16 +1,16 @@
 package com.mymangareader.tools.network
 
-import java.util.Timer
-import java.util.TimerTask
-import kotlin.concurrent.schedule
 import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.Timer
+import java.util.TimerTask
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.concurrent.schedule
 
 // Independent of OkHttpClient's own connect/read/write timeouts (NetworkModule.kt, 30s each) —
 // those only fire if the socket is still "alive" at the TCP level; in real-world Android
@@ -33,49 +33,59 @@ private const val DEFAULT_REQUEST_TIMEOUT_MS = 35_000L
 private val watchdog = Timer("RequestTool-watchdog", true)
 
 @Singleton
-class RequestTool @Inject constructor(private val client: OkHttpClient) {
+class RequestTool
+    @Inject
+    constructor(
+        private val client: OkHttpClient,
+    ) {
+        suspend fun request(
+            url: String,
+            method: String = "GET",
+            headers: Map<String, String> = emptyMap(),
+            body: String? = null,
+            timeoutMs: Long = DEFAULT_REQUEST_TIMEOUT_MS,
+        ): Result<HttpResult> =
+            runCatching {
+                val requestBody = body?.toRequestBody("application/json".toMediaType())
 
-    suspend fun request(
-        url: String,
-        method: String = "GET",
-        headers: Map<String, String> = emptyMap(),
-        body: String? = null,
-        timeoutMs: Long = DEFAULT_REQUEST_TIMEOUT_MS,
-    ): Result<HttpResult> = runCatching {
-        val requestBody = body?.toRequestBody("application/json".toMediaType())
+                val httpMethod = method.uppercase()
+                val effectiveBody =
+                    when {
+                        httpMethod == "GET" || httpMethod == "DELETE" -> null
+                        requestBody != null -> requestBody
+                        else -> RequestBody.create(null, ByteArray(0))
+                    }
+                val request =
+                    Request
+                        .Builder()
+                        .url(url)
+                        .method(httpMethod, effectiveBody)
+                        .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
+                        .build()
 
-        val httpMethod = method.uppercase()
-        val effectiveBody = when {
-            httpMethod == "GET" || httpMethod == "DELETE" -> null
-            requestBody != null -> requestBody
-            else -> RequestBody.create(null, ByteArray(0))
-        }
-        val request = Request.Builder()
-            .url(url)
-            .method(httpMethod, effectiveBody)
-            .apply { headers.forEach { (k, v) -> addHeader(k, v) } }
-            .build()
-
-        val call: Call = client.newCall(request)
-        var timedOut = false
-        val timeoutTask: TimerTask = watchdog.schedule(timeoutMs) {
-            timedOut = true
-            call.cancel()
-        }
-        try {
-            call.execute().use { response ->
-                HttpResult(
-                    status = response.code,
-                    body = response.body?.string() ?: "",
-                )
+                val call: Call = client.newCall(request)
+                var timedOut = false
+                val timeoutTask: TimerTask =
+                    watchdog.schedule(timeoutMs) {
+                        timedOut = true
+                        call.cancel()
+                    }
+                try {
+                    call.execute().use { response ->
+                        HttpResult(
+                            status = response.code,
+                            body = response.body?.string() ?: "",
+                        )
+                    }
+                } catch (e: Exception) {
+                    if (timedOut) throw RequestTimeoutException("Request timed out after ${timeoutMs}ms: $url")
+                    throw e
+                } finally {
+                    timeoutTask.cancel()
+                }
             }
-        } catch (e: Exception) {
-            if (timedOut) throw RequestTimeoutException("Request timed out after ${timeoutMs}ms: $url")
-            throw e
-        } finally {
-            timeoutTask.cancel()
-        }
     }
-}
 
-class RequestTimeoutException(message: String) : Exception(message)
+class RequestTimeoutException(
+    message: String,
+) : Exception(message)

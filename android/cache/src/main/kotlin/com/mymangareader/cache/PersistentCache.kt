@@ -7,9 +7,13 @@ interface Persistent : CacheStore
 
 // Room-backed — CacheDao/CacheEntity's single generic table (:core). Never opens `value` itself;
 // it's whatever opaque string the caller serialized before calling put().
-internal class PersistentHandle(private val cacheDao: CacheDao) : Persistent {
-
-    override suspend fun get(key: String, variant: String): CacheEntry? {
+internal class PersistentHandle(
+    private val cacheDao: CacheDao,
+) : Persistent {
+    override suspend fun get(
+        key: String,
+        variant: String,
+    ): CacheEntry? {
         val entity = cacheDao.getByKey(key, variant) ?: return null
         cacheDao.touchLastAccessed(key, variant, System.currentTimeMillis())
         return CacheEntry(
@@ -20,7 +24,13 @@ internal class PersistentHandle(private val cacheDao: CacheDao) : Persistent {
         )
     }
 
-    override suspend fun put(key: String, value: String, domain: String, variant: String, ttlMs: Long): CacheDescriptor {
+    override suspend fun put(
+        key: String,
+        value: String,
+        domain: String,
+        variant: String,
+        ttlMs: Long,
+    ): CacheDescriptor {
         val now = System.currentTimeMillis()
         val expiresAtEpochMs = now + ttlMs
         cacheDao.upsert(
@@ -63,7 +73,8 @@ internal class PersistentHandle(private val cacheDao: CacheDao) : Persistent {
             cacheDao.query(readFilter).forEach { if (it.variant == variant) existingByKey[it.key] = it.value }
         } else {
             items.map { it.key }.distinct().chunked(CACHE_FILTER_MAX_KEYS).forEach { chunk ->
-                cacheDao.query(CacheFilter(keys = chunk, variant = variant))
+                cacheDao
+                    .query(CacheFilter(keys = chunk, variant = variant))
                     .forEach { existingByKey[it.key] = it.value }
             }
         }
@@ -105,11 +116,17 @@ internal class PersistentHandle(private val cacheDao: CacheDao) : Persistent {
         return descriptors
     }
 
-    override suspend fun invalidate(key: String, variant: String) = cacheDao.deleteByKey(key, variant)
+    override suspend fun invalidate(
+        key: String,
+        variant: String,
+    ) = cacheDao.deleteByKey(key, variant)
 
     override suspend fun invalidateDomain(domain: String) = cacheDao.deleteByDomain(domain)
 
-    override suspend fun invalidateVariant(domain: String, variant: String) = cacheDao.deleteByVariant(domain, variant)
+    override suspend fun invalidateVariant(
+        domain: String,
+        variant: String,
+    ) = cacheDao.deleteByVariant(domain, variant)
 
     override suspend fun purgeExpired() {
         val expired = cacheDao.getAllExpired(System.currentTimeMillis())

@@ -18,22 +18,25 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class ReaderPageListTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun headerNode(chapterTitle: String): SduNode =
-        SduNode.Container(children = listOf(SduNode.TextNode(text = chapterTitle, bold = true, fontSizeSp = 20)))
+    private fun headerNode(chapterTitle: String): SduNode = SduNode.Container(children = listOf(SduNode.TextNode(text = chapterTitle, bold = true, fontSizeSp = 20)))
 
-    private fun footerNode(endOfChapterLabel: String, nextChapterLabel: String, nextChapterTitle: String?): SduNode =
+    private fun footerNode(
+        endOfChapterLabel: String,
+        nextChapterLabel: String,
+        nextChapterTitle: String?,
+    ): SduNode =
         SduNode.Container(
-            children = buildList {
-                add(SduNode.TextNode(text = endOfChapterLabel, fontSizeSp = 14))
-                if (nextChapterTitle != null) {
-                    add(SduNode.TextNode(text = nextChapterLabel, fontSizeSp = 12))
-                    add(SduNode.TextNode(text = nextChapterTitle, bold = true, fontSizeSp = 16))
-                }
-            },
+            children =
+                buildList {
+                    add(SduNode.TextNode(text = endOfChapterLabel, fontSizeSp = 14))
+                    if (nextChapterTitle != null) {
+                        add(SduNode.TextNode(text = nextChapterLabel, fontSizeSp = 12))
+                        add(SduNode.TextNode(text = nextChapterTitle, bold = true, fontSizeSp = 16))
+                    }
+                },
         )
 
     private fun block(
@@ -54,9 +57,10 @@ class ReaderPageListTest {
     fun `renders one page node per url`() {
         composeRule.setContent {
             ReaderPageList(
-                blocks = listOf(
-                    block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
-                ),
+                blocks =
+                    listOf(
+                        block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
+                    ),
             )
         }
 
@@ -80,9 +84,10 @@ class ReaderPageListTest {
         var lastPageIndex = -1
         composeRule.setContent {
             ReaderPageList(
-                blocks = listOf(
-                    block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
-                ),
+                blocks =
+                    listOf(
+                        block("c1", "Capítulo 1", listOf("https://example.com/1.webp", "https://example.com/2.png")),
+                    ),
                 onVisiblePageChanged = { chapterId, pageIndex, _, _ ->
                     lastChapterId = chapterId
                     lastPageIndex = pageIndex
@@ -112,10 +117,11 @@ class ReaderPageListTest {
     fun `renders multiple chapter blocks back to back`() {
         composeRule.setContent {
             ReaderPageList(
-                blocks = listOf(
-                    block("c1", "Capítulo 1", listOf("https://example.com/1.webp"), nextChapterTitle = "Capítulo 2"),
-                    block("c2", "Capítulo 2", listOf("https://example.com/2.webp")),
-                ),
+                blocks =
+                    listOf(
+                        block("c1", "Capítulo 1", listOf("https://example.com/1.webp"), nextChapterTitle = "Capítulo 2"),
+                        block("c2", "Capítulo 2", listOf("https://example.com/2.webp")),
+                    ),
             )
         }
 
@@ -152,9 +158,10 @@ class ReaderPageListTest {
         var handledCount = 0
         composeRule.setContent {
             ReaderPageList(
-                blocks = listOf(
-                    block("c1", "Capítulo 1", (0 until 30).map { "https://example.com/$it.webp" }),
-                ),
+                blocks =
+                    listOf(
+                        block("c1", "Capítulo 1", (0 until 30).map { "https://example.com/$it.webp" }),
+                    ),
                 scrollToChapterId = "c1",
                 scrollToPageIndex = 5,
                 onScrollToChapterHandled = { handledCount++ },
@@ -246,15 +253,16 @@ class ReaderPageListTest {
         // Kotlin must render just the pages in that case, not crash or insert a placeholder.
         composeRule.setContent {
             ReaderPageList(
-                blocks = listOf(
-                    ChapterBlock(
-                        chapterId = "c1",
-                        pageUrls = listOf("https://example.com/1.webp"),
-                        pageAspectRatios = emptyList(),
-                        firstNode = null,
-                        lastNode = null,
+                blocks =
+                    listOf(
+                        ChapterBlock(
+                            chapterId = "c1",
+                            pageUrls = listOf("https://example.com/1.webp"),
+                            pageAspectRatios = emptyList(),
+                            firstNode = null,
+                            lastNode = null,
+                        ),
                     ),
-                ),
             )
         }
 
@@ -277,15 +285,16 @@ class ReaderPageListTest {
         var lastChapterFraction = -1f
         composeRule.setContent {
             ReaderPageList(
-                blocks = listOf(
-                    ChapterBlock(
-                        chapterId = "c1",
-                        pageUrls = listOf("https://example.com/1.webp"),
-                        pageAspectRatios = listOf(18f),
-                        firstNode = null,
-                        lastNode = null,
+                blocks =
+                    listOf(
+                        ChapterBlock(
+                            chapterId = "c1",
+                            pageUrls = listOf("https://example.com/1.webp"),
+                            pageAspectRatios = listOf(18f),
+                            firstNode = null,
+                            lastNode = null,
+                        ),
                     ),
-                ),
                 onVisiblePageChanged = { _, _, _, chapterFraction -> lastChapterFraction = chapterFraction },
             )
         }

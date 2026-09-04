@@ -23,7 +23,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class ScreenControlModuleRobolectricTest {
-
     private fun makeModule(activity: Activity): ScreenControlModule {
         val context: ReactApplicationContext = mock()
         whenever(context.currentActivity).thenReturn(activity)
@@ -114,10 +113,12 @@ class ScreenControlModuleRobolectricTest {
     @Test
     fun `zeroOutSystemBarsInsets zera system bars e display cutout`() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-        val incoming = WindowInsets.Builder()
-            .setInsets(WindowInsets.Type.statusBars(), android.graphics.Insets.of(0, 84, 0, 0))
-            .setInsets(WindowInsets.Type.displayCutout(), android.graphics.Insets.of(0, 40, 0, 0))
-            .build()
+        val incoming =
+            WindowInsets
+                .Builder()
+                .setInsets(WindowInsets.Type.statusBars(), android.graphics.Insets.of(0, 84, 0, 0))
+                .setInsets(WindowInsets.Type.displayCutout(), android.graphics.Insets.of(0, 40, 0, 0))
+                .build()
 
         val result = ScreenControlModule.zeroOutSystemBarsInsets(activity.window.decorView, incoming)
         val resultCompat = WindowInsetsCompat.toWindowInsetsCompat(result, activity.window.decorView)
@@ -145,6 +146,8 @@ class ScreenControlModuleRobolectricTest {
         disablePromise.awaitResolved()
     }
 
-    private fun hasFlag(activity: Activity, flag: Int): Boolean =
-        (activity.window.attributes.flags and flag) != 0
+    private fun hasFlag(
+        activity: Activity,
+        flag: Int,
+    ): Boolean = (activity.window.attributes.flags and flag) != 0
 }

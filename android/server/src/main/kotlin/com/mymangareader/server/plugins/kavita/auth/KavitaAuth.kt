@@ -29,7 +29,9 @@ data class KavitaTokenRequestDto(
     val refreshToken: String? = null,
 )
 
-class KavitaAuthException(message: String) : Exception(message)
+class KavitaAuthException(
+    message: String,
+) : Exception(message)
 
 /**
  * Every operation throws on failure instead of returning [Result] — errors (network, HTTP
@@ -55,22 +57,29 @@ class KavitaAuth(
     // The apiKey itself (not the JWT) can expire — Kavita exposes this separately since the JWT
     // carries no expiry info of its own; a JWT is only known to be stale once a request 401s.
     suspend fun checkApiKeyExpiry(jwt: String): KavitaAuthKeyExpiryDto {
-        val http = requestTool.request(
-            url = "$baseUrl$AUTHKEY_EXPIRES_PATH",
-            method = "GET",
-            headers = mapOf("Authorization" to "Bearer $jwt"),
-        ).getOrThrow()
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$AUTHKEY_EXPIRES_PATH",
+                    method = "GET",
+                    headers = mapOf("Authorization" to "Bearer $jwt"),
+                ).getOrThrow()
         if (http.status != 200) throw KavitaAuthException("AuthKey expiry check failed: HTTP ${http.status}")
         return authJson.decodeFromString(http.body)
     }
 
-    suspend fun reauthenticate(token: String, refreshToken: String): KavitaTokenRequestDto {
-        val http = requestTool.request(
-            url = "$baseUrl$REFRESH_TOKEN_PATH",
-            method = "POST",
-            headers = mapOf("Content-Type" to "application/json"),
-            body = authJson.encodeToString(KavitaTokenRequestDto.serializer(), KavitaTokenRequestDto(token, refreshToken)),
-        ).getOrThrow()
+    suspend fun reauthenticate(
+        token: String,
+        refreshToken: String,
+    ): KavitaTokenRequestDto {
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$REFRESH_TOKEN_PATH",
+                    method = "POST",
+                    headers = mapOf("Content-Type" to "application/json"),
+                    body = authJson.encodeToString(KavitaTokenRequestDto.serializer(), KavitaTokenRequestDto(token, refreshToken)),
+                ).getOrThrow()
         if (http.status != 200) throw KavitaAuthException("Token refresh failed: HTTP ${http.status}")
         return authJson.decodeFromString(http.body)
     }

@@ -10,7 +10,7 @@ jobs:
   #   name: Full Test Suite
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v7
   #     - name: Kotlin tests
   #       working-directory: android
   #       run: ./gradlew test
@@ -32,7 +32,7 @@ jobs:
     outputs:
       has_content: ${{ steps.check.outputs.has_content }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check [Unreleased] section
         id: check

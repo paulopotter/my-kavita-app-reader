@@ -1,10 +1,9 @@
 package com.mymangareader.cache
 
-import kotlin.test.assertSame
 import org.junit.Test
+import kotlin.test.assertSame
 
 class CacheTest {
-
     @Test
     fun `storeFor PERSISTENT retorna a instancia persistent`() {
         val cache = Cache(FakeCacheDao())

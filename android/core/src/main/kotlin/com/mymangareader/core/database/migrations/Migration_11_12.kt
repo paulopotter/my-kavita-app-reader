@@ -8,26 +8,28 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 // of truth (never recomputed from elsewhere), not a cache. No data migration from any existing
 // per-feature preference table (e.g. series_sort_prefs) — those stay untouched until the RN side
 // actually migrates to PreferencesManager.
-val Migration_11_12 = object : Migration(11, 12) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS preferences (
-                `key` TEXT NOT NULL,
-                variant TEXT NOT NULL,
-                value TEXT NOT NULL,
-                domain TEXT NOT NULL,
-                updatedAtEpochMs INTEGER NOT NULL,
-                PRIMARY KEY(`key`, variant)
+val Migration_11_12 =
+    object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS preferences (
+                    `key` TEXT NOT NULL,
+                    variant TEXT NOT NULL,
+                    value TEXT NOT NULL,
+                    domain TEXT NOT NULL,
+                    updatedAtEpochMs INTEGER NOT NULL,
+                    PRIMARY KEY(`key`, variant)
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
+        }
     }
-}
 
 // Downgrade path: just drops the new table.
-val Migration_12_11 = object : Migration(12, 11) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("DROP TABLE IF EXISTS preferences")
+val Migration_12_11 =
+    object : Migration(12, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS preferences")
+        }
     }
-}

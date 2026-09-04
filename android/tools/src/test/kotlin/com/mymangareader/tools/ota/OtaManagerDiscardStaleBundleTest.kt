@@ -19,7 +19,6 @@ import java.io.File
 // state so the embedded bundle loads again.
 @RunWith(RobolectricTestRunner::class)
 class OtaManagerDiscardStaleBundleTest {
-
     @get:Rule
     val tempFolder = TemporaryFolder()
 
@@ -32,14 +31,15 @@ class OtaManagerDiscardStaleBundleTest {
         store = OtaStore(filesDir)
     }
 
-    private fun manager(embeddedBundleBuildTimeMs: Long) = OtaManager(
-        store = store,
-        client = OkHttpClient(),
-        manifestUrl = "https://example.com/latest.json",
-        kotlinVersion = "1.0.0",
-        appVersion = "2026.01.01.0000",
-        embeddedBundleBuildTimeMs = embeddedBundleBuildTimeMs,
-    )
+    private fun manager(embeddedBundleBuildTimeMs: Long) =
+        OtaManager(
+            store = store,
+            client = OkHttpClient(),
+            manifestUrl = "https://example.com/latest.json",
+            kotlinVersion = "1.0.0",
+            appVersion = "2026.01.01.0000",
+            embeddedBundleBuildTimeMs = embeddedBundleBuildTimeMs,
+        )
 
     @Test
     fun `does nothing when no OTA bundle was ever downloaded`() {

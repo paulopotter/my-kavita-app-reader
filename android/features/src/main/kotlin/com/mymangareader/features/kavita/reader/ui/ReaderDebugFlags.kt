@@ -17,11 +17,17 @@ object ReaderDebugFlags {
     // inline so the message lambda is inlined at the call site instead of allocated as a
     // Function0 object on every invocation — this runs on the scroll hot path, so a non-inline
     // version would allocate-then-discard a closure per tick even with the flag off.
-    inline fun d(tag: String, message: () -> String) {
+    inline fun d(
+        tag: String,
+        message: () -> String,
+    ) {
         if (verboseScrollLogging) android.util.Log.d(tag, message())
     }
 
-    inline fun w(tag: String, message: () -> String) {
+    inline fun w(
+        tag: String,
+        message: () -> String,
+    ) {
         if (verboseScrollLogging) android.util.Log.w(tag, message())
     }
 }

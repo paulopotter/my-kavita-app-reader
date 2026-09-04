@@ -10,20 +10,22 @@ import com.mymangareader.features.kavita.reader.ui.ChapterBlock
 import com.mymangareader.features.kavita.reader.ui.SduNode
 
 class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
-
     override fun getName(): String = "ReaderPageListView"
 
-    override fun createViewInstance(reactContext: ThemedReactContext): ReaderPageListView =
-        ReaderPageListView(reactContext)
+    override fun createViewInstance(reactContext: ThemedReactContext): ReaderPageListView = ReaderPageListView(reactContext)
 
     // RN sends the full list of chapter blocks to render (currently loaded chapter plus
     // whichever neighbors RN has decided to make visible) — this view manager never decides
     // navigation, it only parses what RN sent.
     @ReactProp(name = "blocks")
-    fun setBlocks(view: ReaderPageListView, blocks: ReadableArray?) {
-        val parsed = (0 until (blocks?.size() ?: 0)).mapNotNull { index ->
-            blocks?.getMap(index)?.let(::parseBlock)
-        }
+    fun setBlocks(
+        view: ReaderPageListView,
+        blocks: ReadableArray?,
+    ) {
+        val parsed =
+            (0 until (blocks?.size() ?: 0)).mapNotNull { index ->
+                blocks?.getMap(index)?.let(::parseBlock)
+            }
         view.setBlocks(parsed)
     }
 
@@ -31,12 +33,18 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
     // "continue reading" on open), then clears it back to null once onScrollToChapterHandled
     // fires — see ReaderPageList's scrollToChapterId doc for why this must stay one-shot.
     @ReactProp(name = "scrollToChapterId")
-    fun setScrollToChapterId(view: ReaderPageListView, chapterId: String?) {
+    fun setScrollToChapterId(
+        view: ReaderPageListView,
+        chapterId: String?,
+    ) {
         view.setScrollToChapterId(chapterId)
     }
 
     @ReactProp(name = "scrollToPageIndex", defaultInt = -1)
-    fun setScrollToPageIndex(view: ReaderPageListView, pageIndex: Int) {
+    fun setScrollToPageIndex(
+        view: ReaderPageListView,
+        pageIndex: Int,
+    ) {
         view.setScrollToPageIndex(pageIndex.takeIf { it >= 0 })
     }
 
@@ -48,9 +56,10 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         // a non-positive ratio the same as never having received one, falling back to measuring
         // that page once it's actually decoded on-device. See ChapterBlock.pageAspectRatios.
         val pageAspectRatiosArray = map.getArray("pageAspectRatios")
-        val pageAspectRatios = pageUrls.indices.map { index ->
-            pageAspectRatiosArray?.takeIf { index < it.size() }?.getDouble(index)?.toFloat() ?: 0f
-        }
+        val pageAspectRatios =
+            pageUrls.indices.map { index ->
+                pageAspectRatiosArray?.takeIf { index < it.size() }?.getDouble(index)?.toFloat() ?: 0f
+            }
         return ChapterBlock(
             chapterId = chapterId,
             pageUrls = pageUrls,
@@ -67,20 +76,23 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
     private fun parseSduNode(map: ReadableMap): SduNode? {
         return when (map.getString("type")) {
             "container" -> {
-                val direction = if (map.getString("direction") == "horizontal") {
-                    SduNode.Container.Direction.HORIZONTAL
-                } else {
-                    SduNode.Container.Direction.VERTICAL
-                }
-                val align = when (map.getString("align")) {
-                    "start" -> SduNode.Container.Align.START
-                    "end" -> SduNode.Container.Align.END
-                    else -> SduNode.Container.Align.CENTER
-                }
+                val direction =
+                    if (map.getString("direction") == "horizontal") {
+                        SduNode.Container.Direction.HORIZONTAL
+                    } else {
+                        SduNode.Container.Direction.VERTICAL
+                    }
+                val align =
+                    when (map.getString("align")) {
+                        "start" -> SduNode.Container.Align.START
+                        "end" -> SduNode.Container.Align.END
+                        else -> SduNode.Container.Align.CENTER
+                    }
                 val childrenArray = map.getArray("children")
-                val children = (0 until (childrenArray?.size() ?: 0)).mapNotNull { index ->
-                    childrenArray?.getMap(index)?.let(::parseSduNode)
-                }
+                val children =
+                    (0 until (childrenArray?.size() ?: 0)).mapNotNull { index ->
+                        childrenArray?.getMap(index)?.let(::parseSduNode)
+                    }
                 SduNode.Container(
                     direction = direction,
                     backgroundColor = map.getString("backgroundColor"),
@@ -108,8 +120,11 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
 
     override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> =
         MapBuilder.of(
-            "onVisiblePageChanged", MapBuilder.of("registrationName", "onVisiblePageChanged"),
-            "onScrollToChapterHandled", MapBuilder.of("registrationName", "onScrollToChapterHandled"),
-            "onTap", MapBuilder.of("registrationName", "onTap"),
+            "onVisiblePageChanged",
+            MapBuilder.of("registrationName", "onVisiblePageChanged"),
+            "onScrollToChapterHandled",
+            MapBuilder.of("registrationName", "onScrollToChapterHandled"),
+            "onTap",
+            MapBuilder.of("registrationName", "onTap"),
         )
 }

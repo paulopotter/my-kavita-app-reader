@@ -1,10 +1,10 @@
 package com.mymangareader.contentdigest.page
 
+import com.mymangareader.contentdigest.testcache.fakeCache
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
-import com.mymangareader.contentdigest.testcache.fakeCache
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
@@ -37,25 +37,50 @@ import org.junit.Test
 
 private class FakeServerGroupDao : ServerGroupDao {
     private val rows = mutableMapOf<String, ServerGroupEntity>()
-    override suspend fun upsert(entity: ServerGroupEntity) { rows[entity.id] = entity }
-    override suspend fun delete(entity: ServerGroupEntity) { rows.remove(entity.id) }
+
+    override suspend fun upsert(entity: ServerGroupEntity) {
+        rows[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ServerGroupEntity) {
+        rows.remove(entity.id)
+    }
+
     override fun observeAll(): Flow<List<ServerGroupEntity>> = MutableStateFlow(rows.values.toList())
+
     override suspend fun getAll(): List<ServerGroupEntity> = rows.values.toList()
+
     override suspend fun getById(id: String): ServerGroupEntity? = rows[id]
-    override suspend fun deleteById(id: String) { rows.remove(id) }
+
+    override suspend fun deleteById(id: String) {
+        rows.remove(id)
+    }
 }
 
 private class FakeServerUrlDao : ServerUrlDao {
     private val rows = mutableMapOf<String, ServerUrlEntity>()
-    override suspend fun upsert(entity: ServerUrlEntity) { rows[entity.id] = entity }
-    override suspend fun delete(entity: ServerUrlEntity) { rows.remove(entity.id) }
-    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> =
-        MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
-    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> =
-        rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+
+    override suspend fun upsert(entity: ServerUrlEntity) {
+        rows[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ServerUrlEntity) {
+        rows.remove(entity.id)
+    }
+
+    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> = MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
+
+    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> = rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+
     override suspend fun getById(id: String): ServerUrlEntity? = rows[id]
-    override suspend fun deleteById(id: String) { rows.remove(id) }
-    override suspend fun deleteByGroupId(groupId: String) { rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) } }
+
+    override suspend fun deleteById(id: String) {
+        rows.remove(id)
+    }
+
+    override suspend fun deleteByGroupId(groupId: String) {
+        rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) }
+    }
 }
 
 // Controls exactly what page(pageIndex).getUrl()/getDimensions() return for one test — the only
@@ -68,69 +93,120 @@ private class FakePlugin(
     override val displayName = "Fake"
     override val version = "0.0.0"
 
-    override val auth = object : ServerPlugin.Auth {
-        override suspend fun authenticate() = Unit
-        override suspend fun checkToken(): String? = null
-        override suspend fun reauthenticate() = Unit
-        override suspend fun logout() = Unit
-        override fun getSession(): String? = null
-    }
+    override val auth =
+        object : ServerPlugin.Auth {
+            override suspend fun authenticate() = Unit
 
-    override val serials = object : ServerPlugin.Serials {
-        override suspend fun list(): List<PluginSerial> = emptyList()
-    }
+            override suspend fun checkToken(): String? = null
 
-    override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
-        override suspend fun get(): PluginSerial = PluginSerial(
-            id = serialId, name = "S", coverUrl = "http://cover", pagesRead = 0, totalPages = 0,
-            libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
-            latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
-            aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
-        )
-        override suspend fun getMetadata(): PluginSeriesMetadata = PluginSeriesMetadata(
-            description = null, genres = emptyList(), tags = emptyList(),
-            publicationStatus = null, ageRating = null, releaseYear = null, language = null,
-        )
-        override fun getCoverUrl(): String = "http://fake/serial-cover/$serialId"
+            override suspend fun reauthenticate() = Unit
 
-        override val chapters = object : ServerPlugin.Chapters {
-            override suspend fun list(): List<PluginChapter> = emptyList()
-            override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) = Unit
+            override suspend fun logout() = Unit
+
+            override fun getSession(): String? = null
         }
 
-        override fun chapter(chapterId: String): ServerPlugin.Chapter = object : ServerPlugin.Chapter {
-            override suspend fun get(): PluginChapter =
-                PluginChapter(
-                    id = chapterId, title = "C", number = null, pageCount = 1, pagesRead = 0, isSpecial = false,
-                    decimalNumber = 0.0, specialLabel = null, createdUtc = null, lastReadingProgressUtc = null,
-                    fileFormat = null,
+    override val serials =
+        object : ServerPlugin.Serials {
+            override suspend fun list(): List<PluginSerial> = emptyList()
+        }
+
+    override fun serial(serialId: String): ServerPlugin.Serial =
+        object : ServerPlugin.Serial {
+            override suspend fun get(): PluginSerial =
+                PluginSerial(
+                    id = serialId,
+                    name = "S",
+                    coverUrl = "http://cover",
+                    pagesRead = 0,
+                    totalPages = 0,
+                    libraryId = null,
+                    libraryName = null,
+                    lastFolderScannedUtc = null,
+                    lastChapterAddedUtc = null,
+                    latestReadDateUtc = null,
+                    originalName = null,
+                    localizedName = null,
+                    sortName = null,
+                    aniListId = null,
+                    malId = null,
+                    primaryColor = null,
+                    secondaryColor = null,
                 )
-            override fun getCoverUrl(): String = "http://fake/chapter-cover/$chapterId"
-            override suspend fun setRead(isRead: Boolean) = Unit
-            override suspend fun getProgress(): PluginProgress? = null
-            override suspend fun setProgress(pageIndex: Int) = Unit
-            override val pages = object : ServerPlugin.Pages {}
-            override fun page(pageIndex: Int): ServerPlugin.Page = object : ServerPlugin.Page {
-                override suspend fun getDimensions(): PluginPageDimension = dimensionsResult.getOrThrow()
-                override fun getUrl(): String = urlResult.getOrThrow()
-            }
+
+            override suspend fun getMetadata(): PluginSeriesMetadata =
+                PluginSeriesMetadata(
+                    description = null,
+                    genres = emptyList(),
+                    tags = emptyList(),
+                    publicationStatus = null,
+                    ageRating = null,
+                    releaseYear = null,
+                    language = null,
+                )
+
+            override fun getCoverUrl(): String = "http://fake/serial-cover/$serialId"
+
+            override val chapters =
+                object : ServerPlugin.Chapters {
+                    override suspend fun list(): List<PluginChapter> = emptyList()
+
+                    override suspend fun setRead(
+                        isRead: Boolean,
+                        chapterIds: List<String>,
+                    ) = Unit
+                }
+
+            override fun chapter(chapterId: String): ServerPlugin.Chapter =
+                object : ServerPlugin.Chapter {
+                    override suspend fun get(): PluginChapter =
+                        PluginChapter(
+                            id = chapterId,
+                            title = "C",
+                            number = null,
+                            pageCount = 1,
+                            pagesRead = 0,
+                            isSpecial = false,
+                            decimalNumber = 0.0,
+                            specialLabel = null,
+                            createdUtc = null,
+                            lastReadingProgressUtc = null,
+                            fileFormat = null,
+                        )
+
+                    override fun getCoverUrl(): String = "http://fake/chapter-cover/$chapterId"
+
+                    override suspend fun setRead(isRead: Boolean) = Unit
+
+                    override suspend fun getProgress(): PluginProgress? = null
+
+                    override suspend fun setProgress(pageIndex: Int) = Unit
+
+                    override val pages = object : ServerPlugin.Pages {}
+
+                    override fun page(pageIndex: Int): ServerPlugin.Page =
+                        object : ServerPlugin.Page {
+                            override suspend fun getDimensions(): PluginPageDimension = dimensionsResult.getOrThrow()
+
+                            override fun getUrl(): String = urlResult.getOrThrow()
+                        }
+                }
         }
-    }
 }
 
-private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration = object : ServerPluginRegistration {
-    override val id = "fake"
-    override val displayName = "Fake"
-    override val version = "0.0.0"
-    override val credentialFields = listOf(CredentialField("apiKey", "API Key", "string") { null })
-    override val defaultHealthCheckPath = "/health"
-    override val factory = { _: RequestTool, _: String, _: String -> plugin as ServerPlugin }
-}
+private fun fakeRegistration(plugin: FakePlugin): ServerPluginRegistration =
+    object : ServerPluginRegistration {
+        override val id = "fake"
+        override val displayName = "Fake"
+        override val version = "0.0.0"
+        override val credentialFields = listOf(CredentialField("apiKey", "API Key", "string") { null })
+        override val defaultHealthCheckPath = "/health"
+        override val factory = { _: RequestTool, _: String, _: String -> plugin as ServerPlugin }
+    }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 class PageDigestTest {
-
     private lateinit var mockServer: MockWebServer
     private lateinit var baseUrl: String
     private lateinit var groupDao: FakeServerGroupDao
@@ -138,26 +214,41 @@ class PageDigestTest {
     private lateinit var plugin: FakePlugin
     private lateinit var server: Server
     private val cache = fakeCache()
-    private val fakeChapterServerInfo = ServerActiveInfo(
-        groupId = "g1", groupName = "Group", providerId = "fake",
-        urlId = "u1", url = "http://fake", timeoutMs = 5000, priority = 0,
-    )
-    private val chapter = ChapterSummary(
-        id = "c1",
-        seriesId = "s1",
-        decimalNumber = 1.0,
-        number = 1,
-        specialLabel = null,
-        isSpecial = false,
-        title = "Chapter 1",
-        createdUtc = null,
-        coverImage = ImageDescriptor(
-            url = "http://fake/cover", hasFetchedDimensions = false, width = null, height = null,
-            aspectRatio = null, orientation = null, resolvedAtEpochMs = 1L, server = fakeChapterServerInfo, cache = null,
-        ),
-        resolvedAtEpochMs = 1L,
-        server = fakeChapterServerInfo,
-    )
+    private val fakeChapterServerInfo =
+        ServerActiveInfo(
+            groupId = "g1",
+            groupName = "Group",
+            providerId = "fake",
+            urlId = "u1",
+            url = "http://fake",
+            timeoutMs = 5000,
+            priority = 0,
+        )
+    private val chapter =
+        ChapterSummary(
+            id = "c1",
+            seriesId = "s1",
+            decimalNumber = 1.0,
+            number = 1,
+            specialLabel = null,
+            isSpecial = false,
+            title = "Chapter 1",
+            createdUtc = null,
+            coverImage =
+                ImageDescriptor(
+                    url = "http://fake/cover",
+                    hasFetchedDimensions = false,
+                    width = null,
+                    height = null,
+                    aspectRatio = null,
+                    orientation = null,
+                    resolvedAtEpochMs = 1L,
+                    server = fakeChapterServerInfo,
+                    cache = null,
+                ),
+            resolvedAtEpochMs = 1L,
+            server = fakeChapterServerInfo,
+        )
 
     @Before
     fun setUp() {
@@ -167,7 +258,14 @@ class PageDigestTest {
         groupDao = FakeServerGroupDao()
         urlDao = FakeServerUrlDao()
         plugin = FakePlugin(urlResult = Result.success("$baseUrl/page/c1/0"))
-        server = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration(plugin)), ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()))
+        server =
+            Server(
+                groupDao,
+                urlDao,
+                mapOf("fake" to fakeRegistration(plugin)),
+                ActiveUrlSelector(OkHttpClient(), cache),
+                RequestTool(OkHttpClient()),
+            )
     }
 
     @After
@@ -185,158 +283,170 @@ class PageDigestTest {
     }
 
     @Test
-    fun `success carries url, dimensions and derived fields`() = runTest {
-        activateGroup()
-        plugin.dimensionsResult = Result.success(PluginPageDimension(width = 1240, height = 1754))
+    fun `success carries url, dimensions and derived fields`() =
+        runTest {
+            activateGroup()
+            plugin.dimensionsResult = Result.success(PluginPageDimension(width = 1240, height = 1754))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 3, cache) as PageDigest.Success
+            val digest = buildPageDigest(server, chapter, pageIndex = 3, cache) as PageDigest.Success
 
-        assertEquals("c1:3", digest.id)
-        assertEquals(3, digest.number)
-        assertTrue(digest.url.endsWith("/page/c1/0"))
-        assertEquals(1240, digest.width)
-        assertEquals(1754, digest.height)
-        assertTrue(digest.hasFetchedDimensions)
-        assertEquals(1240.0 / 1754.0, digest.aspectRatio!!, 0.0001)
-        assertEquals(PageDigest.Orientation.PORTRAIT, digest.orientation)
-        assertEquals("c1:3", digest.cache?.key)
-        assertEquals(chapter, digest.chapter)
-    }
-
-    @Test
-    fun `success reflects the last successful call's serverInfo per R11`() = runTest {
-        activateGroup()
-
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
-
-        // getDimensions() ran after getUrl() and succeeded — its serverInfo/resolvedAtEpochMs win.
-        assertEquals(baseUrl, digest.server.url)
-        assertTrue(digest.resolvedAtEpochMs > 0)
-    }
+            assertEquals("c1:3", digest.id)
+            assertEquals(3, digest.number)
+            assertTrue(digest.url.endsWith("/page/c1/0"))
+            assertEquals(1240, digest.width)
+            assertEquals(1754, digest.height)
+            assertTrue(digest.hasFetchedDimensions)
+            assertEquals(1240.0 / 1754.0, digest.aspectRatio!!, 0.0001)
+            assertEquals(PageDigest.Orientation.PORTRAIT, digest.orientation)
+            assertEquals("c1:3", digest.cache?.key)
+            assertEquals(chapter, digest.chapter)
+        }
 
     @Test
-    fun `landscape orientation when aspectRatio greater than 1`() = runTest {
-        activateGroup()
-        plugin.dimensionsResult = Result.success(PluginPageDimension(width = 1600, height = 900))
+    fun `success reflects the last successful call's serverInfo per R11`() =
+        runTest {
+            activateGroup()
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        assertEquals(PageDigest.Orientation.LANDSCAPE, digest.orientation)
-    }
-
-    @Test
-    fun `orientation is null for a perfect square`() = runTest {
-        activateGroup()
-        plugin.dimensionsResult = Result.success(PluginPageDimension(width = 500, height = 500))
-
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
-
-        assertNull(digest.orientation)
-        assertEquals(1.0, digest.aspectRatio)
-    }
+            // getDimensions() ran after getUrl() and succeeded — its serverInfo/resolvedAtEpochMs win.
+            assertEquals(baseUrl, digest.server.url)
+            assertTrue(digest.resolvedAtEpochMs > 0)
+        }
 
     @Test
-    fun `a zero dimension counts as not fetched, not as a usable value`() = runTest {
-        activateGroup()
-        plugin.dimensionsResult = Result.success(PluginPageDimension(width = 0, height = 0))
+    fun `landscape orientation when aspectRatio greater than 1`() =
+        runTest {
+            activateGroup()
+            plugin.dimensionsResult = Result.success(PluginPageDimension(width = 1600, height = 900))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        assertEquals(false, digest.hasFetchedDimensions)
-        assertNull(digest.aspectRatio)
-        assertNull(digest.orientation)
-        // the raw (unusable) values still pass through — only the derived fields treat them as absent
-        assertEquals(0, digest.width)
-        assertEquals(0, digest.height)
-    }
+            assertEquals(PageDigest.Orientation.LANDSCAPE, digest.orientation)
+        }
 
     @Test
-    fun `getDimensions failure is tolerated — Success with null dimensions, not a Failure`() = runTest {
-        activateGroup()
-        plugin.dimensionsResult = Result.failure(RuntimeException("no dimension for this page"))
+    fun `orientation is null for a perfect square`() =
+        runTest {
+            activateGroup()
+            plugin.dimensionsResult = Result.success(PluginPageDimension(width = 500, height = 500))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        assertTrue(digest is PageDigest.Success)
-        digest as PageDigest.Success
-        assertNull(digest.width)
-        assertNull(digest.height)
-        assertEquals(false, digest.hasFetchedDimensions)
-        // getDimensions() failed — server/resolvedAtEpochMs fall back to getUrl()'s own envelope (R11)
-        assertEquals(baseUrl, digest.server.url)
-    }
+            assertNull(digest.orientation)
+            assertEquals(1.0, digest.aspectRatio)
+        }
 
     @Test
-    fun `getUrl failure makes the whole result a Failure`() = runTest {
-        activateGroup()
-        plugin.urlResult = Result.failure(IllegalStateException("boom"))
+    fun `a zero dimension counts as not fetched, not as a usable value`() =
+        runTest {
+            activateGroup()
+            plugin.dimensionsResult = Result.success(PluginPageDimension(width = 0, height = 0))
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        assertTrue(digest is PageDigest.Failure)
-        digest as PageDigest.Failure
-        assertEquals("IllegalStateException", digest.error.code)
-        assertEquals("boom", digest.error.message)
-    }
+            assertEquals(false, digest.hasFetchedDimensions)
+            assertNull(digest.aspectRatio)
+            assertNull(digest.orientation)
+            // the raw (unusable) values still pass through — only the derived fields treat them as absent
+            assertEquals(0, digest.width)
+            assertEquals(0, digest.height)
+        }
 
     @Test
-    fun `no active group makes the whole result a Failure, not a crash`() = runTest {
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
+    fun `getDimensions failure is tolerated — Success with null dimensions, not a Failure`() =
+        runTest {
+            activateGroup()
+            plugin.dimensionsResult = Result.failure(RuntimeException("no dimension for this page"))
 
-        assertTrue(digest is PageDigest.Failure)
-    }
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
+
+            assertTrue(digest is PageDigest.Success)
+            digest as PageDigest.Success
+            assertNull(digest.width)
+            assertNull(digest.height)
+            assertEquals(false, digest.hasFetchedDimensions)
+            // getDimensions() failed — server/resolvedAtEpochMs fall back to getUrl()'s own envelope (R11)
+            assertEquals(baseUrl, digest.server.url)
+        }
+
+    @Test
+    fun `getUrl failure makes the whole result a Failure`() =
+        runTest {
+            activateGroup()
+            plugin.urlResult = Result.failure(IllegalStateException("boom"))
+
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
+
+            assertTrue(digest is PageDigest.Failure)
+            digest as PageDigest.Failure
+            assertEquals("IllegalStateException", digest.error.code)
+            assertEquals("boom", digest.error.message)
+        }
+
+    @Test
+    fun `no active group makes the whole result a Failure, not a crash`() =
+        runTest {
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache)
+
+            assertTrue(digest is PageDigest.Failure)
+        }
 
     // ── Cache-first behavior ─────────────────────────────────────────────────
 
     @Test
-    fun `a fresh cache hit never touches the network`() = runTest {
-        activateGroup()
-        val first = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+    fun `a fresh cache hit never touches the network`() =
+        runTest {
+            activateGroup()
+            val first = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        // A second URL health check is enqueued only if the second call actually hits the
-        // network — if it wrongly bypassed the cache, MockWebServer would have nothing queued
-        // and the call would fail/hang instead of quietly succeeding, making this a real check.
-        val second = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+            // A second URL health check is enqueued only if the second call actually hits the
+            // network — if it wrongly bypassed the cache, MockWebServer would have nothing queued
+            // and the call would fail/hang instead of quietly succeeding, making this a real check.
+            val second = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        assertEquals(first.url, second.url)
-        assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
-    }
-
-    @Test
-    fun `a cache miss fetches fresh and writes a CacheDescriptor with mode PERSISTENT`() = runTest {
-        activateGroup()
-
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
-
-        assertEquals(com.mymangareader.cache.CacheMode.PERSISTENT, digest.cache?.mode)
-        assertEquals("page", digest.cache?.domain)
-        assertEquals("", digest.cache?.variant)
-    }
+            assertEquals(first.url, second.url)
+            assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
+        }
 
     @Test
-    fun `force true bypasses the cache read but still writes fresh data`() = runTest {
-        activateGroup()
-        buildPageDigest(server, chapter, pageIndex = 0, cache)
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the forced re-fetch
+    fun `a cache miss fetches fresh and writes a CacheDescriptor with mode PERSISTENT`() =
+        runTest {
+            activateGroup()
 
-        val forced = buildPageDigest(server, chapter, pageIndex = 0, cache, force = true) as PageDigest.Success
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
 
-        assertTrue(forced.cache != null)
-    }
+            assertEquals(com.mymangareader.cache.CacheMode.PERSISTENT, digest.cache?.mode)
+            assertEquals("page", digest.cache?.domain)
+            assertEquals("", digest.cache?.variant)
+        }
 
     @Test
-    fun `a stale cache hit returns immediately and refreshes in the background`() = runTest {
-        activateGroup()
-        buildPageDigest(server, chapter, pageIndex = 0, cache)
-        // Force the entry to be treated as expired: invalidate then re-write it with a
-        // negative TTL, so the next get() reports isExpired = true.
-        val stalePayload = cache.persistent.get("c1:0")!!.value
-        cache.persistent.put("c1:0", stalePayload, domain = "page", ttlMs = -1L)
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the background refresh
+    fun `force true bypasses the cache read but still writes fresh data`() =
+        runTest {
+            activateGroup()
+            buildPageDigest(server, chapter, pageIndex = 0, cache)
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the forced re-fetch
 
-        val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+            val forced = buildPageDigest(server, chapter, pageIndex = 0, cache, force = true) as PageDigest.Success
 
-        // Returned immediately from the stale cache — no exception, no wait for the network.
-        assertTrue(digest.cache != null)
-    }
+            assertTrue(forced.cache != null)
+        }
+
+    @Test
+    fun `a stale cache hit returns immediately and refreshes in the background`() =
+        runTest {
+            activateGroup()
+            buildPageDigest(server, chapter, pageIndex = 0, cache)
+            // Force the entry to be treated as expired: invalidate then re-write it with a
+            // negative TTL, so the next get() reports isExpired = true.
+            val stalePayload = cache.persistent.get("c1:0")!!.value
+            cache.persistent.put("c1:0", stalePayload, domain = "page", ttlMs = -1L)
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // health check for the background refresh
+
+            val digest = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+
+            // Returned immediately from the stale cache — no exception, no wait for the network.
+            assertTrue(digest.cache != null)
+        }
 }

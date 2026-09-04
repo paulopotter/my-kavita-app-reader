@@ -23,15 +23,53 @@ class FakePromise : Promise {
         latch.countDown()
     }
 
-    override fun reject(code: String?, message: String?) = markRejected(code)
-    override fun reject(code: String?, throwable: Throwable?) = markRejected(code)
-    override fun reject(code: String?, message: String?, throwable: Throwable?) = markRejected(code)
+    override fun reject(
+        code: String?,
+        message: String?,
+    ) = markRejected(code)
+
+    override fun reject(
+        code: String?,
+        throwable: Throwable?,
+    ) = markRejected(code)
+
+    override fun reject(
+        code: String?,
+        message: String?,
+        throwable: Throwable?,
+    ) = markRejected(code)
+
     override fun reject(throwable: Throwable?) = markRejected(null)
-    override fun reject(throwable: Throwable?, userInfo: WritableMap?) = markRejected(null)
-    override fun reject(code: String?, userInfo: WritableMap) = markRejected(code)
-    override fun reject(code: String?, throwable: Throwable?, userInfo: WritableMap?) = markRejected(code)
-    override fun reject(code: String?, message: String?, userInfo: WritableMap) = markRejected(code)
-    override fun reject(code: String?, message: String?, throwable: Throwable?, userInfo: WritableMap?) = markRejected(code)
+
+    override fun reject(
+        throwable: Throwable?,
+        userInfo: WritableMap?,
+    ) = markRejected(null)
+
+    override fun reject(
+        code: String?,
+        userInfo: WritableMap,
+    ) = markRejected(code)
+
+    override fun reject(
+        code: String?,
+        throwable: Throwable?,
+        userInfo: WritableMap?,
+    ) = markRejected(code)
+
+    override fun reject(
+        code: String?,
+        message: String?,
+        userInfo: WritableMap,
+    ) = markRejected(code)
+
+    override fun reject(
+        code: String?,
+        message: String?,
+        throwable: Throwable?,
+        userInfo: WritableMap?,
+    ) = markRejected(code)
+
     override fun reject(message: String?) = markRejected("ERROR")
 
     fun awaitResolved() {

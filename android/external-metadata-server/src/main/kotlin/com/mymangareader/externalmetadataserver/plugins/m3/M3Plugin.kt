@@ -7,12 +7,14 @@ import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataPlugin
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataPluginRegistration
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.tools.network.RequestTool
-import java.text.Normalizer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.text.Normalizer
 
-class M3PluginException(message: String) : Exception(message)
+class M3PluginException(
+    message: String,
+) : Exception(message)
 
 private const val MANGAS_PATH = "/manga" // endpoint returns a list despite the singular URL segment
 
@@ -47,7 +49,6 @@ class M3Plugin(
     private val requestTool: RequestTool,
     private val cache: Cache,
 ) : ExternalMetadataPlugin {
-
     override val id: String = Info.id
     override val displayName: String = Info.displayName
     override val version: String = Info.version
@@ -78,13 +79,18 @@ class M3Plugin(
         @SerialName("kavita_id") val kavitaId: Int? = null,
     )
 
-    override val auth: ExternalMetadataPlugin.Auth = object : ExternalMetadataPlugin.Auth {
-        override suspend fun authenticate() = Unit
-        override suspend fun checkToken(): String? = null
-        override suspend fun reauthenticate() = Unit
-        override suspend fun logout() = Unit
-        override fun getSession(): String? = null
-    }
+    override val auth: ExternalMetadataPlugin.Auth =
+        object : ExternalMetadataPlugin.Auth {
+            override suspend fun authenticate() = Unit
+
+            override suspend fun checkToken(): String? = null
+
+            override suspend fun reauthenticate() = Unit
+
+            override suspend fun logout() = Unit
+
+            override fun getSession(): String? = null
+        }
 
     // Positional — result[i] is series[i]'s match, or null if none was found. Never drops
     // entries (a previous version used mapNotNull, which lost the series↔match correlation for
@@ -109,9 +115,10 @@ class M3Plugin(
     // of 1 and take the first result") so a future provider with a real single-lookup endpoint
     // can implement this differently without reshaping the contract.
     override suspend fun fetchMatch(series: ExternalMetadataSeriesRef): ExternalMetadataMatch? {
-        val dto = fetchAllManga().firstOrNull {
-            it.kavitaId?.toString() == series.id || it.title.normalizedForMatch() == series.name.normalizedForMatch()
-        }
+        val dto =
+            fetchAllManga().firstOrNull {
+                it.kavitaId?.toString() == series.id || it.title.normalizedForMatch() == series.name.normalizedForMatch()
+            }
         return dto?.toExternalMetadataMatch(series.id)
     }
 
@@ -121,33 +128,36 @@ class M3Plugin(
     // concurrent caller within the window (across any M3Plugin instance keyed to this baseUrl)
     // reuses it instead of firing its own request. No invalidation path — this plugin has no
     // write operations that could make the cached listing stale.
-    private suspend fun fetchAllManga(): List<MangaDto> =
-        cache.network.run(mangaListCacheKey(baseUrl), ttlMs = M3_MANGA_LIST_CACHE_WINDOW_MS) { fetchAllMangaFromNetwork() }
+    private suspend fun fetchAllManga(): List<MangaDto> = cache.network.run(mangaListCacheKey(baseUrl), ttlMs = M3_MANGA_LIST_CACHE_WINDOW_MS) { fetchAllMangaFromNetwork() }
 
     private suspend fun fetchAllMangaFromNetwork(): List<MangaDto> {
-        val http = requestTool.request(
-            url = "$baseUrl$MANGAS_PATH",
-            method = "GET",
-        ).getOrElse { throw M3PluginException("M3 fetch failed: ${it.message}") }
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$MANGAS_PATH",
+                    method = "GET",
+                ).getOrElse { throw M3PluginException("M3 fetch failed: ${it.message}") }
 
         if (http.status != 200) throw M3PluginException("M3 fetch failed: HTTP ${http.status}")
 
         return m3Json.decodeFromString(http.body)
     }
 
-    private fun MangaDto.toExternalMetadataMatch(seriesId: String) = ExternalMetadataMatch(
-        seriesId = seriesId,
-        slug = slug,
-        status = status ?: "unknown",
-        downloadedChapters = downloadedChapters,
-        totalChapters = totalChapters,
-        latestChapterLabel = latestChapterLabel,
-        hasErrors = hasErrors,
-    )
+    private fun MangaDto.toExternalMetadataMatch(seriesId: String) =
+        ExternalMetadataMatch(
+            seriesId = seriesId,
+            slug = slug,
+            status = status ?: "unknown",
+            downloadedChapters = downloadedChapters,
+            totalChapters = totalChapters,
+            latestChapterLabel = latestChapterLabel,
+            hasErrors = hasErrors,
+        )
 }
 
 private fun String.normalizedForMatch(): String =
-    Normalizer.normalize(this, Normalizer.Form.NFD)
+    Normalizer
+        .normalize(this, Normalizer.Form.NFD)
         .replace(Regex("\\p{Mn}+"), "")
         .lowercase()
         .replace(Regex("[.,;:!?'\"()\\[\\]{}]"), "")

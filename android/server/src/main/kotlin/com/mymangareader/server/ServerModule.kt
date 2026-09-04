@@ -16,7 +16,8 @@ object ServerModule {
     // else in Server.kt) when a second one is implemented.
     @Provides
     @Singleton
-    fun providePluginRegistrations(): Map<String, ServerPluginRegistration> = mapOf(
-        KavitaServerPlugin.Info.id to KavitaServerPlugin.Info,
-    )
+    fun providePluginRegistrations(): Map<String, ServerPluginRegistration> =
+        mapOf(
+            KavitaServerPlugin.Info.id to KavitaServerPlugin.Info,
+        )
 }

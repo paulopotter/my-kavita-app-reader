@@ -33,9 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
@@ -74,7 +72,12 @@ data class ChapterBlock(
 
 // internal (not private) — see flattenBlocks' testability note above.
 internal sealed interface ListEntry {
-    data class Sdu(val entryKey: String, val chapterId: String, val node: SduNode) : ListEntry
+    data class Sdu(
+        val entryKey: String,
+        val chapterId: String,
+        val node: SduNode,
+    ) : ListEntry
+
     data class Page(
         val chapterId: String,
         val pageIndexInChapter: Int,
@@ -86,22 +89,24 @@ internal sealed interface ListEntry {
 
 // internal (not private) so tests can build a real entries list from ChapterBlocks — see
 // computeChapterSwitchTarget's testability note above.
-internal fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> = buildList {
-    blocks.forEach { block ->
-        block.firstNode?.let { add(ListEntry.Sdu(entryKey = "first:${block.chapterId}", chapterId = block.chapterId, node = it)) }
-        block.pageUrls.forEachIndexed { pageIndex, url ->
-            val aspectRatio = block.pageAspectRatios.getOrElse(pageIndex) { 0f }
-            add(ListEntry.Page(block.chapterId, pageIndex, url, aspectRatio))
+internal fun flattenBlocks(blocks: List<ChapterBlock>): List<ListEntry> =
+    buildList {
+        blocks.forEach { block ->
+            block.firstNode?.let { add(ListEntry.Sdu(entryKey = "first:${block.chapterId}", chapterId = block.chapterId, node = it)) }
+            block.pageUrls.forEachIndexed { pageIndex, url ->
+                val aspectRatio = block.pageAspectRatios.getOrElse(pageIndex) { 0f }
+                add(ListEntry.Page(block.chapterId, pageIndex, url, aspectRatio))
+            }
+            block.lastNode?.let { add(ListEntry.Sdu(entryKey = "last:${block.chapterId}", chapterId = block.chapterId, node = it)) }
         }
-        block.lastNode?.let { add(ListEntry.Sdu(entryKey = "last:${block.chapterId}", chapterId = block.chapterId, node = it)) }
     }
-}
 
 // internal (not private) — see flattenBlocks' testability note above.
-internal fun ListEntry.key(): String = when (this) {
-    is ListEntry.Sdu -> entryKey
-    is ListEntry.Page -> "page:$chapterId:$pageIndexInChapter"
-}
+internal fun ListEntry.key(): String =
+    when (this) {
+        is ListEntry.Sdu -> entryKey
+        is ListEntry.Page -> "page:$chapterId:$pageIndexInChapter"
+    }
 
 // Rough estimate of a non-page (Sdu) entry's height in px before it's physically measured — see
 // the LaunchedEffect(entries, containerWidthPx) fallback doc for why this exists. Always
@@ -203,11 +208,12 @@ private fun computeBottomVisiblePageIndex(
  *     into the 50%-75% band of the viewport.
  * Returns null when neither condition is met (stay on the current chapter) or a landmark ahead
  * isn't measured yet (same "wait for landmarks" contract as the other compute* functions here).
+ *
+ * internal (not private) so it's directly unit-testable — this specific trigger logic (4 quarter
+ * zones, direction-dependent) is intricate enough to warrant tests that don't depend on
+ * simulating real Compose scroll gestures in Robolectric, unlike the other compute* functions in
+ * this file which stay private and are only exercised indirectly through ReaderPageList.
  */
-// internal (not private) so it's directly unit-testable — this specific trigger logic (4 quarter
-// zones, direction-dependent) is intricate enough to warrant tests that don't depend on
-// simulating real Compose scroll gestures in Robolectric, unlike the other compute* functions in
-// this file which stay private and are only exercised indirectly through ReaderPageList.
 internal fun computeChapterSwitchTarget(
     entries: List<ListEntry>,
     itemHeights: Map<String, Int>,
@@ -251,9 +257,10 @@ internal fun computeChapterSwitchTarget(
     if (scrollingDown) {
         val currentChapterLastPageIndex = entries.indexOfLast { it is ListEntry.Page && it.chapterId == currentChapterId }
         if (currentChapterLastPageIndex == -1) return null
-        val nextChapterFirstPageIndex = (currentChapterLastPageIndex + 1 until entries.size)
-            .firstOrNull { entries[it] is ListEntry.Page }
-            ?: return null
+        val nextChapterFirstPageIndex =
+            (currentChapterLastPageIndex + 1 until entries.size)
+                .firstOrNull { entries[it] is ListEntry.Page }
+                ?: return null
         val nextChapterFirstPage = entries[nextChapterFirstPageIndex] as ListEntry.Page
         // targetLine below embeds firstVisibleItemScrollOffset (the only place it enters this
         // computation) — mirrors computeChapterFraction's bottomLine.
@@ -263,9 +270,10 @@ internal fun computeChapterSwitchTarget(
     } else {
         val currentChapterFirstPageIndex = entries.indexOfFirst { it is ListEntry.Page && it.chapterId == currentChapterId }
         if (currentChapterFirstPageIndex == -1) return null
-        val prevChapterLastPageIndex = (currentChapterFirstPageIndex - 1 downTo 0)
-            .firstOrNull { entries[it] is ListEntry.Page }
-            ?: return null
+        val prevChapterLastPageIndex =
+            (currentChapterFirstPageIndex - 1 downTo 0)
+                .firstOrNull { entries[it] is ListEntry.Page }
+                ?: return null
         val prevChapterLastPage = entries[prevChapterLastPageIndex] as ListEntry.Page
         val prevChapterLastPageHeight = itemHeights[prevChapterLastPage.key()] ?: return null
         val topRelative = topOfIndex(prevChapterLastPageIndex) ?: return null
@@ -356,23 +364,24 @@ private fun computeChapterFraction(
     // indiretamente do Header dele estar medido, mesmo com chapterTotalHeight já ignorando-o.
     val firstPageIndex = entries.indexOfFirst { it is ListEntry.Page && it.chapterId == chapterId }
     if (firstPageIndex == -1) return null
-    val chapterStartTop = if (firstPageIndex <= firstVisibleItemIndex) {
-        var top = 0
-        for (index in firstPageIndex until firstVisibleItemIndex) {
-            val entry = entries.getOrNull(index)
-            if (entry !is ListEntry.Page) continue
-            top -= itemHeights[entry.key()] ?: return null
+    val chapterStartTop =
+        if (firstPageIndex <= firstVisibleItemIndex) {
+            var top = 0
+            for (index in firstPageIndex until firstVisibleItemIndex) {
+                val entry = entries.getOrNull(index)
+                if (entry !is ListEntry.Page) continue
+                top -= itemHeights[entry.key()] ?: return null
+            }
+            top
+        } else {
+            var top = 0
+            for (index in firstVisibleItemIndex until firstPageIndex) {
+                val entry = entries.getOrNull(index)
+                if (entry !is ListEntry.Page) continue
+                top += itemHeights[entry.key()] ?: return null
+            }
+            top
         }
-        top
-    } else {
-        var top = 0
-        for (index in firstVisibleItemIndex until firstPageIndex) {
-            val entry = entries.getOrNull(index)
-            if (entry !is ListEntry.Page) continue
-            top += itemHeights[entry.key()] ?: return null
-        }
-        top
-    }
     val readWithinChapter = (bottomLine - chapterStartTop).coerceIn(0, chapterTotalHeight)
 
     return (readWithinChapter.toFloat() / chapterTotalHeight.toFloat()).coerceIn(0f, 1f)
@@ -418,8 +427,9 @@ private fun computeVisiblePageAndFraction(
     while (targetIndex < entries.size) {
         val entry = entries[targetIndex]
         val height = itemHeights[entry.key()] ?: break
-        val closesAChapter = entry is ListEntry.Sdu &&
-            entries.take(targetIndex).any { it is ListEntry.Page && it.chapterId == entry.chapterId }
+        val closesAChapter =
+            entry is ListEntry.Sdu &&
+                entries.take(targetIndex).any { it is ListEntry.Page && it.chapterId == entry.chapterId }
         if (entry is ListEntry.Page || closesAChapter) {
             targetEntry = entry
             break
@@ -430,10 +440,12 @@ private fun computeVisiblePageAndFraction(
 
     return when (val entry = targetEntry) {
         is ListEntry.Sdu -> {
-            val lastPage = entries.take(targetIndex)
-                .lastOrNull { it is ListEntry.Page && it.chapterId == entry.chapterId }
-                as? ListEntry.Page
-                ?: return null
+            val lastPage =
+                entries
+                    .take(targetIndex)
+                    .lastOrNull { it is ListEntry.Page && it.chapterId == entry.chapterId }
+                    as? ListEntry.Page
+                    ?: return null
             lastPage to 1f
         }
         is ListEntry.Page -> {
@@ -533,11 +545,12 @@ fun ReaderPageList(
     // chapterTotalHeight and made the bar fill too fast instead of too slow).
     LaunchedEffect(entries, containerWidthPx) {
         if (containerWidthPx <= 0) return@LaunchedEffect
-        val averageAspectRatioByChapter = entries
-            .filterIsInstance<ListEntry.Page>()
-            .filter { it.aspectRatio > 0f }
-            .groupBy { it.chapterId }
-            .mapValues { (_, pages) -> pages.map { it.aspectRatio }.average().toFloat() }
+        val averageAspectRatioByChapter =
+            entries
+                .filterIsInstance<ListEntry.Page>()
+                .filter { it.aspectRatio > 0f }
+                .groupBy { it.chapterId }
+                .mapValues { (_, pages) -> pages.map { it.aspectRatio }.average().toFloat() }
         ReaderDebugFlags.d("CoilDiagnostic") { "fallback averageAspectRatioByChapter=$averageAspectRatioByChapter" }
         var filled = 0
         entries.forEach { entry ->
@@ -545,9 +558,10 @@ fun ReaderPageList(
             if (key in itemHeights) return@forEach
             when (entry) {
                 is ListEntry.Page -> {
-                    val aspectRatio = entry.aspectRatio.takeIf { it > 0f }
-                        ?: averageAspectRatioByChapter[entry.chapterId]
-                        ?: (2f / 3f)
+                    val aspectRatio =
+                        entry.aspectRatio.takeIf { it > 0f }
+                            ?: averageAspectRatioByChapter[entry.chapterId]
+                            ?: (2f / 3f)
                     itemHeights[key] = (containerWidthPx * aspectRatio).toInt()
                     filled++
                 }
@@ -582,9 +596,10 @@ fun ReaderPageList(
     val latestAllPageUrls by rememberUpdatedState(allPageUrls)
     LaunchedEffect(scrollToChapterId, scrollToPageIndex) {
         if (scrollToChapterId == null) return@LaunchedEffect
-        val targetIndex = latestEntries.indexOfFirst {
-            it is ListEntry.Page && it.chapterId == scrollToChapterId && it.pageIndexInChapter == (scrollToPageIndex ?: 0)
-        }
+        val targetIndex =
+            latestEntries.indexOfFirst {
+                it is ListEntry.Page && it.chapterId == scrollToChapterId && it.pageIndexInChapter == (scrollToPageIndex ?: 0)
+            }
         if (targetIndex >= 0) {
             listState.scrollToItem(targetIndex)
         }
@@ -661,62 +676,66 @@ fun ReaderPageList(
                 viewportEndOffset = listState.layoutInfo.viewportEndOffset,
                 measuredItemCount = itemHeights.size,
             )
-        }
-            .collect { snapshot ->
-                ReaderDebugFlags.d("CoilDiagnostic") { "collect tick firstVisibleIndex=${snapshot.firstVisibleItemIndex} offset=${snapshot.firstVisibleItemScrollOffset}" }
-                val result = computeVisiblePageAndFraction(
+        }.collect { snapshot ->
+            ReaderDebugFlags.d("CoilDiagnostic") {
+                "collect tick firstVisibleIndex=${snapshot.firstVisibleItemIndex} offset=${snapshot.firstVisibleItemScrollOffset}"
+            }
+            val result =
+                computeVisiblePageAndFraction(
                     entries = latestEntries,
                     itemHeights = itemHeights,
                     firstVisibleItemIndex = snapshot.firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = snapshot.firstVisibleItemScrollOffset,
                 ) ?: return@collect
-                val (visibleEntry, scrollFraction) = result
-                val firstVisibleItemIndex = snapshot.firstVisibleItemIndex
-                val firstVisibleItemScrollOffset = snapshot.firstVisibleItemScrollOffset
+            val (visibleEntry, scrollFraction) = result
+            val firstVisibleItemIndex = snapshot.firstVisibleItemIndex
+            val firstVisibleItemScrollOffset = snapshot.firstVisibleItemScrollOffset
 
-                var cumulativeTop = 0
-                for (index in 0 until firstVisibleItemIndex) {
-                    cumulativeTop += itemHeights[latestEntries.getOrNull(index)?.key()] ?: 0
-                }
-                val absoluteScrollOffset = cumulativeTop + firstVisibleItemScrollOffset
-                val deltaPx = lastAbsoluteScrollOffset?.let { absoluteScrollOffset - it }
-                lastAbsoluteScrollOffset = absoluteScrollOffset
+            var cumulativeTop = 0
+            for (index in 0 until firstVisibleItemIndex) {
+                cumulativeTop += itemHeights[latestEntries.getOrNull(index)?.key()] ?: 0
+            }
+            val absoluteScrollOffset = cumulativeTop + firstVisibleItemScrollOffset
+            val deltaPx = lastAbsoluteScrollOffset?.let { absoluteScrollOffset - it }
+            lastAbsoluteScrollOffset = absoluteScrollOffset
 
-                // BABY STEP 1: RN's progress bar only cares about "which page index to report",
-                // computed from the viewport's BOTTOM edge — not top-anchored visibleEntry above,
-                // which stays reserved for scrollFraction/CoilDiagnostic logging (untouched Kotlin
-                // landmarks logic, kept alive but unused by the bar per explicit instruction).
-                //
-                // DEPRECATED fallback removed: `?: visibleEntry` used to substitute a DIFFERENT
-                // calculation (top-anchored, can legitimately point at a different chapter during
-                // a trio-slide transition) whenever this bottom-anchored one failed for a tick.
-                // Real bug traced to exactly this: mid-transition, bottomPage.chapterId could
-                // come from visibleEntry (chapter 40) while pageIndexInChapter still read like
-                // chapter 39's last page — two numbers from two different sources stitched into
-                // one payload no consumer could trust. Falling back to lastKnownBottomPage instead
-                // repeats the last internally-consistent result (chapterId + pageIndexInChapter
-                // always from the same computeBottomVisiblePageIndex call) rather than switching
-                // to a different, possibly-disagreeing source.
-                val computedBottomPage = computeBottomVisiblePageIndex(
+            // BABY STEP 1: RN's progress bar only cares about "which page index to report",
+            // computed from the viewport's BOTTOM edge — not top-anchored visibleEntry above,
+            // which stays reserved for scrollFraction/CoilDiagnostic logging (untouched Kotlin
+            // landmarks logic, kept alive but unused by the bar per explicit instruction).
+            //
+            // DEPRECATED fallback removed: `?: visibleEntry` used to substitute a DIFFERENT
+            // calculation (top-anchored, can legitimately point at a different chapter during
+            // a trio-slide transition) whenever this bottom-anchored one failed for a tick.
+            // Real bug traced to exactly this: mid-transition, bottomPage.chapterId could
+            // come from visibleEntry (chapter 40) while pageIndexInChapter still read like
+            // chapter 39's last page — two numbers from two different sources stitched into
+            // one payload no consumer could trust. Falling back to lastKnownBottomPage instead
+            // repeats the last internally-consistent result (chapterId + pageIndexInChapter
+            // always from the same computeBottomVisiblePageIndex call) rather than switching
+            // to a different, possibly-disagreeing source.
+            val computedBottomPage =
+                computeBottomVisiblePageIndex(
                     entries = latestEntries,
                     itemHeights = itemHeights,
                     firstVisibleItemIndex = firstVisibleItemIndex,
                     firstVisibleItemScrollOffset = firstVisibleItemScrollOffset,
                     viewportEndOffset = snapshot.viewportEndOffset,
                 )
-                val bottomPage = computedBottomPage ?: lastKnownBottomPage ?: visibleEntry
-                lastKnownBottomPage = bottomPage
+            val bottomPage = computedBottomPage ?: lastKnownBottomPage ?: visibleEntry
+            lastKnownBottomPage = bottomPage
 
-                // Directional chapter-switch trigger — see computeChapterSwitchTarget doc. Anchors
-                // on lastReportedChapterId (the chapter RN currently thinks it's in), not
-                // bottomPage.chapterId directly: bottomPage already looks ahead into a neighbor
-                // chapter once its pages start entering the viewport, which would make this
-                // trigger check the WRONG pair of neighbors (e.g. next-of-next instead of
-                // next-of-current) right as a switch is in flight. deltaPx == null (first tick,
-                // no prior offset yet) defaults to "not scrolling down" — the trigger simply
-                // won't fire that tick, which is fine since nothing has moved yet anyway.
-                val anchorChapterId = lastReportedChapterId ?: bottomPage.chapterId
-                val switchTarget = computeChapterSwitchTarget(
+            // Directional chapter-switch trigger — see computeChapterSwitchTarget doc. Anchors
+            // on lastReportedChapterId (the chapter RN currently thinks it's in), not
+            // bottomPage.chapterId directly: bottomPage already looks ahead into a neighbor
+            // chapter once its pages start entering the viewport, which would make this
+            // trigger check the WRONG pair of neighbors (e.g. next-of-next instead of
+            // next-of-current) right as a switch is in flight. deltaPx == null (first tick,
+            // no prior offset yet) defaults to "not scrolling down" — the trigger simply
+            // won't fire that tick, which is fine since nothing has moved yet anyway.
+            val anchorChapterId = lastReportedChapterId ?: bottomPage.chapterId
+            val switchTarget =
+                computeChapterSwitchTarget(
                     entries = latestEntries,
                     itemHeights = itemHeights,
                     currentChapterId = anchorChapterId,
@@ -725,40 +744,43 @@ fun ReaderPageList(
                     viewportEndOffset = snapshot.viewportEndOffset,
                     scrollingDown = (deltaPx ?: 0) > 0,
                 )
-                val reportedChapterId = switchTarget ?: anchorChapterId
-                lastReportedChapterId = reportedChapterId
+            val reportedChapterId = switchTarget ?: anchorChapterId
+            lastReportedChapterId = reportedChapterId
 
-                // pageIndex reported alongside reportedChapterId must always be FROM that same
-                // chapter — never bottomPage.pageIndexInChapter directly, which can still belong
-                // to the OLD chapter for a tick or two right as switchTarget fires (bottomPage's
-                // own "which page is furthest read" walk lags behind the directional trigger by
-                // design — they're independent signals). When switchTarget just fired, 0 (just
-                // arrived at the top, scrolling down) or the target chapter's last page index
-                // (just arrived at the bottom, scrolling up) is the correct "position" to report;
-                // otherwise bottomPage already agrees with reportedChapterId, so its own
-                // pageIndexInChapter is correct as-is.
-                val reportedPageIndex = if (bottomPage.chapterId == reportedChapterId) {
+            // pageIndex reported alongside reportedChapterId must always be FROM that same
+            // chapter — never bottomPage.pageIndexInChapter directly, which can still belong
+            // to the OLD chapter for a tick or two right as switchTarget fires (bottomPage's
+            // own "which page is furthest read" walk lags behind the directional trigger by
+            // design — they're independent signals). When switchTarget just fired, 0 (just
+            // arrived at the top, scrolling down) or the target chapter's last page index
+            // (just arrived at the bottom, scrolling up) is the correct "position" to report;
+            // otherwise bottomPage already agrees with reportedChapterId, so its own
+            // pageIndexInChapter is correct as-is.
+            val reportedPageIndex =
+                if (bottomPage.chapterId == reportedChapterId) {
                     bottomPage.pageIndexInChapter
                 } else if (switchTarget != null && (deltaPx ?: 0) > 0) {
                     0
                 } else {
-                    latestEntries.filterIsInstance<ListEntry.Page>()
+                    latestEntries
+                        .filterIsInstance<ListEntry.Page>()
                         .lastOrNull { it.chapterId == reportedChapterId }
                         ?.pageIndexInChapter
                         ?: 0
                 }
 
-                // BABY STEP 2: continuous chapter-wide fraction (page-height-weighted), replacing
-                // baby step 1's coarse (pageIndex+1)/totalPages — see computeChapterFraction doc.
-                // Uses reportedChapterId (not bottomPage.chapterId) so the payload is always
-                // internally consistent — chapterId/pageIndex/chapterFraction must all describe
-                // the SAME chapter, or RN's advanceToNextChapter/retreatToPrevChapter (which
-                // trusts this payload as one atomic unit) can desync (the exact bug
-                // lastChapterFractionByChapterId below was introduced to fix — see its doc).
-                // Falls back to THIS CHAPTER's own last known good fraction (never another
-                // chapter's) while an entry ahead isn't measured yet (same "wait for landmarks"
-                // contract every compute* function here follows).
-                val chapterFraction = computeChapterFraction(
+            // BABY STEP 2: continuous chapter-wide fraction (page-height-weighted), replacing
+            // baby step 1's coarse (pageIndex+1)/totalPages — see computeChapterFraction doc.
+            // Uses reportedChapterId (not bottomPage.chapterId) so the payload is always
+            // internally consistent — chapterId/pageIndex/chapterFraction must all describe
+            // the SAME chapter, or RN's advanceToNextChapter/retreatToPrevChapter (which
+            // trusts this payload as one atomic unit) can desync (the exact bug
+            // lastChapterFractionByChapterId below was introduced to fix — see its doc).
+            // Falls back to THIS CHAPTER's own last known good fraction (never another
+            // chapter's) while an entry ahead isn't measured yet (same "wait for landmarks"
+            // contract every compute* function here follows).
+            val chapterFraction =
+                computeChapterFraction(
                     entries = latestEntries,
                     itemHeights = itemHeights,
                     chapterId = reportedChapterId,
@@ -769,50 +791,52 @@ fun ReaderPageList(
                     ?: lastChapterFractionByChapterId[reportedChapterId]
                     ?: 0f
 
-                ReaderDebugFlags.d("CoilDiagnostic") {
-                    "scrollFraction chapterId=${visibleEntry.chapterId} page=${visibleEntry.pageIndexInChapter} " +
-                        "bottomPage=${bottomPage.pageIndexInChapter} chapterFraction=$chapterFraction " +
-                        "screenPercent=${Math.round(scrollFraction * 100)}% " +
-                        "firstVisibleIndex=$firstVisibleItemIndex firstVisibleOffset=$firstVisibleItemScrollOffset " +
-                        "viewportEndOffset=${snapshot.viewportEndOffset} " +
-                        "itemHeight=${itemHeights[visibleEntry.key()]} " +
-                        "absoluteScrollOffset=$absoluteScrollOffset deltaPx=$deltaPx fraction=$scrollFraction " +
-                        "switchTarget=$switchTarget reportedChapterId=$reportedChapterId reportedPageIndex=$reportedPageIndex"
-                }
-
-                onVisiblePageChanged(reportedChapterId, reportedPageIndex, scrollFraction, chapterFraction)
-
-                val absoluteIndex = latestAllPageUrls.indexOf(visibleEntry.url)
-                if (absoluteIndex >= 0) {
-                    preloader.updateWindow(computePreloadWindow(allPageUrls, absoluteIndex))
-                }
+            ReaderDebugFlags.d("CoilDiagnostic") {
+                "scrollFraction chapterId=${visibleEntry.chapterId} page=${visibleEntry.pageIndexInChapter} " +
+                    "bottomPage=${bottomPage.pageIndexInChapter} chapterFraction=$chapterFraction " +
+                    "screenPercent=${Math.round(scrollFraction * 100)}% " +
+                    "firstVisibleIndex=$firstVisibleItemIndex firstVisibleOffset=$firstVisibleItemScrollOffset " +
+                    "viewportEndOffset=${snapshot.viewportEndOffset} " +
+                    "itemHeight=${itemHeights[visibleEntry.key()]} " +
+                    "absoluteScrollOffset=$absoluteScrollOffset deltaPx=$deltaPx fraction=$scrollFraction " +
+                    "switchTarget=$switchTarget reportedChapterId=$reportedChapterId reportedPageIndex=$reportedPageIndex"
             }
+
+            onVisiblePageChanged(reportedChapterId, reportedPageIndex, scrollFraction, chapterFraction)
+
+            val absoluteIndex = latestAllPageUrls.indexOf(visibleEntry.url)
+            if (absoluteIndex >= 0) {
+                preloader.updateWindow(computePreloadWindow(allPageUrls, absoluteIndex))
+            }
+        }
     }
 
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize()
-            .onGloballyPositioned { coordinates ->
-                containerWidthPx = coordinates.size.width
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { onTap() })
-            },
+        modifier =
+            modifier
+                .fillMaxSize()
+                .onGloballyPositioned { coordinates ->
+                    containerWidthPx = coordinates.size.width
+                }.pointerInput(Unit) {
+                    detectTapGestures(onTap = { onTap() })
+                },
     ) {
         entries.forEach { entry ->
             item(key = entry.key()) {
                 val entryKey = entry.key()
                 Box(
-                    modifier = Modifier.onGloballyPositioned { coordinates ->
-                        val newHeight = coordinates.size.height
-                        val oldHeight = itemHeights[entryKey]
-                        if (oldHeight != null && oldHeight != newHeight) {
-                            ReaderDebugFlags.w("CoilDiagnostic") {
-                                "itemHeights CHANGED key=$entryKey oldHeight=$oldHeight newHeight=$newHeight"
+                    modifier =
+                        Modifier.onGloballyPositioned { coordinates ->
+                            val newHeight = coordinates.size.height
+                            val oldHeight = itemHeights[entryKey]
+                            if (oldHeight != null && oldHeight != newHeight) {
+                                ReaderDebugFlags.w("CoilDiagnostic") {
+                                    "itemHeights CHANGED key=$entryKey oldHeight=$oldHeight newHeight=$newHeight"
+                                }
                             }
-                        }
-                        itemHeights[entryKey] = newHeight
-                    },
+                            itemHeights[entryKey] = newHeight
+                        },
                 ) {
                     when (entry) {
                         is ListEntry.Sdu -> SduNodeView(entry.node)
@@ -825,7 +849,10 @@ fun ReaderPageList(
 }
 
 @Composable
-internal fun ReaderPageImage(url: String, aspectRatio: Float = 0f) {
+internal fun ReaderPageImage(
+    url: String,
+    aspectRatio: Float = 0f,
+) {
     // Bumped by the retry button below. Included as a request parameter so Coil treats each
     // retry as a distinct cache key — otherwise a request that failed (e.g. a transient WebP
     // decode glitch) would just resolve the same failed entry from its error cache instead of
@@ -833,20 +860,21 @@ internal fun ReaderPageImage(url: String, aspectRatio: Float = 0f) {
     var retryCount by remember(url) { mutableIntStateOf(0) }
 
     SubcomposeAsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(url)
-            .setParameter("retryCount", retryCount)
-            // Explicit, stable key (defaults to null otherwise) so SafeBitmapDecoder can
-            // serialize this request against PagePreloader's request for the same URL — see
-            // PageDecodeCoordinator for why that matters.
-            .diskCacheKey(url)
-            .apply {
-                if (retryCount > 0) {
-                    memoryCachePolicy(CachePolicy.WRITE_ONLY)
-                    diskCachePolicy(CachePolicy.WRITE_ONLY)
-                }
-            }
-            .build(),
+        model =
+            ImageRequest
+                .Builder(LocalContext.current)
+                .data(url)
+                .setParameter("retryCount", retryCount)
+                // Explicit, stable key (defaults to null otherwise) so SafeBitmapDecoder can
+                // serialize this request against PagePreloader's request for the same URL — see
+                // PageDecodeCoordinator for why that matters.
+                .diskCacheKey(url)
+                .apply {
+                    if (retryCount > 0) {
+                        memoryCachePolicy(CachePolicy.WRITE_ONLY)
+                        diskCachePolicy(CachePolicy.WRITE_ONLY)
+                    }
+                }.build(),
         contentDescription = null,
         // Coil's default ContentScale.Fit keeps the image's own aspect ratio centered inside
         // the available width, which visually reads as black side bars whenever the decoded
@@ -891,11 +919,12 @@ internal fun pageErrorMessage(throwable: Throwable): String {
 @Composable
 internal fun RetryButton(onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .padding(top = 16.dp)
-            .background(Color.White, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .padding(top = 16.dp)
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {
         Text("Tentar novamente", color = Color.Black, fontWeight = FontWeight.SemiBold)
     }
@@ -911,7 +940,10 @@ internal fun RetryButton(onClick: () -> Unit) {
 // height, making the progress bar hit 100% before the last page had actually finished scrolling
 // past — since Coil's default placeholder aspect ratio (2:3) has no relation to the actual page.
 @Composable
-private fun ReaderPagePlaceholder(aspectRatio: Float = 0f, content: @Composable () -> Unit) {
+private fun ReaderPagePlaceholder(
+    aspectRatio: Float = 0f,
+    content: @Composable () -> Unit,
+) {
     Box(
         modifier = Modifier.fillMaxWidth().aspectRatio(if (aspectRatio > 0f) 1f / aspectRatio else 2f / 3f),
         contentAlignment = Alignment.Center,

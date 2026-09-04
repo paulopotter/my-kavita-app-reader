@@ -21,16 +21,16 @@ import org.junit.Test
  * top is ABOVE the viewport's own top edge by that many px).
  */
 class ComputeChapterSwitchTargetTest {
-
     private val viewportEndOffset = 2000
 
-    private fun block(chapterId: String) = ChapterBlock(
-        chapterId = chapterId,
-        pageUrls = listOf("https://example.com/$chapterId.webp"),
-        pageAspectRatios = emptyList(),
-        firstNode = null,
-        lastNode = null,
-    )
+    private fun block(chapterId: String) =
+        ChapterBlock(
+            chapterId = chapterId,
+            pageUrls = listOf("https://example.com/$chapterId.webp"),
+            pageAspectRatios = emptyList(),
+            firstNode = null,
+            lastNode = null,
+        )
 
     // entries = [Page(p,0), Page(c,0), Page(n,0)] — indices 0, 1, 2.
     private val entries = flattenBlocks(listOf(block("p"), block("c"), block("n")))
@@ -42,11 +42,16 @@ class ComputeChapterSwitchTargetTest {
     @Test
     fun `scrolling down switches to next once its first page top crosses into the 25-50 percent band`() {
         // next's top = curr's height(1000) - offset(250) = 750, inside [500,1000].
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = itemHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 250,
-            viewportEndOffset = viewportEndOffset, scrollingDown = true,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = itemHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 1,
+                firstVisibleItemScrollOffset = 250,
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = true,
+            )
         assertEquals("n", target)
     }
 
@@ -54,12 +59,17 @@ class ComputeChapterSwitchTargetTest {
     fun `scrolling down does not switch while next chapter's top has not reached the 25 percent line yet`() {
         // next's top = 1000 - 100 = 900, outside [500,1000)? 900 is inside actually — use a
         // smaller offset so next's top stays above (before) the band entirely.
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = itemHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = -600,
-            // next's top = 1000 - (-600) = 1600, past the 50% line already (never crossed 25-50 from this side)
-            viewportEndOffset = viewportEndOffset, scrollingDown = true,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = itemHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 1,
+                firstVisibleItemScrollOffset = -600,
+                // next's top = 1000 - (-600) = 1600, past the 50% line already (never crossed 25-50 from this side)
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = true,
+            )
         assertNull(target)
     }
 
@@ -68,11 +78,16 @@ class ComputeChapterSwitchTargetTest {
         // next's top = 1000 - 600 = 400, before (past) the 25% line — chapter should have
         // already switched by now, this trigger no longer considers "c" the current chapter in
         // practice, but the function itself just reports null for out-of-band values.
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = itemHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 600,
-            viewportEndOffset = viewportEndOffset, scrollingDown = true,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = itemHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 1,
+                firstVisibleItemScrollOffset = 600,
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = true,
+            )
         assertNull(target)
     }
 
@@ -83,11 +98,16 @@ class ComputeChapterSwitchTargetTest {
     fun `scrolling up switches to previous once its last page bottom crosses into the 50-75 percent band`() {
         // firstVisibleItemIndex=prev(0). prev's own bottom = prev's height(1000) - offset.
         // offset=-250 -> bottom = 1250, inside [1000,1500].
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = itemHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = -250,
-            viewportEndOffset = viewportEndOffset, scrollingDown = false,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = itemHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 0,
+                firstVisibleItemScrollOffset = -250,
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = false,
+            )
         assertEquals("p", target)
     }
 
@@ -96,23 +116,33 @@ class ComputeChapterSwitchTargetTest {
         // bottom = 1000 - (-1000) = 2000, past the 75% line — hasn't crossed to inside the band
         // (from below, i.e. still fully off-screen further down would be a different sign; this
         // represents "prev's bottom is way past 75%, deep in view already" which shouldn't re-fire).
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = itemHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = 600,
-            // bottom = 1000 - 600 = 400, before the 50% line
-            viewportEndOffset = viewportEndOffset, scrollingDown = false,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = itemHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 0,
+                firstVisibleItemScrollOffset = 600,
+                // bottom = 1000 - 600 = 400, before the 50% line
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = false,
+            )
         assertNull(target)
     }
 
     @Test
     fun `scrolling up does not switch once previous chapter's bottom has passed the 75 percent line`() {
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = itemHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = -600,
-            // bottom = 1000 - (-600) = 1600, past 75% (1500)
-            viewportEndOffset = viewportEndOffset, scrollingDown = false,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = itemHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 0,
+                firstVisibleItemScrollOffset = -600,
+                // bottom = 1000 - (-600) = 1600, past 75% (1500)
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = false,
+            )
         assertNull(target)
     }
 
@@ -120,11 +150,16 @@ class ComputeChapterSwitchTargetTest {
     fun `returns null when there is no next chapter to switch to while scrolling down`() {
         val onlyTwo = flattenBlocks(listOf(block("p"), block("c")))
         val heights = onlyTwo.associate { it.key() to 1000 }
-        val target = computeChapterSwitchTarget(
-            entries = onlyTwo, itemHeights = heights, currentChapterId = "c",
-            firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 250,
-            viewportEndOffset = viewportEndOffset, scrollingDown = true,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = onlyTwo,
+                itemHeights = heights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 1,
+                firstVisibleItemScrollOffset = 250,
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = true,
+            )
         assertNull(target)
     }
 
@@ -132,22 +167,32 @@ class ComputeChapterSwitchTargetTest {
     fun `returns null when there is no previous chapter to switch to while scrolling up`() {
         val onlyTwo = flattenBlocks(listOf(block("c"), block("n")))
         val heights = onlyTwo.associate { it.key() to 1000 }
-        val target = computeChapterSwitchTarget(
-            entries = onlyTwo, itemHeights = heights, currentChapterId = "c",
-            firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = -250,
-            viewportEndOffset = viewportEndOffset, scrollingDown = false,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = onlyTwo,
+                itemHeights = heights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 0,
+                firstVisibleItemScrollOffset = -250,
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = false,
+            )
         assertNull(target)
     }
 
     @Test
     fun `returns null when a needed landmark is not measured yet`() {
         val incompleteHeights = itemHeights - entries[0].key() // prev chapter's page height missing
-        val target = computeChapterSwitchTarget(
-            entries = entries, itemHeights = incompleteHeights, currentChapterId = "c",
-            firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = -250,
-            viewportEndOffset = viewportEndOffset, scrollingDown = false,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = entries,
+                itemHeights = incompleteHeights,
+                currentChapterId = "c",
+                firstVisibleItemIndex = 0,
+                firstVisibleItemScrollOffset = -250,
+                viewportEndOffset = viewportEndOffset,
+                scrollingDown = false,
+            )
         assertNull(target)
     }
 
@@ -158,43 +203,52 @@ class ComputeChapterSwitchTargetTest {
         // SECOND page (index 18 in the real entries list, offset 4326px into a 10800px-tall
         // page) — nowhere near either chapter boundary. The buggy version reported a switch to
         // the previous chapter here; the fix must report null.
-        val realish = flattenBlocks(
-            listOf(
-                ChapterBlock(
-                    chapterId = "prev", pageUrls = List(14) { "url$it" },
-                    pageAspectRatios = emptyList(),
-                    firstNode = SduNode.Container(children = emptyList()),
-                    lastNode = SduNode.Container(children = emptyList()),
+        val realish =
+            flattenBlocks(
+                listOf(
+                    ChapterBlock(
+                        chapterId = "prev",
+                        pageUrls = List(14) { "url$it" },
+                        pageAspectRatios = emptyList(),
+                        firstNode = SduNode.Container(children = emptyList()),
+                        lastNode = SduNode.Container(children = emptyList()),
+                    ),
+                    ChapterBlock(
+                        chapterId = "curr",
+                        pageUrls = List(16) { "url$it" },
+                        pageAspectRatios = emptyList(),
+                        firstNode = SduNode.Container(children = emptyList()),
+                        lastNode = SduNode.Container(children = emptyList()),
+                    ),
                 ),
-                ChapterBlock(
-                    chapterId = "curr", pageUrls = List(16) { "url$it" },
-                    pageAspectRatios = emptyList(),
-                    firstNode = SduNode.Container(children = emptyList()),
-                    lastNode = SduNode.Container(children = emptyList()),
-                ),
-            ),
-        )
+            )
         val heights = HashMap<String, Int>()
         realish.forEach { entry ->
-            heights[entry.key()] = when {
-                entry.key() == "first:prev" -> 400
-                entry.key() == "last:prev" -> 337
-                entry.key() == "first:curr" -> 575
-                entry.key().startsWith("page:prev") -> 1000
-                entry.key() == "page:curr:0" -> 1620
-                entry.key() == "page:curr:1" -> 10800
-                else -> 1000
-            }
+            heights[entry.key()] =
+                when {
+                    entry.key() == "first:prev" -> 400
+                    entry.key() == "last:prev" -> 337
+                    entry.key() == "first:curr" -> 575
+                    entry.key().startsWith("page:prev") -> 1000
+                    entry.key() == "page:curr:0" -> 1620
+                    entry.key() == "page:curr:1" -> 10800
+                    else -> 1000
+                }
         }
         // index of page:curr:1 (second page of curr): first:prev(1) + 14 prev pages + last:prev(1) + first:curr(1) + page:curr:0(1) = 18
         val currSecondPageIndex = realish.indexOfFirst { it.key() == "page:curr:1" }
         assertEquals(18, currSecondPageIndex)
 
-        val target = computeChapterSwitchTarget(
-            entries = realish, itemHeights = heights, currentChapterId = "curr",
-            firstVisibleItemIndex = currSecondPageIndex, firstVisibleItemScrollOffset = 4326,
-            viewportEndOffset = 2546, scrollingDown = false,
-        )
+        val target =
+            computeChapterSwitchTarget(
+                entries = realish,
+                itemHeights = heights,
+                currentChapterId = "curr",
+                firstVisibleItemIndex = currSecondPageIndex,
+                firstVisibleItemScrollOffset = 4326,
+                viewportEndOffset = 2546,
+                scrollingDown = false,
+            )
         assertNull(target)
     }
 }

@@ -2,13 +2,13 @@ package com.mymangareader.tools.cache
 
 import com.mymangareader.cache.Cache
 import com.mymangareader.cache.CacheDescriptor
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Fire-and-forget: runs [fetchFn] on its own coroutine scope (never the caller's structured
@@ -27,27 +27,38 @@ import kotlinx.coroutines.launch
  * never knows about EventBus or any other downstream reaction.
  */
 @Singleton
-class BackgroundExecute @Inject constructor(private val cache: Cache) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+class BackgroundExecute
+    @Inject
+    constructor(
+        private val cache: Cache,
+    ) {
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** Runs [fetchFn] in the background — nothing is written to any cache. */
-    fun launch(fetchFn: suspend () -> String): Job = execute(fetchFn, descriptor = null)
+        /** Runs [fetchFn] in the background — nothing is written to any cache. */
+        fun launch(fetchFn: suspend () -> String): Job = execute(fetchFn, descriptor = null)
 
-    /** Runs [fetchFn] in the background, then writes its result into [descriptor]'s own store/key. */
-    fun launchWithStore(fetchFn: suspend () -> String, descriptor: CacheDescriptor): Job = execute(fetchFn, descriptor)
+        /** Runs [fetchFn] in the background, then writes its result into [descriptor]'s own store/key. */
+        fun launchWithStore(
+            fetchFn: suspend () -> String,
+            descriptor: CacheDescriptor,
+        ): Job = execute(fetchFn, descriptor)
 
-    // Shared engine — launch()/launchWithStore() are the only two named entry points, this is
-    // never called directly from outside.
-    private fun execute(fetchFn: suspend () -> String, descriptor: CacheDescriptor?): Job = scope.launch {
-        val value = fetchFn()
-        if (descriptor != null) {
-            cache.storeFor(descriptor.mode).put(
-                key = descriptor.key,
-                value = value,
-                domain = descriptor.domain,
-                variant = descriptor.variant,
-                ttlMs = descriptor.expiresAtEpochMs - descriptor.cachedAtEpochMs,
-            )
-        }
+        // Shared engine — launch()/launchWithStore() are the only two named entry points, this is
+        // never called directly from outside.
+        private fun execute(
+            fetchFn: suspend () -> String,
+            descriptor: CacheDescriptor?,
+        ): Job =
+            scope.launch {
+                val value = fetchFn()
+                if (descriptor != null) {
+                    cache.storeFor(descriptor.mode).put(
+                        key = descriptor.key,
+                        value = value,
+                        domain = descriptor.domain,
+                        variant = descriptor.variant,
+                        ttlMs = descriptor.expiresAtEpochMs - descriptor.cachedAtEpochMs,
+                    )
+                }
+            }
     }
-}

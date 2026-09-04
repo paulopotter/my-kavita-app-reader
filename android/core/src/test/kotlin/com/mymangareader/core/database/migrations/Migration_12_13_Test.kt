@@ -14,14 +14,14 @@ private const val TEST_DB = "migration-test-12-13"
 
 @RunWith(RobolectricTestRunner::class)
 class Migration_12_13_Test {
-
     @get:Rule
-    val helper: MigrationTestHelper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        AppDatabase::class.java,
-        emptyList(),
-        FrameworkSQLiteOpenHelperFactory(),
-    )
+    val helper: MigrationTestHelper =
+        MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            AppDatabase::class.java,
+            emptyList(),
+            FrameworkSQLiteOpenHelperFactory(),
+        )
 
     @Test
     fun `migra de v12 para v13 copiando series_sort_prefs para preferences por seriesId`() {

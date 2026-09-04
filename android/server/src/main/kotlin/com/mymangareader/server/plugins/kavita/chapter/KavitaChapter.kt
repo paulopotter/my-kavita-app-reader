@@ -1,8 +1,8 @@
 package com.mymangareader.server.plugins.kavita.chapter
 
+import com.mymangareader.server.plugins.kavita.kavitaRaiseIfSessionRejected
 import com.mymangareader.server.plugins.kavita.series.KavitaGenreDto
 import com.mymangareader.server.plugins.kavita.series.KavitaTagDto
-import com.mymangareader.server.plugins.kavita.kavitaRaiseIfSessionRejected
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -153,7 +153,9 @@ data class KavitaChapterInfoDto(
     val pageDimensions: List<KavitaPageDimensionDto> = emptyList(),
 )
 
-class KavitaChapterException(message: String) : Exception(message)
+class KavitaChapterException(
+    message: String,
+) : Exception(message)
 
 /** Throws on failure instead of returning [Result] — see [com.mymangareader.server.plugins.kavita.auth.KavitaAuthException]'s class doc for the rationale. */
 class KavitaChapter(
@@ -163,34 +165,41 @@ class KavitaChapter(
     private val requestTool: RequestTool,
 ) {
     suspend fun listVolumesForSeries(seriesId: String): List<KavitaVolumeDto> {
-        val http = requestTool.request(
-            url = "$baseUrl$VOLUMES_PATH?seriesId=$seriesId",
-            method = "GET",
-            headers = mapOf("Authorization" to "Bearer $jwt"),
-        ).getOrThrow()
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$VOLUMES_PATH?seriesId=$seriesId",
+                    method = "GET",
+                    headers = mapOf("Authorization" to "Bearer $jwt"),
+                ).getOrThrow()
         kavitaRaiseIfSessionRejected(http.status, "Volumes fetch failed")
 
         if (http.status != 200) throw KavitaChapterException("Volumes fetch failed: HTTP ${http.status}")
         return chapterJson.decodeFromString(http.body)
     }
 
-    fun buildPageUrls(chapterId: String, expectedPageCount: Int): List<String> =
-        (0 until expectedPageCount).map { pageIndex -> buildPageUrl(chapterId, pageIndex) }
+    fun buildPageUrls(
+        chapterId: String,
+        expectedPageCount: Int,
+    ): List<String> = (0 until expectedPageCount).map { pageIndex -> buildPageUrl(chapterId, pageIndex) }
 
-    fun buildPageUrl(chapterId: String, pageIndex: Int): String =
-        "${baseUrl.trimEnd('/')}$PAGE_IMAGE_PATH?chapterId=$chapterId&page=$pageIndex&apiKey=$apiKey"
+    fun buildPageUrl(
+        chapterId: String,
+        pageIndex: Int,
+    ): String = "${baseUrl.trimEnd('/')}$PAGE_IMAGE_PATH?chapterId=$chapterId&page=$pageIndex&apiKey=$apiKey"
 
-    fun buildChapterCoverUrl(chapterId: String): String =
-        "${baseUrl.trimEnd('/')}$CHAPTER_COVER_PATH?chapterId=$chapterId&apiKey=$apiKey"
+    fun buildChapterCoverUrl(chapterId: String): String = "${baseUrl.trimEnd('/')}$CHAPTER_COVER_PATH?chapterId=$chapterId&apiKey=$apiKey"
 
     // Kavita already extracts/caches every page while indexing the library, so this returns page
     // pixel dimensions as JSON without downloading any image bytes.
     suspend fun getPageDimensions(chapterId: String): List<KavitaPageDimensionDto> {
-        val http = requestTool.request(
-            url = "$baseUrl$CHAPTER_INFO_PATH?chapterId=$chapterId&includeDimensions=true",
-            method = "GET",
-            headers = mapOf("Authorization" to "Bearer $jwt"),
-        ).getOrThrow()
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$CHAPTER_INFO_PATH?chapterId=$chapterId&includeDimensions=true",
+                    method = "GET",
+                    headers = mapOf("Authorization" to "Bearer $jwt"),
+                ).getOrThrow()
         kavitaRaiseIfSessionRejected(http.status, "Chapter info fetch failed")
 
         if (http.status != 200) throw KavitaChapterException("Chapter info fetch failed: HTTP ${http.status}")
@@ -198,11 +207,13 @@ class KavitaChapter(
     }
 
     suspend fun getProgress(chapterId: String): KavitaProgressDto? {
-        val http = requestTool.request(
-            url = "$baseUrl$GET_PROGRESS_PATH?chapterId=$chapterId",
-            method = "GET",
-            headers = mapOf("Authorization" to "Bearer $jwt"),
-        ).getOrThrow()
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$GET_PROGRESS_PATH?chapterId=$chapterId",
+                    method = "GET",
+                    headers = mapOf("Authorization" to "Bearer $jwt"),
+                ).getOrThrow()
         if (http.status == 404) return null
         kavitaRaiseIfSessionRejected(http.status, "Get progress failed")
 
@@ -212,48 +223,67 @@ class KavitaChapter(
 
     // Kavita's save-progress endpoint requires volumeId, which isn't known up front — this looks
     // it up via the series' volume listing first, same source listVolumesForSeries already uses.
-    suspend fun saveProgress(seriesId: String, chapterId: String, pageIndex: Int) {
-        val volumeId = listVolumesForSeries(seriesId)
-            .flatMap { volume -> volume.chapters.map { volume.id to it.id } }
-            .firstOrNull { (_, chId) -> chId.toString() == chapterId }
-            ?.first
-            ?: throw KavitaChapterException("Chapter $chapterId not found in series $seriesId")
+    suspend fun saveProgress(
+        seriesId: String,
+        chapterId: String,
+        pageIndex: Int,
+    ) {
+        val volumeId =
+            listVolumesForSeries(seriesId)
+                .flatMap { volume -> volume.chapters.map { volume.id to it.id } }
+                .firstOrNull { (_, chId) -> chId.toString() == chapterId }
+                ?.first
+                ?: throw KavitaChapterException("Chapter $chapterId not found in series $seriesId")
 
         val body = """{"volumeId":$volumeId,"chapterId":$chapterId,"pageNum":$pageIndex,"seriesId":$seriesId}"""
 
-        val http = requestTool.request(
-            url = "$baseUrl$SAVE_PROGRESS_PATH",
-            method = "POST",
-            headers = mapOf(
-                "Content-Type" to "application/json",
-                "Authorization" to "Bearer $jwt",
-            ),
-            body = body,
-        ).getOrThrow()
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$SAVE_PROGRESS_PATH",
+                    method = "POST",
+                    headers =
+                        mapOf(
+                            "Content-Type" to "application/json",
+                            "Authorization" to "Bearer $jwt",
+                        ),
+                    body = body,
+                ).getOrThrow()
         kavitaRaiseIfSessionRejected(http.status, "Save progress failed")
 
         if (http.status != 200) throw KavitaChapterException("Save progress failed: HTTP ${http.status}")
     }
 
-    suspend fun markChaptersRead(seriesId: String, chapterIds: List<String>) =
-        markChapters(seriesId, chapterIds, MARK_MULTIPLE_READ_PATH)
+    suspend fun markChaptersRead(
+        seriesId: String,
+        chapterIds: List<String>,
+    ) = markChapters(seriesId, chapterIds, MARK_MULTIPLE_READ_PATH)
 
-    suspend fun markChaptersUnread(seriesId: String, chapterIds: List<String>) =
-        markChapters(seriesId, chapterIds, MARK_MULTIPLE_UNREAD_PATH)
+    suspend fun markChaptersUnread(
+        seriesId: String,
+        chapterIds: List<String>,
+    ) = markChapters(seriesId, chapterIds, MARK_MULTIPLE_UNREAD_PATH)
 
-    private suspend fun markChapters(seriesId: String, chapterIds: List<String>, path: String) {
+    private suspend fun markChapters(
+        seriesId: String,
+        chapterIds: List<String>,
+        path: String,
+    ) {
         val chapterIdsJson = chapterIds.joinToString(",")
         val body = """{"seriesId":$seriesId,"volumeIds":[],"chapterIds":[$chapterIdsJson],"generateReadingSession":false}"""
 
-        val http = requestTool.request(
-            url = "$baseUrl$path",
-            method = "POST",
-            headers = mapOf(
-                "Content-Type" to "application/json",
-                "Authorization" to "Bearer $jwt",
-            ),
-            body = body,
-        ).getOrThrow()
+        val http =
+            requestTool
+                .request(
+                    url = "$baseUrl$path",
+                    method = "POST",
+                    headers =
+                        mapOf(
+                            "Content-Type" to "application/json",
+                            "Authorization" to "Bearer $jwt",
+                        ),
+                    body = body,
+                ).getOrThrow()
         kavitaRaiseIfSessionRejected(http.status, "Mark chapters failed")
 
         if (http.status != 200) throw KavitaChapterException("Mark chapters failed: HTTP ${http.status}")

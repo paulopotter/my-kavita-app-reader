@@ -7,12 +7,31 @@ package com.mymangareader.features.kavita.chapter
  * RN layer changes.
  */
 interface ChapterDataSource {
-    suspend fun getPageUrls(chapterId: String, expectedPageCount: Int): Result<List<String>>
+    suspend fun getPageUrls(
+        chapterId: String,
+        expectedPageCount: Int,
+    ): Result<List<String>>
+
     suspend fun invalidatePageCache(chapterId: String): Result<Unit>
+
     suspend fun getPageCacheUrls(chapterId: String): Result<List<Pair<Int, String>>>
+
     suspend fun getPageDimensions(chapterId: String): Result<List<PageDimension>>
+
     suspend fun getServerReadProgress(chapterId: String): Result<Int?>
+
     suspend fun getLocalProgress(chapterId: String): Result<LocalProgress?>
-    suspend fun saveLocalProgress(chapterId: String, seriesId: String, page: Int, scrollFraction: Float): Result<Unit>
-    suspend fun saveReadingProgress(chapterId: String, seriesId: String, page: Int): Result<Unit>
+
+    suspend fun saveLocalProgress(
+        chapterId: String,
+        seriesId: String,
+        page: Int,
+        scrollFraction: Float,
+    ): Result<Unit>
+
+    suspend fun saveReadingProgress(
+        chapterId: String,
+        seriesId: String,
+        page: Int,
+    ): Result<Unit>
 }

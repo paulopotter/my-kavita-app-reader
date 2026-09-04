@@ -11,9 +11,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
 class ConfigRepositoryTest {
-
-    private fun makeStore(): ConfigStore =
-        ConfigStore(FakeServerConfigDao(), FakeAuthConfigDao(), FakeBffServerConfigDao())
+    private fun makeStore(): ConfigStore = ConfigStore(FakeServerConfigDao(), FakeAuthConfigDao(), FakeBffServerConfigDao())
 
     private fun makeModule(store: ConfigStore = makeStore()): ConfigRepository {
         val context = mock<ReactApplicationContext>()
@@ -40,14 +38,15 @@ class ConfigRepositoryTest {
     // manual em dispositivo físico.
 
     @Test
-    fun `getAuthConfig resolve nulo quando nao ha auth salva`() = runTest {
-        val module = makeModule()
-        val promise = FakePromise()
+    fun `getAuthConfig resolve nulo quando nao ha auth salva`() =
+        runTest {
+            val module = makeModule()
+            val promise = FakePromise()
 
-        module.getAuthConfig(promise)
-        promise.awaitResolved()
+            module.getAuthConfig(promise)
+            promise.awaitResolved()
 
-        assertNull(promise.resolvedValue)
-        assertNull(promise.rejectedCode)
-    }
+            assertNull(promise.resolvedValue)
+            assertNull(promise.rejectedCode)
+        }
 }

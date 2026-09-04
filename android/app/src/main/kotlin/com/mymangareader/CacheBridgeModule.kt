@@ -5,15 +5,13 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.mymangareader.cache.Cache
-import com.mymangareader.cache.CacheDescriptor
-import com.mymangareader.cache.CacheEntry
 import com.mymangareader.cache.CacheStore
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 
 // RN→Kotlin bridge for the :cache module's Cache facade — one @ReactMethod per CacheStore
 // operation, prefixed persistentX/memoryKotlinX (Cache.persistent/Cache.memoryKotlin, both
@@ -25,120 +23,201 @@ import kotlinx.coroutines.launch
 // separately would lose the single-flight guarantee that only holds for calls staying entirely
 // inside the Kotlin process. network stays Kotlin-internal until a real RN consumer needs it.
 @Singleton
-class CacheBridgeModule @Inject constructor(
-    private val cache: Cache,
-    context: ReactApplicationContext,
-) : ReactContextBaseJavaModule(context) {
+class CacheBridgeModule
+    @Inject
+    constructor(
+        private val cache: Cache,
+        context: ReactApplicationContext,
+    ) : ReactContextBaseJavaModule(context) {
+        override fun getName(): String = "CacheBridgeModule"
 
-    override fun getName(): String = "CacheBridgeModule"
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // ── persistent ───────────────────────────────────────────────────────
 
-    // ── persistent ───────────────────────────────────────────────────────
+        @ReactMethod
+        fun persistentGet(
+            key: String,
+            variant: String,
+            promise: Promise,
+        ) = get(cache.persistent, key, variant, "PERSISTENT_GET_ERROR", promise)
 
-    @ReactMethod
-    fun persistentGet(key: String, variant: String, promise: Promise) = get(cache.persistent, key, variant, "PERSISTENT_GET_ERROR", promise)
+        // ttlMs is a plain Double, never nullable: the non-TurboModule RN bridge throws
+        // NativeArgumentsParseException reading a trailing `undefined`/`null` for a boxed Double arg.
+        // The RN side always sends a number; <= 0 means "no TTL" (see put()).
+        @ReactMethod
+        fun persistentPut(
+            key: String,
+            value: String,
+            domain: String,
+            variant: String,
+            ttlMs: Double,
+            promise: Promise,
+        ) = put(cache.persistent, key, value, domain, variant, ttlMs, "PERSISTENT_PUT_ERROR", promise)
 
-    // ttlMs is a plain Double, never nullable: the non-TurboModule RN bridge throws
-    // NativeArgumentsParseException reading a trailing `undefined`/`null` for a boxed Double arg.
-    // The RN side always sends a number; <= 0 means "no TTL" (see put()).
-    @ReactMethod
-    fun persistentPut(key: String, value: String, domain: String, variant: String, ttlMs: Double, promise: Promise) =
-        put(cache.persistent, key, value, domain, variant, ttlMs, "PERSISTENT_PUT_ERROR", promise)
+        @ReactMethod
+        fun persistentInvalidate(
+            key: String,
+            variant: String,
+            promise: Promise,
+        ) = invalidate(cache.persistent, key, variant, "PERSISTENT_INVALIDATE_ERROR", promise)
 
-    @ReactMethod
-    fun persistentInvalidate(key: String, variant: String, promise: Promise) =
-        invalidate(cache.persistent, key, variant, "PERSISTENT_INVALIDATE_ERROR", promise)
+        @ReactMethod
+        fun persistentInvalidateDomain(
+            domain: String,
+            promise: Promise,
+        ) = invalidateDomain(cache.persistent, domain, "PERSISTENT_INVALIDATE_DOMAIN_ERROR", promise)
 
-    @ReactMethod
-    fun persistentInvalidateDomain(domain: String, promise: Promise) =
-        invalidateDomain(cache.persistent, domain, "PERSISTENT_INVALIDATE_DOMAIN_ERROR", promise)
+        @ReactMethod
+        fun persistentInvalidateVariant(
+            domain: String,
+            variant: String,
+            promise: Promise,
+        ) = invalidateVariant(cache.persistent, domain, variant, "PERSISTENT_INVALIDATE_VARIANT_ERROR", promise)
 
-    @ReactMethod
-    fun persistentInvalidateVariant(domain: String, variant: String, promise: Promise) =
-        invalidateVariant(cache.persistent, domain, variant, "PERSISTENT_INVALIDATE_VARIANT_ERROR", promise)
+        @ReactMethod
+        fun persistentPurgeExpired(promise: Promise) = purgeExpired(cache.persistent, "PERSISTENT_PURGE_EXPIRED_ERROR", promise)
 
-    @ReactMethod
-    fun persistentPurgeExpired(promise: Promise) = purgeExpired(cache.persistent, "PERSISTENT_PURGE_EXPIRED_ERROR", promise)
+        @ReactMethod
+        fun persistentPurgeOlderThan(
+            cutoffEpochMs: Double,
+            promise: Promise,
+        ) = purgeOlderThan(cache.persistent, cutoffEpochMs, "PERSISTENT_PURGE_OLDER_THAN_ERROR", promise)
 
-    @ReactMethod
-    fun persistentPurgeOlderThan(cutoffEpochMs: Double, promise: Promise) =
-        purgeOlderThan(cache.persistent, cutoffEpochMs, "PERSISTENT_PURGE_OLDER_THAN_ERROR", promise)
+        // ── memoryKotlin ─────────────────────────────────────────────────────
 
-    // ── memoryKotlin ─────────────────────────────────────────────────────
+        @ReactMethod
+        fun memoryKotlinGet(
+            key: String,
+            variant: String,
+            promise: Promise,
+        ) = get(cache.memoryKotlin, key, variant, "MEMORY_KOTLIN_GET_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinGet(key: String, variant: String, promise: Promise) =
-        get(cache.memoryKotlin, key, variant, "MEMORY_KOTLIN_GET_ERROR", promise)
+        @ReactMethod
+        fun memoryKotlinPut(
+            key: String,
+            value: String,
+            domain: String,
+            variant: String,
+            ttlMs: Double,
+            promise: Promise,
+        ) = put(cache.memoryKotlin, key, value, domain, variant, ttlMs, "MEMORY_KOTLIN_PUT_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinPut(key: String, value: String, domain: String, variant: String, ttlMs: Double, promise: Promise) =
-        put(cache.memoryKotlin, key, value, domain, variant, ttlMs, "MEMORY_KOTLIN_PUT_ERROR", promise)
+        @ReactMethod
+        fun memoryKotlinInvalidate(
+            key: String,
+            variant: String,
+            promise: Promise,
+        ) = invalidate(cache.memoryKotlin, key, variant, "MEMORY_KOTLIN_INVALIDATE_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinInvalidate(key: String, variant: String, promise: Promise) =
-        invalidate(cache.memoryKotlin, key, variant, "MEMORY_KOTLIN_INVALIDATE_ERROR", promise)
+        @ReactMethod
+        fun memoryKotlinInvalidateDomain(
+            domain: String,
+            promise: Promise,
+        ) = invalidateDomain(cache.memoryKotlin, domain, "MEMORY_KOTLIN_INVALIDATE_DOMAIN_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinInvalidateDomain(domain: String, promise: Promise) =
-        invalidateDomain(cache.memoryKotlin, domain, "MEMORY_KOTLIN_INVALIDATE_DOMAIN_ERROR", promise)
+        @ReactMethod
+        fun memoryKotlinInvalidateVariant(
+            domain: String,
+            variant: String,
+            promise: Promise,
+        ) = invalidateVariant(cache.memoryKotlin, domain, variant, "MEMORY_KOTLIN_INVALIDATE_VARIANT_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinInvalidateVariant(domain: String, variant: String, promise: Promise) =
-        invalidateVariant(cache.memoryKotlin, domain, variant, "MEMORY_KOTLIN_INVALIDATE_VARIANT_ERROR", promise)
+        @ReactMethod
+        fun memoryKotlinPurgeExpired(promise: Promise) = purgeExpired(cache.memoryKotlin, "MEMORY_KOTLIN_PURGE_EXPIRED_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinPurgeExpired(promise: Promise) = purgeExpired(cache.memoryKotlin, "MEMORY_KOTLIN_PURGE_EXPIRED_ERROR", promise)
+        @ReactMethod
+        fun memoryKotlinPurgeOlderThan(
+            cutoffEpochMs: Double,
+            promise: Promise,
+        ) = purgeOlderThan(cache.memoryKotlin, cutoffEpochMs, "MEMORY_KOTLIN_PURGE_OLDER_THAN_ERROR", promise)
 
-    @ReactMethod
-    fun memoryKotlinPurgeOlderThan(cutoffEpochMs: Double, promise: Promise) =
-        purgeOlderThan(cache.memoryKotlin, cutoffEpochMs, "MEMORY_KOTLIN_PURGE_OLDER_THAN_ERROR", promise)
+        // ── shared CacheStore plumbing — persistent/memoryKotlin only differ by which store instance
+        // and error code they pass in, never by behavior ─────────────────────
 
-    // ── shared CacheStore plumbing — persistent/memoryKotlin only differ by which store instance
-    // and error code they pass in, never by behavior ─────────────────────
+        private fun get(
+            store: CacheStore,
+            key: String,
+            variant: String,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { store.get(key, variant) }.resolveOrReject(promise, errorCode) { it?.toWritableMap() }
+            }
+        }
 
-    private fun get(store: CacheStore, key: String, variant: String, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching { store.get(key, variant) }.resolveOrReject(promise, errorCode) { it?.toWritableMap() }
+        private fun put(
+            store: CacheStore,
+            key: String,
+            value: String,
+            domain: String,
+            variant: String,
+            ttlMs: Double,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching {
+                    // <= 0 → no TTL (the RN side sends 0 when a caller like ReadingProgress has none).
+                    if (ttlMs > 0) store.put(key, value, domain, variant, ttlMs.toLong()) else store.put(key, value, domain, variant)
+                }.resolveOrReject(promise, errorCode) { it.toWritableMap() }
+            }
+        }
+
+        private fun invalidate(
+            store: CacheStore,
+            key: String,
+            variant: String,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { store.invalidate(key, variant) }.resolveOrReject(promise, errorCode)
+            }
+        }
+
+        private fun invalidateDomain(
+            store: CacheStore,
+            domain: String,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { store.invalidateDomain(domain) }.resolveOrReject(promise, errorCode)
+            }
+        }
+
+        private fun invalidateVariant(
+            store: CacheStore,
+            domain: String,
+            variant: String,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { store.invalidateVariant(domain, variant) }.resolveOrReject(promise, errorCode)
+            }
+        }
+
+        private fun purgeExpired(
+            store: CacheStore,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { store.purgeExpired() }.resolveOrReject(promise, errorCode)
+            }
+        }
+
+        private fun purgeOlderThan(
+            store: CacheStore,
+            cutoffEpochMs: Double,
+            errorCode: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { store.purgeOlderThan(cutoffEpochMs.toLong()) }.resolveOrReject(promise, errorCode)
+            }
         }
     }
-
-    private fun put(store: CacheStore, key: String, value: String, domain: String, variant: String, ttlMs: Double, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching {
-                // <= 0 → no TTL (the RN side sends 0 when a caller like ReadingProgress has none).
-                if (ttlMs > 0) store.put(key, value, domain, variant, ttlMs.toLong()) else store.put(key, value, domain, variant)
-            }.resolveOrReject(promise, errorCode) { it.toWritableMap() }
-        }
-    }
-
-    private fun invalidate(store: CacheStore, key: String, variant: String, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching { store.invalidate(key, variant) }.resolveOrReject(promise, errorCode)
-        }
-    }
-
-    private fun invalidateDomain(store: CacheStore, domain: String, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching { store.invalidateDomain(domain) }.resolveOrReject(promise, errorCode)
-        }
-    }
-
-    private fun invalidateVariant(store: CacheStore, domain: String, variant: String, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching { store.invalidateVariant(domain, variant) }.resolveOrReject(promise, errorCode)
-        }
-    }
-
-    private fun purgeExpired(store: CacheStore, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching { store.purgeExpired() }.resolveOrReject(promise, errorCode)
-        }
-    }
-
-    private fun purgeOlderThan(store: CacheStore, cutoffEpochMs: Double, errorCode: String, promise: Promise) {
-        scope.launch {
-            runCatching { store.purgeOlderThan(cutoffEpochMs.toLong()) }.resolveOrReject(promise, errorCode)
-        }
-    }
-}

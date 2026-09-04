@@ -1,7 +1,7 @@
-import java.util.Properties
-import java.util.TimeZone
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
+import java.util.TimeZone
 
 plugins {
     alias(libs.plugins.android.application)
@@ -24,43 +24,62 @@ react {
 }
 
 // OTA manifest URL — priority: local.properties > CI env var > default GitHub
-val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) load(f.inputStream())
-}
+val localProps =
+    Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) load(f.inputStream())
+    }
 val otaManifestUrl: String =
     localProps.getProperty("OTA_MANIFEST_URL")
         ?: System.getenv("OTA_MANIFEST_URL")
         ?: "https://github.com/paulopotter/my-kavita-app-reader/releases/latest/download/latest.json"
 
 // RN version read from frontend/package.json at build time
-val rnVersion: String = runCatching {
-    val pkgJson = rootProject.file("../frontend/package.json")
-    val versionLine = pkgJson.readLines().first { it.trimStart().startsWith("\"version\"") }
-    versionLine.trim().removePrefix("\"version\":").trim().trim('"', ',', ' ')
-}.getOrDefault("0.0.0")
+val rnVersion: String =
+    runCatching {
+        val pkgJson = rootProject.file("../frontend/package.json")
+        val versionLine = pkgJson.readLines().first { it.trimStart().startsWith("\"version\"") }
+        versionLine
+            .trim()
+            .removePrefix("\"version\":")
+            .trim()
+            .trim('"', ',', ' ')
+    }.getOrDefault("0.0.0")
 
 // App datetime tag generated at build time (YYYY.MM.DD.HHMM, UTC)
-val appBuildDatetime: String = SimpleDateFormat("yyyy.MM.dd.HHmm").apply {
-    timeZone = TimeZone.getTimeZone("UTC")
-}.format(Date())
+val appBuildDatetime: String =
+    SimpleDateFormat("yyyy.MM.dd.HHmm")
+        .apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date())
 
 // Embedded RN bundle build timestamp (epoch millis), written by `make build-bundle` right after
 // `yarn bundle:android` generates the JS bundle. Falls back to "now" when missing (e.g. a Gradle
 // build run without going through build-bundle first) so the field is always a valid, safe-to-use
 // timestamp rather than 0. Used to detect a stale OTA bundle (saved in app-private storage,
 // survives reinstalls) that predates the currently packaged one — see OtaManager.discardStaleBundleIfNeeded.
-val embeddedBundleBuildTimeMs: Long = runCatching {
-    rootProject.file("app/bundle-build-time.txt").readText().trim().toLong()
-}.getOrDefault(Date().time)
+val embeddedBundleBuildTimeMs: Long =
+    runCatching {
+        rootProject
+            .file("app/bundle-build-time.txt")
+            .readText()
+            .trim()
+            .toLong()
+    }.getOrDefault(Date().time)
 
 // versionCode derived from git commit count — always grows, never hardcoded
-val gitCommitCount: Int = runCatching {
-    val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
-        .directory(rootProject.projectDir)
-        .start()
-    process.inputStream.bufferedReader().readText().trim().toInt()
-}.getOrDefault(1)
+val gitCommitCount: Int =
+    runCatching {
+        val process =
+            ProcessBuilder("git", "rev-list", "--count", "HEAD")
+                .directory(rootProject.projectDir)
+                .start()
+        process.inputStream
+            .bufferedReader()
+            .readText()
+            .trim()
+            .toInt()
+    }.getOrDefault(1)
 
 android {
     namespace = "com.mymangareader"
@@ -85,7 +104,7 @@ android {
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }

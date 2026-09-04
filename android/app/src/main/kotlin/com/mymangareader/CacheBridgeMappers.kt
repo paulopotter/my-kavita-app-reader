@@ -11,18 +11,20 @@ import com.mymangareader.cache.CacheEntry
 // the exact same shape CacheBridgeModule already produces for a direct persistentPut/memoryKotlinPut
 // call — one mapping function, not two copies that could drift.
 
-fun CacheEntry.toWritableMap(): WritableMap = Arguments.createMap().apply {
-    putString("value", value)
-    putDouble("cachedAtEpochMs", cachedAtEpochMs.toDouble())
-    putDouble("ttlMs", ttlMs.toDouble())
-    putBoolean("isExpired", isExpired)
-}
+fun CacheEntry.toWritableMap(): WritableMap =
+    Arguments.createMap().apply {
+        putString("value", value)
+        putDouble("cachedAtEpochMs", cachedAtEpochMs.toDouble())
+        putDouble("ttlMs", ttlMs.toDouble())
+        putBoolean("isExpired", isExpired)
+    }
 
-fun CacheDescriptor.toWritableMap(): WritableMap = Arguments.createMap().apply {
-    putString("key", key)
-    putString("variant", variant)
-    putString("domain", domain)
-    putString("mode", mode.name)
-    putDouble("cachedAtEpochMs", cachedAtEpochMs.toDouble())
-    putDouble("expiresAtEpochMs", expiresAtEpochMs.toDouble())
-}
+fun CacheDescriptor.toWritableMap(): WritableMap =
+    Arguments.createMap().apply {
+        putString("key", key)
+        putString("variant", variant)
+        putString("domain", domain)
+        putString("mode", mode.name)
+        putDouble("cachedAtEpochMs", cachedAtEpochMs.toDouble())
+        putDouble("expiresAtEpochMs", expiresAtEpochMs.toDouble())
+    }

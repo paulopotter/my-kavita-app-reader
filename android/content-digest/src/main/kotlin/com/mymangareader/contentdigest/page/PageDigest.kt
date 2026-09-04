@@ -6,7 +6,6 @@ import com.mymangareader.cache.CacheEntry
 import com.mymangareader.cache.CacheMode
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
-import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
 import kotlinx.coroutines.CoroutineScope
@@ -25,26 +24,28 @@ import kotlinx.serialization.json.Json
 sealed interface PageDigest {
     @Serializable
     data class Success(
-        val id: String,                     // synthetic "chapterId:pageIndex" — Kavita has no native page id
-        val number: Int,                     // caller-supplied page index, 0-based — never absent
+        val id: String, // synthetic "chapterId:pageIndex" — Kavita has no native page id
+        val number: Int, // caller-supplied page index, 0-based — never absent
         val url: String,
-        val hasFetchedDimensions: Boolean,   // width/height non-null AND > 0 — a real 0 counts as "no usable dimension"
+        val hasFetchedDimensions: Boolean, // width/height non-null AND > 0 — a real 0 counts as "no usable dimension"
         val width: Int?,
         val height: Int?,
-        val aspectRatio: Double?,            // width/height — NOT height/width
-        val orientation: Orientation?,       // null when aspectRatio is null OR exactly 1 (perfect square)
+        val aspectRatio: Double?, // width/height — NOT height/width
+        val orientation: Orientation?, // null when aspectRatio is null OR exactly 1 (perfect square)
         val resolvedAtEpochMs: Long,
-        val server: ServerActiveInfo,        // never null in Success — see R11 in _contract-design-notes.md
+        val server: ServerActiveInfo, // never null in Success — see R11 in _contract-design-notes.md
         // Never part of the JSON persisted in Cache — it would be a circular value at write time
         // (the descriptor only exists AFTER the write completes) and is redundant to persist
         // anyway (Cache already knows its own cachedAtEpochMs/ttlMs for this row). Reconstructed
         // from the real CacheEntry every time a value is read back from the cache.
         @Transient val cache: CacheDescriptor? = null,
-        val chapter: ChapterSummary,         // the exact parameter buildPageDigest received, unfiltered
+        val chapter: ChapterSummary, // the exact parameter buildPageDigest received, unfiltered
     ) : PageDigest
 
     @Serializable
-    data class Failure(val error: ErrorDigest) : PageDigest
+    data class Failure(
+        val error: ErrorDigest,
+    ) : PageDigest
 
     @Serializable
     enum class Orientation { PORTRAIT, LANDSCAPE }
@@ -54,7 +55,10 @@ private const val PAGE_CACHE_DOMAIN = "page"
 private val pageDigestJson = Json { ignoreUnknownKeys = true }
 private val pageDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-private fun pageDigestCacheKey(chapterId: String, pageIndex: Int) = "$chapterId:$pageIndex"
+private fun pageDigestCacheKey(
+    chapterId: String,
+    pageIndex: Int,
+) = "$chapterId:$pageIndex"
 
 /**
  * Cache-first entry point. [cache] is required — every caller (RN bridge, [buildChapterDigest]
@@ -73,14 +77,22 @@ private fun pageDigestCacheKey(chapterId: String, pageIndex: Int) = "$chapterId:
  * PERSISTENT is the only mode used here — see the Task 023 mini-iteration notes for why every
  * domain starts there.
  */
-suspend fun buildPageDigest(server: Server, chapter: ChapterSummary, pageIndex: Int, cache: Cache, force: Boolean = false): PageDigest {
+suspend fun buildPageDigest(
+    server: Server,
+    chapter: ChapterSummary,
+    pageIndex: Int,
+    cache: Cache,
+    force: Boolean = false,
+): PageDigest {
     val key = pageDigestCacheKey(chapter.id, pageIndex)
 
     if (!force) {
         val cached = cache.persistent.get(key)
         if (cached != null) {
-            val digest = pageDigestJson.decodeFromString<PageDigest.Success>(cached.value)
-                .copy(cache = cached.toCacheDescriptor(key))
+            val digest =
+                pageDigestJson
+                    .decodeFromString<PageDigest.Success>(cached.value)
+                    .copy(cache = cached.toCacheDescriptor(key))
             if (cached.isExpired) {
                 pageDigestBackgroundScope.launch {
                     buildPageDigest(server, chapter, pageIndex, cache, force = true)
@@ -97,26 +109,36 @@ suspend fun buildPageDigest(server: Server, chapter: ChapterSummary, pageIndex: 
     return fresh.copy(cache = descriptor)
 }
 
-private fun CacheEntry.toCacheDescriptor(key: String) = CacheDescriptor(
-    key = key,
-    variant = "",
-    domain = PAGE_CACHE_DOMAIN,
-    mode = CacheMode.PERSISTENT,
-    cachedAtEpochMs = cachedAtEpochMs,
-    expiresAtEpochMs = cachedAtEpochMs + ttlMs,
-)
+private fun CacheEntry.toCacheDescriptor(key: String) =
+    CacheDescriptor(
+        key = key,
+        variant = "",
+        domain = PAGE_CACHE_DOMAIN,
+        mode = CacheMode.PERSISTENT,
+        cachedAtEpochMs = cachedAtEpochMs,
+        expiresAtEpochMs = cachedAtEpochMs + ttlMs,
+    )
 
 // Assembly order matters (R11): getUrl() first — vital, its failure makes the whole result a
 // Failure. getDimensions() second — a tolerated failure (caught, width/height stay null, doesn't
 // escalate to Failure). `server`/`resolvedAtEpochMs` are overwritten after each call that
 // actually succeeds, so they end up reflecting whichever call succeeded LAST in this sequence.
-private suspend fun fetchPageDigest(server: Server, chapter: ChapterSummary, pageIndex: Int): PageDigest {
+private suspend fun fetchPageDigest(
+    server: Server,
+    chapter: ChapterSummary,
+    pageIndex: Int,
+): PageDigest {
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
 
     val url: String
     try {
-        val urlResponse = server.serial(chapter.seriesId).chapter(chapter.id).page(pageIndex).getUrl()
+        val urlResponse =
+            server
+                .serial(chapter.seriesId)
+                .chapter(chapter.id)
+                .page(pageIndex)
+                .getUrl()
         serverInfo = urlResponse.serverInfo
         resolvedAtEpochMs = urlResponse.resolvedAtEpochMs
         url = urlResponse.data
@@ -127,7 +149,12 @@ private suspend fun fetchPageDigest(server: Server, chapter: ChapterSummary, pag
     var width: Int? = null
     var height: Int? = null
     try {
-        val dimensionsResponse = server.serial(chapter.seriesId).chapter(chapter.id).page(pageIndex).getDimensions()
+        val dimensionsResponse =
+            server
+                .serial(chapter.seriesId)
+                .chapter(chapter.id)
+                .page(pageIndex)
+                .getDimensions()
         serverInfo = dimensionsResponse.serverInfo
         resolvedAtEpochMs = dimensionsResponse.resolvedAtEpochMs
         width = dimensionsResponse.data.width
@@ -138,11 +165,12 @@ private suspend fun fetchPageDigest(server: Server, chapter: ChapterSummary, pag
 
     val hasFetchedDimensions = width != null && height != null && width > 0 && height > 0
     val aspectRatio = if (hasFetchedDimensions) width!!.toDouble() / height!!.toDouble() else null
-    val orientation = when {
-        aspectRatio == null || aspectRatio == 1.0 -> null
-        aspectRatio > 1.0 -> PageDigest.Orientation.LANDSCAPE
-        else -> PageDigest.Orientation.PORTRAIT
-    }
+    val orientation =
+        when {
+            aspectRatio == null || aspectRatio == 1.0 -> null
+            aspectRatio > 1.0 -> PageDigest.Orientation.LANDSCAPE
+            else -> PageDigest.Orientation.PORTRAIT
+        }
 
     return PageDigest.Success(
         id = "${chapter.id}:$pageIndex",

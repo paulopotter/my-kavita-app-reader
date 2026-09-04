@@ -54,6 +54,7 @@ interface ExternalMetadataPluginRegistration {
     val displayName: String
     val version: String
     val credentialFields: List<CredentialField>
+
     // The liveness path this provider answers on — the RN config screen passes it straight into
     // groups.add so it never has to know a provider's endpoint. Same role as
     // ServerPluginRegistration.defaultHealthCheckPath.
@@ -86,6 +87,7 @@ interface ExternalMetadataPlugin {
     // this one" — never a shorter list. Callers must never lose the series↔match correlation by
     // filtering nulls out before matching back up by index/id.
     suspend fun fetchMatches(series: List<ExternalMetadataSeriesRef>): List<ExternalMetadataMatch?>
+
     suspend fun fetchMatch(series: ExternalMetadataSeriesRef): ExternalMetadataMatch?
 
     companion object {
@@ -103,9 +105,13 @@ interface ExternalMetadataPlugin {
     // reshaping this contract. checkToken()/reauthenticate() are real no-ops for M3, not stubs.
     interface Auth {
         suspend fun authenticate()
+
         suspend fun checkToken(): String?
+
         suspend fun reauthenticate()
+
         suspend fun logout()
+
         fun getSession(): String?
     }
 }

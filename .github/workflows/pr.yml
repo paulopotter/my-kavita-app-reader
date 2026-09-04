@@ -16,7 +16,7 @@ jobs:
       contains(github.event.pull_request.changed_files > 0 && 'true', 'true')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check if OTA files changed
         id: ota_changed
         run: |
@@ -35,17 +35,17 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -63,7 +63,7 @@ jobs:
         run: ./gradlew test koverXmlReport koverVerify
       - name: Upload Kover XML report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kover-coverage
           path: android/build/reports/kover/report.xml
@@ -74,8 +74,8 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'yarn'
@@ -88,7 +88,7 @@ jobs:
         run: yarn test:coverage
       - name: Upload LCOV report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: js-coverage
           path: frontend/coverage/lcov.info
@@ -99,50 +99,58 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'yarn'
+          cache-dependency-path: frontend/yarn.lock
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
-      # - name: Run ktlint
-      #   working-directory: android
-      #   run: ./gradlew ktlintCheck
+      - name: Install JS dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Run ktlint
+        working-directory: android
+        run: ./gradlew ktlintCheck
 
   lint-ts:
     name: Lint TypeScript
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'yarn'
           cache-dependency-path: frontend/yarn.lock
-      # - name: Install dependencies
-      #   working-directory: frontend
-      #   run: yarn install --frozen-lockfile
-      # - name: Run ESLint
-      #   working-directory: frontend
-      #   run: yarn lint
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+      - name: Run ESLint
+        working-directory: frontend
+        run: yarn lint
 
   build-apk:
     name: Build APK (verification)
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -159,8 +167,8 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'yarn'
@@ -189,7 +197,7 @@ jobs:
     outputs:
       has_content: ${{ steps.draft.outputs.has_content }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.CHANGELOG_TOKEN }}
@@ -242,7 +250,7 @@ jobs:
 
       - name: Comment when no release will be generated
         if: steps.draft.outputs.has_content == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TOUCHES_RELEASE_CODE: ${{ steps.scope.outputs.touches_release_code }}
         with:

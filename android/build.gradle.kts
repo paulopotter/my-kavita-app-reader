@@ -7,6 +7,20 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.kover)
+    alias(libs.plugins.ktlint) apply false
+}
+
+// ── ktlint — our own modules only. `subprojects` also picks up the RN autolinked libraries
+// under frontend/node_modules/ (react-native-screens, react-native-safe-area-context, ...) —
+// third-party code we don't own and shouldn't reformat or lint.
+val ktlintModules = listOf("app", "core", "tools", "features", "server", "content-digest", "cache", "preferences", "external-metadata-server")
+subprojects {
+    if (name in ktlintModules) {
+        apply(plugin = "org.jlleitschuh.gradle.ktlint")
+        configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+            version.set("1.3.1")
+        }
+    }
 }
 
 // ── Kover — relatório consolidado de todos os módulos com testes ──────────────

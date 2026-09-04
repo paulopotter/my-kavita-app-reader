@@ -12,9 +12,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object OtaModule {
-
     @Provides
     @Singleton
     @OtaFilesDir
-    fun provideOtaFilesDir(@ApplicationContext context: Context): File = context.filesDir
+    fun provideOtaFilesDir(
+        @ApplicationContext context: Context,
+    ): File = context.filesDir
 }

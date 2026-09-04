@@ -14,14 +14,14 @@ private const val TEST_DB = "migration-test-9-10"
 
 @RunWith(RobolectricTestRunner::class)
 class Migration_9_10_Test {
-
     @get:Rule
-    val helper: MigrationTestHelper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        AppDatabase::class.java,
-        emptyList(),
-        FrameworkSQLiteOpenHelperFactory(),
-    )
+    val helper: MigrationTestHelper =
+        MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            AppDatabase::class.java,
+            emptyList(),
+            FrameworkSQLiteOpenHelperFactory(),
+        )
 
     @Test
     fun `migra de v9 para v10 copiando bff_server_config para um unico external_metadata_group com N external_metadata_url`() {
@@ -39,9 +39,10 @@ class Migration_9_10_Test {
 
         val db = helper.runMigrationsAndValidate(TEST_DB, 10, true, AppDatabase.MIGRATION_9_10)
 
-        val groupCursor = db.query(
-            "SELECT id, name, providerId, credentialsJson, healthCheckPath, linkedServerGroupId FROM external_metadata_group",
-        )
+        val groupCursor =
+            db.query(
+                "SELECT id, name, providerId, credentialsJson, healthCheckPath, linkedServerGroupId FROM external_metadata_group",
+            )
         groupCursor.moveToFirst()
         assertEquals("g-personalbff-1", groupCursor.getString(0))
         assertEquals("personalBff", groupCursor.getString(1))
@@ -52,9 +53,10 @@ class Migration_9_10_Test {
         assertEquals(1, groupCursor.count)
         groupCursor.close()
 
-        val urlCursor = db.query(
-            "SELECT id, groupId, url, timeoutMs, priority, linkedServerUrlId FROM external_metadata_url ORDER BY priority ASC",
-        )
+        val urlCursor =
+            db.query(
+                "SELECT id, groupId, url, timeoutMs, priority, linkedServerUrlId FROM external_metadata_url ORDER BY priority ASC",
+            )
         urlCursor.moveToFirst()
         assertEquals("b1", urlCursor.getString(0))
         assertEquals("g-personalbff-1", urlCursor.getString(1))
@@ -126,9 +128,10 @@ class Migration_9_10_Test {
         assertEquals(1, bffConfigCursor.getInt(0))
         bffConfigCursor.close()
 
-        val tableCursor = db.query(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('external_metadata_group', 'external_metadata_url')",
-        )
+        val tableCursor =
+            db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('external_metadata_group', 'external_metadata_url')",
+            )
         assertEquals(0, tableCursor.count)
         tableCursor.close()
     }

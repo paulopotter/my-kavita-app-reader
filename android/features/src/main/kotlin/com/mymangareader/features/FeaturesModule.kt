@@ -13,7 +13,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class FeaturesModule {
-
     @Binds
     @Singleton
     abstract fun bindKavitaUrlSource(impl: KavitaUrlSelector): KavitaUrlSource

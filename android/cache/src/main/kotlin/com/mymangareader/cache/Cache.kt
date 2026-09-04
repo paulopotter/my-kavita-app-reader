@@ -18,17 +18,22 @@ import javax.inject.Singleton
  *   for protecting a network call from redundant concurrent execution.
  */
 @Singleton
-class Cache @Inject constructor(cacheDao: CacheDao) {
-    val persistent: Persistent = PersistentHandle(cacheDao)
-    val memoryKotlin: MemoryKotlin = MemoryKotlinHandle()
-    val network: Network = NetworkHandle()
+class Cache
+    @Inject
+    constructor(
+        cacheDao: CacheDao,
+    ) {
+        val persistent: Persistent = PersistentHandle(cacheDao)
+        val memoryKotlin: MemoryKotlin = MemoryKotlinHandle()
+        val network: Network = NetworkHandle()
 
-    // Resolves the right CacheStore for a CacheDescriptor.mode automatically — a caller holding a
-    // descriptor (e.g. after a previous put()) never needs its own when(mode) branch to know
-    // which of persistent/memoryKotlin to use next. network is deliberately not resolvable here —
-    // it doesn't implement CacheStore (get/put), it has no "value written" concept to resolve.
-    fun storeFor(mode: CacheMode): CacheStore = when (mode) {
-        CacheMode.PERSISTENT -> persistent
-        CacheMode.MEMORY_KOTLIN -> memoryKotlin
+        // Resolves the right CacheStore for a CacheDescriptor.mode automatically — a caller holding a
+        // descriptor (e.g. after a previous put()) never needs its own when(mode) branch to know
+        // which of persistent/memoryKotlin to use next. network is deliberately not resolvable here —
+        // it doesn't implement CacheStore (get/put), it has no "value written" concept to resolve.
+        fun storeFor(mode: CacheMode): CacheStore =
+            when (mode) {
+                CacheMode.PERSISTENT -> persistent
+                CacheMode.MEMORY_KOTLIN -> memoryKotlin
+            }
     }
-}

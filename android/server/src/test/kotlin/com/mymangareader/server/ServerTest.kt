@@ -21,8 +21,6 @@ import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
 import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
-import java.io.IOException
-import kotlin.test.assertFailsWith
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -36,6 +34,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
+import kotlin.test.assertFailsWith
 
 // ── Fakes ──────────────────────────────────────────────────────────────────
 
@@ -72,11 +72,9 @@ private class FakeServerUrlDao : ServerUrlDao {
         rows.remove(entity.id)
     }
 
-    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> =
-        MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
+    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> = MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
 
-    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> =
-        rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> = rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
 
     override suspend fun getById(id: String): ServerUrlEntity? = rows[id]
 
@@ -92,25 +90,61 @@ private class FakeServerUrlDao : ServerUrlDao {
 // In-memory CacheDao — just enough for a real Cache() to construct against; ActiveUrlSelector's
 // own Cache.network behavior is already covered by :cache's own NetworkCacheTest.
 private class FakeCacheDao : CacheDao {
-    private data class MapKey(val key: String, val variant: String)
+    private data class MapKey(
+        val key: String,
+        val variant: String,
+    )
 
     private val entities = mutableMapOf<MapKey, CacheEntity>()
 
-    override suspend fun getByKey(key: String, variant: String): CacheEntity? = entities[MapKey(key, variant)]
-    override suspend fun upsert(entity: CacheEntity) { entities[MapKey(entity.key, entity.variant)] = entity }
-    override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) = Unit
-    override suspend fun deleteByKey(key: String, variant: String) { entities.remove(MapKey(key, variant)) }
+    override suspend fun getByKey(
+        key: String,
+        variant: String,
+    ): CacheEntity? = entities[MapKey(key, variant)]
+
+    override suspend fun upsert(entity: CacheEntity) {
+        entities[MapKey(entity.key, entity.variant)] = entity
+    }
+
+    override suspend fun touchLastAccessed(
+        key: String,
+        variant: String,
+        lastAccessedAtEpochMs: Long,
+    ) = Unit
+
+    override suspend fun deleteByKey(
+        key: String,
+        variant: String,
+    ) {
+        entities.remove(MapKey(key, variant))
+    }
+
     override suspend fun deleteByDomain(domain: String) {
         entities.values.filter { it.domain == domain }.forEach { entities.remove(MapKey(it.key, it.variant)) }
     }
-    override suspend fun deleteByVariant(domain: String, variant: String) {
+
+    override suspend fun deleteByVariant(
+        domain: String,
+        variant: String,
+    ) {
         entities.values.filter { it.domain == domain && it.variant == variant }.forEach { entities.remove(MapKey(it.key, it.variant)) }
     }
+
     override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
-    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
-        entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
-    override suspend fun queryFiltered(keys: List<String>, hasKeys: Int, domain: String?, variant: String?): List<CacheEntity> =
-        entities.values.filter { e -> (hasKeys == 0 || e.key in keys) && (domain == null || e.domain == domain) && (variant == null || e.variant == variant) }
+
+    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> = entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+
+    override suspend fun queryFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheEntity> =
+        entities.values.filter { e ->
+            (hasKeys == 0 || e.key in keys) &&
+                (domain == null || e.domain == domain) &&
+                (variant == null || e.variant == variant)
+        }
 
     override suspend fun deleteExpired(entries: List<CacheEntity>) {
         entries.forEach { entities.remove(MapKey(it.key, it.variant)) }
@@ -120,11 +154,14 @@ private class FakeCacheDao : CacheDao {
 // A controllable UrlSelector double — lets network-retry tests assert exactly how many times
 // each method was called, without depending on ActiveUrlSelector's real 15-minute cache or
 // MockWebServer's timing for the retry scenarios specifically.
-private class FakeUrlSelector(private val url: String) : UrlSelector {
+private class FakeUrlSelector(
+    private val url: String,
+) : UrlSelector {
     var getActiveUrlCalls = 0
     var invalidateAndReselectCalls = 0
     var probeCalls = 0
     var lastProbedCandidate: UrlCandidate? = null
+
     // What probe() returns; the default is "reachable, 200". Tests set this to check failure paths.
     var probeResult: (UrlCandidate) -> UrlProbeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = true, status = 200, elapsedMs = 1) }
 
@@ -132,11 +169,14 @@ private class FakeUrlSelector(private val url: String) : UrlSelector {
         getActiveUrlCalls++
         return Result.success(url)
     }
+
     override suspend fun invalidateAndReselect(candidates: List<UrlCandidate>): Result<String> {
         invalidateAndReselectCalls++
         return Result.success(url)
     }
+
     override fun getLastKnownUrl(): String? = url
+
     override suspend fun probe(candidate: UrlCandidate): UrlProbeResult {
         probeCalls++
         lastProbedCandidate = candidate
@@ -148,7 +188,10 @@ private class FakeUrlSelector(private val url: String) : UrlSelector {
 // authJson content without depending on the real Kavita adapter. failSerialsListWith, when set,
 // makes exactly the next serials.list() call throw that error instead of returning — used to
 // simulate a dead URL for the network-retry tests.
-private class FakePlugin(val authJson: String, var failSerialsListWith: Throwable? = null) : ServerPlugin {
+private class FakePlugin(
+    val authJson: String,
+    var failSerialsListWith: Throwable? = null,
+) : ServerPlugin {
     override val id = "fake"
     override val displayName = "Fake"
     override val version = "0.0.0"
@@ -156,99 +199,157 @@ private class FakePlugin(val authJson: String, var failSerialsListWith: Throwabl
     var authenticateCallCount = 0
     var tokenAfterAuth: String? = null
 
-    override val auth = object : ServerPlugin.Auth {
-        override suspend fun authenticate() {
-            authenticateCalled = true
-            authenticateCallCount++
-            tokenAfterAuth = "token-${authJson.hashCode()}"
-        }
-        override suspend fun checkToken(): String? = null
-        override suspend fun reauthenticate() = Unit
-        override suspend fun logout() = Unit
-        override fun getSession(): String? = tokenAfterAuth?.let { """{"jwt":"$it"}""" }
-    }
-    override val serials = object : ServerPlugin.Serials {
-        override suspend fun list(): List<PluginSerial> {
-            failSerialsListWith?.let { failSerialsListWith = null; throw it }
-            return listOf(fakeSerial("1"))
-        }
-    }
+    override val auth =
+        object : ServerPlugin.Auth {
+            override suspend fun authenticate() {
+                authenticateCalled = true
+                authenticateCallCount++
+                tokenAfterAuth = "token-${authJson.hashCode()}"
+            }
 
-    override fun serial(serialId: String): ServerPlugin.Serial = object : ServerPlugin.Serial {
-        override suspend fun get(): PluginSerial = fakeSerial(serialId)
-        override suspend fun getMetadata(): PluginSeriesMetadata =
-            PluginSeriesMetadata(description = null, genres = emptyList(), tags = emptyList(), publicationStatus = null, ageRating = null, releaseYear = null, language = null)
-        override fun getCoverUrl(): String = "$baseUrlForFake/serial-cover/$serialId"
+            override suspend fun checkToken(): String? = null
 
-        override val chapters = object : ServerPlugin.Chapters {
-            override suspend fun list(): List<PluginChapter> = listOf(fakeChapter("$serialId-ch1"))
-            override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) {
-                lastSetReadBatch = isRead to chapterIds
+            override suspend fun reauthenticate() = Unit
+
+            override suspend fun logout() = Unit
+
+            override fun getSession(): String? = tokenAfterAuth?.let { """{"jwt":"$it"}""" }
+        }
+    override val serials =
+        object : ServerPlugin.Serials {
+            override suspend fun list(): List<PluginSerial> {
+                failSerialsListWith?.let {
+                    failSerialsListWith = null
+                    throw it
+                }
+                return listOf(fakeSerial("1"))
             }
         }
 
-        override fun chapter(chapterId: String): ServerPlugin.Chapter = object : ServerPlugin.Chapter {
-            override suspend fun get(): PluginChapter = fakeChapter(chapterId)
-            override fun getCoverUrl(): String = "$baseUrlForFake/chapter-cover/$chapterId"
-            override suspend fun setRead(isRead: Boolean) {
-                lastSetReadSingle = chapterId to isRead
-            }
-            override suspend fun getProgress(): PluginProgress? = PluginProgress(pageIndex = 3, updatedAtUtc = null)
-            override suspend fun setProgress(pageIndex: Int) {
-                lastSetProgress = chapterId to pageIndex
-            }
-            override val pages = object : ServerPlugin.Pages {}
-            override fun page(pageIndex: Int): ServerPlugin.Page = object : ServerPlugin.Page {
-                override suspend fun getDimensions(): PluginPageDimension = PluginPageDimension(width = 800, height = 1200)
-                override fun getUrl(): String = "$baseUrlForFake/page/$chapterId/$pageIndex"
-            }
+    override fun serial(serialId: String): ServerPlugin.Serial =
+        object : ServerPlugin.Serial {
+            override suspend fun get(): PluginSerial = fakeSerial(serialId)
+
+            override suspend fun getMetadata(): PluginSeriesMetadata =
+                PluginSeriesMetadata(
+                    description = null,
+                    genres = emptyList(),
+                    tags = emptyList(),
+                    publicationStatus = null,
+                    ageRating = null,
+                    releaseYear = null,
+                    language = null,
+                )
+
+            override fun getCoverUrl(): String = "$baseUrlForFake/serial-cover/$serialId"
+
+            override val chapters =
+                object : ServerPlugin.Chapters {
+                    override suspend fun list(): List<PluginChapter> = listOf(fakeChapter("$serialId-ch1"))
+
+                    override suspend fun setRead(
+                        isRead: Boolean,
+                        chapterIds: List<String>,
+                    ) {
+                        lastSetReadBatch = isRead to chapterIds
+                    }
+                }
+
+            override fun chapter(chapterId: String): ServerPlugin.Chapter =
+                object : ServerPlugin.Chapter {
+                    override suspend fun get(): PluginChapter = fakeChapter(chapterId)
+
+                    override fun getCoverUrl(): String = "$baseUrlForFake/chapter-cover/$chapterId"
+
+                    override suspend fun setRead(isRead: Boolean) {
+                        lastSetReadSingle = chapterId to isRead
+                    }
+
+                    override suspend fun getProgress(): PluginProgress? = PluginProgress(pageIndex = 3, updatedAtUtc = null)
+
+                    override suspend fun setProgress(pageIndex: Int) {
+                        lastSetProgress = chapterId to pageIndex
+                    }
+
+                    override val pages = object : ServerPlugin.Pages {}
+
+                    override fun page(pageIndex: Int): ServerPlugin.Page =
+                        object : ServerPlugin.Page {
+                            override suspend fun getDimensions(): PluginPageDimension = PluginPageDimension(width = 800, height = 1200)
+
+                            override fun getUrl(): String = "$baseUrlForFake/page/$chapterId/$pageIndex"
+                        }
+                }
         }
-    }
 
     var lastSetReadBatch: Pair<Boolean, List<String>>? = null
     var lastSetReadSingle: Pair<String, Boolean>? = null
     var lastSetProgress: Pair<String, Int>? = null
     var baseUrlForFake: String = ""
 
-    private fun fakeSerial(id: String) = PluginSerial(
-        id = id, name = "Serial $id", coverUrl = "http://cover/$id", pagesRead = 0, totalPages = 0,
-        libraryId = null, libraryName = null, lastFolderScannedUtc = null, lastChapterAddedUtc = null,
-        latestReadDateUtc = null, originalName = null, localizedName = null, sortName = null,
-        aniListId = null, malId = null, primaryColor = null, secondaryColor = null,
-    )
+    private fun fakeSerial(id: String) =
+        PluginSerial(
+            id = id,
+            name = "Serial $id",
+            coverUrl = "http://cover/$id",
+            pagesRead = 0,
+            totalPages = 0,
+            libraryId = null,
+            libraryName = null,
+            lastFolderScannedUtc = null,
+            lastChapterAddedUtc = null,
+            latestReadDateUtc = null,
+            originalName = null,
+            localizedName = null,
+            sortName = null,
+            aniListId = null,
+            malId = null,
+            primaryColor = null,
+            secondaryColor = null,
+        )
 
-    private fun fakeChapter(id: String) = PluginChapter(
-        id = id, title = "Chapter $id", number = null, pageCount = 1, pagesRead = 0, isSpecial = false,
-        decimalNumber = 0.0, specialLabel = null, createdUtc = null, lastReadingProgressUtc = null,
-        fileFormat = null,
-    )
+    private fun fakeChapter(id: String) =
+        PluginChapter(
+            id = id,
+            title = "Chapter $id",
+            number = null,
+            pageCount = 1,
+            pagesRead = 0,
+            isSpecial = false,
+            decimalNumber = 0.0,
+            specialLabel = null,
+            createdUtc = null,
+            lastReadingProgressUtc = null,
+            fileFormat = null,
+        )
 }
 
 private fun fakeRegistration(
     id: String = "fake",
-    credentialFields: List<CredentialField> = listOf(
-        CredentialField("apiKey", "API Key", "string") { v -> if (v.isBlank()) "must not be blank" else null },
-    ),
+    credentialFields: List<CredentialField> =
+        listOf(
+            CredentialField("apiKey", "API Key", "string") { v -> if (v.isBlank()) "must not be blank" else null },
+        ),
     // Called with the exact FakePlugin instance factory is about to hand back to Server — not a
     // separate one — so tests can track/assert on the same instance the Server actually calls.
     onFactory: (RequestTool, String, String, FakePlugin) -> Unit = { _, _, _, _ -> },
-): ServerPluginRegistration = object : ServerPluginRegistration {
-    override val id = id
-    override val displayName = "Fake $id"
-    override val version = "0.0.0"
-    override val credentialFields = credentialFields
-    override val defaultHealthCheckPath = "/health"
-    override val factory = { requestTool: RequestTool, baseUrl: String, authJson: String ->
-        val plugin = FakePlugin(authJson)
-        onFactory(requestTool, baseUrl, authJson, plugin)
-        plugin as ServerPlugin
+): ServerPluginRegistration =
+    object : ServerPluginRegistration {
+        override val id = id
+        override val displayName = "Fake $id"
+        override val version = "0.0.0"
+        override val credentialFields = credentialFields
+        override val defaultHealthCheckPath = "/health"
+        override val factory = { requestTool: RequestTool, baseUrl: String, authJson: String ->
+            val plugin = FakePlugin(authJson)
+            onFactory(requestTool, baseUrl, authJson, plugin)
+            plugin as ServerPlugin
+        }
     }
-}
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 class ServerTest {
-
     private lateinit var mockServer: MockWebServer
     private lateinit var baseUrl: String
     private lateinit var groupDao: FakeServerGroupDao
@@ -262,13 +363,14 @@ class ServerTest {
         baseUrl = mockServer.url("/").toString().trimEnd('/')
         groupDao = FakeServerGroupDao()
         urlDao = FakeServerUrlDao()
-        server = Server(
-            groupDao,
-            urlDao,
-            mapOf("fake" to fakeRegistration()),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-        )
+        server =
+            Server(
+                groupDao,
+                urlDao,
+                mapOf("fake" to fakeRegistration()),
+                ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                RequestTool(OkHttpClient()),
+            )
     }
 
     @After
@@ -296,23 +398,30 @@ class ServerTest {
 
     @Test
     fun `providers list carries each provider's credential fields with required derived from validate`() {
-        val server = Server(
-            groupDao,
-            urlDao,
-            mapOf(
-                "req" to fakeRegistration(
-                    id = "req",
-                    credentialFields = listOf(
-                        CredentialField("apiKey", "API Key", "string") { v -> if (v.isBlank()) "must not be blank" else null },
-                        CredentialField("note", "Note", "string") { _ -> null }, // optional — validate("") passes
-                    ),
+        val server =
+            Server(
+                groupDao,
+                urlDao,
+                mapOf(
+                    "req" to
+                        fakeRegistration(
+                            id = "req",
+                            credentialFields =
+                                listOf(
+                                    CredentialField("apiKey", "API Key", "string") { v -> if (v.isBlank()) "must not be blank" else null },
+                                    CredentialField("note", "Note", "string") { _ -> null }, // optional — validate("") passes
+                                ),
+                        ),
                 ),
-            ),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-        )
+                ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                RequestTool(OkHttpClient()),
+            )
 
-        val fields = server.providers.list().single().credentialFields
+        val fields =
+            server.providers
+                .list()
+                .single()
+                .credentialFields
 
         assertEquals(listOf("apiKey", "note"), fields.map { it.name })
         assertEquals("API Key", fields.first { it.name == "apiKey" }.label)
@@ -323,258 +432,284 @@ class ServerTest {
     // ── groups CRUD ──────────────────────────────────────────────────────
 
     @Test
-    fun `groups add rejects an unknown providerId`() = runTest {
-        assertFailsWith<ServerException> {
-            server.groups.add(NewServerGroup("X", "unknown-provider", """{"apiKey":"k"}""", "/health"))
+    fun `groups add rejects an unknown providerId`() =
+        runTest {
+            assertFailsWith<ServerException> {
+                server.groups.add(NewServerGroup("X", "unknown-provider", """{"apiKey":"k"}""", "/health"))
+            }
         }
-    }
 
     @Test
-    fun `groups add rejects a blank name`() = runTest {
-        assertFailsWith<ServerException> {
-            server.groups.add(NewServerGroup("", "fake", """{"apiKey":"k"}""", "/health"))
+    fun `groups add rejects a blank name`() =
+        runTest {
+            assertFailsWith<ServerException> {
+                server.groups.add(NewServerGroup("", "fake", """{"apiKey":"k"}""", "/health"))
+            }
         }
-    }
 
     @Test
-    fun `groups add rejects credentials that fail the provider's own validation`() = runTest {
-        assertFailsWith<ServerException> {
-            server.groups.add(NewServerGroup("X", "fake", """{"apiKey":""}""", "/health"))
+    fun `groups add rejects credentials that fail the provider's own validation`() =
+        runTest {
+            assertFailsWith<ServerException> {
+                server.groups.add(NewServerGroup("X", "fake", """{"apiKey":""}""", "/health"))
+            }
         }
-    }
 
     @Test
-    fun `groups add succeeds with valid credentials`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+    fun `groups add succeeds with valid credentials`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
 
-        assertEquals("My Server", group.name)
-        assertEquals("fake", group.providerId)
-        assertEquals("""{"apiKey":"key-1"}""", group.credentialsJson)
-    }
-
-    @Test
-    fun `groups list and get reflect what was added`() = runTest {
-        val created = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
-
-        assertEquals(listOf(created), server.groups.list())
-        assertEquals(created, server.groups.get(created.id))
-        assertNull(server.groups.get("missing"))
-    }
-
-    @Test
-    fun `groups update rejects invalid new credentials`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
-
-        assertFailsWith<ServerException> {
-            server.groups.update(group.id, credentialsJson = """{"apiKey":""}""")
+            assertEquals("My Server", group.name)
+            assertEquals("fake", group.providerId)
+            assertEquals("""{"apiKey":"key-1"}""", group.credentialsJson)
         }
-    }
 
     @Test
-    fun `groups update changes only the fields passed`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
+    fun `groups list and get reflect what was added`() =
+        runTest {
+            val created = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
 
-        val updated = server.groups.update(group.id, name = "Renamed")
-
-        assertEquals("Renamed", updated.name)
-        assertEquals("""{"apiKey":"k"}""", updated.credentialsJson)
-    }
+            assertEquals(listOf(created), server.groups.list())
+            assertEquals(created, server.groups.get(created.id))
+            assertNull(server.groups.get("missing"))
+        }
 
     @Test
-    fun `groups remove also deletes its urls`() = runTest {
-        val groupId = addHealthyGroup()
+    fun `groups update rejects invalid new credentials`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
 
-        server.groups.remove(groupId)
+            assertFailsWith<ServerException> {
+                server.groups.update(group.id, credentialsJson = """{"apiKey":""}""")
+            }
+        }
 
-        assertNull(server.groups.get(groupId))
-        assertTrue(server.group(groupId).getUrls().isEmpty())
-    }
+    @Test
+    fun `groups update changes only the fields passed`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
+
+            val updated = server.groups.update(group.id, name = "Renamed")
+
+            assertEquals("Renamed", updated.name)
+            assertEquals("""{"apiKey":"k"}""", updated.credentialsJson)
+        }
+
+    @Test
+    fun `groups remove also deletes its urls`() =
+        runTest {
+            val groupId = addHealthyGroup()
+
+            server.groups.remove(groupId)
+
+            assertNull(server.groups.get(groupId))
+            assertTrue(server.group(groupId).getUrls().isEmpty())
+        }
 
     // ── group(id) urls CRUD ──────────────────────────────────────────────
 
     @Test
-    fun `group addUrl rejects when the group doesn't exist`() = runTest {
-        assertFailsWith<ServerException> {
-            server.group("missing").addUrl(NewServerUrl("http://x", 5000, 0))
+    fun `group addUrl rejects when the group doesn't exist`() =
+        runTest {
+            assertFailsWith<ServerException> {
+                server.group("missing").addUrl(NewServerUrl("http://x", 5000, 0))
+            }
         }
-    }
 
     @Test
-    fun `group addUrl rejects a blank url`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
+    fun `group addUrl rejects a blank url`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
 
-        assertFailsWith<ServerException> {
-            server.group(group.id).addUrl(NewServerUrl("", 5000, 0))
+            assertFailsWith<ServerException> {
+                server.group(group.id).addUrl(NewServerUrl("", 5000, 0))
+            }
         }
-    }
 
     @Test
-    fun `group addUrl rejects a non-positive timeout`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
+    fun `group addUrl rejects a non-positive timeout`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"k"}""", "/health"))
 
-        assertFailsWith<ServerException> {
-            server.group(group.id).addUrl(NewServerUrl("http://x", 0, 0))
+            assertFailsWith<ServerException> {
+                server.group(group.id).addUrl(NewServerUrl("http://x", 0, 0))
+            }
         }
-    }
 
     @Test
-    fun `group updateUrl fails for a url belonging to a different group`() = runTest {
-        val groupA = server.groups.add(NewServerGroup("A", "fake", """{"apiKey":"k"}""", "/health"))
-        val groupB = server.groups.add(NewServerGroup("B", "fake", """{"apiKey":"k"}""", "/health"))
-        val urlInA = server.group(groupA.id).addUrl(NewServerUrl("http://a", 5000, 0))
+    fun `group updateUrl fails for a url belonging to a different group`() =
+        runTest {
+            val groupA = server.groups.add(NewServerGroup("A", "fake", """{"apiKey":"k"}""", "/health"))
+            val groupB = server.groups.add(NewServerGroup("B", "fake", """{"apiKey":"k"}""", "/health"))
+            val urlInA = server.group(groupA.id).addUrl(NewServerUrl("http://a", 5000, 0))
 
-        assertFailsWith<ServerException> {
-            server.group(groupB.id).updateUrl(urlInA.id, priority = 9)
+            assertFailsWith<ServerException> {
+                server.group(groupB.id).updateUrl(urlInA.id, priority = 9)
+            }
         }
-    }
 
     @Test
-    fun `group removeUrl fails for a url belonging to a different group`() = runTest {
-        val groupA = server.groups.add(NewServerGroup("A", "fake", """{"apiKey":"k"}""", "/health"))
-        val groupB = server.groups.add(NewServerGroup("B", "fake", """{"apiKey":"k"}""", "/health"))
-        val urlInA = server.group(groupA.id).addUrl(NewServerUrl("http://a", 5000, 0))
+    fun `group removeUrl fails for a url belonging to a different group`() =
+        runTest {
+            val groupA = server.groups.add(NewServerGroup("A", "fake", """{"apiKey":"k"}""", "/health"))
+            val groupB = server.groups.add(NewServerGroup("B", "fake", """{"apiKey":"k"}""", "/health"))
+            val urlInA = server.group(groupA.id).addUrl(NewServerUrl("http://a", 5000, 0))
 
-        assertFailsWith<ServerException> {
-            server.group(groupB.id).removeUrl(urlInA.id)
+            assertFailsWith<ServerException> {
+                server.group(groupB.id).removeUrl(urlInA.id)
+            }
         }
-    }
 
     @Test
-    fun `group getUrls returns urls sorted by priority`() = runTest {
-        val group = server.groups.add(NewServerGroup("A", "fake", """{"apiKey":"k"}""", "/health"))
-        server.group(group.id).addUrl(NewServerUrl("http://b", 5000, 1))
-        server.group(group.id).addUrl(NewServerUrl("http://a", 5000, 0))
+    fun `group getUrls returns urls sorted by priority`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("A", "fake", """{"apiKey":"k"}""", "/health"))
+            server.group(group.id).addUrl(NewServerUrl("http://b", 5000, 1))
+            server.group(group.id).addUrl(NewServerUrl("http://a", 5000, 0))
 
-        val urls = server.group(group.id).getUrls()
+            val urls = server.group(group.id).getUrls()
 
-        assertEquals(listOf("http://a", "http://b"), urls.map { it.url })
-    }
+            assertEquals(listOf("http://a", "http://b"), urls.map { it.url })
+        }
 
     // ── group.getInfo / Server.getActiveGroupInfo ─────────────────────────
 
     @Test
-    fun `group getInfo throws when the group doesn't exist`() = runTest {
-        assertFailsWith<ServerException> { server.group("missing").getInfo() }
-    }
+    fun `group getInfo throws when the group doesn't exist`() =
+        runTest {
+            assertFailsWith<ServerException> { server.group("missing").getInfo() }
+        }
 
     @Test
-    fun `group getInfo returns the group's identity with its urls embedded, without credentialsJson or healthCheckPath`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        server.group(group.id).addUrl(NewServerUrl("http://b", 5000, 1))
-        server.group(group.id).addUrl(NewServerUrl("http://a", 5000, 0))
+    fun `group getInfo returns the group's identity with its urls embedded, without credentialsJson or healthCheckPath`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            server.group(group.id).addUrl(NewServerUrl("http://b", 5000, 1))
+            server.group(group.id).addUrl(NewServerUrl("http://a", 5000, 0))
 
-        val info = server.group(group.id).getInfo()
+            val info = server.group(group.id).getInfo()
 
-        assertEquals(group.id, info.id)
-        assertEquals("My Server", info.name)
-        assertEquals("fake", info.providerId)
-        assertEquals(listOf("http://a", "http://b"), info.urls.map { it.url })
-    }
-
-    @Test
-    fun `Server getActiveGroupInfo returns null when no group is active`() = runTest {
-        assertNull(server.getActiveGroupInfo())
-    }
+            assertEquals(group.id, info.id)
+            assertEquals("My Server", info.name)
+            assertEquals("fake", info.providerId)
+            assertEquals(listOf("http://a", "http://b"), info.urls.map { it.url })
+        }
 
     @Test
-    fun `Server getActiveGroupInfo delegates to the active group's getInfo`() = runTest {
-        val groupId = activateGroup()
+    fun `Server getActiveGroupInfo returns null when no group is active`() =
+        runTest {
+            assertNull(server.getActiveGroupInfo())
+        }
 
-        val info = server.getActiveGroupInfo()
+    @Test
+    fun `Server getActiveGroupInfo delegates to the active group's getInfo`() =
+        runTest {
+            val groupId = activateGroup()
 
-        assertEquals(groupId, info?.id)
-        assertEquals(listOf(baseUrl), info?.urls?.map { it.url })
-    }
+            val info = server.getActiveGroupInfo()
+
+            assertEquals(groupId, info?.id)
+            assertEquals(listOf(baseUrl), info?.urls?.map { it.url })
+        }
 
     // ── setActiveGroup / getActiveContent ────────────────────────────────
 
     @Test
-    fun `getActiveContent throws when no group is active`() = runTest {
-        assertFailsWith<ServerException> { server.getActiveContent() }
-    }
+    fun `getActiveContent throws when no group is active`() =
+        runTest {
+            assertFailsWith<ServerException> { server.getActiveContent() }
+        }
 
     @Test
-    fun `setActiveGroup authenticates and getActiveContent reuses that session`() = runTest {
-        val groupId = addHealthyGroup()
+    fun `setActiveGroup authenticates and getActiveContent reuses that session`() =
+        runTest {
+            val groupId = addHealthyGroup()
 
-        // ActiveUrlSelector caches the winning URL for 15 min, so a single health check response
-        // covers both setActiveGroup and the getActiveContent call right after (same Server
-        // instance, same UrlSelector cache).
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-        server.setActiveGroup(groupId)
-        val plugin = server.getActiveContent() as FakePlugin
+            // ActiveUrlSelector caches the winning URL for 15 min, so a single health check response
+            // covers both setActiveGroup and the getActiveContent call right after (same Server
+            // instance, same UrlSelector cache).
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+            server.setActiveGroup(groupId)
+            val plugin = server.getActiveContent() as FakePlugin
 
-        assertEquals(groupId, server.getActiveGroupId())
-        assertTrue(plugin.authJson.contains(""""credentials":{"apiKey":"key-1"}"""))
-        assertTrue(plugin.authJson.contains("\"session\":{\"jwt\":\"token-"))
-    }
-
-    @Test
-    fun `setActiveGroup does not re-authenticate when re-selecting an already active group`() = runTest {
-        val groupId = addHealthyGroup()
-        var factoryCalls = 0
-        val countingServer = Server(
-            groupDao,
-            urlDao,
-            mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-        )
-
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check on the first (real) authenticate
-        countingServer.setActiveGroup(groupId)
-        val callsAfterFirst = factoryCalls
-        countingServer.setActiveGroup(groupId)
-
-        // second setActiveGroup should not call authenticate() again — only getActiveContent-style
-        // factory calls happen, not a fresh authenticate() round trip
-        assertEquals(callsAfterFirst, factoryCalls)
-    }
+            assertEquals(groupId, server.getActiveGroupId())
+            assertTrue(plugin.authJson.contains(""""credentials":{"apiKey":"key-1"}"""))
+            assertTrue(plugin.authJson.contains("\"session\":{\"jwt\":\"token-"))
+        }
 
     @Test
-    fun `reauthenticateActiveGroup forces a fresh authenticate even with a token on file`() = runTest {
-        val groupId = addHealthyGroup()
-        var factoryCalls = 0
-        val trackingServer = Server(
-            groupDao,
-            urlDao,
-            mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-        )
-        // Same Server/UrlSelector instance throughout — one health check response covers every
-        // resolvePlugin call below (ActiveUrlSelector caches the winning URL for 15 min).
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-        trackingServer.setActiveGroup(groupId) // 1 factory call: the authenticate() round trip
-        trackingServer.getActiveContent() // reuses the token — no new factory call for auth purposes, but still builds a plugin
-        val callsBeforeReauth = factoryCalls
+    fun `setActiveGroup does not re-authenticate when re-selecting an already active group`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            var factoryCalls = 0
+            val countingServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
+                    ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                    RequestTool(OkHttpClient()),
+                )
 
-        trackingServer.reauthenticateActiveGroup(groupId) // must call factory again to authenticate fresh
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // health check on the first (real) authenticate
+            countingServer.setActiveGroup(groupId)
+            val callsAfterFirst = factoryCalls
+            countingServer.setActiveGroup(groupId)
 
-        assertTrue(factoryCalls > callsBeforeReauth)
-    }
+            // second setActiveGroup should not call authenticate() again — only getActiveContent-style
+            // factory calls happen, not a fresh authenticate() round trip
+            assertEquals(callsAfterFirst, factoryCalls)
+        }
 
     @Test
-    fun `groups update with a different credentialsJson clears the cached token for that group`() = runTest {
-        val groupId = addHealthyGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // setActiveGroup's health check
-        server.setActiveGroup(groupId)
+    fun `reauthenticateActiveGroup forces a fresh authenticate even with a token on file`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            var factoryCalls = 0
+            val trackingServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
+                    ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                    RequestTool(OkHttpClient()),
+                )
+            // Same Server/UrlSelector instance throughout — one health check response covers every
+            // resolvePlugin call below (ActiveUrlSelector caches the winning URL for 15 min).
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+            trackingServer.setActiveGroup(groupId) // 1 factory call: the authenticate() round trip
+            trackingServer.getActiveContent() // reuses the token — no new factory call for auth purposes, but still builds a plugin
+            val callsBeforeReauth = factoryCalls
 
-        server.groups.update(groupId, credentialsJson = """{"apiKey":"new-key"}""")
+            trackingServer.reauthenticateActiveGroup(groupId) // must call factory again to authenticate fresh
 
-        // after the credential change, setActiveGroup must authenticate again (not reuse the old token)
-        var factoryCalls = 0
-        val countingServer = Server(
-            groupDao,
-            urlDao,
-            mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-        )
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // health check
-        countingServer.setActiveGroup(groupId)
-        assertEquals(1, factoryCalls)
-    }
+            assertTrue(factoryCalls > callsBeforeReauth)
+        }
+
+    @Test
+    fun `groups update with a different credentialsJson clears the cached token for that group`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // setActiveGroup's health check
+            server.setActiveGroup(groupId)
+
+            server.groups.update(groupId, credentialsJson = """{"apiKey":"new-key"}""")
+
+            // after the credential change, setActiveGroup must authenticate again (not reuse the old token)
+            var factoryCalls = 0
+            val countingServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration(onFactory = { _, _, _, _ -> factoryCalls++ })),
+                    ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                    RequestTool(OkHttpClient()),
+                )
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // health check
+            countingServer.setActiveGroup(groupId)
+            assertEquals(1, factoryCalls)
+        }
 
     // ── content tree mirror (serials/serial/chapters/chapter/page) ─────────
 
@@ -586,59 +721,64 @@ class ServerTest {
     }
 
     @Test
-    fun `serials list delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+    fun `serials list delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
 
-        val serials = server.serials.list()
+            val serials = server.serials.list()
 
-        assertEquals(listOf("1"), serials.data.serials.map { it.id })
-    }
-
-    @Test
-    fun `serials list envelope carries the group and url that answered it`() = runTest {
-        val groupId = activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val serials = server.serials.list()
-
-        assertEquals(groupId, serials.serverInfo.groupId)
-        assertEquals(baseUrl, serials.serverInfo.url)
-        assertTrue(serials.resolvedAtEpochMs > 0)
-    }
+            assertEquals(listOf("1"), serials.data.serials.map { it.id })
+        }
 
     @Test
-    fun `serial get delegates to the active plugin with the given id`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `serials list envelope carries the group and url that answered it`() =
+        runTest {
+            val groupId = activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val serial = server.serial("42").get()
+            val serials = server.serials.list()
 
-        assertEquals("42", serial.data.id)
-    }
-
-    @Test
-    fun `serial getCoverImage delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val cover = server.serial("42").getCoverImage()
-
-        assertTrue(cover.url.endsWith("/serial-cover/42"))
-        assertFalse(cover.hasFetchedDimensions)
-        assertNull(cover.width)
-        assertNull(cover.height)
-    }
+            assertEquals(groupId, serials.serverInfo.groupId)
+            assertEquals(baseUrl, serials.serverInfo.url)
+            assertTrue(serials.resolvedAtEpochMs > 0)
+        }
 
     @Test
-    fun `serial chapters list delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `serial get delegates to the active plugin with the given id`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val chapters = server.serial("42").chapters.list()
+            val serial = server.serial("42").get()
 
-        assertEquals(listOf("42-ch1"), chapters.data.map { it.id })
-    }
+            assertEquals("42", serial.data.id)
+        }
+
+    @Test
+    fun `serial getCoverImage delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val cover = server.serial("42").getCoverImage()
+
+            assertTrue(cover.url.endsWith("/serial-cover/42"))
+            assertFalse(cover.hasFetchedDimensions)
+            assertNull(cover.width)
+            assertNull(cover.height)
+        }
+
+    @Test
+    fun `serial chapters list delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val chapters = server.serial("42").chapters.list()
+
+            assertEquals(listOf("42-ch1"), chapters.data.map { it.id })
+        }
 
     // getActiveContent() builds a fresh FakePlugin instance on every call, so asserting on
     // write side-effects (setRead/setProgress) needs a Server whose factory hands back the
@@ -647,14 +787,18 @@ class ServerTest {
         val instances = mutableListOf<FakePlugin>()
         lateinit var server: Server
 
-        fun build(groupDao: FakeServerGroupDao, urlDao: FakeServerUrlDao) {
-            server = Server(
-                groupDao,
-                urlDao,
-                mapOf("fake" to fakeRegistration(onFactory = { _, _, _, plugin -> instances += plugin })),
-                ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-                RequestTool(OkHttpClient()),
-            )
+        fun build(
+            groupDao: FakeServerGroupDao,
+            urlDao: FakeServerUrlDao,
+        ) {
+            server =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration(onFactory = { _, _, _, plugin -> instances += plugin })),
+                    ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                    RequestTool(OkHttpClient()),
+                )
         }
 
         val lastPlugin get() = instances.last()
@@ -675,427 +819,492 @@ class ServerTest {
     }
 
     @Test
-    fun `serial chapters setRead delegates isRead and chapterIds to the active plugin`() = runTest {
-        val tracking = trackingServer()
+    fun `serial chapters setRead delegates isRead and chapterIds to the active plugin`() =
+        runTest {
+            val tracking = trackingServer()
 
-        tracking.server.serial("42").chapters.setRead(true, listOf("1", "2"))
+            tracking.server
+                .serial("42")
+                .chapters
+                .setRead(true, listOf("1", "2"))
 
-        assertEquals(true to listOf("1", "2"), tracking.lastPlugin.lastSetReadBatch)
-    }
-
-    @Test
-    fun `chapter get delegates to the active plugin with the given id`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val chapter = server.serial("42").chapter("100").get()
-
-        assertEquals("100", chapter.data.id)
-    }
+            assertEquals(true to listOf("1", "2"), tracking.lastPlugin.lastSetReadBatch)
+        }
 
     @Test
-    fun `chapter getCoverImage delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `chapter get delegates to the active plugin with the given id`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val cover = server.serial("42").chapter("100").getCoverImage()
+            val chapter = server.serial("42").chapter("100").get()
 
-        assertTrue(cover.url.endsWith("/chapter-cover/100"))
-        assertFalse(cover.hasFetchedDimensions)
-        assertNull(cover.width)
-        assertNull(cover.height)
-    }
+            assertEquals("100", chapter.data.id)
+        }
 
     @Test
-    fun `chapter setRead delegates to the active plugin`() = runTest {
-        val tracking = trackingServer()
+    fun `chapter getCoverImage delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        tracking.server.serial("42").chapter("100").setRead(true)
+            val cover = server.serial("42").chapter("100").getCoverImage()
 
-        assertEquals("100" to true, tracking.lastPlugin.lastSetReadSingle)
-    }
-
-    @Test
-    fun `chapter getProgress delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val progress = server.serial("42").chapter("100").getProgress()
-
-        assertEquals(3, progress.data?.pageIndex)
-    }
+            assertTrue(cover.url.endsWith("/chapter-cover/100"))
+            assertFalse(cover.hasFetchedDimensions)
+            assertNull(cover.width)
+            assertNull(cover.height)
+        }
 
     @Test
-    fun `chapter setProgress delegates pageIndex to the active plugin`() = runTest {
-        val tracking = trackingServer()
+    fun `chapter setRead delegates to the active plugin`() =
+        runTest {
+            val tracking = trackingServer()
 
-        tracking.server.serial("42").chapter("100").setProgress(7)
+            tracking.server
+                .serial("42")
+                .chapter("100")
+                .setRead(true)
 
-        assertEquals("100" to 7, tracking.lastPlugin.lastSetProgress)
-    }
-
-    @Test
-    fun `page getDimensions delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val dimension = server.serial("42").chapter("100").page(1).getDimensions()
-
-        assertEquals(800, dimension.data.width)
-        assertEquals(1200, dimension.data.height)
-    }
+            assertEquals("100" to true, tracking.lastPlugin.lastSetReadSingle)
+        }
 
     @Test
-    fun `page getUrl delegates to the active plugin`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `chapter getProgress delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val url = server.serial("42").chapter("100").page(1).getUrl()
+            val progress = server.serial("42").chapter("100").getProgress()
 
-        assertTrue(url.data.endsWith("/page/100/1"))
-    }
+            assertEquals(3, progress.data?.pageIndex)
+        }
 
     @Test
-    fun `page getDimensions envelope carries the group and url that answered it`() = runTest {
-        val groupId = activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `chapter setProgress delegates pageIndex to the active plugin`() =
+        runTest {
+            val tracking = trackingServer()
 
-        val dimension = server.serial("42").chapter("100").page(1).getDimensions()
+            tracking.server
+                .serial("42")
+                .chapter("100")
+                .setProgress(7)
 
-        assertEquals(groupId, dimension.serverInfo.groupId)
-        assertEquals(baseUrl, dimension.serverInfo.url)
-    }
+            assertEquals("100" to 7, tracking.lastPlugin.lastSetProgress)
+        }
+
+    @Test
+    fun `page getDimensions delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val dimension =
+                server
+                    .serial("42")
+                    .chapter("100")
+                    .page(1)
+                    .getDimensions()
+
+            assertEquals(800, dimension.data.width)
+            assertEquals(1200, dimension.data.height)
+        }
+
+    @Test
+    fun `page getUrl delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val url =
+                server
+                    .serial("42")
+                    .chapter("100")
+                    .page(1)
+                    .getUrl()
+
+            assertTrue(url.data.endsWith("/page/100/1"))
+        }
+
+    @Test
+    fun `page getDimensions envelope carries the group and url that answered it`() =
+        runTest {
+            val groupId = activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val dimension =
+                server
+                    .serial("42")
+                    .chapter("100")
+                    .page(1)
+                    .getDimensions()
+
+            assertEquals(groupId, dimension.serverInfo.groupId)
+            assertEquals(baseUrl, dimension.serverInfo.url)
+        }
 
     // ── network retry (withUrlRetry) ────────────────────────────────────────
 
     @Test
-    fun `a network failure retries once with a freshly reselected URL and succeeds`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        // Only the plugin instance withUrlRetry's first attempt actually calls serials.list() on
-        // should fail — setActiveGroup's own resolvePlugin call builds an earlier instance that
-        // never gets there (it only calls authenticate()), so failing every instance up front
-        // would make even the retry's second attempt fail too.
-        var failNextServalsListCall = false
-        val retryServer = Server(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        if (failNextServalsListCall) {
-                            plugin.failSerialsListWith = IOException("connection refused")
-                            failNextServalsListCall = false
-                        }
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-        )
-        val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        retryServer.setActiveGroup(group.id)
+    fun `a network failure retries once with a freshly reselected URL and succeeds`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            // Only the plugin instance withUrlRetry's first attempt actually calls serials.list() on
+            // should fail — setActiveGroup's own resolvePlugin call builds an earlier instance that
+            // never gets there (it only calls authenticate()), so failing every instance up front
+            // would make even the retry's second attempt fail too.
+            var failNextServalsListCall = false
+            val retryServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    if (failNextServalsListCall) {
+                                        plugin.failSerialsListWith = IOException("connection refused")
+                                        failNextServalsListCall = false
+                                    }
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                )
+            val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            retryServer.setActiveGroup(group.id)
 
-        failNextServalsListCall = true
-        val serials = retryServer.serials.list()
+            failNextServalsListCall = true
+            val serials = retryServer.serials.list()
 
-        assertEquals(listOf("1"), serials.data.serials.map { it.id })
-        assertEquals(1, urlSelector.invalidateAndReselectCalls)
-    }
+            assertEquals(listOf("1"), serials.data.serials.map { it.id })
+            assertEquals(1, urlSelector.invalidateAndReselectCalls)
+        }
 
     // ── session-expiry retry (withUrlRetry catching ServerAuthException) ─────
 
     @Test
-    fun `a 401 on a content call re-authenticates the group and retries once, without reselecting the URL`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        var failNextSerialsListWith401 = false
-        val authInstances = mutableListOf<FakePlugin>()
-        val authServer = Server(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        authInstances += plugin
-                        if (failNextSerialsListWith401) {
-                            plugin.failSerialsListWith = ServerAuthException("session rejected (HTTP 401)")
-                            failNextSerialsListWith401 = false
-                        }
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-        )
-        val group = authServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        authServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        authServer.setActiveGroup(group.id)
-        val reselectsBefore = urlSelector.invalidateAndReselectCalls
+    fun `a 401 on a content call re-authenticates the group and retries once, without reselecting the URL`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            var failNextSerialsListWith401 = false
+            val authInstances = mutableListOf<FakePlugin>()
+            val authServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    authInstances += plugin
+                                    if (failNextSerialsListWith401) {
+                                        plugin.failSerialsListWith = ServerAuthException("session rejected (HTTP 401)")
+                                        failNextSerialsListWith401 = false
+                                    }
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                )
+            val group = authServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            authServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            authServer.setActiveGroup(group.id)
+            val reselectsBefore = urlSelector.invalidateAndReselectCalls
 
-        failNextSerialsListWith401 = true
-        val serials = authServer.serials.list()
+            failNextSerialsListWith401 = true
+            val serials = authServer.serials.list()
 
-        assertEquals(listOf("1"), serials.data.serials.map { it.id })
-        // the re-auth path rebuilt the plugin and called authenticate() again — but never asked
-        // the selector to re-pick a URL (a 401 is not a dead URL).
-        assertTrue(authInstances.any { it.authenticateCallCount >= 1 })
-        assertEquals(reselectsBefore, urlSelector.invalidateAndReselectCalls)
-    }
-
-    @Test
-    fun `a 401 that persists after re-authentication propagates the exception`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val authServer = Server(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        plugin.failSerialsListWith = ServerAuthException("session still rejected (HTTP 401)")
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-        )
-        val group = authServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        authServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        authServer.setActiveGroup(group.id)
-        val reselectsBefore = urlSelector.invalidateAndReselectCalls
-
-        assertFailsWith<ServerAuthException> { authServer.serials.list() }
-        // exactly one re-auth-and-retry, then it gives up — and still no URL reselect.
-        assertEquals(reselectsBefore, urlSelector.invalidateAndReselectCalls)
-    }
+            assertEquals(listOf("1"), serials.data.serials.map { it.id })
+            // the re-auth path rebuilt the plugin and called authenticate() again — but never asked
+            // the selector to re-pick a URL (a 401 is not a dead URL).
+            assertTrue(authInstances.any { it.authenticateCallCount >= 1 })
+            assertEquals(reselectsBefore, urlSelector.invalidateAndReselectCalls)
+        }
 
     @Test
-    fun `a network failure that persists after retry propagates the exception`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val instances = mutableListOf<FakePlugin>()
-        val retryServer = Server(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        plugin.failSerialsListWith = IOException("still unreachable")
-                        instances += plugin
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-        )
-        val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        retryServer.setActiveGroup(group.id)
+    fun `a 401 that persists after re-authentication propagates the exception`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val authServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    plugin.failSerialsListWith = ServerAuthException("session still rejected (HTTP 401)")
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                )
+            val group = authServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            authServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            authServer.setActiveGroup(group.id)
+            val reselectsBefore = urlSelector.invalidateAndReselectCalls
 
-        assertFailsWith<IOException> { retryServer.serials.list() }
-        // exactly one retry attempt: the original call plus one reselect-and-retry, no more
-        assertEquals(1, urlSelector.invalidateAndReselectCalls)
-    }
+            assertFailsWith<ServerAuthException> { authServer.serials.list() }
+            // exactly one re-auth-and-retry, then it gives up — and still no URL reselect.
+            assertEquals(reselectsBefore, urlSelector.invalidateAndReselectCalls)
+        }
+
+    @Test
+    fun `a network failure that persists after retry propagates the exception`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val instances = mutableListOf<FakePlugin>()
+            val retryServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    plugin.failSerialsListWith = IOException("still unreachable")
+                                    instances += plugin
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                )
+            val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            retryServer.setActiveGroup(group.id)
+
+            assertFailsWith<IOException> { retryServer.serials.list() }
+            // exactly one retry attempt: the original call plus one reselect-and-retry, no more
+            assertEquals(1, urlSelector.invalidateAndReselectCalls)
+        }
 
     // ── group.validateUrls ───────────────────────────────────────────────────
 
     @Test
-    fun `group validateUrls returns the url the selector picked`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val validatingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
-        val group = validatingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        validatingServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+    fun `group validateUrls returns the url the selector picked`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val validatingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+            val group = validatingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            validatingServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
 
-        val winner = validatingServer.group(group.id).validateUrls()
+            val winner = validatingServer.group(group.id).validateUrls()
 
-        assertEquals(baseUrl, winner.url)
-        assertEquals(1, urlSelector.invalidateAndReselectCalls)
-    }
-
-    @Test
-    fun `group validateUrls throws when no configured url responds`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        server.group(group.id).addUrl(NewServerUrl("http://unreachable.invalid", 200, 0))
-
-        assertFailsWith<ServerException> { server.group(group.id).validateUrls() }
-    }
+            assertEquals(baseUrl, winner.url)
+            assertEquals(1, urlSelector.invalidateAndReselectCalls)
+        }
 
     @Test
-    fun `group validateUrls throws when the group has no urls configured`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+    fun `group validateUrls throws when no configured url responds`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            server.group(group.id).addUrl(NewServerUrl("http://unreachable.invalid", 200, 0))
 
-        assertFailsWith<ServerException> { server.group(group.id).validateUrls() }
-    }
+            assertFailsWith<ServerException> { server.group(group.id).validateUrls() }
+        }
+
+    @Test
+    fun `group validateUrls throws when the group has no urls configured`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+
+            assertFailsWith<ServerException> { server.group(group.id).validateUrls() }
+        }
 
     // ── group.testUrl (point check, no selection) ────────────────────────────
 
     @Test
-    fun `group testUrl probes the given url with the group's healthCheckPath and never reselects`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val testingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
-        val group = testingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/custom-health"))
+    fun `group testUrl probes the given url with the group's healthCheckPath and never reselects`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val testingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+            val group = testingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/custom-health"))
 
-        val result = testingServer.group(group.id).testUrl("http://typed-by-user:9000")
+            val result = testingServer.group(group.id).testUrl("http://typed-by-user:9000")
 
-        assertEquals(true, result.ok)
-        assertEquals(200, result.status)
-        assertEquals("http://typed-by-user:9000", urlSelector.lastProbedCandidate?.url)
-        assertEquals("/custom-health", urlSelector.lastProbedCandidate?.healthCheckPath)
-        // A point check is not a selection.
-        assertEquals(0, urlSelector.getActiveUrlCalls)
-        assertEquals(0, urlSelector.invalidateAndReselectCalls)
-    }
-
-    @Test
-    fun `group testUrl reports the probe failure as-is`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl).apply {
-            probeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = false, status = 502, elapsedMs = 3) }
+            assertEquals(true, result.ok)
+            assertEquals(200, result.status)
+            assertEquals("http://typed-by-user:9000", urlSelector.lastProbedCandidate?.url)
+            assertEquals("/custom-health", urlSelector.lastProbedCandidate?.healthCheckPath)
+            // A point check is not a selection.
+            assertEquals(0, urlSelector.getActiveUrlCalls)
+            assertEquals(0, urlSelector.invalidateAndReselectCalls)
         }
-        val testingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
-        val group = testingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-
-        val result = testingServer.group(group.id).testUrl("http://x")
-
-        assertEquals(false, result.ok)
-        assertEquals(502, result.status)
-    }
 
     @Test
-    fun `group testUrl rejects a blank url and a missing group`() = runTest {
-        val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        assertFailsWith<ServerException> { server.group(group.id).testUrl("  ") }
-        assertFailsWith<ServerException> { server.group("missing").testUrl("http://x") }
-    }
+    fun `group testUrl reports the probe failure as-is`() =
+        runTest {
+            val urlSelector =
+                FakeUrlSelector(baseUrl).apply {
+                    probeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = false, status = 502, elapsedMs = 3) }
+                }
+            val testingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+            val group = testingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+
+            val result = testingServer.group(group.id).testUrl("http://x")
+
+            assertEquals(false, result.ok)
+            assertEquals(502, result.status)
+        }
+
+    @Test
+    fun `group testUrl rejects a blank url and a missing group`() =
+        runTest {
+            val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            assertFailsWith<ServerException> { server.group(group.id).testUrl("  ") }
+            assertFailsWith<ServerException> { server.group("missing").testUrl("http://x") }
+        }
 
     // ── group.getActive / Server.getActive ──────────────────────────────────
 
     @Test
-    fun `group getActive returns null before this group has ever been resolved`() = runTest {
-        val groupId = addHealthyGroup()
+    fun `group getActive returns null before this group has ever been resolved`() =
+        runTest {
+            val groupId = addHealthyGroup()
 
-        // addHealthyGroup only adds the group+url rows — it never calls setActiveGroup or any
-        // content method, so resolvePlugin has never run for this group yet.
-        assertNull(server.group(groupId).getActive())
-    }
-
-    @Test
-    fun `group getActive reflects the url setActiveGroup itself resolved, even with no content call yet`() = runTest {
-        val groupId = activateGroup()
-
-        // activateGroup() only calls setActiveGroup — resolvePlugin already ran once to
-        // authenticate, so getActive() must already report that resolution, not null.
-        val active = server.group(groupId).getActive()
-        assertEquals(baseUrl, active?.url)
-    }
+            // addHealthyGroup only adds the group+url rows — it never calls setActiveGroup or any
+            // content method, so resolvePlugin has never run for this group yet.
+            assertNull(server.group(groupId).getActive())
+        }
 
     @Test
-    fun `group getActive reflects the url a later content call resolved, updating the earlier record`() = runTest {
-        val groupId = activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+    fun `group getActive reflects the url setActiveGroup itself resolved, even with no content call yet`() =
+        runTest {
+            val groupId = activateGroup()
 
-        server.serials.list()
-
-        val active = server.group(groupId).getActive()
-        assertEquals(baseUrl, active?.url)
-    }
-
-    @Test
-    fun `group getActive never hits the network itself, unlike validateUrls`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val activeServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
-        val group = activeServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        activeServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // setActiveGroup's health check
-        activeServer.setActiveGroup(group.id)
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // serials.list()'s health check
-        activeServer.serials.list()
-        val callsAfterOneContentCall = urlSelector.getActiveUrlCalls + urlSelector.invalidateAndReselectCalls
-
-        activeServer.group(group.id).getActive()
-
-        assertEquals(callsAfterOneContentCall, urlSelector.getActiveUrlCalls + urlSelector.invalidateAndReselectCalls)
-    }
+            // activateGroup() only calls setActiveGroup — resolvePlugin already ran once to
+            // authenticate, so getActive() must already report that resolution, not null.
+            val active = server.group(groupId).getActive()
+            assertEquals(baseUrl, active?.url)
+        }
 
     @Test
-    fun `group getActive reflects the retry's final winning url, not the one that failed`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        var failNextServalsListCall = false
-        val retryServer = Server(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        if (failNextServalsListCall) {
-                            plugin.failSerialsListWith = IOException("connection refused")
-                            failNextServalsListCall = false
-                        }
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-        )
-        val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
-        retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        retryServer.setActiveGroup(group.id)
+    fun `group getActive reflects the url a later content call resolved, updating the earlier record`() =
+        runTest {
+            val groupId = activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
 
-        failNextServalsListCall = true
-        retryServer.serials.list()
+            server.serials.list()
 
-        // the retry's force-reselect still resolves to the same baseUrl (only one URL configured
-        // in this test) — what matters is that getActive() reflects the id resolvePlugin recorded
-        // on that final, successful resolution, not a stale/failed one.
-        val active = retryServer.group(group.id).getActive()
-        assertEquals(baseUrl, active?.url)
-    }
+            val active = server.group(groupId).getActive()
+            assertEquals(baseUrl, active?.url)
+        }
 
     @Test
-    fun `Server getActive returns null when no group is active`() = runTest {
-        assertNull(server.getActive())
-    }
+    fun `group getActive never hits the network itself, unlike validateUrls`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val activeServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+            val group = activeServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            activeServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // setActiveGroup's health check
+            activeServer.setActiveGroup(group.id)
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // serials.list()'s health check
+            activeServer.serials.list()
+            val callsAfterOneContentCall = urlSelector.getActiveUrlCalls + urlSelector.invalidateAndReselectCalls
+
+            activeServer.group(group.id).getActive()
+
+            assertEquals(callsAfterOneContentCall, urlSelector.getActiveUrlCalls + urlSelector.invalidateAndReselectCalls)
+        }
 
     @Test
-    fun `Server getActive reflects the url setActiveGroup itself resolved, even with no content call yet`() = runTest {
-        activateGroup()
+    fun `group getActive reflects the retry's final winning url, not the one that failed`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            var failNextServalsListCall = false
+            val retryServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    if (failNextServalsListCall) {
+                                        plugin.failSerialsListWith = IOException("connection refused")
+                                        failNextServalsListCall = false
+                                    }
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                )
+            val group = retryServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            retryServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            retryServer.setActiveGroup(group.id)
 
-        assertEquals(baseUrl, server.getActive()?.url)
-    }
+            failNextServalsListCall = true
+            retryServer.serials.list()
+
+            // the retry's force-reselect still resolves to the same baseUrl (only one URL configured
+            // in this test) — what matters is that getActive() reflects the id resolvePlugin recorded
+            // on that final, successful resolution, not a stale/failed one.
+            val active = retryServer.group(group.id).getActive()
+            assertEquals(baseUrl, active?.url)
+        }
 
     @Test
-    fun `Server getActive delegates to the active group's getActive`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+    fun `Server getActive returns null when no group is active`() =
+        runTest {
+            assertNull(server.getActive())
+        }
 
-        server.serials.list()
+    @Test
+    fun `Server getActive reflects the url setActiveGroup itself resolved, even with no content call yet`() =
+        runTest {
+            activateGroup()
 
-        assertEquals(baseUrl, server.getActive()?.url)
-    }
+            assertEquals(baseUrl, server.getActive()?.url)
+        }
+
+    @Test
+    fun `Server getActive delegates to the active group's getActive`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+
+            server.serials.list()
+
+            assertEquals(baseUrl, server.getActive()?.url)
+        }
 
     // ── Server.getActiveInfo ─────────────────────────────────────────────────
 
     @Test
-    fun `getActiveInfo returns null when no group is active`() = runTest {
-        assertNull(server.getActiveInfo())
-    }
+    fun `getActiveInfo returns null when no group is active`() =
+        runTest {
+            assertNull(server.getActiveInfo())
+        }
 
     @Test
-    fun `getActiveInfo combines the group and its active url, flattened, without credentialsJson or healthCheckPath`() = runTest {
-        val groupId = activateGroup()
+    fun `getActiveInfo combines the group and its active url, flattened, without credentialsJson or healthCheckPath`() =
+        runTest {
+            val groupId = activateGroup()
 
-        val info = server.getActiveInfo()
+            val info = server.getActiveInfo()
 
-        assertEquals(groupId, info?.groupId)
-        assertEquals("My Server", info?.groupName)
-        assertEquals("fake", info?.providerId)
-        assertEquals(baseUrl, info?.url)
-    }
+            assertEquals(groupId, info?.groupId)
+            assertEquals("My Server", info?.groupName)
+            assertEquals("fake", info?.providerId)
+            assertEquals(baseUrl, info?.url)
+        }
 
     @Test
-    fun `getActiveInfo reflects a later content call's resolution, not just setActiveGroup's`() = runTest {
-        activateGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
+    fun `getActiveInfo reflects a later content call's resolution, not just setActiveGroup's`() =
+        runTest {
+            activateGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // getActiveContent's health check
 
-        server.serials.list()
+            server.serials.list()
 
-        assertEquals(baseUrl, server.getActiveInfo()?.url)
-    }
+            assertEquals(baseUrl, server.getActiveInfo()?.url)
+        }
 }

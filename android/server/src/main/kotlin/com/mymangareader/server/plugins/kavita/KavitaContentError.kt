@@ -13,6 +13,9 @@ import com.mymangareader.server.plugins.ServerAuthException
  * "wrong apiKey / dead refresh token" answer, and turning it into a ServerAuthException would
  * make Server's renew-and-retry cascade loop back into the call that just failed.
  */
-internal fun kavitaRaiseIfSessionRejected(status: Int, context: String) {
+internal fun kavitaRaiseIfSessionRejected(
+    status: Int,
+    context: String,
+) {
     if (status == 401) throw ServerAuthException("$context: session rejected (HTTP 401)")
 }

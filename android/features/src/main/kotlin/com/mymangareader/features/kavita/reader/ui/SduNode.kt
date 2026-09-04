@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -43,6 +42,7 @@ sealed interface SduNode {
         val children: List<SduNode> = emptyList(),
     ) : SduNode {
         enum class Direction { VERTICAL, HORIZONTAL }
+
         enum class Align { START, CENTER, END }
     }
 
@@ -54,11 +54,12 @@ sealed interface SduNode {
         val maxLines: Int = Int.MAX_VALUE,
     ) : SduNode
 
-    data class Spacer(val sizePx: Int) : SduNode
+    data class Spacer(
+        val sizePx: Int,
+    ) : SduNode
 }
 
-private fun parseColorOrNull(hex: String?): Color? =
-    hex?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
+private fun parseColorOrNull(hex: String?): Color? = hex?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
 
 /** Generic interpreter for [SduNode] — the only place that turns SDU data into actual Compose UI. */
 @Composable
@@ -66,11 +67,12 @@ fun SduNodeView(node: SduNode) {
     when (node) {
         is SduNode.Container -> {
             val backgroundColor = parseColorOrNull(node.backgroundColor) ?: Color.Transparent
-            val baseModifier = Modifier
-                .fillMaxWidth()
-                .background(backgroundColor)
-                .then(if (node.heightPx != null) Modifier.height(node.heightPx.dp) else Modifier)
-                .padding(PaddingValues(node.paddingPx.dp))
+            val baseModifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(backgroundColor)
+                    .then(if (node.heightPx != null) Modifier.height(node.heightPx.dp) else Modifier)
+                    .padding(PaddingValues(node.paddingPx.dp))
             if (node.direction == SduNode.Container.Direction.HORIZONTAL) {
                 // Centered on the main axis by default (spacedBy + Alignment.CenterHorizontally)
                 // — matches the Column branch below, where horizontalAlignment already centers
@@ -94,28 +96,32 @@ fun SduNodeView(node: SduNode) {
                 }
             }
         }
-        is SduNode.TextNode -> Text(
-            text = node.text,
-            color = parseColorOrNull(node.color) ?: Color.White,
-            fontSize = node.fontSizeSp.sp,
-            fontWeight = if (node.bold) FontWeight.SemiBold else FontWeight.Normal,
-            textAlign = TextAlign.Center,
-            maxLines = node.maxLines,
-        )
-        is SduNode.Spacer -> androidx.compose.foundation.layout.Spacer(
-            modifier = if (node.sizePx > 0) Modifier.size(node.sizePx.dp) else Modifier,
-        )
+        is SduNode.TextNode ->
+            Text(
+                text = node.text,
+                color = parseColorOrNull(node.color) ?: Color.White,
+                fontSize = node.fontSizeSp.sp,
+                fontWeight = if (node.bold) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = node.maxLines,
+            )
+        is SduNode.Spacer ->
+            androidx.compose.foundation.layout.Spacer(
+                modifier = if (node.sizePx > 0) Modifier.size(node.sizePx.dp) else Modifier,
+            )
     }
 }
 
-private fun SduNode.Container.Align.toColumnAlignment(): Alignment.Horizontal = when (this) {
-    SduNode.Container.Align.START -> Alignment.Start
-    SduNode.Container.Align.CENTER -> Alignment.CenterHorizontally
-    SduNode.Container.Align.END -> Alignment.End
-}
+private fun SduNode.Container.Align.toColumnAlignment(): Alignment.Horizontal =
+    when (this) {
+        SduNode.Container.Align.START -> Alignment.Start
+        SduNode.Container.Align.CENTER -> Alignment.CenterHorizontally
+        SduNode.Container.Align.END -> Alignment.End
+    }
 
-private fun SduNode.Container.Align.toRowAlignment(): Alignment.Vertical = when (this) {
-    SduNode.Container.Align.START -> Alignment.Top
-    SduNode.Container.Align.CENTER -> Alignment.CenterVertically
-    SduNode.Container.Align.END -> Alignment.Bottom
-}
+private fun SduNode.Container.Align.toRowAlignment(): Alignment.Vertical =
+    when (this) {
+        SduNode.Container.Align.START -> Alignment.Top
+        SduNode.Container.Align.CENTER -> Alignment.CenterVertically
+        SduNode.Container.Align.END -> Alignment.Bottom
+    }

@@ -8,10 +8,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class RoomDbStatusProvider @Inject constructor(private val db: AppDatabase) : DbStatusProvider {
-    override fun getVersion(): Int = db.openHelper.readableDatabase.version
-    override fun isOpen(): Boolean = db.isOpen
-}
+class RoomDbStatusProvider
+    @Inject
+    constructor(
+        private val db: AppDatabase,
+    ) : DbStatusProvider {
+        override fun getVersion(): Int = db.openHelper.readableDatabase.version
+
+        override fun isOpen(): Boolean = db.isOpen
+    }
 
 @Module
 @InstallIn(SingletonComponent::class)

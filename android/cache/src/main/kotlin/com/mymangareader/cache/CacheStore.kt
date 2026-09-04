@@ -1,13 +1,16 @@
 package com.mymangareader.cache
 
-
 // 15min, same value ActiveUrlSelector.CACHE_TTL_MS already uses (:tools) — kept as this module's
 // own constant since Cache never depends on :tools.
 internal const val DEFAULT_TTL_MS = 15 * 60 * 1000L
 
 // One entry to patch in a patchAll batch: same trio put()/patch() take, minus the domain/variant
 // (those are batch-wide — every item in one patchAll call shares them).
-data class PatchItem(val key: String, val value: String, val ttlMs: Long = DEFAULT_TTL_MS)
+data class PatchItem(
+    val key: String,
+    val value: String,
+    val ttlMs: Long = DEFAULT_TTL_MS,
+)
 
 // value/cachedAtEpochMs/ttlMs are always returned even when isExpired is true — get() never
 // deletes an expired entry itself (see CacheStore.purgeExpired). The caller decides whether a
@@ -35,12 +38,21 @@ data class CacheEntry(
 interface CacheStore {
     // A hit (entry found, expired or not) refreshes the entry's lastAccessedAtEpochMs to now —
     // see purgeOlderThan below for why this matters. A miss touches nothing.
-    suspend fun get(key: String, variant: String = ""): CacheEntry?
+    suspend fun get(
+        key: String,
+        variant: String = "",
+    ): CacheEntry?
 
     // Returns the CacheDescriptor this write just produced — the same object a domain contract's
     // `cache` field carries forward (see CacheDescriptor's own doc). Never Unit: a caller building
     // a digest needs this to attach provenance without re-deriving it.
-    suspend fun put(key: String, value: String, domain: String, variant: String = "", ttlMs: Long = DEFAULT_TTL_MS): CacheDescriptor
+    suspend fun put(
+        key: String,
+        value: String,
+        domain: String,
+        variant: String = "",
+        ttlMs: Long = DEFAULT_TTL_MS,
+    ): CacheDescriptor
 
     // Like put(), but keeps the fields already stored under (key, variant) that `value` doesn't
     // mention. Both sides are treated as MAYBE-JSON: if the stored value and `value` both parse as
@@ -53,7 +65,14 @@ interface CacheStore {
     // get()+copy()+put() and without clobbering the richer chapters/metadata a prior single-series
     // fetch wrote. A default impl (get → merge → put) covers both backends; an implementation can
     // override for a single-round-trip version.
-    suspend fun patch(key: String, value: String, domain: String, variant: String = "", ttlMs: Long = DEFAULT_TTL_MS, deep: Boolean = false): CacheDescriptor {
+    suspend fun patch(
+        key: String,
+        value: String,
+        domain: String,
+        variant: String = "",
+        ttlMs: Long = DEFAULT_TTL_MS,
+        deep: Boolean = false,
+    ): CacheDescriptor {
         val existing = get(key, variant)?.value
         val toWrite = if (existing != null) jsonMerge(existing, value, deep) else value
         return put(key, toWrite, domain, variant, ttlMs)
@@ -78,13 +97,20 @@ interface CacheStore {
         readFilter: CacheFilter? = null,
     ): List<CacheDescriptor> = items.map { patch(it.key, it.value, domain, variant, it.ttlMs, deep) }
 
-    suspend fun invalidate(key: String, variant: String = "")
+    suspend fun invalidate(
+        key: String,
+        variant: String = "",
+    )
+
     suspend fun invalidateDomain(domain: String)
 
     // Every entry for this domain+variant, across all keys — e.g. every cached chapter with
     // variant="full", regardless of chapterId. variant alone isn't scoped by domain here since
     // callers always know both (they're the ones who chose them for put()).
-    suspend fun invalidateVariant(domain: String, variant: String)
+    suspend fun invalidateVariant(
+        domain: String,
+        variant: String,
+    )
 
     // Removes every entry whose TTL has already elapsed. Called in a batch (e.g. once at app
     // startup) — never invoked implicitly by get().

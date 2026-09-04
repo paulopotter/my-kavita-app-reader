@@ -22,8 +22,9 @@ import com.mymangareader.features.kavita.reader.ui.ReaderPageList
  * constrained to screen width by fillMaxWidth() inside LazyColumn) doesn't hit that ceiling,
  * matching the proven behavior of the reference project (my-manga-app-reader).
  */
-class ReaderPageListView(context: Context) : AbstractComposeView(context) {
-
+class ReaderPageListView(
+    context: Context,
+) : AbstractComposeView(context) {
     private var currentBlocks by mutableStateOf<List<ChapterBlock>>(emptyList())
     private var currentScrollToChapterId by mutableStateOf<String?>(null)
     private var currentScrollToPageIndex by mutableStateOf<Int?>(null)
@@ -62,13 +63,19 @@ class ReaderPageListView(context: Context) : AbstractComposeView(context) {
         )
     }
 
-    private fun emitVisiblePageChanged(chapterId: String, pageIndex: Int, pageFraction: Float, chapterFraction: Float) {
-        val payload = Arguments.createMap().apply {
-            putString("chapterId", chapterId)
-            putInt("pageIndex", pageIndex)
-            putDouble("pageFraction", pageFraction.toDouble())
-            putDouble("chapterFraction", chapterFraction.toDouble())
-        }
+    private fun emitVisiblePageChanged(
+        chapterId: String,
+        pageIndex: Int,
+        pageFraction: Float,
+        chapterFraction: Float,
+    ) {
+        val payload =
+            Arguments.createMap().apply {
+                putString("chapterId", chapterId)
+                putInt("pageIndex", pageIndex)
+                putDouble("pageFraction", pageFraction.toDouble())
+                putDouble("chapterFraction", chapterFraction.toDouble())
+            }
         val reactContext = context as? ReactContext ?: return
         reactContext
             .getJSModule(RCTEventEmitter::class.java)

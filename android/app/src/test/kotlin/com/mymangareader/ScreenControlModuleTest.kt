@@ -6,7 +6,6 @@ import org.junit.Test
 import org.mockito.kotlin.mock
 
 class ScreenControlModuleTest {
-
     @Test
     fun `getName retorna ScreenControlModule`() {
         val module = ScreenControlModule(mock<ReactApplicationContext>())

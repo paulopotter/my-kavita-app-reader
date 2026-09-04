@@ -4,7 +4,6 @@ import com.mymangareader.tools.ota.CurrentAppVersion
 import com.mymangareader.tools.ota.EmbeddedBundleBuildTimeMs
 import com.mymangareader.tools.ota.KotlinVersionName
 import com.mymangareader.tools.ota.OtaManifestUrl
-import com.mymangareader.tools.ota.OtaStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,7 +13,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object OtaBindingsModule {
-
     @Provides
     @Singleton
     @OtaManifestUrl

@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VersionCheckTest {
-
     // ── Kotlin / RN semver ─────────────────────────────────────────────────────
 
     @Test fun `semver equal versions meet minimum`() {

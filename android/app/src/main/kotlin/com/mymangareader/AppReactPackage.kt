@@ -5,11 +5,11 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 import com.mymangareader.cache.Cache
-import com.mymangareader.preferences.Preferences
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
+import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.features.bff.BffFeature
 import com.mymangareader.features.kavita.ActiveUrlWatcher
 import com.mymangareader.features.kavita.KavitaAuthFeature
@@ -17,8 +17,8 @@ import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
+import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
-import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.tools.bridge.ConfigRepository
 import com.mymangareader.tools.bridge.ConfigStore
 import com.mymangareader.tools.bridge.DbValidatorModule
@@ -46,7 +46,6 @@ class AppReactPackage(
     private val cache: Cache,
     private val preferences: Preferences,
 ) : ReactPackage {
-
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
         val otaBridge = OtaEventBridge(context, otaStore)
         OtaEventBridge.register(otaBridge)
@@ -75,6 +74,5 @@ class AppReactPackage(
         )
     }
 
-    override fun createViewManagers(context: ReactApplicationContext): List<ViewManager<*, *>> =
-        listOf(ReaderPageListViewManager())
+    override fun createViewManagers(context: ReactApplicationContext): List<ViewManager<*, *>> = listOf(ReaderPageListViewManager())
 }

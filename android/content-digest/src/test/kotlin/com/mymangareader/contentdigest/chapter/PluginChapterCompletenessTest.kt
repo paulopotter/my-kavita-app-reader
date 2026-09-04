@@ -17,25 +17,34 @@ import org.junit.Test
 // isCompleteForChapterDigest() — this test's only job is making sure nobody forgets the second
 // half of that pair.
 class PluginChapterCompletenessTest {
-
-    private val fullyPopulated = PluginChapter(
-        id = "c1", title = "Chapter 1", number = "1", pageCount = 2, pagesRead = 0, isSpecial = false,
-        decimalNumber = 1.0, specialLabel = "1", createdUtc = "2026-01-01T00:00:00",
-        lastReadingProgressUtc = "2026-01-02T00:00:00", fileFormat = "archive",
-    )
+    private val fullyPopulated =
+        PluginChapter(
+            id = "c1",
+            title = "Chapter 1",
+            number = "1",
+            pageCount = 2,
+            pagesRead = 0,
+            isSpecial = false,
+            decimalNumber = 1.0,
+            specialLabel = "1",
+            createdUtc = "2026-01-01T00:00:00",
+            lastReadingProgressUtc = "2026-01-02T00:00:00",
+            fileFormat = "archive",
+        )
 
     // Every nullable field isCompleteForChapterDigest() is expected to check — `number` is
     // deliberately excluded (it's genuinely optional, never read by buildChapterDigest).
-    private val nullableFieldSetters: List<Pair<String, (PluginChapter) -> PluginChapter>> = listOf(
-        "pageCount" to { c: PluginChapter -> c.copy(pageCount = null) },
-        "pagesRead" to { c: PluginChapter -> c.copy(pagesRead = null) },
-        "isSpecial" to { c: PluginChapter -> c.copy(isSpecial = null) },
-        "decimalNumber" to { c: PluginChapter -> c.copy(decimalNumber = null) },
-        "specialLabel" to { c: PluginChapter -> c.copy(specialLabel = null) },
-        "createdUtc" to { c: PluginChapter -> c.copy(createdUtc = null) },
-        "lastReadingProgressUtc" to { c: PluginChapter -> c.copy(lastReadingProgressUtc = null) },
-        "fileFormat" to { c: PluginChapter -> c.copy(fileFormat = null) },
-    )
+    private val nullableFieldSetters: List<Pair<String, (PluginChapter) -> PluginChapter>> =
+        listOf(
+            "pageCount" to { c: PluginChapter -> c.copy(pageCount = null) },
+            "pagesRead" to { c: PluginChapter -> c.copy(pagesRead = null) },
+            "isSpecial" to { c: PluginChapter -> c.copy(isSpecial = null) },
+            "decimalNumber" to { c: PluginChapter -> c.copy(decimalNumber = null) },
+            "specialLabel" to { c: PluginChapter -> c.copy(specialLabel = null) },
+            "createdUtc" to { c: PluginChapter -> c.copy(createdUtc = null) },
+            "lastReadingProgressUtc" to { c: PluginChapter -> c.copy(lastReadingProgressUtc = null) },
+            "fileFormat" to { c: PluginChapter -> c.copy(fileFormat = null) },
+        )
 
     @Test
     fun `a fully populated PluginChapter is complete`() {
@@ -46,16 +55,20 @@ class PluginChapterCompletenessTest {
     fun `every field isCompleteForChapterDigest checks, when null, makes PluginChapter incomplete`() {
         for ((fieldName, withFieldNulled) in nullableFieldSetters) {
             val incomplete = withFieldNulled(fullyPopulated)
-            assertFalse("Expected isCompleteForChapterDigest() to be false when '$fieldName' is null", incomplete.isCompleteForChapterDigest())
+            assertFalse(
+                "Expected isCompleteForChapterDigest() to be false when '$fieldName' is null",
+                incomplete.isCompleteForChapterDigest(),
+            )
         }
     }
 
     @Test
     fun `PluginChapter's own nullable field count matches this test's coverage, catching new fields`() {
-        val declaredNullableFields = PluginChapter::class.java.declaredFields
-            .filter { !it.isSynthetic && !it.type.isPrimitive && it.name != "id" && it.name != "title" }
-            .map { it.name }
-            .toSet()
+        val declaredNullableFields =
+            PluginChapter::class.java.declaredFields
+                .filter { !it.isSynthetic && !it.type.isPrimitive && it.name != "id" && it.name != "title" }
+                .map { it.name }
+                .toSet()
         val coveredFields = (nullableFieldSetters.map { it.first } + "number").toSet()
 
         assertTrue(

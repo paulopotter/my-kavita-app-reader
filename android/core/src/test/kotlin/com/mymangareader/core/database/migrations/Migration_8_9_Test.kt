@@ -14,14 +14,14 @@ private const val TEST_DB = "migration-test-8-9"
 
 @RunWith(RobolectricTestRunner::class)
 class Migration_8_9_Test {
-
     @get:Rule
-    val helper: MigrationTestHelper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        AppDatabase::class.java,
-        emptyList(),
-        FrameworkSQLiteOpenHelperFactory(),
-    )
+    val helper: MigrationTestHelper =
+        MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            AppDatabase::class.java,
+            emptyList(),
+            FrameworkSQLiteOpenHelperFactory(),
+        )
 
     @Test
     fun `migra de v8 para v9 copiando server_config+auth_config para um unico server_group com N server_url`() {
@@ -150,9 +150,10 @@ class Migration_8_9_Test {
         assertEquals(1, serverConfigCursor.getInt(0))
         serverConfigCursor.close()
 
-        val tableCursor = db.query(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('server_group', 'server_url')",
-        )
+        val tableCursor =
+            db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('server_group', 'server_url')",
+            )
         assertEquals(0, tableCursor.count)
         tableCursor.close()
     }

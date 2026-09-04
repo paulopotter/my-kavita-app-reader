@@ -19,7 +19,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class ConfigRepositoryRobolectricTest {
-
     private fun makeModule(store: ConfigStore = ConfigStore(FakeServerConfigDao(), FakeAuthConfigDao(), FakeBffServerConfigDao())): ConfigRepository {
         val realApp = ApplicationProvider.getApplicationContext<Application>()
         val context: ReactApplicationContext = mock()
@@ -28,27 +27,29 @@ class ConfigRepositoryRobolectricTest {
     }
 
     @Test
-    fun `getAppLocale resolve sempre um dos tags suportados, sem lancar`() = runTest {
-        val module = makeModule()
-        val promise = FakePromise()
+    fun `getAppLocale resolve sempre um dos tags suportados, sem lancar`() =
+        runTest {
+            val module = makeModule()
+            val promise = FakePromise()
 
-        module.getAppLocale(promise)
-        promise.awaitResolved()
+            module.getAppLocale(promise)
+            promise.awaitResolved()
 
-        // Robolectric's LocaleManager doesn't expose a real per-app override to drive here; the
-        // contract this test pins is "always resolves, always one of the app's supported tags".
-        assertNull(promise.rejectedCode)
-        assertTrue(promise.resolvedValue == "pt-BR" || promise.resolvedValue == "en")
-    }
+            // Robolectric's LocaleManager doesn't expose a real per-app override to drive here; the
+            // contract this test pins is "always resolves, always one of the app's supported tags".
+            assertNull(promise.rejectedCode)
+            assertTrue(promise.resolvedValue == "pt-BR" || promise.resolvedValue == "en")
+        }
 
     @Test
-    fun `setAppLocale resolve sem lancar`() = runTest {
-        val module = makeModule()
-        val promise = FakePromise()
+    fun `setAppLocale resolve sem lancar`() =
+        runTest {
+            val module = makeModule()
+            val promise = FakePromise()
 
-        module.setAppLocale("en", promise)
-        promise.awaitResolved()
+            module.setAppLocale("en", promise)
+            promise.awaitResolved()
 
-        assertNull(promise.rejectedCode)
-    }
+            assertNull(promise.rejectedCode)
+        }
 }

@@ -19,7 +19,6 @@ import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRe
 import com.mymangareader.server.NewServerGroup
 import com.mymangareader.server.NewServerUrl
 import com.mymangareader.server.Server
-import com.mymangareader.server.plugins.CredentialField as ServerCredentialField
 import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
@@ -28,8 +27,6 @@ import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
 import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
-import java.io.IOException
-import kotlin.test.assertFailsWith
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -42,31 +39,60 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
+import kotlin.test.assertFailsWith
+import com.mymangareader.server.plugins.CredentialField as ServerCredentialField
 
 // ── Fakes ──────────────────────────────────────────────────────────────────
 
 private class FakeExternalMetadataGroupDao : ExternalMetadataGroupDao {
     private val rows = mutableMapOf<String, ExternalMetadataGroupEntity>()
-    override suspend fun upsert(entity: ExternalMetadataGroupEntity) { rows[entity.id] = entity }
-    override suspend fun delete(entity: ExternalMetadataGroupEntity) { rows.remove(entity.id) }
+
+    override suspend fun upsert(entity: ExternalMetadataGroupEntity) {
+        rows[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ExternalMetadataGroupEntity) {
+        rows.remove(entity.id)
+    }
+
     override fun observeAll(): Flow<List<ExternalMetadataGroupEntity>> = MutableStateFlow(rows.values.toList())
+
     override suspend fun getAll(): List<ExternalMetadataGroupEntity> = rows.values.toList()
+
     override suspend fun getById(id: String): ExternalMetadataGroupEntity? = rows[id]
-    override suspend fun deleteById(id: String) { rows.remove(id) }
+
+    override suspend fun deleteById(id: String) {
+        rows.remove(id)
+    }
 }
 
 private class FakeExternalMetadataUrlDao : ExternalMetadataUrlDao {
     private val rows = mutableMapOf<String, ExternalMetadataUrlEntity>()
-    override suspend fun upsert(entity: ExternalMetadataUrlEntity) { rows[entity.id] = entity }
-    override suspend fun delete(entity: ExternalMetadataUrlEntity) { rows.remove(entity.id) }
-    override fun observeByGroupId(groupId: String): Flow<List<ExternalMetadataUrlEntity>> =
-        MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
-    override suspend fun getByGroupId(groupId: String): List<ExternalMetadataUrlEntity> =
-        rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+
+    override suspend fun upsert(entity: ExternalMetadataUrlEntity) {
+        rows[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ExternalMetadataUrlEntity) {
+        rows.remove(entity.id)
+    }
+
+    override fun observeByGroupId(groupId: String): Flow<List<ExternalMetadataUrlEntity>> = MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
+
+    override suspend fun getByGroupId(groupId: String): List<ExternalMetadataUrlEntity> = rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+
     override suspend fun getAll(): List<ExternalMetadataUrlEntity> = rows.values.toList()
+
     override suspend fun getById(id: String): ExternalMetadataUrlEntity? = rows[id]
-    override suspend fun deleteById(id: String) { rows.remove(id) }
-    override suspend fun deleteByGroupId(groupId: String) { rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) } }
+
+    override suspend fun deleteById(id: String) {
+        rows.remove(id)
+    }
+
+    override suspend fun deleteByGroupId(groupId: String) {
+        rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) }
+    }
 }
 
 // ── Server fakes (for syncByServerId/ByServerUrl and the no-hint resolver, same-layer
@@ -74,60 +100,95 @@ private class FakeExternalMetadataUrlDao : ExternalMetadataUrlDao {
 
 private class FakeServerGroupDao : ServerGroupDao {
     private val rows = mutableMapOf<String, ServerGroupEntity>()
-    override suspend fun upsert(entity: ServerGroupEntity) { rows[entity.id] = entity }
-    override suspend fun delete(entity: ServerGroupEntity) { rows.remove(entity.id) }
+
+    override suspend fun upsert(entity: ServerGroupEntity) {
+        rows[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ServerGroupEntity) {
+        rows.remove(entity.id)
+    }
+
     override fun observeAll(): Flow<List<ServerGroupEntity>> = MutableStateFlow(rows.values.toList())
+
     override suspend fun getAll(): List<ServerGroupEntity> = rows.values.toList()
+
     override suspend fun getById(id: String): ServerGroupEntity? = rows[id]
-    override suspend fun deleteById(id: String) { rows.remove(id) }
+
+    override suspend fun deleteById(id: String) {
+        rows.remove(id)
+    }
 }
 
 private class FakeServerUrlDao : ServerUrlDao {
     private val rows = mutableMapOf<String, ServerUrlEntity>()
-    override suspend fun upsert(entity: ServerUrlEntity) { rows[entity.id] = entity }
-    override suspend fun delete(entity: ServerUrlEntity) { rows.remove(entity.id) }
-    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> =
-        MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
-    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> =
-        rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+
+    override suspend fun upsert(entity: ServerUrlEntity) {
+        rows[entity.id] = entity
+    }
+
+    override suspend fun delete(entity: ServerUrlEntity) {
+        rows.remove(entity.id)
+    }
+
+    override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> = MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
+
+    override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> = rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
+
     override suspend fun getById(id: String): ServerUrlEntity? = rows[id]
-    override suspend fun deleteById(id: String) { rows.remove(id) }
-    override suspend fun deleteByGroupId(groupId: String) { rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) } }
+
+    override suspend fun deleteById(id: String) {
+        rows.remove(id)
+    }
+
+    override suspend fun deleteByGroupId(groupId: String) {
+        rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) }
+    }
 }
 
 // Minimal ServerPlugin double, only enough for a Server instance to resolve/authenticate — no
 // test in this file exercises Server's own content methods, only groups/group(id).getUrls()/
 // getActiveGroupId().
-private fun fakeServerRegistration(): ServerPluginRegistration = object : ServerPluginRegistration {
-    override val id = "fake-server"
-    override val displayName = "Fake Server"
-    override val version = "0.0.0"
-    override val credentialFields: List<ServerCredentialField> = emptyList()
-    override val defaultHealthCheckPath = "/health"
-    override val factory = { _: RequestTool, _: String, _: String ->
-        object : ServerPlugin {
-            override val id = "fake-server"
-            override val displayName = "Fake Server"
-            override val version = "0.0.0"
-            override val auth = object : ServerPlugin.Auth {
-                override suspend fun authenticate() = Unit
-                override suspend fun checkToken(): String? = null
-                override suspend fun reauthenticate() = Unit
-                override suspend fun logout() = Unit
-                override fun getSession(): String? = null
-            }
-            override val serials = object : ServerPlugin.Serials {
-                override suspend fun list(): List<PluginSerial> = emptyList()
-            }
-            override fun serial(serialId: String): ServerPlugin.Serial = throw NotImplementedError()
-        } as ServerPlugin
+private fun fakeServerRegistration(): ServerPluginRegistration =
+    object : ServerPluginRegistration {
+        override val id = "fake-server"
+        override val displayName = "Fake Server"
+        override val version = "0.0.0"
+        override val credentialFields: List<ServerCredentialField> = emptyList()
+        override val defaultHealthCheckPath = "/health"
+        override val factory = { _: RequestTool, _: String, _: String ->
+            object : ServerPlugin {
+                override val id = "fake-server"
+                override val displayName = "Fake Server"
+                override val version = "0.0.0"
+                override val auth =
+                    object : ServerPlugin.Auth {
+                        override suspend fun authenticate() = Unit
+
+                        override suspend fun checkToken(): String? = null
+
+                        override suspend fun reauthenticate() = Unit
+
+                        override suspend fun logout() = Unit
+
+                        override fun getSession(): String? = null
+                    }
+                override val serials =
+                    object : ServerPlugin.Serials {
+                        override suspend fun list(): List<PluginSerial> = emptyList()
+                    }
+
+                override fun serial(serialId: String): ServerPlugin.Serial = throw NotImplementedError()
+            } as ServerPlugin
+        }
     }
-}
 
 // A controllable UrlSelector double — lets network-retry tests assert exactly how many times
 // each method was called, without depending on ActiveUrlSelector's real 15-minute cache or
 // MockWebServer's timing for the retry scenarios specifically.
-private class FakeUrlSelector(private val url: String) : UrlSelector {
+private class FakeUrlSelector(
+    private val url: String,
+) : UrlSelector {
     var getActiveUrlCalls = 0
     var invalidateAndReselectCalls = 0
     var probeCalls = 0
@@ -138,11 +199,14 @@ private class FakeUrlSelector(private val url: String) : UrlSelector {
         getActiveUrlCalls++
         return Result.success(url)
     }
+
     override suspend fun invalidateAndReselect(candidates: List<UrlCandidate>): Result<String> {
         invalidateAndReselectCalls++
         return Result.success(url)
     }
+
     override fun getLastKnownUrl(): String? = url
+
     override suspend fun probe(candidate: UrlCandidate): UrlProbeResult {
         probeCalls++
         lastProbedCandidate = candidate
@@ -162,57 +226,110 @@ private class FakePlugin(
     override val displayName = "Fake"
     override val version = "0.0.0"
 
-    override val auth = object : ExternalMetadataPlugin.Auth {
-        override suspend fun authenticate() = Unit
-        override suspend fun checkToken(): String? = null
-        override suspend fun reauthenticate() = Unit
-        override suspend fun logout() = Unit
-        override fun getSession(): String? = null
-    }
+    override val auth =
+        object : ExternalMetadataPlugin.Auth {
+            override suspend fun authenticate() = Unit
+
+            override suspend fun checkToken(): String? = null
+
+            override suspend fun reauthenticate() = Unit
+
+            override suspend fun logout() = Unit
+
+            override fun getSession(): String? = null
+        }
 
     var lastFetchMatchesSeries: List<ExternalMetadataSeriesRef>? = null
     var lastFetchMatchSeries: ExternalMetadataSeriesRef? = null
 
     override suspend fun fetchMatches(series: List<ExternalMetadataSeriesRef>): List<ExternalMetadataMatch?> {
-        failFetchMatchesWith?.let { failFetchMatchesWith = null; throw it }
+        failFetchMatchesWith?.let {
+            failFetchMatchesWith = null
+            throw it
+        }
         lastFetchMatchesSeries = series
         return series.map { fakeMatch(it.id) }
     }
 
     override suspend fun fetchMatch(series: ExternalMetadataSeriesRef): ExternalMetadataMatch? {
-        failFetchMatchWith?.let { failFetchMatchWith = null; throw it }
+        failFetchMatchWith?.let {
+            failFetchMatchWith = null
+            throw it
+        }
         lastFetchMatchSeries = series
         return fakeMatch(series.id)
     }
 
-    private fun fakeMatch(seriesId: String) = ExternalMetadataMatch(
-        seriesId = seriesId, slug = "slug-$seriesId", status = "ongoing",
-        downloadedChapters = 3, totalChapters = 10, latestChapterLabel = "10", hasErrors = false,
-    )
+    private fun fakeMatch(seriesId: String) =
+        ExternalMetadataMatch(
+            seriesId = seriesId,
+            slug = "slug-$seriesId",
+            status = "ongoing",
+            downloadedChapters = 3,
+            totalChapters = 10,
+            latestChapterLabel = "10",
+            hasErrors = false,
+        )
 }
 
 // In-memory CacheDao — just enough for a real Cache() to construct against in these tests, none
 // of which exercise Cache.network/M3Plugin's own cache behavior directly.
 private class FakeCacheDao : CacheDao {
-    private data class MapKey(val key: String, val variant: String)
+    private data class MapKey(
+        val key: String,
+        val variant: String,
+    )
 
     private val entities = mutableMapOf<MapKey, CacheEntity>()
 
-    override suspend fun getByKey(key: String, variant: String): CacheEntity? = entities[MapKey(key, variant)]
-    override suspend fun upsert(entity: CacheEntity) { entities[MapKey(entity.key, entity.variant)] = entity }
-    override suspend fun touchLastAccessed(key: String, variant: String, lastAccessedAtEpochMs: Long) = Unit
-    override suspend fun deleteByKey(key: String, variant: String) { entities.remove(MapKey(key, variant)) }
+    override suspend fun getByKey(
+        key: String,
+        variant: String,
+    ): CacheEntity? = entities[MapKey(key, variant)]
+
+    override suspend fun upsert(entity: CacheEntity) {
+        entities[MapKey(entity.key, entity.variant)] = entity
+    }
+
+    override suspend fun touchLastAccessed(
+        key: String,
+        variant: String,
+        lastAccessedAtEpochMs: Long,
+    ) = Unit
+
+    override suspend fun deleteByKey(
+        key: String,
+        variant: String,
+    ) {
+        entities.remove(MapKey(key, variant))
+    }
+
     override suspend fun deleteByDomain(domain: String) {
         entities.values.filter { it.domain == domain }.forEach { entities.remove(MapKey(it.key, it.variant)) }
     }
-    override suspend fun deleteByVariant(domain: String, variant: String) {
+
+    override suspend fun deleteByVariant(
+        domain: String,
+        variant: String,
+    ) {
         entities.values.filter { it.domain == domain && it.variant == variant }.forEach { entities.remove(MapKey(it.key, it.variant)) }
     }
+
     override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
-    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> =
-        entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
-    override suspend fun queryFiltered(keys: List<String>, hasKeys: Int, domain: String?, variant: String?): List<CacheEntity> =
-        entities.values.filter { e -> (hasKeys == 0 || e.key in keys) && (domain == null || e.domain == domain) && (variant == null || e.variant == variant) }
+
+    override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> = entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+
+    override suspend fun queryFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheEntity> =
+        entities.values.filter { e ->
+            (hasKeys == 0 || e.key in keys) &&
+                (domain == null || e.domain == domain) &&
+                (variant == null || e.variant == variant)
+        }
 
     override suspend fun deleteExpired(entries: List<CacheEntity>) {
         entries.forEach { entities.remove(MapKey(it.key, it.variant)) }
@@ -226,23 +343,23 @@ private fun fakeRegistration(
     // ExternalMetadataServer — not a separate one — so tests can track/assert on the same
     // instance the server actually calls.
     onFactory: (RequestTool, String, String, FakePlugin) -> Unit = { _, _, _, _ -> },
-): ExternalMetadataPluginRegistration = object : ExternalMetadataPluginRegistration {
-    override val id = id
-    override val displayName = "Fake $id"
-    override val version = "0.0.0"
-    override val credentialFields = credentialFields
-    override val defaultHealthCheckPath = "/version"
-    override val factory = { requestTool: RequestTool, _: Cache, baseUrl: String, authJson: String ->
-        val plugin = FakePlugin(authJson)
-        onFactory(requestTool, baseUrl, authJson, plugin)
-        plugin as ExternalMetadataPlugin
+): ExternalMetadataPluginRegistration =
+    object : ExternalMetadataPluginRegistration {
+        override val id = id
+        override val displayName = "Fake $id"
+        override val version = "0.0.0"
+        override val credentialFields = credentialFields
+        override val defaultHealthCheckPath = "/version"
+        override val factory = { requestTool: RequestTool, _: Cache, baseUrl: String, authJson: String ->
+            val plugin = FakePlugin(authJson)
+            onFactory(requestTool, baseUrl, authJson, plugin)
+            plugin as ExternalMetadataPlugin
+        }
     }
-}
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 class ExternalMetadataServerTest {
-
     private lateinit var mockServer: MockWebServer
     private lateinit var baseUrl: String
     private lateinit var groupDao: FakeExternalMetadataGroupDao
@@ -258,23 +375,25 @@ class ExternalMetadataServerTest {
         groupDao = FakeExternalMetadataGroupDao()
         urlDao = FakeExternalMetadataUrlDao()
         kavitaServer = buildTestKavitaServer()
-        server = ExternalMetadataServer(
-            groupDao,
-            urlDao,
-            mapOf("fake" to fakeRegistration()),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-            Cache(FakeCacheDao()),
-        )
+        server =
+            ExternalMetadataServer(
+                groupDao,
+                urlDao,
+                mapOf("fake" to fakeRegistration()),
+                ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                RequestTool(OkHttpClient()),
+                Cache(FakeCacheDao()),
+            )
     }
 
-    private fun buildTestKavitaServer(): Server = Server(
-        FakeServerGroupDao(),
-        FakeServerUrlDao(),
-        mapOf("fake-server" to fakeServerRegistration()),
-        ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-        RequestTool(OkHttpClient()),
-    )
+    private fun buildTestKavitaServer(): Server =
+        Server(
+            FakeServerGroupDao(),
+            FakeServerUrlDao(),
+            mapOf("fake-server" to fakeServerRegistration()),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+            RequestTool(OkHttpClient()),
+        )
 
     @After
     fun tearDown() {
@@ -302,25 +421,38 @@ class ExternalMetadataServerTest {
     @Test
     fun `providers list carries the provider's credential fields, empty for an auth-less provider`() {
         // The personal-BFF-style provider (no auth) reports no credential fields at all.
-        assertEquals(0, server.providers.list().single().credentialFields.size)
-
-        val withCreds = ExternalMetadataServer(
-            groupDao,
-            urlDao,
-            mapOf(
-                "req" to fakeRegistration(
-                    id = "req",
-                    credentialFields = listOf(
-                        CredentialField("token", "API Token", "string") { v -> if (v.isBlank()) "must not be blank" else null },
-                        CredentialField("note", "Note", "string") { _ -> null },
-                    ),
-                ),
-            ),
-            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
-            RequestTool(OkHttpClient()),
-            Cache(FakeCacheDao()),
+        assertEquals(
+            0,
+            server.providers
+                .list()
+                .single()
+                .credentialFields.size,
         )
-        val fields = withCreds.providers.list().single().credentialFields
+
+        val withCreds =
+            ExternalMetadataServer(
+                groupDao,
+                urlDao,
+                mapOf(
+                    "req" to
+                        fakeRegistration(
+                            id = "req",
+                            credentialFields =
+                                listOf(
+                                    CredentialField("token", "API Token", "string") { v -> if (v.isBlank()) "must not be blank" else null },
+                                    CredentialField("note", "Note", "string") { _ -> null },
+                                ),
+                        ),
+                ),
+                ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                RequestTool(OkHttpClient()),
+                Cache(FakeCacheDao()),
+            )
+        val fields =
+            withCreds.providers
+                .list()
+                .single()
+                .credentialFields
         assertEquals(listOf("token", "note"), fields.map { it.name })
         assertEquals(true, fields.first { it.name == "token" }.required)
         assertEquals(false, fields.first { it.name == "note" }.required)
@@ -329,178 +461,197 @@ class ExternalMetadataServerTest {
     // ── groups CRUD ──────────────────────────────────────────────────────
 
     @Test
-    fun `groups add rejects an unknown providerId`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> {
-            server.groups.add(NewExternalMetadataGroup("X", "unknown-provider", "{}", "/health"))
+    fun `groups add rejects an unknown providerId`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> {
+                server.groups.add(NewExternalMetadataGroup("X", "unknown-provider", "{}", "/health"))
+            }
         }
-    }
 
     @Test
-    fun `groups add rejects a blank name`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> {
-            server.groups.add(NewExternalMetadataGroup("", "fake", "{}", "/health"))
+    fun `groups add rejects a blank name`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> {
+                server.groups.add(NewExternalMetadataGroup("", "fake", "{}", "/health"))
+            }
         }
-    }
 
     @Test
-    fun `groups add succeeds with no linked server group`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `groups add succeeds with no linked server group`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        assertEquals("My M3", group.name)
-        assertEquals("fake", group.providerId)
-        assertNull(group.linkedServerGroupId)
-    }
-
-    @Test
-    fun `groups add succeeds with a linked server group`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health", "server-group-1"))
-
-        assertEquals("server-group-1", group.linkedServerGroupId)
-    }
+            assertEquals("My M3", group.name)
+            assertEquals("fake", group.providerId)
+            assertNull(group.linkedServerGroupId)
+        }
 
     @Test
-    fun `groups list and get reflect what was added`() = runTest {
-        val created = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `groups add succeeds with a linked server group`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health", "server-group-1"))
 
-        assertEquals(listOf(created), server.groups.list())
-        assertEquals(created, server.groups.get(created.id))
-        assertNull(server.groups.get("missing"))
-    }
-
-    @Test
-    fun `groups update changes only the fields passed`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
-
-        val updated = server.groups.update(group.id, name = "Renamed")
-
-        assertEquals("Renamed", updated.name)
-        assertNull(updated.linkedServerGroupId)
-    }
+            assertEquals("server-group-1", group.linkedServerGroupId)
+        }
 
     @Test
-    fun `groups update can set linkedServerGroupId`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `groups list and get reflect what was added`() =
+        runTest {
+            val created = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        val updated = server.groups.update(group.id, linkedServerGroupId = "server-group-1")
-
-        assertEquals("server-group-1", updated.linkedServerGroupId)
-    }
+            assertEquals(listOf(created), server.groups.list())
+            assertEquals(created, server.groups.get(created.id))
+            assertNull(server.groups.get("missing"))
+        }
 
     @Test
-    fun `groups remove also deletes its urls`() = runTest {
-        val groupId = addHealthyGroup()
+    fun `groups update changes only the fields passed`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        server.groups.remove(groupId)
+            val updated = server.groups.update(group.id, name = "Renamed")
 
-        assertNull(server.groups.get(groupId))
-        assertTrue(server.group(groupId).getUrls().isEmpty())
-    }
+            assertEquals("Renamed", updated.name)
+            assertNull(updated.linkedServerGroupId)
+        }
+
+    @Test
+    fun `groups update can set linkedServerGroupId`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+
+            val updated = server.groups.update(group.id, linkedServerGroupId = "server-group-1")
+
+            assertEquals("server-group-1", updated.linkedServerGroupId)
+        }
+
+    @Test
+    fun `groups remove also deletes its urls`() =
+        runTest {
+            val groupId = addHealthyGroup()
+
+            server.groups.remove(groupId)
+
+            assertNull(server.groups.get(groupId))
+            assertTrue(server.group(groupId).getUrls().isEmpty())
+        }
 
     // ── group(id) urls CRUD ──────────────────────────────────────────────
 
     @Test
-    fun `group addUrl rejects when the group doesn't exist`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> {
-            server.group("missing").addUrl(NewExternalMetadataUrl("http://x", 5000, 0))
+    fun `group addUrl rejects when the group doesn't exist`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> {
+                server.group("missing").addUrl(NewExternalMetadataUrl("http://x", 5000, 0))
+            }
         }
-    }
 
     @Test
-    fun `group addUrl rejects a blank url`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `group addUrl rejects a blank url`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        assertFailsWith<ExternalMetadataServerException> {
-            server.group(group.id).addUrl(NewExternalMetadataUrl("", 5000, 0))
+            assertFailsWith<ExternalMetadataServerException> {
+                server.group(group.id).addUrl(NewExternalMetadataUrl("", 5000, 0))
+            }
         }
-    }
 
     @Test
-    fun `group addUrl rejects a non-positive timeout`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `group addUrl rejects a non-positive timeout`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        assertFailsWith<ExternalMetadataServerException> {
-            server.group(group.id).addUrl(NewExternalMetadataUrl("http://x", 0, 0))
+            assertFailsWith<ExternalMetadataServerException> {
+                server.group(group.id).addUrl(NewExternalMetadataUrl("http://x", 0, 0))
+            }
         }
-    }
 
     @Test
-    fun `group addUrl succeeds with a linked server url`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `group addUrl succeeds with a linked server url`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        val url = server.group(group.id).addUrl(NewExternalMetadataUrl("http://x", 5000, 0, "server-url-1"))
+            val url = server.group(group.id).addUrl(NewExternalMetadataUrl("http://x", 5000, 0, "server-url-1"))
 
-        assertEquals("server-url-1", url.linkedServerUrlId)
-    }
-
-    @Test
-    fun `group updateUrl fails for a url belonging to a different group`() = runTest {
-        val groupA = server.groups.add(NewExternalMetadataGroup("A", "fake", "{}", "/health"))
-        val groupB = server.groups.add(NewExternalMetadataGroup("B", "fake", "{}", "/health"))
-        val urlInA = server.group(groupA.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
-
-        assertFailsWith<ExternalMetadataServerException> {
-            server.group(groupB.id).updateUrl(urlInA.id, priority = 9)
+            assertEquals("server-url-1", url.linkedServerUrlId)
         }
-    }
 
     @Test
-    fun `group removeUrl fails for a url belonging to a different group`() = runTest {
-        val groupA = server.groups.add(NewExternalMetadataGroup("A", "fake", "{}", "/health"))
-        val groupB = server.groups.add(NewExternalMetadataGroup("B", "fake", "{}", "/health"))
-        val urlInA = server.group(groupA.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
+    fun `group updateUrl fails for a url belonging to a different group`() =
+        runTest {
+            val groupA = server.groups.add(NewExternalMetadataGroup("A", "fake", "{}", "/health"))
+            val groupB = server.groups.add(NewExternalMetadataGroup("B", "fake", "{}", "/health"))
+            val urlInA = server.group(groupA.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
 
-        assertFailsWith<ExternalMetadataServerException> {
-            server.group(groupB.id).removeUrl(urlInA.id)
+            assertFailsWith<ExternalMetadataServerException> {
+                server.group(groupB.id).updateUrl(urlInA.id, priority = 9)
+            }
         }
-    }
 
     @Test
-    fun `group getUrls returns urls sorted by priority`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("A", "fake", "{}", "/health"))
-        server.group(group.id).addUrl(NewExternalMetadataUrl("http://b", 5000, 1))
-        server.group(group.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
+    fun `group removeUrl fails for a url belonging to a different group`() =
+        runTest {
+            val groupA = server.groups.add(NewExternalMetadataGroup("A", "fake", "{}", "/health"))
+            val groupB = server.groups.add(NewExternalMetadataGroup("B", "fake", "{}", "/health"))
+            val urlInA = server.group(groupA.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
 
-        val urls = server.group(group.id).getUrls()
+            assertFailsWith<ExternalMetadataServerException> {
+                server.group(groupB.id).removeUrl(urlInA.id)
+            }
+        }
 
-        assertEquals(listOf("http://a", "http://b"), urls.map { it.url })
-    }
+    @Test
+    fun `group getUrls returns urls sorted by priority`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("A", "fake", "{}", "/health"))
+            server.group(group.id).addUrl(NewExternalMetadataUrl("http://b", 5000, 1))
+            server.group(group.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
+
+            val urls = server.group(group.id).getUrls()
+
+            assertEquals(listOf("http://a", "http://b"), urls.map { it.url })
+        }
 
     // ── group.getInfo / ExternalMetadataServer.getActiveGroupInfo ────────
 
     @Test
-    fun `group getInfo throws when the group doesn't exist`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> { server.group("missing").getInfo() }
-    }
+    fun `group getInfo throws when the group doesn't exist`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> { server.group("missing").getInfo() }
+        }
 
     @Test
-    fun `group getInfo returns the group's identity with its urls embedded, without credentialsJson or healthCheckPath`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
-        server.group(group.id).addUrl(NewExternalMetadataUrl("http://b", 5000, 1))
-        server.group(group.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
+    fun `group getInfo returns the group's identity with its urls embedded, without credentialsJson or healthCheckPath`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+            server.group(group.id).addUrl(NewExternalMetadataUrl("http://b", 5000, 1))
+            server.group(group.id).addUrl(NewExternalMetadataUrl("http://a", 5000, 0))
 
-        val info = server.group(group.id).getInfo()
+            val info = server.group(group.id).getInfo()
 
-        assertEquals(group.id, info.id)
-        assertEquals("My M3", info.name)
-        assertEquals("fake", info.providerId)
-        assertEquals(listOf("http://a", "http://b"), info.urls.map { it.url })
-    }
-
-    @Test
-    fun `getActiveGroupInfo returns null when no group is active`() = runTest {
-        assertNull(server.getActiveGroupInfo())
-    }
+            assertEquals(group.id, info.id)
+            assertEquals("My M3", info.name)
+            assertEquals("fake", info.providerId)
+            assertEquals(listOf("http://a", "http://b"), info.urls.map { it.url })
+        }
 
     @Test
-    fun `getActiveGroupInfo delegates to the active group's getInfo`() = runTest {
-        val groupId = addHealthyGroup()
-        server.setActiveGroup(groupId)
+    fun `getActiveGroupInfo returns null when no group is active`() =
+        runTest {
+            assertNull(server.getActiveGroupInfo())
+        }
 
-        val info = server.getActiveGroupInfo()
+    @Test
+    fun `getActiveGroupInfo delegates to the active group's getInfo`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            server.setActiveGroup(groupId)
 
-        assertEquals(groupId, info?.id)
-        assertEquals(listOf(baseUrl), info?.urls?.map { it.url })
-    }
+            val info = server.getActiveGroupInfo()
+
+            assertEquals(groupId, info?.id)
+            assertEquals(listOf(baseUrl), info?.urls?.map { it.url })
+        }
 
     // ── setActiveGroup / getActive / getActiveInfo ───────────────────────
 
@@ -510,368 +661,431 @@ class ExternalMetadataServerTest {
     }
 
     @Test
-    fun `setActiveGroup sets getActiveGroupId`() = runTest {
-        val groupId = addHealthyGroup()
+    fun `setActiveGroup sets getActiveGroupId`() =
+        runTest {
+            val groupId = addHealthyGroup()
 
-        server.setActiveGroup(groupId)
+            server.setActiveGroup(groupId)
 
-        assertEquals(groupId, server.getActiveGroupId())
-    }
-
-    @Test
-    fun `getActive already reflects the url setActiveGroup itself resolved`() = runTest {
-        val groupId = addHealthyGroup()
-
-        // setActiveGroup always resolves the group's healthy URL (needed to build the plugin
-        // that authenticate() runs against, even for a no-op auth like M3's) — so getActive()
-        // already has a real entry right after, same as Server.setActiveGroup's own contract.
-        server.setActiveGroup(groupId)
-
-        assertEquals(baseUrl, server.getActive()?.url)
-    }
+            assertEquals(groupId, server.getActiveGroupId())
+        }
 
     @Test
-    fun `getActive returns null before this group has ever been resolved at all`() = runTest {
-        val groupId = addHealthyGroup()
+    fun `getActive already reflects the url setActiveGroup itself resolved`() =
+        runTest {
+            val groupId = addHealthyGroup()
 
-        // addHealthyGroup only adds the group+url rows — it never calls setActiveGroup or any
-        // content method, so resolvePlugin has never run for this group yet.
-        assertNull(server.group(groupId).getActive())
-    }
+            // setActiveGroup always resolves the group's healthy URL (needed to build the plugin
+            // that authenticate() runs against, even for a no-op auth like M3's) — so getActive()
+            // already has a real entry right after, same as Server.setActiveGroup's own contract.
+            server.setActiveGroup(groupId)
 
-    @Test
-    fun `getActive and getActiveInfo reflect the url a match call resolved`() = runTest {
-        val groupId = addHealthyGroup()
-        server.setActiveGroup(groupId)
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
-
-        assertEquals(baseUrl, server.getActive()?.url)
-        assertEquals(groupId, server.getActiveInfo()?.groupId)
-        assertEquals(baseUrl, server.getActiveInfo()?.url)
-    }
+            assertEquals(baseUrl, server.getActive()?.url)
+        }
 
     @Test
-    fun `reauthenticateActiveGroup succeeds as a real no-op for a provider with no auth`() = runTest {
-        val groupId = addHealthyGroup()
-        server.setActiveGroup(groupId)
+    fun `getActive returns null before this group has ever been resolved at all`() =
+        runTest {
+            val groupId = addHealthyGroup()
 
-        server.reauthenticateActiveGroup(groupId)
+            // addHealthyGroup only adds the group+url rows — it never calls setActiveGroup or any
+            // content method, so resolvePlugin has never run for this group yet.
+            assertNull(server.group(groupId).getActive())
+        }
 
-        assertEquals(groupId, server.getActiveGroupId())
-    }
+    @Test
+    fun `getActive and getActiveInfo reflect the url a match call resolved`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            server.setActiveGroup(groupId)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
+
+            assertEquals(baseUrl, server.getActive()?.url)
+            assertEquals(groupId, server.getActiveInfo()?.groupId)
+            assertEquals(baseUrl, server.getActiveInfo()?.url)
+        }
+
+    @Test
+    fun `reauthenticateActiveGroup succeeds as a real no-op for a provider with no auth`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            server.setActiveGroup(groupId)
+
+            server.reauthenticateActiveGroup(groupId)
+
+            assertEquals(groupId, server.getActiveGroupId())
+        }
 
     // ── match.syncByGroup (explicit group) ───────────────────────────────
 
     @Test
-    fun `match syncByGroup throws when the group doesn't exist`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> {
-            server.match.syncByGroup("missing", ExternalMetadataSeriesRef("1", "Series 1"))
+    fun `match syncByGroup throws when the group doesn't exist`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> {
+                server.match.syncByGroup("missing", ExternalMetadataSeriesRef("1", "Series 1"))
+            }
         }
-    }
 
     @Test
-    fun `match syncByGroup delegates to the plugin's own fetchMatch, not fetchMatches`() = runTest {
-        val groupId = addHealthyGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check
+    fun `match syncByGroup delegates to the plugin's own fetchMatch, not fetchMatches`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check
 
-        val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
 
-        assertEquals("1", response.data?.seriesId)
-    }
+            assertEquals("1", response.data?.seriesId)
+        }
 
     @Test
-    fun `match syncByGroup envelope carries the group and url that answered it`() = runTest {
-        val groupId = addHealthyGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match syncByGroup envelope carries the group and url that answered it`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
 
-        assertEquals(groupId, response.serverInfo.groupId)
-        assertEquals(baseUrl, response.serverInfo.url)
-    }
+            assertEquals(groupId, response.serverInfo.groupId)
+            assertEquals(baseUrl, response.serverInfo.url)
+        }
 
     // ── matches.syncByGroup (batch, explicit group) ──────────────────────
 
     @Test
-    fun `matches syncByGroup throws when the group doesn't exist`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> {
-            server.matches.syncByGroup("missing", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+    fun `matches syncByGroup throws when the group doesn't exist`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> {
+                server.matches.syncByGroup("missing", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            }
         }
-    }
 
     @Test
-    fun `matches syncByGroup delegates the series list to the active plugin and returns positional matches`() = runTest {
-        val groupId = addHealthyGroup()
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `matches syncByGroup delegates the series list to the active plugin and returns positional matches`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.matches.syncByGroup(groupId, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            val response = server.matches.syncByGroup(groupId, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
 
-        assertEquals(listOf("1"), response.data.map { it?.seriesId })
-    }
+            assertEquals(listOf("1"), response.data.map { it?.seriesId })
+        }
 
     // ── match.syncByServerId / matches.syncByServerId ────────────────────
 
     @Test
-    fun `match syncByServerId resolves the group linked to the given kavita server group`() = runTest {
-        val linkedGroupId = addHealthyGroup(linkedServerGroupId = "kavita-group-1")
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match syncByServerId resolves the group linked to the given kavita server group`() =
+        runTest {
+            val linkedGroupId = addHealthyGroup(linkedServerGroupId = "kavita-group-1")
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.match.syncByServerId("kavita-group-1", ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByServerId("kavita-group-1", ExternalMetadataSeriesRef("1", "Series 1"))
 
-        assertEquals(linkedGroupId, response.serverInfo.groupId)
-    }
-
-    @Test
-    fun `match syncByServerId falls back to the unlinked group when no link matches`() = runTest {
-        addHealthyGroup() // unlinked
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val response = server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "Series 1"))
-
-        assertEquals("1", response.data?.seriesId)
-    }
-
-    @Test
-    fun `match syncByServerId throws when nothing matches and no unlinked fallback exists`() = runTest {
-        addHealthyGroup(linkedServerGroupId = "kavita-group-1")
-
-        assertFailsWith<ExternalMetadataServerException> {
-            server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "Series 1"))
+            assertEquals(linkedGroupId, response.serverInfo.groupId)
         }
-    }
 
     @Test
-    fun `matches syncByServerId resolves the group linked to the given kavita server group`() = runTest {
-        val linkedGroupId = addHealthyGroup(linkedServerGroupId = "kavita-group-1")
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match syncByServerId falls back to the unlinked group when no link matches`() =
+        runTest {
+            addHealthyGroup() // unlinked
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.matches.syncByServerId("kavita-group-1", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            val response = server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "Series 1"))
 
-        assertEquals(linkedGroupId, response.serverInfo.groupId)
-    }
+            assertEquals("1", response.data?.seriesId)
+        }
+
+    @Test
+    fun `match syncByServerId throws when nothing matches and no unlinked fallback exists`() =
+        runTest {
+            addHealthyGroup(linkedServerGroupId = "kavita-group-1")
+
+            assertFailsWith<ExternalMetadataServerException> {
+                server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "Series 1"))
+            }
+        }
+
+    @Test
+    fun `matches syncByServerId resolves the group linked to the given kavita server group`() =
+        runTest {
+            val linkedGroupId = addHealthyGroup(linkedServerGroupId = "kavita-group-1")
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val response = server.matches.syncByServerId("kavita-group-1", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+
+            assertEquals(linkedGroupId, response.serverInfo.groupId)
+        }
 
     // ── match.syncByServerUrl / matches.syncByServerUrl ──────────────────
 
     @Test
-    fun `match syncByServerUrl falls back to the unlinked group when the url is unknown to Server`() = runTest {
-        addHealthyGroup() // unlinked
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match syncByServerUrl falls back to the unlinked group when the url is unknown to Server`() =
+        runTest {
+            addHealthyGroup() // unlinked
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.match.syncByServerUrl(kavitaServer, "http://unknown-kavita-url", ExternalMetadataSeriesRef("1", "Series 1"))
+            val response =
+                server.match.syncByServerUrl(
+                    kavitaServer,
+                    "http://unknown-kavita-url",
+                    ExternalMetadataSeriesRef("1", "Series 1"),
+                )
 
-        assertEquals("1", response.data?.seriesId)
-    }
-
-    @Test
-    fun `match syncByServerUrl resolves via the server group linked at the group level`() = runTest {
-        val kavitaGroup = kavitaServer.groups.add(NewServerGroup("Kavita", "fake-server", "{}", "/health"))
-        kavitaServer.group(kavitaGroup.id).addUrl(NewServerUrl("http://kavita.local", 5000, 0))
-        val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
-        mockServer.enqueue(MockResponse().setResponseCode(200))
-
-        val response = server.match.syncByServerUrl(kavitaServer, "http://kavita.local", ExternalMetadataSeriesRef("1", "Series 1"))
-
-        assertEquals(linkedGroupId, response.serverInfo.groupId)
-    }
+            assertEquals("1", response.data?.seriesId)
+        }
 
     @Test
-    fun `matches syncByServerUrl resolves via the server group linked at the group level`() = runTest {
-        val kavitaGroup = kavitaServer.groups.add(NewServerGroup("Kavita", "fake-server", "{}", "/health"))
-        kavitaServer.group(kavitaGroup.id).addUrl(NewServerUrl("http://kavita.local", 5000, 0))
-        val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match syncByServerUrl resolves via the server group linked at the group level`() =
+        runTest {
+            val kavitaGroup = kavitaServer.groups.add(NewServerGroup("Kavita", "fake-server", "{}", "/health"))
+            kavitaServer.group(kavitaGroup.id).addUrl(NewServerUrl("http://kavita.local", 5000, 0))
+            val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.matches.syncByServerUrl(kavitaServer, "http://kavita.local", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            val response = server.match.syncByServerUrl(kavitaServer, "http://kavita.local", ExternalMetadataSeriesRef("1", "Series 1"))
 
-        assertEquals(linkedGroupId, response.serverInfo.groupId)
-    }
+            assertEquals(linkedGroupId, response.serverInfo.groupId)
+        }
+
+    @Test
+    fun `matches syncByServerUrl resolves via the server group linked at the group level`() =
+        runTest {
+            val kavitaGroup = kavitaServer.groups.add(NewServerGroup("Kavita", "fake-server", "{}", "/health"))
+            kavitaServer.group(kavitaGroup.id).addUrl(NewServerUrl("http://kavita.local", 5000, 0))
+            val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val response =
+                server.matches.syncByServerUrl(
+                    kavitaServer,
+                    "http://kavita.local",
+                    listOf(ExternalMetadataSeriesRef("1", "Series 1")),
+                )
+
+            assertEquals(linkedGroupId, response.serverInfo.groupId)
+        }
 
     // ── match.sync / matches.sync (no hint — resolveNoHint, active-group state) ─────────────
 
     @Test
-    fun `match sync throws when nothing can be resolved (no active group, no kavita link, no unlinked group)`() = runTest {
-        assertFailsWith<ExternalMetadataServerException> {
-            server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+    fun `match sync throws when nothing can be resolved (no active group, no kavita link, no unlinked group)`() =
+        runTest {
+            assertFailsWith<ExternalMetadataServerException> {
+                server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+            }
         }
-    }
 
     @Test
-    fun `match sync with no active group and no kavita server active resolves via the unlinked pool`() = runTest {
-        addHealthyGroup() // unlinked
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match sync with no active group and no kavita server active resolves via the unlinked pool`() =
+        runTest {
+            addHealthyGroup() // unlinked
+            mockServer.enqueue(MockResponse().setResponseCode(200))
 
-        val response = server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+            val response = server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
 
-        assertEquals("1", response.data?.seriesId)
-    }
-
-    @Test
-    fun `match sync with a kavita server active resolves the group linked to it, level 1`() = runTest {
-        val kavitaGroup = kavitaServer.groups.add(NewServerGroup("Kavita", "fake-server", "{}", "/health"))
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // kavitaServer.setActiveGroup's own health check
-        kavitaServer.group(kavitaGroup.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
-        kavitaServer.setActiveGroup(kavitaGroup.id)
-        val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // level-1 health check
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the sync itself
-
-        val response = server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
-
-        assertEquals(linkedGroupId, response.serverInfo.groupId)
-        assertEquals(linkedGroupId, server.getActiveGroupId())
-    }
+            assertEquals("1", response.data?.seriesId)
+        }
 
     @Test
-    fun `match sync reuses the previously activated group on a second call, without re-resolving`() = runTest {
-        addHealthyGroup() // unlinked
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // level-2 health check on first call
-        mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the first sync
+    fun `match sync with a kavita server active resolves the group linked to it, level 1`() =
+        runTest {
+            val kavitaGroup = kavitaServer.groups.add(NewServerGroup("Kavita", "fake-server", "{}", "/health"))
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // kavitaServer.setActiveGroup's own health check
+            kavitaServer.group(kavitaGroup.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            kavitaServer.setActiveGroup(kavitaGroup.id)
+            val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // level-1 health check
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the sync itself
 
-        server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
-        val activeAfterFirst = server.getActiveGroupId()
+            val response = server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
 
-        // second call reuses activeGroupId — ActiveUrlSelector's own 15-min cache means no new
-        // health check is even needed for the resolvePlugin call itself.
-        val response = server.match.sync(ExternalMetadataSeriesRef("2", "Series 2"), kavitaServer)
-
-        assertEquals(activeAfterFirst, server.getActiveGroupId())
-        assertEquals("2", response.data?.seriesId)
-    }
+            assertEquals(linkedGroupId, response.serverInfo.groupId)
+            assertEquals(linkedGroupId, server.getActiveGroupId())
+        }
 
     @Test
-    fun `matches sync with no hint resolves via the unlinked pool`() = runTest {
-        addHealthyGroup() // unlinked
-        mockServer.enqueue(MockResponse().setResponseCode(200))
+    fun `match sync reuses the previously activated group on a second call, without re-resolving`() =
+        runTest {
+            addHealthyGroup() // unlinked
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // level-2 health check on first call
+            mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the first sync
 
-        val response = server.matches.sync(listOf(ExternalMetadataSeriesRef("1", "Series 1")), kavitaServer)
+            server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+            val activeAfterFirst = server.getActiveGroupId()
 
-        assertEquals(listOf("1"), response.data.map { it?.seriesId })
-    }
+            // second call reuses activeGroupId — ActiveUrlSelector's own 15-min cache means no new
+            // health check is even needed for the resolvePlugin call itself.
+            val response = server.match.sync(ExternalMetadataSeriesRef("2", "Series 2"), kavitaServer)
+
+            assertEquals(activeAfterFirst, server.getActiveGroupId())
+            assertEquals("2", response.data?.seriesId)
+        }
+
+    @Test
+    fun `matches sync with no hint resolves via the unlinked pool`() =
+        runTest {
+            addHealthyGroup() // unlinked
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val response = server.matches.sync(listOf(ExternalMetadataSeriesRef("1", "Series 1")), kavitaServer)
+
+            assertEquals(listOf("1"), response.data.map { it?.seriesId })
+        }
 
     // ── network retry (in-group, withUrlRetry) ────────────────────────────────
 
     @Test
-    fun `a network failure retries once within the same group with a freshly reselected URL and succeeds`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        var failNextFetchMatchesCall = false
-        val retryServer = ExternalMetadataServer(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        if (failNextFetchMatchesCall) {
-                            plugin.failFetchMatchesWith = IOException("connection refused")
-                            failNextFetchMatchesCall = false
-                        }
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-            Cache(FakeCacheDao()),
-        )
-        val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
-        retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
+    fun `a network failure retries once within the same group with a freshly reselected URL and succeeds`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            var failNextFetchMatchesCall = false
+            val retryServer =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    if (failNextFetchMatchesCall) {
+                                        plugin.failFetchMatchesWith = IOException("connection refused")
+                                        failNextFetchMatchesCall = false
+                                    }
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                )
+            val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+            retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 
-        failNextFetchMatchesCall = true
-        val response = retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            failNextFetchMatchesCall = true
+            val response = retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
 
-        assertEquals(listOf("1"), response.data.map { it?.seriesId })
-        assertEquals(1, urlSelector.invalidateAndReselectCalls)
-    }
+            assertEquals(listOf("1"), response.data.map { it?.seriesId })
+            assertEquals(1, urlSelector.invalidateAndReselectCalls)
+        }
 
     @Test
-    fun `a network failure that persists after in-group retry propagates the exception`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val retryServer = ExternalMetadataServer(
-            groupDao,
-            urlDao,
-            mapOf(
-                "fake" to fakeRegistration(
-                    onFactory = { _, _, _, plugin ->
-                        plugin.failFetchMatchesWith = IOException("still unreachable")
-                    },
-                ),
-            ),
-            urlSelector,
-            RequestTool(OkHttpClient()),
-            Cache(FakeCacheDao()),
-        )
-        val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
-        retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
+    fun `a network failure that persists after in-group retry propagates the exception`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val retryServer =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    plugin.failFetchMatchesWith = IOException("still unreachable")
+                                },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                )
+            val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+            retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 
-        assertFailsWith<IOException> {
-            retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            assertFailsWith<IOException> {
+                retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            }
+            // exactly one retry attempt: the original call plus one reselect-and-retry, no more
+            assertEquals(1, urlSelector.invalidateAndReselectCalls)
         }
-        // exactly one retry attempt: the original call plus one reselect-and-retry, no more
-        assertEquals(1, urlSelector.invalidateAndReselectCalls)
-    }
 
     // ── group.validateUrls ───────────────────────────────────────────────────
 
     @Test
-    fun `group validateUrls returns the url the selector picked`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val validatingServer =
-            ExternalMetadataServer(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()), Cache(FakeCacheDao()))
-        val group = validatingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
-        validatingServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
+    fun `group validateUrls returns the url the selector picked`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val validatingServer =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration()),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                )
+            val group = validatingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+            validatingServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 
-        val winner = validatingServer.group(group.id).validateUrls()
+            val winner = validatingServer.group(group.id).validateUrls()
 
-        assertEquals(baseUrl, winner.url)
-        assertEquals(1, urlSelector.invalidateAndReselectCalls)
-    }
+            assertEquals(baseUrl, winner.url)
+            assertEquals(1, urlSelector.invalidateAndReselectCalls)
+        }
 
     @Test
-    fun `group validateUrls throws when no configured url responds`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
-        server.group(group.id).addUrl(NewExternalMetadataUrl("http://unreachable.invalid", 200, 0))
+    fun `group validateUrls throws when no configured url responds`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+            server.group(group.id).addUrl(NewExternalMetadataUrl("http://unreachable.invalid", 200, 0))
 
-        assertFailsWith<ExternalMetadataServerException> { server.group(group.id).validateUrls() }
-    }
+            assertFailsWith<ExternalMetadataServerException> { server.group(group.id).validateUrls() }
+        }
 
     @Test
-    fun `group validateUrls throws when the group has no urls configured`() = runTest {
-        val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `group validateUrls throws when the group has no urls configured`() =
+        runTest {
+            val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        assertFailsWith<ExternalMetadataServerException> { server.group(group.id).validateUrls() }
-    }
+            assertFailsWith<ExternalMetadataServerException> { server.group(group.id).validateUrls() }
+        }
 
     // ── group.testUrl (point check, no selection) ────────────────────────────
 
     @Test
-    fun `group testUrl probes the given url with the group's healthCheckPath and never reselects`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl)
-        val testingServer = ExternalMetadataServer(
-            groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()), Cache(FakeCacheDao()),
-        )
-        val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/custom-health"))
+    fun `group testUrl probes the given url with the group's healthCheckPath and never reselects`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val testingServer =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration()),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                )
+            val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/custom-health"))
 
-        val result = testingServer.group(group.id).testUrl("http://typed:9000")
+            val result = testingServer.group(group.id).testUrl("http://typed:9000")
 
-        assertEquals(true, result.ok)
-        assertEquals("http://typed:9000", urlSelector.lastProbedCandidate?.url)
-        assertEquals("/custom-health", urlSelector.lastProbedCandidate?.healthCheckPath)
-        assertEquals(0, urlSelector.getActiveUrlCalls)
-        assertEquals(0, urlSelector.invalidateAndReselectCalls)
-    }
+            assertEquals(true, result.ok)
+            assertEquals("http://typed:9000", urlSelector.lastProbedCandidate?.url)
+            assertEquals("/custom-health", urlSelector.lastProbedCandidate?.healthCheckPath)
+            assertEquals(0, urlSelector.getActiveUrlCalls)
+            assertEquals(0, urlSelector.invalidateAndReselectCalls)
+        }
 
     @Test
-    fun `group testUrl reports the probe failure as-is and rejects bad input`() = runTest {
-        val urlSelector = FakeUrlSelector(baseUrl).apply {
-            probeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = false, status = 502, elapsedMs = 2) }
-        }
-        val testingServer = ExternalMetadataServer(
-            groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()), Cache(FakeCacheDao()),
-        )
-        val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+    fun `group testUrl reports the probe failure as-is and rejects bad input`() =
+        runTest {
+            val urlSelector =
+                FakeUrlSelector(baseUrl).apply {
+                    probeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = false, status = 502, elapsedMs = 2) }
+                }
+            val testingServer =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration()),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                )
+            val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
-        assertEquals(false, testingServer.group(group.id).testUrl("http://x").ok)
-        assertFailsWith<ExternalMetadataServerException> { testingServer.group(group.id).testUrl("  ") }
-        assertFailsWith<ExternalMetadataServerException> { testingServer.group("missing").testUrl("http://x") }
-    }
+            assertEquals(false, testingServer.group(group.id).testUrl("http://x").ok)
+            assertFailsWith<ExternalMetadataServerException> { testingServer.group(group.id).testUrl("  ") }
+            assertFailsWith<ExternalMetadataServerException> { testingServer.group("missing").testUrl("http://x") }
+        }
 }

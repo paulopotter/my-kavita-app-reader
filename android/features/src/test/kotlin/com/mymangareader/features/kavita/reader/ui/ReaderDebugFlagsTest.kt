@@ -5,7 +5,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class ReaderDebugFlagsTest {
-
     @After
     fun tearDown() {
         ReaderDebugFlags.verboseScrollLogging = false

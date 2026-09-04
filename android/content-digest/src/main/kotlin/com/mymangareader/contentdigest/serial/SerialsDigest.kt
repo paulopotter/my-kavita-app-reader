@@ -44,7 +44,9 @@ sealed interface SerialsDigest {
 
     // Only when `server.serials.list()` itself failed — a single series never fails this whole
     // result (there's no per-series network call here to fail).
-    data class Failure(val error: ErrorDigest) : SerialsDigest
+    data class Failure(
+        val error: ErrorDigest,
+    ) : SerialsDigest
 }
 
 private val serialsDigestJson = Json { ignoreUnknownKeys = true }
@@ -54,12 +56,17 @@ private val serialsDigestBackgroundScope = CoroutineScope(SupervisorJob() + Disp
  * @param force when true, re-fetch `serials.list()` and re-merge every per-series cache even if
  *   the current caches are still fresh. A manual pull-to-refresh on the Library passes this.
  */
-suspend fun buildSerialsDigest(server: Server, cache: Cache, force: Boolean = false): SerialsDigest {
-    val response = try {
-        server.serials.list()
-    } catch (e: Exception) {
-        return SerialsDigest.Failure(e.toErrorDigest())
-    }
+suspend fun buildSerialsDigest(
+    server: Server,
+    cache: Cache,
+    force: Boolean = false,
+): SerialsDigest {
+    val response =
+        try {
+            server.serials.list()
+        } catch (e: Exception) {
+            return SerialsDigest.Failure(e.toErrorDigest())
+        }
 
     val serverInfo = response.serverInfo
     val resolvedAtEpochMs = response.resolvedAtEpochMs
@@ -72,17 +79,18 @@ suspend fun buildSerialsDigest(server: Server, cache: Cache, force: Boolean = fa
     // limit. Each entry is still SHALLOW-merged with whatever a prior buildSerialDigest(id) wrote,
     // so chapters/metadata survive on disk; the response itself carries only the light digest
     // (name/cover/pages — the card renders from that, richer blocks come from buildSerialDigest).
-    val descriptors = cache.persistent.patchAll(
-        minimals.map {
-            PatchItem(
-                serialsListCacheKey(it.id),
-                serialsDigestJson.encodeToString(SerialDigest.Success.serializer(), it),
-            )
-        },
-        domain = SERIAL_CACHE_DOMAIN,
-        variant = SERIAL_CACHE_VARIANT,
-        readFilter = CacheFilter(domain = SERIAL_CACHE_DOMAIN, variant = SERIAL_CACHE_VARIANT),
-    )
+    val descriptors =
+        cache.persistent.patchAll(
+            minimals.map {
+                PatchItem(
+                    serialsListCacheKey(it.id),
+                    serialsDigestJson.encodeToString(SerialDigest.Success.serializer(), it),
+                )
+            },
+            domain = SERIAL_CACHE_DOMAIN,
+            variant = SERIAL_CACHE_VARIANT,
+            readFilter = CacheFilter(domain = SERIAL_CACHE_DOMAIN, variant = SERIAL_CACHE_VARIANT),
+        )
     val persisted = minimals.zip(descriptors) { m, d -> m.copy(cache = d) }
 
     val lastUpdatedEpochMs = persisted.mapNotNull { it.cache?.cachedAtEpochMs }.maxOrNull()
@@ -103,25 +111,26 @@ internal fun serialDigestFromListData(
     serial: SerialData,
     serverInfo: ServerActiveInfo,
     resolvedAtEpochMs: Long,
-): SerialDigest.Success = SerialDigest.Success(
-    id = serial.id,
-    name = serial.name,
-    library = serial.libraryId?.let { SerialFields.Library(id = it, name = serial.libraryName) },
-    lastUpdatesUTC = SerialFields.LastUpdatesUTC(
-        series = parseIsoUtcToEpochMs(serial.lastFolderScannedUtc),
-        chapterAdded = parseIsoUtcToEpochMs(serial.lastChapterAddedUtc),
-        readDate = parseIsoUtcToEpochMs(serial.latestReadDateUtc),
-    ),
-    coverImage = serial.coverImage,
-    chapters = null,
-    otherNames = SerialFields.OtherNames(original = serial.originalName, localized = serial.localizedName),
-    sortName = serial.sortName,
-    otherIds = SerialFields.OtherIds(aniListId = serial.aniListId, malId = serial.malId),
-    colors = SerialFields.Colors(primary = serial.primaryColor, secondary = serial.secondaryColor),
-    pages = SerialFields.Pages(read = serial.pagesRead, total = serial.totalPages),
-    metadata = null,
-    resolvedAtEpochMs = resolvedAtEpochMs,
-    server = serverInfo,
-    cache = null,
-)
-
+): SerialDigest.Success =
+    SerialDigest.Success(
+        id = serial.id,
+        name = serial.name,
+        library = serial.libraryId?.let { SerialFields.Library(id = it, name = serial.libraryName) },
+        lastUpdatesUTC =
+            SerialFields.LastUpdatesUTC(
+                series = parseIsoUtcToEpochMs(serial.lastFolderScannedUtc),
+                chapterAdded = parseIsoUtcToEpochMs(serial.lastChapterAddedUtc),
+                readDate = parseIsoUtcToEpochMs(serial.latestReadDateUtc),
+            ),
+        coverImage = serial.coverImage,
+        chapters = null,
+        otherNames = SerialFields.OtherNames(original = serial.originalName, localized = serial.localizedName),
+        sortName = serial.sortName,
+        otherIds = SerialFields.OtherIds(aniListId = serial.aniListId, malId = serial.malId),
+        colors = SerialFields.Colors(primary = serial.primaryColor, secondary = serial.secondaryColor),
+        pages = SerialFields.Pages(read = serial.pagesRead, total = serial.totalPages),
+        metadata = null,
+        resolvedAtEpochMs = resolvedAtEpochMs,
+        server = serverInfo,
+        cache = null,
+    )

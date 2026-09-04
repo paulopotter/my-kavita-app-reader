@@ -9,7 +9,10 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 // point crashes with IllegalStateException — see SeriesModule's original comment on this) and no
 // JS event-emitter module registered yet. `params` accepts null for parameterless events (e.g.
 // OtaEventBridge's otaBundleReady) alongside the usual WritableMap/WritableArray.
-fun ReactApplicationContext.emitEvent(name: String, params: Any?) {
+fun ReactApplicationContext.emitEvent(
+    name: String,
+    params: Any?,
+) {
     if (!hasActiveReactInstance()) return
     getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)?.emit(name, params)
 }
@@ -25,7 +28,11 @@ fun ReactApplicationContext.emitEvent(name: String, params: Any?) {
 // the RN bridge (Arguments.fromJavaArgs has no conversion for Unit, confirmed on-device: "Cannot
 // convert argument of type class kotlin.Unit" from CallbackImpl.invoke). Every call site that
 // doesn't pass its own `transform` relies on this.
-fun <T> Result<T>.resolveOrReject(promise: Promise, errorCode: String, transform: (T) -> Any? = { if (it == Unit) null else it }) {
+fun <T> Result<T>.resolveOrReject(
+    promise: Promise,
+    errorCode: String,
+    transform: (T) -> Any? = { if (it == Unit) null else it },
+) {
     onSuccess { promise.resolve(transform(it)) }
         .onFailure { promise.reject(errorCode, it.message, it) }
 }

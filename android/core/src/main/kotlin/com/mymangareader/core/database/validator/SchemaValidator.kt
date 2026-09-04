@@ -9,7 +9,10 @@ package com.mymangareader.core.database.validator
  * In production this is a no-op — Room's own migration engine handles it.
  */
 object SchemaValidator {
-    fun assertNoSchemaDrift(currentVersion: Int, expectedVersion: Int) {
+    fun assertNoSchemaDrift(
+        currentVersion: Int,
+        expectedVersion: Int,
+    ) {
         check(currentVersion == expectedVersion) {
             "Room schema drift detected: database version is $currentVersion " +
                 "but expected $expectedVersion. " +

@@ -5,7 +5,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReactBridgeSupportTest {
-
     // Regressão: Result<Unit>.resolveOrReject(promise, code) sem transform explícito costumava
     // repassar o kotlin.Unit em si para promise.resolve() — o bridge do RN (Arguments.fromJavaArgs)
     // não sabe converter Unit e derrubava o app com "Cannot convert argument of type class

@@ -20,28 +20,42 @@ import javax.inject.Singleton
  * with the distinguishing value moved into variant instead — e.g. a global preference).
  */
 @Singleton
-class Preferences @Inject constructor(private val preferenceDao: PreferenceDao) {
+class Preferences
+    @Inject
+    constructor(
+        private val preferenceDao: PreferenceDao,
+    ) {
+        suspend fun get(
+            key: String,
+            variant: String = "",
+        ): PreferenceEntry? {
+            val entity = preferenceDao.getByKey(key, variant) ?: return null
+            return PreferenceEntry(value = entity.value, updatedAtEpochMs = entity.updatedAtEpochMs)
+        }
 
-    suspend fun get(key: String, variant: String = ""): PreferenceEntry? {
-        val entity = preferenceDao.getByKey(key, variant) ?: return null
-        return PreferenceEntry(value = entity.value, updatedAtEpochMs = entity.updatedAtEpochMs)
+        suspend fun put(
+            key: String,
+            value: String,
+            domain: String,
+            variant: String = "",
+        ): PreferenceDescriptor {
+            val now = System.currentTimeMillis()
+            preferenceDao.upsert(
+                PreferenceEntity(
+                    key = key,
+                    variant = variant,
+                    value = value,
+                    domain = domain,
+                    updatedAtEpochMs = now,
+                ),
+            )
+            return PreferenceDescriptor(key = key, variant = variant, domain = domain, updatedAtEpochMs = now)
+        }
+
+        suspend fun delete(
+            key: String,
+            variant: String = "",
+        ) = preferenceDao.deleteByKey(key, variant)
+
+        suspend fun deleteDomain(domain: String) = preferenceDao.deleteByDomain(domain)
     }
-
-    suspend fun put(key: String, value: String, domain: String, variant: String = ""): PreferenceDescriptor {
-        val now = System.currentTimeMillis()
-        preferenceDao.upsert(
-            PreferenceEntity(
-                key = key,
-                variant = variant,
-                value = value,
-                domain = domain,
-                updatedAtEpochMs = now,
-            ),
-        )
-        return PreferenceDescriptor(key = key, variant = variant, domain = domain, updatedAtEpochMs = now)
-    }
-
-    suspend fun delete(key: String, variant: String = "") = preferenceDao.deleteByKey(key, variant)
-
-    suspend fun deleteDomain(domain: String) = preferenceDao.deleteByDomain(domain)
-}

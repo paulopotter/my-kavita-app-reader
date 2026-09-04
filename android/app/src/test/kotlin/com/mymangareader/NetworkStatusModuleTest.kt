@@ -12,12 +12,13 @@ import org.mockito.kotlin.mock
 // Arguments.createMap(), que exige a lib nativa reactnativejni indisponível em teste JVM puro.
 private class FakeUrlSource : KavitaUrlSource {
     override suspend fun getActiveUrl(): Result<String> = Result.failure(IllegalStateException("no url in test"))
+
     override suspend fun invalidateAndReselect(): Result<String> = getActiveUrl()
+
     override fun getLastKnownUrl(): String? = null
 }
 
 class NetworkStatusModuleTest {
-
     private fun makeModule(): NetworkStatusModule {
         val context = mock<ReactApplicationContext>()
         val watcher = ActiveUrlWatcher(FakeUrlSource())

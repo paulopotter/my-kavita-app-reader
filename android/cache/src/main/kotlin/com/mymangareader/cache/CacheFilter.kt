@@ -25,9 +25,10 @@ data class CacheFilter(
     }
 }
 
-internal suspend fun CacheDao.query(filter: CacheFilter): List<CacheEntity> = queryFiltered(
-    keys = filter.keys ?: emptyList(),
-    hasKeys = if (filter.keys == null) 0 else 1,
-    domain = filter.domain,
-    variant = filter.variant,
-)
+internal suspend fun CacheDao.query(filter: CacheFilter): List<CacheEntity> =
+    queryFiltered(
+        keys = filter.keys ?: emptyList(),
+        hasKeys = if (filter.keys == null) 0 else 1,
+        domain = filter.domain,
+        variant = filter.variant,
+    )

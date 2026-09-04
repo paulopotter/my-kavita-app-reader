@@ -31,35 +31,36 @@ import kotlinx.serialization.json.Json
 interface ChapterFields {
     val id: String
     val seriesId: String
-    val decimalNumber: Double?     // maps Kavita's real SortOrder — authoritative numeric value when present
-    val number: Int?               // decimalNumber truncated, only when it's a whole number — otherwise null this task (Series, Task 020, may fill it later)
-    val specialLabel: String?      // = PluginChapter.specialLabel, only when isSpecial == true — otherwise null
+    val decimalNumber: Double? // maps Kavita's real SortOrder — authoritative numeric value when present
+    val number: Int? // decimalNumber truncated, only when it's a whole number — otherwise null this task (Series, Task 020, may fill it later)
+    val specialLabel: String? // = PluginChapter.specialLabel, only when isSpecial == true — otherwise null
     val isSpecial: Boolean?
     val title: String
     val createdUtc: String?
     val coverImage: ImageDescriptor
     val readStatus: ReadStatus
     val pages: Pages
-    val resolvedAtEpochMs: Long    // R11 — only reflects the Chapter's OWN calls (get/getProgress), never pages.list's
+    val resolvedAtEpochMs: Long // R11 — only reflects the Chapter's OWN calls (get/getProgress), never pages.list's
     val server: ServerActiveInfo
-    val cache: CacheDescriptor?    // null only until the first successful cache write completes
+    val cache: CacheDescriptor? // null only until the first successful cache write completes
 
     @Serializable
     enum class ReadStatus { READ, IN_PROGRESS, UNREAD }
+
     @Serializable
     enum class PagesStatus { SUCCESS, PARTIAL, ERROR }
 
     @Serializable
     data class Pages(
         val fileFormat: String?,
-        val status: PagesStatus?,       // null when list wasn't fetched (full=false) — "not checked," never a value derived from an empty list
+        val status: PagesStatus?, // null when list wasn't fetched (full=false) — "not checked," never a value derived from an empty list
         val count: Int?,
         val readCount: Int?,
-        val total: Int?,                 // derived from list.size when full=true — null when list wasn't fetched (full=false); never falls back to `count`, which is a different (server-declared, not cross-checked) value
-        val totalWidthPx: Int?,         // Σ width across list — null unless every page succeeded AND has usable dimensions (also null whenever list wasn't fetched)
-        val totalHeightPx: Int?,        // Σ height across list — same condition
-        val resumePoint: ResumePoint?,  // independent of full — comes from getProgress()/lastReadingProgressUtc, not pages.list
-        val list: List<PageDigest>,     // empty when full=false — not fetched, not "zero pages" (see status/total, both null in that case, for how to tell the difference)
+        val total: Int?, // derived from list.size when full=true — null when list wasn't fetched (full=false); never falls back to `count`, which is a different (server-declared, not cross-checked) value
+        val totalWidthPx: Int?, // Σ width across list — null unless every page succeeded AND has usable dimensions (also null whenever list wasn't fetched)
+        val totalHeightPx: Int?, // Σ height across list — same condition
+        val resumePoint: ResumePoint?, // independent of full — comes from getProgress()/lastReadingProgressUtc, not pages.list
+        val list: List<PageDigest>, // empty when full=false — not fetched, not "zero pages" (see status/total, both null in that case, for how to tell the difference)
     )
 
     @Serializable
@@ -94,10 +95,13 @@ sealed interface ChapterDigest {
         // Never part of the JSON persisted in Cache — see PageDigest.Success.cache's own doc for
         // the full rationale (circular at write time, redundant with what Cache already knows).
         @Transient override val cache: CacheDescriptor? = null,
-    ) : ChapterDigest, ChapterFields
+    ) : ChapterDigest,
+        ChapterFields
 
     @Serializable
-    data class Failure(val error: ErrorDigest) : ChapterDigest
+    data class Failure(
+        val error: ErrorDigest,
+    ) : ChapterDigest
 }
 
 // Excludes only prevChapter/nextChapter — the only fields causing unbounded recursion. `pages`
@@ -121,10 +125,13 @@ sealed interface ChapterNeighborDigest {
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
         @Transient override val cache: CacheDescriptor? = null,
-    ) : ChapterNeighborDigest, ChapterFields
+    ) : ChapterNeighborDigest,
+        ChapterFields
 
     @Serializable
-    data class Failure(val error: ErrorDigest) : ChapterNeighborDigest
+    data class Failure(
+        val error: ErrorDigest,
+    ) : ChapterNeighborDigest
 }
 
 // A PluginChapter Series already fetched (from its own chapters.list() call) — used to skip a
@@ -133,23 +140,33 @@ sealed interface ChapterNeighborDigest {
 // buildChapterDigest reads is missing, the passed-in value is discarded entirely and get() runs
 // from scratch — never a partial merge between the two sources.
 internal fun PluginChapter.isCompleteForChapterDigest(): Boolean =
-    decimalNumber != null && specialLabel != null && isSpecial != null && createdUtc != null &&
-        lastReadingProgressUtc != null && fileFormat != null && pageCount != null && pagesRead != null
+    decimalNumber != null &&
+        specialLabel != null &&
+        isSpecial != null &&
+        createdUtc != null &&
+        lastReadingProgressUtc != null &&
+        fileFormat != null &&
+        pageCount != null &&
+        pagesRead != null
 
 private const val CHAPTER_CACHE_DOMAIN = "chapter"
 private val chapterDigestJson = Json { ignoreUnknownKeys = true }
 private val chapterDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-private fun chapterDigestCacheKey(chapterId: String, full: Boolean) = "$chapterId:$full"
+private fun chapterDigestCacheKey(
+    chapterId: String,
+    full: Boolean,
+) = "$chapterId:$full"
 
-private fun CacheEntry.toChapterCacheDescriptor(key: String) = CacheDescriptor(
-    key = key,
-    variant = "full",
-    domain = CHAPTER_CACHE_DOMAIN,
-    mode = CacheMode.PERSISTENT,
-    cachedAtEpochMs = cachedAtEpochMs,
-    expiresAtEpochMs = cachedAtEpochMs + ttlMs,
-)
+private fun CacheEntry.toChapterCacheDescriptor(key: String) =
+    CacheDescriptor(
+        key = key,
+        variant = "full",
+        domain = CHAPTER_CACHE_DOMAIN,
+        mode = CacheMode.PERSISTENT,
+        cachedAtEpochMs = cachedAtEpochMs,
+        expiresAtEpochMs = cachedAtEpochMs + ttlMs,
+    )
 
 /**
  * Cache-first entry point — same shape as [buildPageDigest]: a fresh hit returns without touching
@@ -181,13 +198,16 @@ suspend fun buildChapterDigest(
     if (!force) {
         val cached = cache.persistent.get(key, variant = "full")
         if (cached != null) {
-            val cachedDigest = chapterDigestJson.decodeFromString<ChapterDigest.Success>(cached.value)
-                .copy(cache = cached.toChapterCacheDescriptor(key))
-            val merged = if (prevChapter == null && nextChapter == null) {
-                cachedDigest
-            } else {
-                cachedDigest.copy(prevChapter = prevChapter, nextChapter = nextChapter)
-            }
+            val cachedDigest =
+                chapterDigestJson
+                    .decodeFromString<ChapterDigest.Success>(cached.value)
+                    .copy(cache = cached.toChapterCacheDescriptor(key))
+            val merged =
+                if (prevChapter == null && nextChapter == null) {
+                    cachedDigest
+                } else {
+                    cachedDigest.copy(prevChapter = prevChapter, nextChapter = nextChapter)
+                }
             if (cached.isExpired) {
                 chapterDigestBackgroundScope.launch {
                     buildChapterDigest(server, seriesId, chapterId, cache, knownChapter, prevChapter, nextChapter, full, force = true)
@@ -202,18 +222,28 @@ suspend fun buildChapterDigest(
 
     // Merge with whatever neighbors are already cached before writing, so a neighbor-less write
     // never erases neighbors a previous Series-driven write attached.
-    val existingNeighbors = if (fresh.prevChapter == null && fresh.nextChapter == null) {
-        cache.persistent.get(key, variant = "full")?.let { runCatching { chapterDigestJson.decodeFromString<ChapterDigest.Success>(it.value) }.getOrNull() }
-    } else {
-        null
-    }
-    val toPersist = if (existingNeighbors != null) {
-        fresh.copy(prevChapter = existingNeighbors.prevChapter, nextChapter = existingNeighbors.nextChapter)
-    } else {
-        fresh
-    }
+    val existingNeighbors =
+        if (fresh.prevChapter == null && fresh.nextChapter == null) {
+            cache.persistent.get(key, variant = "full")?.let {
+                runCatching { chapterDigestJson.decodeFromString<ChapterDigest.Success>(it.value) }.getOrNull()
+            }
+        } else {
+            null
+        }
+    val toPersist =
+        if (existingNeighbors != null) {
+            fresh.copy(prevChapter = existingNeighbors.prevChapter, nextChapter = existingNeighbors.nextChapter)
+        } else {
+            fresh
+        }
 
-    val descriptor = cache.persistent.put(key, chapterDigestJson.encodeToString(ChapterDigest.Success.serializer(), toPersist), CHAPTER_CACHE_DOMAIN, variant = "full")
+    val descriptor =
+        cache.persistent.put(
+            key,
+            chapterDigestJson.encodeToString(ChapterDigest.Success.serializer(), toPersist),
+            CHAPTER_CACHE_DOMAIN,
+            variant = "full",
+        )
     return toPersist.copy(cache = descriptor)
 }
 
@@ -261,24 +291,26 @@ private suspend fun fetchChapterDigest(
             resolvedAtEpochMs = coverImage.resolvedAtEpochMs
         }
 
-        val number = plugin.decimalNumber?.let { decimal ->
-            val whole = decimal.toInt()
-            if (whole.toDouble() == decimal) whole else null
-        }
+        val number =
+            plugin.decimalNumber?.let { decimal ->
+                val whole = decimal.toInt()
+                if (whole.toDouble() == decimal) whole else null
+            }
 
-        summary = ChapterSummary(
-            id = plugin.id,
-            seriesId = seriesId,
-            decimalNumber = plugin.decimalNumber,
-            number = number,
-            specialLabel = plugin.specialLabel.takeIf { plugin.isSpecial == true },
-            isSpecial = plugin.isSpecial,
-            title = plugin.title,
-            createdUtc = plugin.createdUtc,
-            coverImage = coverImage,
-            resolvedAtEpochMs = resolvedAtEpochMs!!,
-            server = serverInfo!!,
-        )
+        summary =
+            ChapterSummary(
+                id = plugin.id,
+                seriesId = seriesId,
+                decimalNumber = plugin.decimalNumber,
+                number = number,
+                specialLabel = plugin.specialLabel.takeIf { plugin.isSpecial == true },
+                isSpecial = plugin.isSpecial,
+                title = plugin.title,
+                createdUtc = plugin.createdUtc,
+                coverImage = coverImage,
+                resolvedAtEpochMs = resolvedAtEpochMs!!,
+                server = serverInfo!!,
+            )
     } catch (e: Exception) {
         return ChapterDigest.Failure(e.toErrorDigest())
     }
@@ -300,47 +332,54 @@ private suspend fun fetchChapterDigest(
     // full=false (the default) skips every per-page network call entirely — not just trims the
     // resulting payload. A caller only listing chapters (e.g. SeriesDigest today) doesn't pay for
     // pages.list's URL/dimensions round-trips at all unless it explicitly asks for full=true.
-    val list = if (full) {
-        coroutineScope {
-            (0 until (plugin.pageCount ?: 0)).map { pageIndex -> async { buildPageDigest(server, summary, pageIndex, cache, force = force) } }
-                .map { it.await() }
+    val list =
+        if (full) {
+            coroutineScope {
+                (0 until (plugin.pageCount ?: 0))
+                    .map { pageIndex ->
+                        async { buildPageDigest(server, summary, pageIndex, cache, force = force) }
+                    }.map { it.await() }
+            }
+        } else {
+            emptyList()
         }
-    } else {
-        emptyList()
-    }
 
-    val pagesStatus = if (!full) {
-        null
-    } else {
-        when {
-            list.all { it is PageDigest.Success } -> ChapterFields.PagesStatus.SUCCESS
-            list.all { it is PageDigest.Failure } -> ChapterFields.PagesStatus.ERROR
-            else -> ChapterFields.PagesStatus.PARTIAL
+    val pagesStatus =
+        if (!full) {
+            null
+        } else {
+            when {
+                list.all { it is PageDigest.Success } -> ChapterFields.PagesStatus.SUCCESS
+                list.all { it is PageDigest.Failure } -> ChapterFields.PagesStatus.ERROR
+                else -> ChapterFields.PagesStatus.PARTIAL
+            }
         }
-    }
 
     val count = plugin.pageCount
     val readCount = plugin.pagesRead
-    val readStatus = when {
-        count == null || readCount == null -> ChapterFields.ReadStatus.UNREAD
-        readCount == 0 -> ChapterFields.ReadStatus.UNREAD
-        readCount >= count -> ChapterFields.ReadStatus.READ
-        else -> ChapterFields.ReadStatus.IN_PROGRESS
-    }
+    val readStatus =
+        when {
+            count == null || readCount == null -> ChapterFields.ReadStatus.UNREAD
+            readCount == 0 -> ChapterFields.ReadStatus.UNREAD
+            readCount >= count -> ChapterFields.ReadStatus.READ
+            else -> ChapterFields.ReadStatus.IN_PROGRESS
+        }
 
-    val resumePoint = if (stoppedAtPageIndex != null || recordedAtEpochMs != null) {
-        ChapterFields.ResumePoint(stoppedAtPageIndex = stoppedAtPageIndex, recordedAtEpochMs = recordedAtEpochMs)
-    } else {
-        null
-    }
+    val resumePoint =
+        if (stoppedAtPageIndex != null || recordedAtEpochMs != null) {
+            ChapterFields.ResumePoint(stoppedAtPageIndex = stoppedAtPageIndex, recordedAtEpochMs = recordedAtEpochMs)
+        } else {
+            null
+        }
 
     // Only summed when every page succeeded AND every page actually has usable dimensions — a
     // single missing/zero dimension makes the total meaningless, so both stay null rather than
     // silently under-counting.
     val successfulPages = list.filterIsInstance<PageDigest.Success>()
-    val allDimensionsUsable = list.isNotEmpty() &&
-        successfulPages.size == list.size &&
-        successfulPages.all { it.hasFetchedDimensions }
+    val allDimensionsUsable =
+        list.isNotEmpty() &&
+            successfulPages.size == list.size &&
+            successfulPages.all { it.hasFetchedDimensions }
     val totalWidthPx = if (allDimensionsUsable) successfulPages.sumOf { it.width ?: 0 } else null
     val totalHeightPx = if (allDimensionsUsable) successfulPages.sumOf { it.height ?: 0 } else null
 
@@ -355,17 +394,18 @@ private suspend fun fetchChapterDigest(
         createdUtc = summary.createdUtc,
         coverImage = summary.coverImage,
         readStatus = readStatus,
-        pages = ChapterFields.Pages(
-            fileFormat = plugin.fileFormat,
-            status = pagesStatus,
-            count = count,
-            readCount = readCount,
-            total = if (full) list.size else null,
-            totalWidthPx = totalWidthPx,
-            totalHeightPx = totalHeightPx,
-            resumePoint = resumePoint,
-            list = list,
-        ),
+        pages =
+            ChapterFields.Pages(
+                fileFormat = plugin.fileFormat,
+                status = pagesStatus,
+                count = count,
+                readCount = readCount,
+                total = if (full) list.size else null,
+                totalWidthPx = totalWidthPx,
+                totalHeightPx = totalHeightPx,
+                resumePoint = resumePoint,
+                list = list,
+            ),
         prevChapter = prevChapter,
         nextChapter = nextChapter,
         resolvedAtEpochMs = resolvedAtEpochMs,

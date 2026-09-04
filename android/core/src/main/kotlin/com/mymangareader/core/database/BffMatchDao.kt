@@ -8,7 +8,6 @@ import androidx.room.Transaction
 
 @Dao
 interface BffMatchDao {
-
     @Query("SELECT * FROM bff_match")
     suspend fun getAll(): List<BffMatchEntity>
 

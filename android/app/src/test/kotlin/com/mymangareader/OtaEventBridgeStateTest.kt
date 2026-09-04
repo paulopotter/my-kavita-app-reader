@@ -10,7 +10,6 @@ import org.junit.Test
 // without the current phase/progress. These exercise the store directly; emitEvent is a no-op
 // with no React instance registered (the guard in ReactBridgeSupport), so no Robolectric needed.
 class OtaEventBridgeStateTest {
-
     @Before
     @After
     fun reset() {

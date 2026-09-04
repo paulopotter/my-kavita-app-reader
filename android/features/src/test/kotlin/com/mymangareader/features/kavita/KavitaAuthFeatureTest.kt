@@ -21,23 +21,31 @@ import org.junit.Test
 
 private class FakeAuthConfigDao : AuthConfigDao {
     private var stored: AuthConfigEntity? = null
-    private val _flow = MutableStateFlow<AuthConfigEntity?>(null)
+    private val stateFlow = MutableStateFlow<AuthConfigEntity?>(null)
 
-    override suspend fun upsert(entity: AuthConfigEntity) { stored = entity; _flow.value = entity }
-    override fun observe(): Flow<AuthConfigEntity?> = _flow
+    override suspend fun upsert(entity: AuthConfigEntity) {
+        stored = entity
+        stateFlow.value = entity
+    }
+
+    override fun observe(): Flow<AuthConfigEntity?> = stateFlow
+
     override suspend fun get(): AuthConfigEntity? = stored
 }
 
-private class FakeKavitaUrlSource(private val url: String) : KavitaUrlSource {
+private class FakeKavitaUrlSource(
+    private val url: String,
+) : KavitaUrlSource {
     override suspend fun getActiveUrl(): Result<String> = Result.success(url)
+
     override suspend fun invalidateAndReselect(): Result<String> = Result.success(url)
+
     override fun getLastKnownUrl(): String? = url
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 class KavitaAuthFeatureTest {
-
     private lateinit var server: MockWebServer
     private lateinit var authDao: FakeAuthConfigDao
     private lateinit var feature: KavitaAuthFeature
@@ -57,85 +65,95 @@ class KavitaAuthFeatureTest {
     }
 
     @Test
-    fun `authenticate stores jwt on 200`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200)
-                .setBody("""{"username":"user","token":"jwt-token-abc"}"""),
-        )
+    fun `authenticate stores jwt on 200`() =
+        runTest {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"username":"user","token":"jwt-token-abc"}"""),
+            )
 
-        val result = feature.authenticate("my-api-key")
+            val result = feature.authenticate("my-api-key")
 
-        assertTrue(result.isSuccess)
-        assertEquals("jwt-token-abc", result.getOrThrow().jwt)
-        assertEquals("jwt-token-abc", authDao.get()?.jwt)
-        assertEquals("my-api-key", authDao.get()?.apiKey)
-    }
-
-    @Test
-    fun `authenticate ignora campos desconhecidos do UserDto`() = runTest {
-        server.enqueue(
-            MockResponse().setResponseCode(200).setBody(
-                """{"id":0,"username":"user","email":null,"roles":[],"token":"token-with-extra-fields","refreshToken":"r","kavitaVersion":"0.9.0.2"}""",
-            ),
-        )
-
-        val result = feature.authenticate("key")
-        assertEquals("token-with-extra-fields", result.getOrThrow().jwt)
-    }
+            assertTrue(result.isSuccess)
+            assertEquals("jwt-token-abc", result.getOrThrow().jwt)
+            assertEquals("jwt-token-abc", authDao.get()?.jwt)
+            assertEquals("my-api-key", authDao.get()?.apiKey)
+        }
 
     @Test
-    fun `authenticate returns failure on 401`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(401))
+    fun `authenticate ignora campos desconhecidos do UserDto`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """{"id":0,"username":"user","email":null,"roles":[],"token":"token-with-extra-fields","refreshToken":"r","kavitaVersion":"0.9.0.2"}""",
+                ),
+            )
 
-        val result = feature.authenticate("bad-key")
-
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull()?.message?.contains("401") == true)
-    }
-
-    @Test
-    fun `authenticate returns failure on unexpected status`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(500))
-
-        val result = feature.authenticate("key")
-
-        assertTrue(result.isFailure)
-    }
+            val result = feature.authenticate("key")
+            assertEquals("token-with-extra-fields", result.getOrThrow().jwt)
+        }
 
     @Test
-    fun `isAuthenticated returns false before auth`() = runTest {
-        assertFalse(feature.isAuthenticated())
-    }
+    fun `authenticate returns failure on 401`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(401))
+
+            val result = feature.authenticate("bad-key")
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message?.contains("401") == true)
+        }
 
     @Test
-    fun `isAuthenticated returns true after successful auth`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
-        feature.authenticate("key")
+    fun `authenticate returns failure on unexpected status`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(500))
 
-        assertTrue(feature.isAuthenticated())
-    }
+            val result = feature.authenticate("key")
 
-    @Test
-    fun `clearAuth removes jwt but keeps apiKey`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
-        feature.authenticate("key-123")
-
-        feature.clearAuth()
-
-        assertNull(authDao.get()?.jwt)
-        assertEquals("key-123", authDao.get()?.apiKey)
-    }
+            assertTrue(result.isFailure)
+        }
 
     @Test
-    fun `getStoredApiKey returns null when no auth stored`() = runTest {
-        assertNull(feature.getStoredApiKey())
-    }
+    fun `isAuthenticated returns false before auth`() =
+        runTest {
+            assertFalse(feature.isAuthenticated())
+        }
 
     @Test
-    fun `getStoredApiKey returns key after auth`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
-        feature.authenticate("my-key")
+    fun `isAuthenticated returns true after successful auth`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
+            feature.authenticate("key")
 
-        assertEquals("my-key", feature.getStoredApiKey())
-    }
+            assertTrue(feature.isAuthenticated())
+        }
+
+    @Test
+    fun `clearAuth removes jwt but keeps apiKey`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
+            feature.authenticate("key-123")
+
+            feature.clearAuth()
+
+            assertNull(authDao.get()?.jwt)
+            assertEquals("key-123", authDao.get()?.apiKey)
+        }
+
+    @Test
+    fun `getStoredApiKey returns null when no auth stored`() =
+        runTest {
+            assertNull(feature.getStoredApiKey())
+        }
+
+    @Test
+    fun `getStoredApiKey returns key after auth`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("{\"username\":\"user\",\"token\":\"token\"}"))
+            feature.authenticate("my-key")
+
+            assertEquals("my-key", feature.getStoredApiKey())
+        }
 }

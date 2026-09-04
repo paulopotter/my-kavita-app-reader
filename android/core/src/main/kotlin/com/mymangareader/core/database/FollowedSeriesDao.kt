@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FollowedSeriesDao {
-
     @Query("SELECT seriesId FROM followed_series")
     suspend fun getAllIds(): List<String>
 
@@ -27,7 +26,10 @@ interface FollowedSeriesDao {
 
     @Transaction
     suspend fun toggle(seriesId: String) {
-        if (isFollowed(seriesId)) unfollow(seriesId)
-        else follow(FollowedSeriesEntity(seriesId = seriesId, followedAtMs = System.currentTimeMillis()))
+        if (isFollowed(seriesId)) {
+            unfollow(seriesId)
+        } else {
+            follow(FollowedSeriesEntity(seriesId = seriesId, followedAtMs = System.currentTimeMillis()))
+        }
     }
 }

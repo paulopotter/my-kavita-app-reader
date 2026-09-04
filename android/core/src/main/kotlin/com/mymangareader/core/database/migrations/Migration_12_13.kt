@@ -23,65 +23,67 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 //
 // No data migration on the way back (downgrade just recreates the empty tables/columns) —
 // Migration_11_12's own precedent for the same asymmetry.
-val Migration_12_13 = object : Migration(12, 13) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        val now = System.currentTimeMillis()
+val Migration_12_13 =
+    object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val now = System.currentTimeMillis()
 
-        // Per-series override → preferences (key = seriesId, domain = 'chapterSortPrefs').
-        db.execSQL(
-            """
-            INSERT OR IGNORE INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
-            SELECT
-                seriesId,
-                '',
-                '{"mode":"' || chapterSortMode || '"' ||
-                    CASE WHEN chapterSortFixedThreshold IS NOT NULL
-                         THEN ',"fixedThreshold":' || chapterSortFixedThreshold
-                         ELSE '' END ||
-                    ',"progressPercent":' || chapterSortProgressPercent || '}',
-                'chapterSortPrefs',
-                $now
-            FROM series_sort_prefs
-            """.trimIndent(),
-        )
+            // Per-series override → preferences (key = seriesId, domain = 'chapterSortPrefs').
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
+                SELECT
+                    seriesId,
+                    '',
+                    '{"mode":"' || chapterSortMode || '"' ||
+                        CASE WHEN chapterSortFixedThreshold IS NOT NULL
+                             THEN ',"fixedThreshold":' || chapterSortFixedThreshold
+                             ELSE '' END ||
+                        ',"progressPercent":' || chapterSortProgressPercent || '}',
+                    'chapterSortPrefs',
+                    $now
+                FROM series_sort_prefs
+                """.trimIndent(),
+            )
 
-        // Global default → preferences (key = 'global', same domain) — only the single
-        // ui_preferences row (id = 'prefs') ever exists.
-        db.execSQL(
-            """
-            INSERT OR IGNORE INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
-            SELECT
-                'global',
-                '',
-                '{"mode":"' || chapterSortMode || '"' ||
-                    CASE WHEN chapterSortFixedThreshold IS NOT NULL
-                         THEN ',"fixedThreshold":' || chapterSortFixedThreshold
-                         ELSE '' END ||
-                    ',"progressPercent":' || chapterSortProgressPercent || '}',
-                'chapterSortPrefs',
-                $now
-            FROM ui_preferences
-            WHERE id = 'prefs'
-            """.trimIndent(),
-        )
+            // Global default → preferences (key = 'global', same domain) — only the single
+            // ui_preferences row (id = 'prefs') ever exists.
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO preferences (`key`, variant, value, domain, updatedAtEpochMs)
+                SELECT
+                    'global',
+                    '',
+                    '{"mode":"' || chapterSortMode || '"' ||
+                        CASE WHEN chapterSortFixedThreshold IS NOT NULL
+                             THEN ',"fixedThreshold":' || chapterSortFixedThreshold
+                             ELSE '' END ||
+                        ',"progressPercent":' || chapterSortProgressPercent || '}',
+                    'chapterSortPrefs',
+                    $now
+                FROM ui_preferences
+                WHERE id = 'prefs'
+                """.trimIndent(),
+            )
 
-        db.execSQL("DROP TABLE IF EXISTS series_sort_prefs")
+            db.execSQL("DROP TABLE IF EXISTS series_sort_prefs")
+        }
     }
-}
 
 // Downgrade path: recreates series_sort_prefs empty — no attempt to reverse the data copy (same
 // asymmetry Migration_11_10/Migration_12_11 already accepted for their own tables).
-val Migration_13_12 = object : Migration(13, 12) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS series_sort_prefs (
-                seriesId TEXT NOT NULL PRIMARY KEY,
-                chapterSortMode TEXT NOT NULL,
-                chapterSortFixedThreshold REAL,
-                chapterSortProgressPercent INTEGER NOT NULL DEFAULT 50
+val Migration_13_12 =
+    object : Migration(13, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS series_sort_prefs (
+                    seriesId TEXT NOT NULL PRIMARY KEY,
+                    chapterSortMode TEXT NOT NULL,
+                    chapterSortFixedThreshold REAL,
+                    chapterSortProgressPercent INTEGER NOT NULL DEFAULT 50
+                )
+                """.trimIndent(),
             )
-            """.trimIndent(),
-        )
+        }
     }
-}

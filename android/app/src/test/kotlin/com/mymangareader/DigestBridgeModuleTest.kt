@@ -31,29 +31,46 @@ import org.mockito.kotlin.mock
 // itself covered by the manual real-server smoke test (see project_kavita_real_server memory).
 private class FakeServerGroupDao : ServerGroupDao {
     override suspend fun upsert(entity: ServerGroupEntity) = Unit
+
     override suspend fun delete(entity: ServerGroupEntity) = Unit
+
     override fun observeAll(): Flow<List<ServerGroupEntity>> = MutableStateFlow(emptyList())
+
     override suspend fun getAll(): List<ServerGroupEntity> = emptyList()
+
     override suspend fun getById(id: String): ServerGroupEntity? = null
+
     override suspend fun deleteById(id: String) = Unit
 }
 
 private class FakeServerUrlDao : ServerUrlDao {
     override suspend fun upsert(entity: ServerUrlEntity) = Unit
+
     override suspend fun delete(entity: ServerUrlEntity) = Unit
+
     override fun observeByGroupId(groupId: String): Flow<List<ServerUrlEntity>> = MutableStateFlow(emptyList())
+
     override suspend fun getByGroupId(groupId: String): List<ServerUrlEntity> = emptyList()
+
     override suspend fun getById(id: String): ServerUrlEntity? = null
+
     override suspend fun deleteById(id: String) = Unit
+
     override suspend fun deleteByGroupId(groupId: String) = Unit
 }
 
 class DigestBridgeModuleTest {
-
     @Test
     fun `getName retorna DigestBridgeModule`() {
         val cache = mock<Cache>()
-        val server = Server(FakeServerGroupDao(), FakeServerUrlDao(), emptyMap(), ActiveUrlSelector(OkHttpClient(), cache), RequestTool(OkHttpClient()))
+        val server =
+            Server(
+                FakeServerGroupDao(),
+                FakeServerUrlDao(),
+                emptyMap(),
+                ActiveUrlSelector(OkHttpClient(), cache),
+                RequestTool(OkHttpClient()),
+            )
         val module = DigestBridgeModule(server, mock<ExternalMetadataServer>(), cache, mock<ReactApplicationContext>())
 
         assertEquals("DigestBridgeModule", module.name)

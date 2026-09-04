@@ -17,7 +17,9 @@ import kotlinx.serialization.Serializable
  * (instead of its own generic exception) when, and only when, an authenticated content call comes
  * back 401 — a stale/expired JWT that a fresh login would fix.
  */
-class ServerAuthException(message: String) : Exception(message)
+class ServerAuthException(
+    message: String,
+) : Exception(message)
 
 // Fields from Kavita's real SeriesDto (the first, cheaper series call) — never mixes in fields
 // that require the separate SeriesMetadataDto call (see PluginSeriesMetadata below). Naming
@@ -144,6 +146,7 @@ interface ServerPluginRegistration {
     val displayName: String
     val version: String
     val credentialFields: List<CredentialField>
+
     // The path this provider answers a cheap liveness check on (e.g. Kavita's "/api/Health").
     // UrlSelector appends it to each candidate URL when picking a healthy one, and a new group
     // is created with this value — the RN config screen never has to know a provider's endpoint.
@@ -174,12 +177,13 @@ interface ServerPlugin {
     // live instance and the static catalog (Server.providers.list(), no instance needed) agree.
     // Server (and anything logging on its behalf) reads this instead of hardcoding a provider's
     // name in code, per the plan's "provider name is data, not UI copy" decision.
-    val id: String            // stable technical id, e.g. "kavita" — same key used to select this plugin
-    val displayName: String   // user/log-facing name, e.g. "Kavita"
-    val version: String       // this adapter's own version (our Kotlin code, not the remote server's)
+    val id: String // stable technical id, e.g. "kavita" — same key used to select this plugin
+    val displayName: String // user/log-facing name, e.g. "Kavita"
+    val version: String // this adapter's own version (our Kotlin code, not the remote server's)
 
     val auth: Auth
     val serials: Serials
+
     fun serial(serialId: String): Serial
 
     companion object {
@@ -203,8 +207,11 @@ interface ServerPlugin {
         // nothing here and leaves getSession() returning null forever, which is a normal,
         // expected outcome, not an error Server needs to special-case.
         suspend fun authenticate()
+
         suspend fun checkToken(): String?
+
         suspend fun reauthenticate()
+
         suspend fun logout()
 
         // Synchronous, no network call — whatever opaque session blob this instance currently
@@ -222,24 +229,38 @@ interface ServerPlugin {
 
     interface Serial {
         suspend fun get(): PluginSerial
+
         suspend fun getMetadata(): PluginSeriesMetadata
+
         fun getCoverUrl(): String
+
         val chapters: Chapters
+
         fun chapter(chapterId: String): Chapter
     }
 
     interface Chapters {
         suspend fun list(): List<PluginChapter>
-        suspend fun setRead(isRead: Boolean, chapterIds: List<String>)
+
+        suspend fun setRead(
+            isRead: Boolean,
+            chapterIds: List<String>,
+        )
     }
 
     interface Chapter {
         suspend fun get(): PluginChapter
+
         fun getCoverUrl(): String
+
         suspend fun setRead(isRead: Boolean)
+
         suspend fun getProgress(): PluginProgress?
+
         suspend fun setProgress(pageIndex: Int)
+
         val pages: Pages
+
         fun page(pageIndex: Int): Page
     }
 
@@ -250,6 +271,7 @@ interface ServerPlugin {
 
     interface Page {
         suspend fun getDimensions(): PluginPageDimension
+
         fun getUrl(): String
     }
 }

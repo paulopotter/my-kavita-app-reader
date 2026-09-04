@@ -1,0 +1,21 @@
+root = true
+
+[*.{kt,kts}]
+# The project's own convention is long "why" comments next to fields/params rather than
+# above them — several already exceed ktlint's 140-char default. 260 covers the longest one
+# on record without inviting arbitrarily long lines.
+max_line_length = 260
+
+# @Composable functions are named as nouns in PascalCase by Jetpack Compose's own convention
+# (ReaderPageList, SduNodeView) — they behave like a component/type, not a verb/action. ktlint's
+# default function-naming rule doesn't know about Compose; this tells it to skip the check
+# specifically for @Composable-annotated functions, leaving the rule enforced everywhere else.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# Room migration pairs use Migration_N_N+1.kt (forward) / Migration_N+1_N.kt (backward), and
+# their test classes mirror the same name (Migration_N_N+1_Test) — project convention tied to
+# the two DB versions involved, not a name ktlint's PascalCase check can autocorrect. Scoped to
+# just the migrations folder so filename/class-naming stay enforced everywhere else.
+[**/migrations/Migration_*.kt]
+ktlint_standard_filename = disabled
+ktlint_standard_class-naming = disabled

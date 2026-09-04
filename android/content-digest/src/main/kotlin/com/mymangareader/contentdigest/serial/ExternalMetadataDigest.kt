@@ -25,7 +25,9 @@ sealed interface ExternalMetadataDigest {
     ) : ExternalMetadataDigest
 
     @Serializable
-    data class Failure(val error: ErrorDigest) : ExternalMetadataDigest
+    data class Failure(
+        val error: ErrorDigest,
+    ) : ExternalMetadataDigest
 }
 
 private const val NOT_CONFIGURED_ERROR_CODE = "not_configured"
@@ -50,11 +52,12 @@ suspend fun buildExternalMetadataDigest(
             )
         }
 
-        val response = if (groupId != null) {
-            externalMetadataServer.match.syncByGroup(groupId, series)
-        } else {
-            externalMetadataServer.match.syncByServerId(kavitaServerGroupId, series)
-        }
+        val response =
+            if (groupId != null) {
+                externalMetadataServer.match.syncByGroup(groupId, series)
+            } else {
+                externalMetadataServer.match.syncByServerId(kavitaServerGroupId, series)
+            }
         ExternalMetadataDigest.Success(
             match = response.data,
             server = response.serverInfo,

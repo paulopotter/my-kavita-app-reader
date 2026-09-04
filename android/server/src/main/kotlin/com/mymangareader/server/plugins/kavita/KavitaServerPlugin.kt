@@ -1,11 +1,11 @@
 package com.mymangareader.server.plugins.kavita
 
+import com.mymangareader.server.plugins.CredentialField
 import com.mymangareader.server.plugins.PluginAgeRating
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginGenreOrTag
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
-import com.mymangareader.server.plugins.CredentialField
 import com.mymangareader.server.plugins.PluginSerial
 import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.server.plugins.ServerPlugin
@@ -19,14 +19,14 @@ import com.mymangareader.server.plugins.kavita.series.KavitaSeriesDto
 import com.mymangareader.server.plugins.kavita.series.KavitaSeriesMetadataDto
 import com.mymangareader.tools.datetime.ensureIsoUtc
 import com.mymangareader.tools.network.RequestTool
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-class KavitaServerPluginException(message: String) : Exception(message)
+class KavitaServerPluginException(
+    message: String,
+) : Exception(message)
 
 private val authFormat = Json { ignoreUnknownKeys = true }
 
@@ -54,7 +54,6 @@ class KavitaServerPlugin(
     private val apiKey: String,
     private val requestTool: RequestTool,
 ) : ServerPlugin {
-
     override val id: String = Info.id
     override val displayName: String = Info.displayName
     override val version: String = Info.version
@@ -65,27 +64,35 @@ class KavitaServerPlugin(
     // credentials, so a session field can never collide with (and silently overwrite) a
     // credential field of the same name.
     @Serializable
-    private data class Credentials(val apiKey: String = "")
+    private data class Credentials(
+        val apiKey: String = "",
+    )
 
     @Serializable
-    private data class Session(val jwt: String)
+    private data class Session(
+        val jwt: String,
+    )
 
     @Serializable
-    private data class AuthPayload(val credentials: Credentials = Credentials(), val session: Session? = null)
+    private data class AuthPayload(
+        val credentials: Credentials = Credentials(),
+        val session: Session? = null,
+    )
 
     companion object Info : ServerPluginRegistration {
         override val id: String = "kavita"
         override val displayName: String = "Kavita"
         override val version: String = "1.0.0"
 
-        override val credentialFields = listOf(
-            CredentialField(
-                name = "apiKey",
-                label = "Kavita API Key",
-                type = "string",
-                validate = { value -> if (value.isBlank()) "API key must not be blank" else null },
-            ),
-        )
+        override val credentialFields =
+            listOf(
+                CredentialField(
+                    name = "apiKey",
+                    label = "Kavita API Key",
+                    type = "string",
+                    validate = { value -> if (value.isBlank()) "API key must not be blank" else null },
+                ),
+            )
 
         override val defaultHealthCheckPath: String = "/api/Health"
 
@@ -98,7 +105,9 @@ class KavitaServerPlugin(
     private var jwt: String? = initialJwt
     private var refreshToken: String? = null
     private val kavitaAuth = KavitaAuth(baseUrl, requestTool)
+
     private fun kavitaSeries(token: String) = KavitaSeries(baseUrl, token, apiKey, requestTool)
+
     private fun kavitaChapter(token: String) = KavitaChapter(baseUrl, token, apiKey, requestTool)
 
     private suspend fun ensureToken(): String {
@@ -109,45 +118,49 @@ class KavitaServerPlugin(
         return user.token
     }
 
-    override val auth: ServerPlugin.Auth = object : ServerPlugin.Auth {
-        override suspend fun authenticate() {
-            val user = kavitaAuth.authenticate(apiKey)
-            jwt = user.token
-            refreshToken = user.refreshToken
+    override val auth: ServerPlugin.Auth =
+        object : ServerPlugin.Auth {
+            override suspend fun authenticate() {
+                val user = kavitaAuth.authenticate(apiKey)
+                jwt = user.token
+                refreshToken = user.refreshToken
+            }
+
+            override suspend fun checkToken(): String? = kavitaAuth.checkApiKeyExpiry(ensureToken()).expiresAt
+
+            override suspend fun reauthenticate() {
+                val currentJwt = jwt ?: throw KavitaServerPluginException("No token to reauthenticate — never authenticated yet")
+                val currentRefreshToken =
+                    refreshToken
+                        ?: throw KavitaServerPluginException(
+                            "No refreshToken available — the initial authenticate() response didn't include one",
+                        )
+
+                val renewed = kavitaAuth.reauthenticate(currentJwt, currentRefreshToken)
+                jwt = renewed.token
+                refreshToken = renewed.refreshToken
+            }
+
+            override suspend fun logout() {
+                kavitaAuth.logout()
+                jwt = null
+                refreshToken = null
+            }
+
+            // Kavita's session blob is {"jwt": "..."} — Server stores this opaquely and merges it
+            // back under authJson's "session" key the next time it builds this plugin (see
+            // Server.mergeAuthJson), never touching "credentials" — so a session value can never
+            // clobber the stored apiKey.
+            override fun getSession(): String? = jwt?.let { authFormat.encodeToString(Session.serializer(), Session(it)) }
         }
 
-        override suspend fun checkToken(): String? =
-            kavitaAuth.checkApiKeyExpiry(ensureToken()).expiresAt
-
-        override suspend fun reauthenticate() {
-            val currentJwt = jwt ?: throw KavitaServerPluginException("No token to reauthenticate — never authenticated yet")
-            val currentRefreshToken = refreshToken
-                ?: throw KavitaServerPluginException("No refreshToken available — the initial authenticate() response didn't include one")
-
-            val renewed = kavitaAuth.reauthenticate(currentJwt, currentRefreshToken)
-            jwt = renewed.token
-            refreshToken = renewed.refreshToken
+    override val serials: ServerPlugin.Serials =
+        object : ServerPlugin.Serials {
+            override suspend fun list(): List<PluginSerial> {
+                val api = kavitaSeries(ensureToken())
+                return api.listSeries().map { it.toPluginSerial(api.buildSeriesCoverUrl(it.id.toString())) }
+            }
         }
-
-        override suspend fun logout() {
-            kavitaAuth.logout()
-            jwt = null
-            refreshToken = null
-        }
-
-        // Kavita's session blob is {"jwt": "..."} — Server stores this opaquely and merges it
-        // back under authJson's "session" key the next time it builds this plugin (see
-        // Server.mergeAuthJson), never touching "credentials" — so a session value can never
-        // clobber the stored apiKey.
-        override fun getSession(): String? = jwt?.let { authFormat.encodeToString(Session.serializer(), Session(it)) }
-    }
-
-    override val serials: ServerPlugin.Serials = object : ServerPlugin.Serials {
-        override suspend fun list(): List<PluginSerial> {
-            val api = kavitaSeries(ensureToken())
-            return api.listSeries().map { it.toPluginSerial(api.buildSeriesCoverUrl(it.id.toString())) }
-        }
-    }
 
     override fun serial(serialId: String): ServerPlugin.Serial = KavitaSerial(serialId)
 
@@ -165,23 +178,27 @@ class KavitaServerPlugin(
     // write that could affect this data (setRead, setProgress) must call invalidateVolumes() so
     // the next read is never allowed to observe stale data — the window only ever protects
     // against redundant back-to-back reads with nothing in between.
-    private inner class KavitaSerial(private val serialId: String) : ServerPlugin.Serial {
+    private inner class KavitaSerial(
+        private val serialId: String,
+    ) : ServerPlugin.Serial {
         private val volumesMutex = Mutex()
         private var cachedVolumes: List<KavitaVolumeDto>? = null
         private var volumesFetchedAtMs: Long = 0L
 
         // Not private: KavitaChapterContext (created via chapter(id) below) also reads through
         // this so get()/list() share the same memoized fetch instead of duplicating it.
-        suspend fun volumes(): List<KavitaVolumeDto> = volumesMutex.withLock {
-            val stillFresh = cachedVolumes != null &&
-                System.currentTimeMillis() - volumesFetchedAtMs < ServerPlugin.DEFAULT_READ_PROTECTION_WINDOW_MS
-            if (stillFresh) return@withLock cachedVolumes!!
+        suspend fun volumes(): List<KavitaVolumeDto> =
+            volumesMutex.withLock {
+                val stillFresh =
+                    cachedVolumes != null &&
+                        System.currentTimeMillis() - volumesFetchedAtMs < ServerPlugin.DEFAULT_READ_PROTECTION_WINDOW_MS
+                if (stillFresh) return@withLock cachedVolumes!!
 
-            kavitaChapter(ensureToken()).listVolumesForSeries(serialId).also {
-                cachedVolumes = it
-                volumesFetchedAtMs = System.currentTimeMillis()
+                kavitaChapter(ensureToken()).listVolumesForSeries(serialId).also {
+                    cachedVolumes = it
+                    volumesFetchedAtMs = System.currentTimeMillis()
+                }
             }
-        }
 
         fun invalidateVolumes() {
             cachedVolumes = null
@@ -192,23 +209,26 @@ class KavitaServerPlugin(
             return api.getSeries(serialId).toPluginSerial(api.buildSeriesCoverUrl(serialId))
         }
 
-        override suspend fun getMetadata(): PluginSeriesMetadata =
-            kavitaSeries(ensureToken()).getSeriesMetadata(serialId).toPluginSeriesMetadata()
+        override suspend fun getMetadata(): PluginSeriesMetadata = kavitaSeries(ensureToken()).getSeriesMetadata(serialId).toPluginSeriesMetadata()
 
         // Synchronous by design (no network call — this just concatenates a string), same
         // rationale as KavitaPage.getUrl() — safe because buildSeriesCoverUrl only reads apiKey,
         // never the jwt parameter, so an empty one here is inert.
         override fun getCoverUrl(): String = kavitaSeries(token = "").buildSeriesCoverUrl(serialId)
 
-        override val chapters: ServerPlugin.Chapters = object : ServerPlugin.Chapters {
-            override suspend fun list(): List<PluginChapter> = volumes().flatMap { it.chapters }.map { it.toPluginChapter() }
+        override val chapters: ServerPlugin.Chapters =
+            object : ServerPlugin.Chapters {
+                override suspend fun list(): List<PluginChapter> = volumes().flatMap { it.chapters }.map { it.toPluginChapter() }
 
-            override suspend fun setRead(isRead: Boolean, chapterIds: List<String>) {
-                val chapter = kavitaChapter(ensureToken())
-                if (isRead) chapter.markChaptersRead(serialId, chapterIds) else chapter.markChaptersUnread(serialId, chapterIds)
-                invalidateVolumes()
+                override suspend fun setRead(
+                    isRead: Boolean,
+                    chapterIds: List<String>,
+                ) {
+                    val chapter = kavitaChapter(ensureToken())
+                    if (isRead) chapter.markChaptersRead(serialId, chapterIds) else chapter.markChaptersUnread(serialId, chapterIds)
+                    invalidateVolumes()
+                }
             }
-        }
 
         override fun chapter(chapterId: String): ServerPlugin.Chapter = KavitaChapterContext(this, seriesId = serialId, chapterId = chapterId)
     }
@@ -223,7 +243,8 @@ class KavitaServerPlugin(
         private val chapterId: String,
     ) : ServerPlugin.Chapter {
         override suspend fun get(): PluginChapter =
-            serial.volumes()
+            serial
+                .volumes()
                 .flatMap { it.chapters }
                 .firstOrNull { it.id.toString() == chapterId }
                 ?.toPluginChapter()
@@ -243,7 +264,8 @@ class KavitaServerPlugin(
         }
 
         override suspend fun getProgress(): PluginProgress? =
-            kavitaChapter(ensureToken()).getProgress(chapterId)
+            kavitaChapter(ensureToken())
+                .getProgress(chapterId)
                 ?.let { PluginProgress(pageIndex = it.pageNum, updatedAtUtc = it.lastModifiedUtc) }
 
         override suspend fun setProgress(pageIndex: Int) {
@@ -256,10 +278,14 @@ class KavitaServerPlugin(
         override fun page(pageIndex: Int): ServerPlugin.Page = KavitaPage(chapterId, pageIndex)
     }
 
-    private inner class KavitaPage(private val chapterId: String, private val pageIndex: Int) : ServerPlugin.Page {
+    private inner class KavitaPage(
+        private val chapterId: String,
+        private val pageIndex: Int,
+    ) : ServerPlugin.Page {
         override suspend fun getDimensions(): PluginPageDimension {
-            val dto = kavitaChapter(ensureToken()).getPageDimensions(chapterId).getOrNull(pageIndex)
-                ?: throw KavitaServerPluginException("No dimension for page $pageIndex")
+            val dto =
+                kavitaChapter(ensureToken()).getPageDimensions(chapterId).getOrNull(pageIndex)
+                    ?: throw KavitaServerPluginException("No dimension for page $pageIndex")
             return PluginPageDimension(width = dto.width, height = dto.height)
         }
 
@@ -273,97 +299,103 @@ class KavitaServerPlugin(
 // name is Vital (SeriesContract) — a series with no name isn't a usable result at all, so a
 // missing name throws here rather than silently defaulting, letting buildSeriesDigest turn it
 // into a SeriesDigest.Failure the same way any other thrown exception does.
-private fun KavitaSeriesDto.toPluginSerial(coverUrl: String) = PluginSerial(
-    id = id.toString(),
-    name = name ?: throw KavitaServerPluginException("Series $id has no name"),
-    coverUrl = coverUrl,
-    pagesRead = pagesRead,
-    totalPages = pages,
-    libraryId = if (libraryId != 0) libraryId.toString() else null,
-    libraryName = libraryName,
-    // Kavita's *Utc values are zone-less with a 7-digit fraction — fix the string FORMAT here
-    // (add the Z, clamp the fraction) so the RN side can parse it; the app converts to epoch ms.
-    lastFolderScannedUtc = ensureIsoUtc(lastFolderScanned),
-    lastChapterAddedUtc = ensureIsoUtc(lastChapterAddedUtc),
-    latestReadDateUtc = ensureIsoUtc(latestReadDate),
-    originalName = originalName,
-    localizedName = localizedName,
-    sortName = sortName,
-    aniListId = if (aniListId != 0) aniListId else null,
-    malId = if (malId != 0L) malId else null,
-    primaryColor = primaryColor,
-    secondaryColor = secondaryColor,
-)
+private fun KavitaSeriesDto.toPluginSerial(coverUrl: String) =
+    PluginSerial(
+        id = id.toString(),
+        name = name ?: throw KavitaServerPluginException("Series $id has no name"),
+        coverUrl = coverUrl,
+        pagesRead = pagesRead,
+        totalPages = pages,
+        libraryId = if (libraryId != 0) libraryId.toString() else null,
+        libraryName = libraryName,
+        // Kavita's *Utc values are zone-less with a 7-digit fraction — fix the string FORMAT here
+        // (add the Z, clamp the fraction) so the RN side can parse it; the app converts to epoch ms.
+        lastFolderScannedUtc = ensureIsoUtc(lastFolderScanned),
+        lastChapterAddedUtc = ensureIsoUtc(lastChapterAddedUtc),
+        latestReadDateUtc = ensureIsoUtc(latestReadDate),
+        originalName = originalName,
+        localizedName = localizedName,
+        sortName = sortName,
+        aniListId = if (aniListId != 0) aniListId else null,
+        malId = if (malId != 0L) malId else null,
+        primaryColor = primaryColor,
+        secondaryColor = secondaryColor,
+    )
 
 // Kavita's own PublicationStatus enum (0=OnGoing, 1=Hiatus, 2=Completed, 3=Cancelled, 4=Ended) —
 // this table is the only place that knowledge lives, same rationale as toPluginFileFormat below.
-private fun Int.toPluginPublicationStatus(): String? = when (this) {
-    0 -> "OnGoing"
-    1 -> "Hiatus"
-    2 -> "Completed"
-    3 -> "Cancelled"
-    4 -> "Ended"
-    else -> null
-}
+private fun Int.toPluginPublicationStatus(): String? =
+    when (this) {
+        0 -> "OnGoing"
+        1 -> "Hiatus"
+        2 -> "Completed"
+        3 -> "Cancelled"
+        4 -> "Ended"
+        else -> null
+    }
 
 // Kavita's own AgeRating enum — its names aren't real ESRB vocabulary (ESRB uses E/E10+/T/M/AO),
 // so [system] is "Kavita" here, not a hardcoded "ESRB" — a different provider's adapter would pick
 // its own real rating system's name.
 private fun Int.toPluginAgeRating(): PluginAgeRating {
-    val rating = when (this) {
-        0 -> "Unknown"
-        1 -> "RatingPending"
-        2 -> "EarlyChildhood"
-        3 -> "Everyone"
-        4 -> "G"
-        5 -> "Everyone10Plus"
-        6 -> "PG"
-        7 -> "KidsToAdults"
-        8 -> "Teen"
-        9 -> "Mature15Plus"
-        10 -> "Mature17Plus"
-        11 -> "Mature"
-        12 -> "R18Plus"
-        13 -> "AdultsOnly"
-        14 -> "X18Plus"
-        -1 -> "NotApplicable"
-        else -> null
-    }
+    val rating =
+        when (this) {
+            0 -> "Unknown"
+            1 -> "RatingPending"
+            2 -> "EarlyChildhood"
+            3 -> "Everyone"
+            4 -> "G"
+            5 -> "Everyone10Plus"
+            6 -> "PG"
+            7 -> "KidsToAdults"
+            8 -> "Teen"
+            9 -> "Mature15Plus"
+            10 -> "Mature17Plus"
+            11 -> "Mature"
+            12 -> "R18Plus"
+            13 -> "AdultsOnly"
+            14 -> "X18Plus"
+            -1 -> "NotApplicable"
+            else -> null
+        }
     return PluginAgeRating(rating = rating, system = "Kavita")
 }
 
-private fun KavitaSeriesMetadataDto.toPluginSeriesMetadata() = PluginSeriesMetadata(
-    description = summary,
-    genres = genres.map { PluginGenreOrTag(id = it.id.toString(), name = it.title) },
-    tags = tags.map { PluginGenreOrTag(id = it.id.toString(), name = it.title) },
-    publicationStatus = publicationStatus.toPluginPublicationStatus(),
-    ageRating = ageRating.toPluginAgeRating(),
-    releaseYear = if (releaseYear != 0) releaseYear else null,
-    language = language,
-)
+private fun KavitaSeriesMetadataDto.toPluginSeriesMetadata() =
+    PluginSeriesMetadata(
+        description = summary,
+        genres = genres.map { PluginGenreOrTag(id = it.id.toString(), name = it.title) },
+        tags = tags.map { PluginGenreOrTag(id = it.id.toString(), name = it.title) },
+        publicationStatus = publicationStatus.toPluginPublicationStatus(),
+        ageRating = ageRating.toPluginAgeRating(),
+        releaseYear = if (releaseYear != 0) releaseYear else null,
+        language = language,
+    )
 
 // Kavita's own MangaFormat enum (0=Image, 1=Archive, 2=Unknown, 3=Epub, 4=Pdf) — this table is the
 // only place that knowledge lives; PluginChapter.fileFormat is free-form text as far as :server
 // (Layer 2) is concerned, not a closed enum tied to this provider.
-private fun Int.toPluginFileFormat(): String? = when (this) {
-    0 -> "image"
-    1 -> "archive"
-    2 -> "unknown"
-    3 -> "epub"
-    4 -> "pdf"
-    else -> null
-}
+private fun Int.toPluginFileFormat(): String? =
+    when (this) {
+        0 -> "image"
+        1 -> "archive"
+        2 -> "unknown"
+        3 -> "epub"
+        4 -> "pdf"
+        else -> null
+    }
 
-private fun KavitaChapterDto.toPluginChapter() = PluginChapter(
-    id = id.toString(),
-    title = title,
-    number = number,
-    pageCount = pages,
-    pagesRead = pagesRead,
-    isSpecial = isSpecial,
-    decimalNumber = sortOrder,
-    specialLabel = range,
-    createdUtc = createdUtc,
-    lastReadingProgressUtc = lastReadingProgressUtc,
-    fileFormat = format.toPluginFileFormat(),
-)
+private fun KavitaChapterDto.toPluginChapter() =
+    PluginChapter(
+        id = id.toString(),
+        title = title,
+        number = number,
+        pageCount = pages,
+        pagesRead = pagesRead,
+        isSpecial = isSpecial,
+        decimalNumber = sortOrder,
+        specialLabel = range,
+        createdUtc = createdUtc,
+        lastReadingProgressUtc = lastReadingProgressUtc,
+        fileFormat = format.toPluginFileFormat(),
+    )

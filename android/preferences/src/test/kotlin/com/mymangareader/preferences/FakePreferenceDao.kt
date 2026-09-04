@@ -7,17 +7,26 @@ import com.mymangareader.core.database.PreferenceEntity
 // core PreferenceDaoTest (mirrors CacheDaoTest); Preferences' own tests only need something that
 // behaves like a Map<(key, variant), PreferenceEntity>.
 internal class FakePreferenceDao : PreferenceDao {
-    private data class MapKey(val key: String, val variant: String)
+    private data class MapKey(
+        val key: String,
+        val variant: String,
+    )
 
     private val entities = mutableMapOf<MapKey, PreferenceEntity>()
 
-    override suspend fun getByKey(key: String, variant: String): PreferenceEntity? = entities[MapKey(key, variant)]
+    override suspend fun getByKey(
+        key: String,
+        variant: String,
+    ): PreferenceEntity? = entities[MapKey(key, variant)]
 
     override suspend fun upsert(entity: PreferenceEntity) {
         entities[MapKey(entity.key, entity.variant)] = entity
     }
 
-    override suspend fun deleteByKey(key: String, variant: String) {
+    override suspend fun deleteByKey(
+        key: String,
+        variant: String,
+    ) {
         entities.remove(MapKey(key, variant))
     }
 

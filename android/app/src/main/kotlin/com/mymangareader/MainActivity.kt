@@ -33,14 +33,12 @@ private const val SPLASH_MAX_HOLD_MS = 4_000L
 // runs in MainApplication; this Activity reacts to its result and to the RN-ready signal.
 @AndroidEntryPoint
 class MainActivity : ReactActivity() {
-
     @Volatile private var gateResolved = false
     private val startedAtMs = SystemClock.elapsedRealtime()
 
     override fun getMainComponentName(): String = "mymangareader"
 
-    override fun createReactActivityDelegate(): ReactActivityDelegate =
-        DefaultReactActivityDelegate(this, mainComponentName, false)
+    override fun createReactActivityDelegate(): ReactActivityDelegate = DefaultReactActivityDelegate(this, mainComponentName, false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -93,14 +91,14 @@ class MainActivity : ReactActivity() {
     }
 
     private fun showBlockedDialog(releaseNotesUrl: String) {
-        AlertDialog.Builder(this)
+        AlertDialog
+            .Builder(this)
             .setTitle("Atualização obrigatória")
             .setMessage("Esta versão do app não é mais suportada. Atualize para continuar.")
             .setCancelable(false)
             .setPositiveButton("Baixar atualização") { _, _ ->
                 startActivity(Intent(Intent.ACTION_VIEW, releaseNotesUrl.toUri()))
-            }
-            .show()
+            }.show()
     }
 
     // The Activity handles `locale` in its configChanges (AndroidManifest), so an in-Settings
