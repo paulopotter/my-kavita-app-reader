@@ -5,12 +5,16 @@ jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('en'),
 }));
 
-const mockGetUiPreferences = jest.fn();
-const mockUpsertUiPreferences = jest.fn();
-jest.mock('../../../shared/bridge/config', () => ({
-  ConfigRepository: {
-    getUiPreferences: (...a: unknown[]) => mockGetUiPreferences(...a),
-    upsertUiPreferences: (...a: unknown[]) => mockUpsertUiPreferences(...a),
+const mockGetKeepScreenOn = jest.fn();
+const mockSetKeepScreenOn = jest.fn();
+const mockGetImmersiveMode = jest.fn();
+const mockSetImmersiveMode = jest.fn();
+jest.mock('../../../shared/tools/reader', () => ({
+  ReaderPrefs: {
+    getKeepScreenOn: (...a: unknown[]) => mockGetKeepScreenOn(...a),
+    setKeepScreenOn: (...a: unknown[]) => mockSetKeepScreenOn(...a),
+    getImmersiveMode: (...a: unknown[]) => mockGetImmersiveMode(...a),
+    setImmersiveMode: (...a: unknown[]) => mockSetImmersiveMode(...a),
   },
 }));
 
@@ -19,36 +23,46 @@ import { useReaderPrefs } from './reader.hooks';
 import { ReaderPrefsScreen } from './reader.screen';
 
 const t = getStrings('en');
-const PREFS = { keepScreenOnDuringReading: false, immersiveModeDuringReading: true };
-
+// Stored state: keep-screen-on OFF, immersive ON.
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUiPreferences.mockResolvedValue(PREFS);
-  mockUpsertUiPreferences.mockResolvedValue(undefined);
+  mockGetKeepScreenOn.mockResolvedValue(false);
+  mockGetImmersiveMode.mockResolvedValue(true);
+  mockSetKeepScreenOn.mockResolvedValue(undefined);
+  mockSetImmersiveMode.mockResolvedValue(undefined);
 });
 
 describe('useReaderPrefs', () => {
-  it('loads the current UiPreferences', async () => {
+  it('loads both toggles from ReaderPrefs', async () => {
     const { result } = renderHook(() => useReaderPrefs());
-    await waitFor(() => expect(result.current.prefs).toEqual(PREFS));
+    await waitFor(() =>
+      expect(result.current.prefs).toEqual({
+        keepScreenOnDuringReading: false,
+        immersiveModeDuringReading: true,
+      }),
+    );
   });
 
-  it('update() optimistically patches state and persists the patch', async () => {
+  it('update() optimistically patches state and persists only the changed toggle', async () => {
     const { result } = renderHook(() => useReaderPrefs());
-    await waitFor(() => expect(result.current.prefs).toEqual(PREFS));
+    await waitFor(() => expect(result.current.prefs).not.toBeNull());
 
     act(() => result.current.update({ keepScreenOnDuringReading: true }));
 
-    expect(result.current.prefs).toEqual({ ...PREFS, keepScreenOnDuringReading: true });
-    expect(mockUpsertUiPreferences).toHaveBeenCalledWith({ keepScreenOnDuringReading: true });
+    expect(result.current.prefs).toEqual({
+      keepScreenOnDuringReading: true,
+      immersiveModeDuringReading: true,
+    });
+    expect(mockSetKeepScreenOn).toHaveBeenCalledWith(true);
+    expect(mockSetImmersiveMode).not.toHaveBeenCalled();
   });
 
-  it('update() is a no-op on state before prefs have loaded', () => {
-    mockGetUiPreferences.mockReturnValue(new Promise(() => {})); // never resolves
+  it('update() is a no-op on state before prefs have loaded, but still persists', () => {
+    mockGetKeepScreenOn.mockReturnValue(new Promise(() => {})); // never resolves
     const { result } = renderHook(() => useReaderPrefs());
-    act(() => result.current.update({ keepScreenOnDuringReading: true }));
+    act(() => result.current.update({ immersiveModeDuringReading: false }));
     expect(result.current.prefs).toBeNull();
-    expect(mockUpsertUiPreferences).toHaveBeenCalledWith({ keepScreenOnDuringReading: true });
+    expect(mockSetImmersiveMode).toHaveBeenCalledWith(false);
   });
 });
 
@@ -59,7 +73,7 @@ describe('ReaderPrefsScreen', () => {
     expect(getByText(t.configImmersiveMode)).toBeTruthy();
   });
 
-  it('flipping a Switch calls upsertUiPreferences with that field', async () => {
+  it('flipping the keep-screen-on Switch persists that toggle', async () => {
     const { getByText, UNSAFE_getAllByType } = render(<ReaderPrefsScreen onBack={jest.fn()} />);
     await waitFor(() => expect(getByText(t.configKeepScreenOn)).toBeTruthy());
     const { Switch } = require('react-native');
@@ -67,7 +81,7 @@ describe('ReaderPrefsScreen', () => {
     await act(async () => {
       fireEvent(keepSwitch, 'valueChange', true);
     });
-    expect(mockUpsertUiPreferences).toHaveBeenCalledWith({ keepScreenOnDuringReading: true });
+    expect(mockSetKeepScreenOn).toHaveBeenCalledWith(true);
   });
 
   it('the back chevron calls onBack', async () => {

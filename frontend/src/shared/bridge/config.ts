@@ -13,20 +13,6 @@ export interface AuthConfig {
   jwt?: string;
 }
 
-export interface UiPreferences {
-  keepScreenOnDuringReading: boolean;
-  immersiveModeDuringReading: boolean;
-  chapterSortMode: 'ASCENDING' | 'DESCENDING' | 'NONE';
-  chapterSortFixedThreshold?: number;
-  chapterSortProgressPercent: number;
-  libraryViewMode: 'GRID' | 'LIST';
-  librarySortMode: 'RECENTLY_UPDATED' | 'ALPHABETICAL';
-  followingViewMode: 'GRID' | 'LIST';
-  followingSortMode: 'RECENTLY_UPDATED' | 'ALPHABETICAL';
-  // NOTE: the UI language is NOT here — it lives in the OS per-app locale. Read it with
-  // getAppLocale(), change it with setAppLocale(). App and system stay in sync that way.
-}
-
 export interface DbStatus {
   version: number;
   isOpen: boolean;
@@ -46,8 +32,6 @@ interface ConfigRepositoryModule {
   deleteServerConfig(id: string): Promise<void>;
   getAuthConfig(): Promise<AuthConfig | null>;
   upsertAuthConfig(data: AuthConfig): Promise<void>;
-  getUiPreferences(): Promise<UiPreferences>;
-  upsertUiPreferences(data: Partial<UiPreferences>): Promise<void>;
   // The UI language, sourced from and written to the OS per-app locale (Settings > App
   // languages). getAppLocale returns one of the app's supported tags ("pt-BR" / "en").
   getAppLocale(): Promise<string>;
