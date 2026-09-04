@@ -1,6 +1,12 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
+// ServerScreen is a heavy screen (multiple modals + forms) and this suite mounts the whole tree
+// ~20 times. Under full-suite CI load the async modal-close assertions (findByText + waitFor)
+// have been seen to exceed Jest's 5s default — scheduler starvation, not the code. Raise the
+// per-test timeout for this file only.
+jest.setTimeout(20000);
+
 jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('en'),
 }));
@@ -175,9 +181,7 @@ describe('ServerScreen — group / URL editing flows', () => {
     fireEvent.press(getByText(t.serverFormSave));
 
     expect(hook.addUrl).toHaveBeenCalledWith('http://second', 1, undefined);
-    // Longer timeout: this modal-close assertion has been seen to exceed the 5s default under
-    // full-suite CI load (the assertion itself is fast — it's scheduler starvation, not the code).
-    await waitFor(() => expect(queryByText(t.urlModalNewTitle)).toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(queryByText(t.urlModalNewTitle)).toBeNull());
   });
 
   it('URL ⋯ → Edit opens the URL modal pre-filled and submit calls updateUrl', async () => {
