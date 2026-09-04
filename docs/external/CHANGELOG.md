@@ -12,95 +12,59 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [[2026.09.04.2000](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.04.2000)] - 2026-09-04
 
-Melhorias internas nesta versao. / Internal improvements in this version.
+Reformulação ampla da arquitetura do app, trazendo uma nova tela de leitura, gestão de múltiplos servidores e diversas correções de sincronização e performance. / Broad rework of the app's architecture, bringing a new reading screen, multi-server management, and several sync and performance fixes.
 
 ### **Backend** - `1.0.0`
 
 **[pt-BR]**
-- **refactor: arquitetura Kotlin refeita em módulos Gradle isolados** — `:server` (abstração de
-- servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
-- Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
-- `:external-metadata-server`, aposentando `features/kavita/`.
-- **refactor: leitura de dados agora é cache-first de verdade** — uma camada `:cache` (memória +
-- Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
-- em vez de o hook da tela orquestrar isso.
-- feat: `:server` reautentica a sessão automaticamente ao receber 401.
-- feat: campos de credencial e o caminho de health-check passam a vir do plugin do provider, não
-- ficam mais chumbados no app.
-- perf: `buildSerialsDigest` usa `patchAll` — 1 transação em vez de 2N, elimina o laço de ~11,6s
-- por série no aquecimento da Library.
-- refactor: tabela `ui_preferences` (Room) removida — as preferências foram para `:preferences`
-- (migração 13→14, `DROP TABLE`).
-- fix: ordenação da Library destravada — o parser de data ISO passa a aceitar o sufixo `Z`.
-- fix: migração Room 12→13 que quebrava no boot por colisão de chave primária.
+- A leitura de dados agora funciona de forma mais inteligente: o app guarda informações recentes localmente e só busca no servidor quando necessário, deixando tudo mais rápido.
+- O login agora renova a sessão sozinho quando ela expira, sem precisar entrar de novo.
+- O carregamento da sua biblioteca ficou bem mais rápido — o que antes levava cerca de 11,6 segundos por série agora é praticamente instantâneo.
+- Preferências antigas de tela foram migradas para o novo sistema de armazenamento, sem perda de configuração.
+- Corrigida a ordenação da biblioteca, que travava com certas datas vindas do servidor.
+- Corrigido um erro que podia travar o app durante uma atualização do banco de dados local.
 
 **[en]**
-- **refactor: arquitetura Kotlin refeita em módulos Gradle isolados** — `:server` (abstração de
-- servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
-- Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
-- `:external-metadata-server`, aposentando `features/kavita/`.
-- **refactor: leitura de dados agora é cache-first de verdade** — uma camada `:cache` (memória +
-- Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
-- em vez de o hook da tela orquestrar isso.
-- feat: `:server` reautentica a sessão automaticamente ao receber 401.
-- feat: campos de credencial e o caminho de health-check passam a vir do plugin do provider, não
-- ficam mais chumbados no app.
-- perf: `buildSerialsDigest` usa `patchAll` — 1 transação em vez de 2N, elimina o laço de ~11,6s
-- por série no aquecimento da Library.
-- refactor: tabela `ui_preferences` (Room) removida — as preferências foram para `:preferences`
-- (migração 13→14, `DROP TABLE`).
-- fix: ordenação da Library destravada — o parser de data ISO passa a aceitar o sufixo `Z`.
-- fix: migração Room 12→13 que quebrava no boot por colisão de chave primária.
+- Data loading is now smarter: the app keeps recent information stored locally and only reaches out to the server when needed, making everything faster.
+- Login now silently renews your session when it expires, without needing to sign in again.
+- Loading your library got much faster — what used to take about 11.6 seconds per series is now nearly instant.
+- Old screen preferences were migrated to the new storage system, with no configuration lost.
+- Fixed library sorting, which used to get stuck on certain server dates.
+- Fixed a bug that could freeze the app during a local database update.
 
 ### **Frontend** - `1.0.0`
 
 **[pt-BR]**
-- **refactor: camada de dados do RN reorganizada** — Services (Layer 4), Tools de domínio
-- (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
-- `transforms/` por tela deixou de existir.
-- feat: novo EventBus RN→RN (com proteção contra ciclo de cadeia) — handoff Library ↔ Following
-- sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
-- feat: nova tela de leitura (reader-v2, depois promovida a `reader`) — janela append-only com
-- `moveFocus`, elimina a classe de bugs de troca de capítulo.
-- feat: nova tela de servidores no Config — grupos com múltiplas URLs, probe de conexão e
-- cascata de URL ativa, sobre `:server`.
-- feat: seção de servidor de metadados externos no Config.
-- feat: splash reescrita como rota do RN — decide a navegação e aquece a Library; sem
-- `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
-- feat: 3 modos de aviso de OTA na splash (`required` trava, `highly_recommended` só avisa,
-- `recommended` baixa em background com botão de atualizar).
-- feat: idioma reage ao locale do SO em runtime.
-- feat: modo imersivo do leitor desenha edge-to-edge por trás do notch/câmera.
-- perf: Library carrega leve e enriquece por viewport.
-- fix: crash ao tocar no índice A-Z da Library (`onScrollToIndexFailed`).
-- fix: sincronização de progresso do leitor — 3 lacunas fechadas (flush no AppState, flush ao
-- abrir capítulo, guarda no timer de 2s).
-- fix: marcar seleção em lote usa 1 request, não N POSTs paralelos.
-- fix: limiar de "capítulo lido" reduzido de 98% para 95%.
+- A forma como o app organiza e sincroniza os dados internamente foi reorganizada, deixando a base mais sólida para novas funcionalidades.
+- A lista "Seguindo" e a Biblioteca agora se atualizam automaticamente entre si, sem precisar recarregar a tela.
+- Nova tela de leitura, com navegação entre capítulos mais fluida e sem os travamentos da versão anterior.
+- Nova tela de gerenciamento de servidores, com suporte a múltiplos endereços e verificação automática de conexão.
+- Nova seção para configurar um servidor de metadados externo.
+- Tela inicial reescrita para carregar mais rápido, sem depender de uma tela nativa separada.
+- Três níveis de aviso de atualização: obrigatório (bloqueia o uso), recomendado (só avisa) e sugerido (baixa em segundo plano com botão para aplicar).
+- O idioma do app agora acompanha automaticamente o idioma do celular.
+- O modo de leitura imersiva agora ocupa a tela toda corretamente, incluindo a área do notch/câmera.
+- A Biblioteca carrega mais leve e completa os detalhes conforme você rola a tela.
+- Corrigido um travamento ao tocar no índice A-Z da Biblioteca.
+- Corrigidas falhas de sincronização de progresso de leitura em alguns cenários (app em segundo plano, troca rápida de capítulo).
+- Marcar vários capítulos como lidos de uma vez ficou mais rápido.
+- Um capítulo agora é considerado lido a partir de 95% (antes 98%), refletindo melhor o uso real.
 
 **[en]**
-- **refactor: camada de dados do RN reorganizada** — Services (Layer 4), Tools de domínio
-- (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
-- `transforms/` por tela deixou de existir.
-- feat: novo EventBus RN→RN (com proteção contra ciclo de cadeia) — handoff Library ↔ Following
-- sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
-- feat: nova tela de leitura (reader-v2, depois promovida a `reader`) — janela append-only com
-- `moveFocus`, elimina a classe de bugs de troca de capítulo.
-- feat: nova tela de servidores no Config — grupos com múltiplas URLs, probe de conexão e
-- cascata de URL ativa, sobre `:server`.
-- feat: seção de servidor de metadados externos no Config.
-- feat: splash reescrita como rota do RN — decide a navegação e aquece a Library; sem
-- `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
-- feat: 3 modos de aviso de OTA na splash (`required` trava, `highly_recommended` só avisa,
-- `recommended` baixa em background com botão de atualizar).
-- feat: idioma reage ao locale do SO em runtime.
-- feat: modo imersivo do leitor desenha edge-to-edge por trás do notch/câmera.
-- perf: Library carrega leve e enriquece por viewport.
-- fix: crash ao tocar no índice A-Z da Library (`onScrollToIndexFailed`).
-- fix: sincronização de progresso do leitor — 3 lacunas fechadas (flush no AppState, flush ao
-- abrir capítulo, guarda no timer de 2s).
-- fix: marcar seleção em lote usa 1 request, não N POSTs paralelos.
-- fix: limiar de "capítulo lido" reduzido de 98% para 95%.
+- The way the app organizes and syncs data internally was reorganized, giving new features a more solid foundation.
+- The "Following" list and the Library now automatically update each other, without needing to reload the screen.
+- New reading screen, with smoother chapter navigation and none of the previous version's freezes.
+- New server management screen, with support for multiple addresses and automatic connection checking.
+- New section to configure an external metadata server.
+- Splash screen rewritten to load faster, no longer depending on a separate native screen.
+- Three update warning levels: required (blocks usage), recommended (just a heads-up), and suggested (downloads in the background with a button to apply).
+- The app's language now automatically follows your phone's language.
+- Immersive reading mode now properly fills the whole screen, including the notch/camera area.
+- The Library loads lighter and fills in details as you scroll.
+- Fixed a crash when tapping the Library's A-Z index.
+- Fixed reading progress sync failures in some scenarios (app in background, quick chapter switching).
+- Marking multiple chapters as read at once is now faster.
+- A chapter is now considered read starting at 95% (previously 98%), better reflecting actual usage.
 
 ## [[2026.08.20.0248](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.20.0248)] - 2026-08-20
 
