@@ -4,8 +4,8 @@ name: Generate Release Tag
 # Called from two places:
 #   - main.yml, on a direct push to main (hotfix committed straight to main with [Unreleased]
 #     already filled in by hand)
-#   - pr.yml's update-changelog job, sequentially right after it commits the changelog for a
-#     merged PR — calling this directly (rather than relying on that commit's own push to
+#   - pr-merge.yml's update-changelog job, sequentially right after it commits the changelog
+#     for a merged PR — calling this directly (rather than relying on that commit's own push to
 #     re-trigger main.yml) avoids the race where main.yml's check-unreleased, triggered by the
 #     merge commit itself, can run and see an empty [Unreleased] *before* update-changelog has
 #     finished writing to it — and the run triggered by the bot's own subsequent push is always

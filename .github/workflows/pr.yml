@@ -3,17 +3,13 @@ name: PR Checks
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
 
 jobs:
   # ─── Checks (open/update only) ──────────────────────────────────────────────
 
   validate-ota:
     name: Validate OTA files
-    if: |
-      github.event_name == 'pull_request' &&
-      github.event.action != 'closed' &&
-      contains(github.event.pull_request.changed_files > 0 && 'true', 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -32,7 +28,6 @@ jobs:
 
   test-kotlin:
     name: Kotlin tests + coverage
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -71,7 +66,6 @@ jobs:
 
   test-js:
     name: JS tests + coverage
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -96,7 +90,6 @@ jobs:
 
   lint-kotlin:
     name: Lint Kotlin
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -124,7 +117,6 @@ jobs:
 
   lint-ts:
     name: Lint TypeScript
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -142,7 +134,6 @@ jobs:
 
   build-apk:
     name: Build APK (verification)
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -164,7 +155,6 @@ jobs:
 
   build-bundle:
     name: Build JS Bundle (verification)
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -179,155 +169,3 @@ jobs:
       # - name: Build bundle
       #   working-directory: frontend
       #   run: yarn bundle
-
-  # ─── Changelog on merge ──────────────────────────────────────────────────────
-  # RC builds live in rc-build.yml (issue_comment-only workflow) — keeping them out of this
-  # file means they never show up as a "skipped" check on the pull_request event.
-
-  update-changelog:
-    name: Update CHANGELOG on merge
-    if: |
-      github.event_name == 'pull_request' &&
-      github.event.action == 'closed' &&
-      github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    outputs:
-      has_content: ${{ steps.draft.outputs.has_content }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.CHANGELOG_TOKEN }}
-
-      - name: Extract changelog sections from PR body
-        id: draft
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          OUTPUT_ANDROID: /tmp/android-draft.txt
-          OUTPUT_FRONTEND: /tmp/frontend-draft.txt
-        run: |
-          # Check if [Unreleased] already has content
-          UNRELEASED=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
-            | grep -v '^[[:space:]]*$' | grep -v '^<!--' | grep -v '^-->' | head -1)
-          if [ -n "$UNRELEASED" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "has_content=true" >> "$GITHUB_OUTPUT"
-            echo "CHANGELOG already has unreleased content, skipping"
-            exit 0
-          fi
-
-          # Extract android/ and frontend/ sections from PR body
-          if python3 scripts/ci/extract-pr-changelog.py; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "has_content=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "has_content=false" >> "$GITHUB_OUTPUT"
-            echo "No changelog content in PR body, skipping"
-          fi
-
-      # Only meaningful when has_content=false — tells apart "nobody filled in the changelog"
-      # (needs a heads-up, PR touched android/ or frontend/ code) from "this PR was never meant
-      # to release" (nothing under android/ or frontend/ changed — same allowlist
-      # compute-semver-bumps.sh already uses to decide what counts toward a bump — so docs/CI/
-      # site/root-file-only PRs fall out of this naturally instead of needing their own
-      # denylist that has to be kept in sync with every new top-level folder).
-      - name: Check if PR touched release-relevant code
-        id: scope
-        if: steps.draft.outputs.has_content == 'false'
-        run: |
-          FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD 2>/dev/null || echo "")
-          TOUCHES_RELEASE_CODE=false
-          while IFS= read -r f; do
-            case "$f" in
-              android/*|frontend/*) TOUCHES_RELEASE_CODE=true ;;
-            esac
-          done <<< "$FILES"
-          echo "touches_release_code=$TOUCHES_RELEASE_CODE" >> "$GITHUB_OUTPUT"
-
-      - name: Comment when no release will be generated
-        if: steps.draft.outputs.has_content == 'false'
-        uses: actions/github-script@v9
-        env:
-          TOUCHES_RELEASE_CODE: ${{ steps.scope.outputs.touches_release_code }}
-        with:
-          script: |
-            const touchesReleaseCode = process.env.TOUCHES_RELEASE_CODE === 'true';
-            const body = touchesReleaseCode
-              ? `⚠️ **Changelog vazio — nenhuma release será gerada.**\n\n` +
-                `Este PR mudou \`android/\` e/ou \`frontend/\`, mas nem o \`[Unreleased]\` do ` +
-                `CHANGELOG.md nem a seção "Changelog" do corpo do PR tinham conteúdo. Se essa ` +
-                `mudança deveria virar uma versão, edite o CHANGELOG.md manualmente (outro ` +
-                `commit/push), ou preencha as seções do template no próximo PR.`
-              : `ℹ️ **Sem release** — este PR não tocou \`android/\` nem \`frontend/\`, nenhuma tag será gerada (comportamento esperado).`;
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body,
-            });
-
-      - name: Read component versions
-        id: versions
-        if: steps.draft.outputs.skip == 'false'
-        run: |
-          KOTLIN=$(grep -oP '(?<=versionName = ").*(?=")' android/app/build.gradle.kts 2>/dev/null || echo "0.1.0")
-          RN=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "0.1.0")
-          echo "kotlin=$KOTLIN" >> "$GITHUB_OUTPUT"
-          echo "rn=$RN" >> "$GITHUB_OUTPUT"
-
-      - name: Format via Gemini
-        id: gemini
-        if: steps.draft.outputs.skip == 'false'
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          KOTLIN_CURRENT: ${{ steps.versions.outputs.kotlin }}
-          KOTLIN_NEXT: ${{ steps.versions.outputs.kotlin }}
-          RN_CURRENT: ${{ steps.versions.outputs.rn }}
-          RN_NEXT: ${{ steps.versions.outputs.rn }}
-          OUTPUT_USER: /tmp/user-entry.md
-          OUTPUT_TAG: /tmp/tag-entry.md
-        run: |
-          ANDROID_DRAFT=$(cat /tmp/android-draft.txt 2>/dev/null || echo "")
-          FRONTEND_DRAFT=$(cat /tmp/frontend-draft.txt 2>/dev/null || echo "")
-          export ANDROID_DRAFT FRONTEND_DRAFT
-          chmod +x scripts/ci/gemini-format-changelog.sh
-          bash scripts/ci/gemini-format-changelog.sh
-
-      - name: Insert into CHANGELOG.md
-        if: steps.draft.outputs.skip == 'false'
-        env:
-          USER_ENTRY_FILE: /tmp/user-entry.md
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: python3 scripts/ci/insert-changelog-entry.py
-
-      - name: Commit changelog
-        if: steps.draft.outputs.skip == 'false'
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git diff --cached --quiet && exit 0
-          git commit -m "docs: atualiza changelog via PR #${PR_NUMBER}"
-          git push origin main
-
-  # Runs sequentially right after update-changelog, whether it just wrote [Unreleased] or found
-  # it already filled in — either way main now has content to release. Calling this directly
-  # (rather than relying on update-changelog's own push to re-trigger main.yml) is what actually
-  # closes the race described in release-tag.yml's header comment.
-  tag:
-    name: Generate Tag
-    needs: update-changelog
-    if: needs.update-changelog.outputs.has_content == 'true'
-    permissions:
-      contents: write
-    uses: ./.github/workflows/release-tag.yml
-    secrets: inherit
