@@ -56,7 +56,7 @@ conversation-first, field-by-field, real Kavita API schemas confirmed via the `k
 skill where relevant (e.g. `Range`/`SortOrder`/`MinNumber`/`IsSpecial`/cover image/
 `LastReadingProgressUtc`). Final shape (`ChapterContract`, `ChapterResult`,
 `ChapterNeighborContract`) lives in
-`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`, alongside the general
+`_contract-design-notes.md`, alongside the general
 rules (R1-R10) established during this and the Page/Series sessions — this file is the reusable
 template Tasks 009/010 (and future 011) draw from, fulfilling this task's "contract template"
 deliverable.

@@ -22,7 +22,7 @@ contrato compartilhado (`key`/`mode`/`cachedAtEpochMs`) que viaja embutido dentr
 VOLATILE por campo/domínio, e a API exata do `CacheManager` (nomes, invalidação, cache-miss,
 erro) — tudo isso fica para quando cada caso real for implementado.
 
-Registrado em dois arquivos: `.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`
+Registrado em dois arquivos: `.claude/completions/archive/017 - Reestruturacao/_contract-design-notes.md`
 (seção "Task 015 — Cache guideline...") e `.claude/docs/architecture.md` (nova seção "Cache
 Guideline — `Cache` (Kotlin) + `CacheManager` (RN)"), por decisão explícita do usuário de manter
 como guideline de `architecture.md`, não invariante de `CLAUDE.md`.

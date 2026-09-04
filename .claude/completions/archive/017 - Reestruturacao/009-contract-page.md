@@ -44,7 +44,7 @@ than nesting them), plus `PageResult`, and the new shared `ImageDescriptor`/`Ser
 types this session produced along the way. Composition under Chapter confirmed:
 `ChapterContract.pages.list: PageResult[]`, built by Chapter calling the Page domain module
 directly (same-layer composition, R1). Final shapes live in
-`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`.
+`_contract-design-notes.md`.
 
 **Explicit caveats, per user decision (same as Task 008):**
 - **Base contract**, not final — expected to evolve (e.g. `bookScrollId`, a real field found on

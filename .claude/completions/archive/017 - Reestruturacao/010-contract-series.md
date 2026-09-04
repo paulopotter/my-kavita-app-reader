@@ -51,7 +51,7 @@ instead). Also produced, during this session: the 6-layer reference architecture
 0-5, formalized in the design notes' R1) that clarifies where `Server`/`Cache`/`Image` modules,
 domain contracts, RN Services, and screens each live and how they're allowed to call each other.
 Final shape lives in
-`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md`.
+`_contract-design-notes.md`.
 
 **Explicit caveats, per user decision (same as Tasks 008/009):**
 - **Base contract**, not final — several fields deliberately excluded pending further review

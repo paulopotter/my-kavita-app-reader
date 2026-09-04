@@ -59,7 +59,7 @@ ever needed, it becomes a parameter on the Series listing operation, not a contr
 retrofit, since there's no `LibraryContract` to redesign.
 
 Full reasoning recorded in
-`.claude/sessions/active/017 - Reestruturacao/_contract-design-notes.md` § "Library — no Layer
+`_contract-design-notes.md` § "Library — no Layer
 3 contract exists."
 
 **Consequence for downstream tasks (flag, not resolved here):**

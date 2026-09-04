@@ -2,14 +2,13 @@
 
 ## Em andamento
 
-| Plan | Prioridade | Task atual |
-|------|------------|------------|
-| [017 — Reestruturação de Domínio, Contratos e Salvaguardas](active/017%20-%20Reestruturacao/README.md) | Máxima — bloqueia demais trabalho | [021 — Reader: contrato de troca de capítulo](active/017%20-%20Reestruturacao/021-reader-chapter-switch-contract.md) (doing) |
+_(nenhum plano em andamento)_
 
 ## Concluídos
 
 | Plan | Versão |
 |------|--------|
+| [017 — Reestruturação de Domínio, Contratos e Salvaguardas](../completions/archive/017%20-%20Reestruturacao/README.md) | todas as 39 tasks concluídas — split da arquitetura Kotlin em módulos Gradle isolados (`:server`/`:content-digest`/`:cache`/`:preferences`/`:external-metadata-server`), leitura cache-first, camada de dados do RN reorganizada (Services + Tools de domínio, sem `transforms/`), reader-v2, splash como rota do RN, EventBus RN→RN, salvaguardas de processo (regra de contrato no CLAUDE.md, skill `checar-arquitetura`, `atualizar-changelog` com origin-tag) |
 | [007 — Reader Screen](../completions/archive/007%20-%20Reader%20Screen/README.md) | todas as 18 tasks concluídas — arquitetura real: `LazyColumn` nativo Kotlin/Compose + Server-Driven UI em vez de `FlashList`; ver também [doc de limpeza final](../completions/2026-08-19_007-reader-screen-limpeza-final.md) |
 | [006 — Series Detail Screen](../completions/archive/006%20-%20Series%20Detail%20Screen/README.md) | `0.6.0` — todas as 11 tasks concluídas |
 | [010 — OTA Infrastructure](../completions/archive/010%20-%20OTA%20Infrastructure/README.md) | `0.2.0` — todas as 15 tasks concluídas |
