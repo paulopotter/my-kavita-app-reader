@@ -9,7 +9,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         ServerConfigEntity::class,
         AuthConfigEntity::class,
-        UiPreferencesEntity::class,
         ChapterCacheEntity::class,
         ReadingProgressEntity::class,
         BffMatchEntity::class,
@@ -24,13 +23,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CacheEntity::class,
         PreferenceEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun serverConfigDao(): ServerConfigDao
     abstract fun authConfigDao(): AuthConfigDao
-    abstract fun uiPreferencesDao(): UiPreferencesDao
     abstract fun chapterCacheDao(): ChapterCacheDao
     abstract fun readingProgressDao(): ReadingProgressDao
     abstract fun bffMatchDao(): BffMatchDao
@@ -137,5 +135,7 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_12_11 = com.mymangareader.core.database.migrations.Migration_12_11
         val MIGRATION_12_13 = com.mymangareader.core.database.migrations.Migration_12_13
         val MIGRATION_13_12 = com.mymangareader.core.database.migrations.Migration_13_12
+        val MIGRATION_13_14 = com.mymangareader.core.database.migrations.Migration_13_14
+        val MIGRATION_14_13 = com.mymangareader.core.database.migrations.Migration_14_13
     }
 }

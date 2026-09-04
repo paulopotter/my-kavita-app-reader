@@ -35,6 +35,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_12_11,
                 AppDatabase.MIGRATION_12_13,
                 AppDatabase.MIGRATION_13_12,
+                AppDatabase.MIGRATION_13_14,
+                AppDatabase.MIGRATION_14_13,
             )
             .build()
 
@@ -49,9 +51,6 @@ object DatabaseModule {
 
     @Provides
     fun provideAuthConfigDao(db: AppDatabase): AuthConfigDao = db.authConfigDao()
-
-    @Provides
-    fun provideUiPreferencesDao(db: AppDatabase): UiPreferencesDao = db.uiPreferencesDao()
 
     @Provides
     fun provideChapterCacheDao(db: AppDatabase): ChapterCacheDao = db.chapterCacheDao()
