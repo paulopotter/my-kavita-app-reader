@@ -10,47 +10,139 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-## [[2026.08.20.0248](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.20.0248)] - 2026-08-20
+## [[2026.09.04.2000](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.04.2000)] - 2026-09-04
 
 Melhorias internas nesta versao. / Internal improvements in this version.
+
+### **Backend** - `1.0.0`
+
+**[pt-BR]**
+- **refactor: arquitetura Kotlin refeita em módulos Gradle isolados** — `:server` (abstração de
+- servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
+- Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
+- `:external-metadata-server`, aposentando `features/kavita/`.
+- **refactor: leitura de dados agora é cache-first de verdade** — uma camada `:cache` (memória +
+- Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
+- em vez de o hook da tela orquestrar isso.
+- feat: `:server` reautentica a sessão automaticamente ao receber 401.
+- feat: campos de credencial e o caminho de health-check passam a vir do plugin do provider, não
+- ficam mais chumbados no app.
+- perf: `buildSerialsDigest` usa `patchAll` — 1 transação em vez de 2N, elimina o laço de ~11,6s
+- por série no aquecimento da Library.
+- refactor: tabela `ui_preferences` (Room) removida — as preferências foram para `:preferences`
+- (migração 13→14, `DROP TABLE`).
+- fix: ordenação da Library destravada — o parser de data ISO passa a aceitar o sufixo `Z`.
+- fix: migração Room 12→13 que quebrava no boot por colisão de chave primária.
+
+**[en]**
+- **refactor: arquitetura Kotlin refeita em módulos Gradle isolados** — `:server` (abstração de
+- servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
+- Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
+- `:external-metadata-server`, aposentando `features/kavita/`.
+- **refactor: leitura de dados agora é cache-first de verdade** — uma camada `:cache` (memória +
+- Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
+- em vez de o hook da tela orquestrar isso.
+- feat: `:server` reautentica a sessão automaticamente ao receber 401.
+- feat: campos de credencial e o caminho de health-check passam a vir do plugin do provider, não
+- ficam mais chumbados no app.
+- perf: `buildSerialsDigest` usa `patchAll` — 1 transação em vez de 2N, elimina o laço de ~11,6s
+- por série no aquecimento da Library.
+- refactor: tabela `ui_preferences` (Room) removida — as preferências foram para `:preferences`
+- (migração 13→14, `DROP TABLE`).
+- fix: ordenação da Library destravada — o parser de data ISO passa a aceitar o sufixo `Z`.
+- fix: migração Room 12→13 que quebrava no boot por colisão de chave primária.
+
+### **Frontend** - `1.0.0`
+
+**[pt-BR]**
+- **refactor: camada de dados do RN reorganizada** — Services (Layer 4), Tools de domínio
+- (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
+- `transforms/` por tela deixou de existir.
+- feat: novo EventBus RN→RN (com proteção contra ciclo de cadeia) — handoff Library ↔ Following
+- sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
+- feat: nova tela de leitura (reader-v2, depois promovida a `reader`) — janela append-only com
+- `moveFocus`, elimina a classe de bugs de troca de capítulo.
+- feat: nova tela de servidores no Config — grupos com múltiplas URLs, probe de conexão e
+- cascata de URL ativa, sobre `:server`.
+- feat: seção de servidor de metadados externos no Config.
+- feat: splash reescrita como rota do RN — decide a navegação e aquece a Library; sem
+- `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
+- feat: 3 modos de aviso de OTA na splash (`required` trava, `highly_recommended` só avisa,
+- `recommended` baixa em background com botão de atualizar).
+- feat: idioma reage ao locale do SO em runtime.
+- feat: modo imersivo do leitor desenha edge-to-edge por trás do notch/câmera.
+- perf: Library carrega leve e enriquece por viewport.
+- fix: crash ao tocar no índice A-Z da Library (`onScrollToIndexFailed`).
+- fix: sincronização de progresso do leitor — 3 lacunas fechadas (flush no AppState, flush ao
+- abrir capítulo, guarda no timer de 2s).
+- fix: marcar seleção em lote usa 1 request, não N POSTs paralelos.
+- fix: limiar de "capítulo lido" reduzido de 98% para 95%.
+
+**[en]**
+- **refactor: camada de dados do RN reorganizada** — Services (Layer 4), Tools de domínio
+- (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
+- `transforms/` por tela deixou de existir.
+- feat: novo EventBus RN→RN (com proteção contra ciclo de cadeia) — handoff Library ↔ Following
+- sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
+- feat: nova tela de leitura (reader-v2, depois promovida a `reader`) — janela append-only com
+- `moveFocus`, elimina a classe de bugs de troca de capítulo.
+- feat: nova tela de servidores no Config — grupos com múltiplas URLs, probe de conexão e
+- cascata de URL ativa, sobre `:server`.
+- feat: seção de servidor de metadados externos no Config.
+- feat: splash reescrita como rota do RN — decide a navegação e aquece a Library; sem
+- `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
+- feat: 3 modos de aviso de OTA na splash (`required` trava, `highly_recommended` só avisa,
+- `recommended` baixa em background com botão de atualizar).
+- feat: idioma reage ao locale do SO em runtime.
+- feat: modo imersivo do leitor desenha edge-to-edge por trás do notch/câmera.
+- perf: Library carrega leve e enriquece por viewport.
+- fix: crash ao tocar no índice A-Z da Library (`onScrollToIndexFailed`).
+- fix: sincronização de progresso do leitor — 3 lacunas fechadas (flush no AppState, flush ao
+- abrir capítulo, guarda no timer de 2s).
+- fix: marcar seleção em lote usa 1 request, não N POSTs paralelos.
+- fix: limiar de "capítulo lido" reduzido de 98% para 95%.
+
+## [[2026.08.20.0248](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.20.0248)] - 2026-08-20
+
+Agora o app tem uma tela de leitura completa, com rolagem contínua entre páginas no estilo webtoon, navegação automática entre capítulos e acompanhamento de progresso. / The app now has a full reading screen, with continuous webtoon-style page scrolling, automatic chapter navigation, and progress tracking.
 
 ### **Backend** - `0.7.0`
 
 **[pt-BR]**
-- feat: a leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
-- feat: adicionado suporte a decodificação de imagens no formato AVIF.
-- refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
-- perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
-- chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
+- A leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
+- Adicionado suporte a decodificação de imagens no formato AVIF.
+- O módulo nativo do leitor foi reorganizado internamente para facilitar futuras trocas de fonte de dados.
+- Reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
+- Removida uma dependência não utilizada, reduzindo o tamanho do app.
 
 **[en]**
-- feat: a leitura de capítulos agora usa um motor de rolagem nativo, corrigindo páginas muito altas (webtoons) que travavam ou ficavam pretas em alguns aparelhos.
-- feat: adicionado suporte a decodificação de imagens no formato AVIF.
-- refactor: o módulo nativo do leitor foi dividido por responsabilidade (dados de capítulo, controle de tela ligada, status de rede), facilitando futuras trocas de fonte de dados sem afetar o app.
-- perf: reduzido o consumo de log de diagnóstico durante a leitura, melhorando a fluidez da rolagem.
-- chore: removida a dependência de lista virtualizada não utilizada, reduzindo o tamanho do app.
+- Chapter reading now uses a native scrolling engine, fixing very tall pages (webtoons) that used to freeze or render black on some devices.
+- Added support for decoding AVIF images.
+- The reader's native module was reorganized internally to make future data-source changes easier.
+- Reduced diagnostic logging during reading, improving scroll smoothness.
+- Removed an unused dependency, reducing app size.
 
 ### **Frontend** - `0.8.0`
 
 **[pt-BR]**
-- feat: nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
-- feat: a leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
-- feat: barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
-- feat: progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
-- feat: capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
-- feat: adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
-- feat: adicionado aviso de conexão perdida durante a leitura.
-- feat: adicionado botão de tentar novamente para páginas que falharem ao carregar.
+- Nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
+- A leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
+- Barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
+- Progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
+- Capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
+- Adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
+- Adicionado aviso de conexão perdida durante a leitura.
+- Adicionado botão de tentar novamente para páginas que falharem ao carregar.
 
 **[en]**
-- feat: nova tela de leitura de capítulos com rolagem contínua entre páginas, no estilo webtoon.
-- feat: a leitura avança automaticamente para o próximo capítulo ao chegar no fim, e recua para o anterior ao rolar para cima no início.
-- feat: barra de progresso de leitura contínua, refletindo o quanto do capítulo já foi lido.
-- feat: progresso de leitura salvo automaticamente, tanto localmente quanto no servidor.
-- feat: capítulos são marcados como lidos automaticamente ao chegar ao fim, e desmarcados ao reler desde o início.
-- feat: adicionado overlay de leitura com barra superior, navegação lateral entre páginas e indicador discreto de progresso, exibido ao tocar na tela.
-- feat: adicionado aviso de conexão perdida durante a leitura.
-- feat: adicionado botão de tentar novamente para páginas que falharem ao carregar.
+- New chapter reading screen with continuous page scrolling, in webtoon style.
+- Reading automatically advances to the next chapter when reaching the end, and goes back to the previous one when scrolling up at the start.
+- Continuous reading progress bar, reflecting how much of the chapter has been read.
+- Reading progress is saved automatically, both locally and on the server.
+- Chapters are automatically marked as read when reaching the end, and unmarked when re-read from the start.
+- Added a reading overlay with a top bar, side page navigation, and a discreet progress indicator, shown on tap.
+- Added a lost-connection warning during reading.
+- Added a retry button for pages that fail to load.
 
 ## [[2026.08.13.1211](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.08.13.1211)] - 2026-08-13
 

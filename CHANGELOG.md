@@ -10,51 +10,95 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-Reestruturação ampla da arquitetura: o backend Kotlin foi reorganizado em módulos isolados e a
-camada de dados do app passou por uma reformulação completa, trazendo uma nova tela de leitura,
-gestão de múltiplos servidores e diversas correções de sincronização e performance.
+## [[2026.09.04.2000](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.04.2000)] - 2026-09-04
 
-### Backend
+Melhorias internas nesta versao. / Internal improvements in this version.
 
+### **Backend** - `1.0.0`
+
+**[pt-BR]**
 - **refactor: arquitetura Kotlin refeita em módulos Gradle isolados** — `:server` (abstração de
-  servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
-  Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
-  `:external-metadata-server`, aposentando `features/kavita/`.
+- servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
+- Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
+- `:external-metadata-server`, aposentando `features/kavita/`.
 - **refactor: leitura de dados agora é cache-first de verdade** — uma camada `:cache` (memória +
-  Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
-  em vez de o hook da tela orquestrar isso.
+- Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
+- em vez de o hook da tela orquestrar isso.
 - feat: `:server` reautentica a sessão automaticamente ao receber 401.
 - feat: campos de credencial e o caminho de health-check passam a vir do plugin do provider, não
-  ficam mais chumbados no app.
+- ficam mais chumbados no app.
 - perf: `buildSerialsDigest` usa `patchAll` — 1 transação em vez de 2N, elimina o laço de ~11,6s
-  por série no aquecimento da Library.
+- por série no aquecimento da Library.
 - refactor: tabela `ui_preferences` (Room) removida — as preferências foram para `:preferences`
-  (migração 13→14, `DROP TABLE`).
+- (migração 13→14, `DROP TABLE`).
 - fix: ordenação da Library destravada — o parser de data ISO passa a aceitar o sufixo `Z`.
 - fix: migração Room 12→13 que quebrava no boot por colisão de chave primária.
 
-### Frontend
+**[en]**
+- **refactor: arquitetura Kotlin refeita em módulos Gradle isolados** — `:server` (abstração de
+- servidor de conteúdo com o plugin Kavita aninhado e trocável), `:content-digest` (contratos
+- Page/Chapter/Series com leitura cache-first), `:cache` e `:preferences` genéricos e
+- `:external-metadata-server`, aposentando `features/kavita/`.
+- **refactor: leitura de dados agora é cache-first de verdade** — uma camada `:cache` (memória +
+- Room, dedup de requisições em voo, TTL, merge JSON) arbitra cache→rede de forma transparente,
+- em vez de o hook da tela orquestrar isso.
+- feat: `:server` reautentica a sessão automaticamente ao receber 401.
+- feat: campos de credencial e o caminho de health-check passam a vir do plugin do provider, não
+- ficam mais chumbados no app.
+- perf: `buildSerialsDigest` usa `patchAll` — 1 transação em vez de 2N, elimina o laço de ~11,6s
+- por série no aquecimento da Library.
+- refactor: tabela `ui_preferences` (Room) removida — as preferências foram para `:preferences`
+- (migração 13→14, `DROP TABLE`).
+- fix: ordenação da Library destravada — o parser de data ISO passa a aceitar o sufixo `Z`.
+- fix: migração Room 12→13 que quebrava no boot por colisão de chave primária.
 
+### **Frontend** - `1.0.0`
+
+**[pt-BR]**
 - **refactor: camada de dados do RN reorganizada** — Services (Layer 4), Tools de domínio
-  (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
-  `transforms/` por tela deixou de existir.
+- (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
+- `transforms/` por tela deixou de existir.
 - feat: novo EventBus RN→RN (com proteção contra ciclo de cadeia) — handoff Library ↔ Following
-  sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
+- sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
 - feat: nova tela de leitura (reader-v2, depois promovida a `reader`) — janela append-only com
-  `moveFocus`, elimina a classe de bugs de troca de capítulo.
+- `moveFocus`, elimina a classe de bugs de troca de capítulo.
 - feat: nova tela de servidores no Config — grupos com múltiplas URLs, probe de conexão e
-  cascata de URL ativa, sobre `:server`.
+- cascata de URL ativa, sobre `:server`.
 - feat: seção de servidor de metadados externos no Config.
 - feat: splash reescrita como rota do RN — decide a navegação e aquece a Library; sem
-  `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
+- `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
 - feat: 3 modos de aviso de OTA na splash (`required` trava, `highly_recommended` só avisa,
-  `recommended` baixa em background com botão de atualizar).
+- `recommended` baixa em background com botão de atualizar).
 - feat: idioma reage ao locale do SO em runtime.
 - feat: modo imersivo do leitor desenha edge-to-edge por trás do notch/câmera.
 - perf: Library carrega leve e enriquece por viewport.
 - fix: crash ao tocar no índice A-Z da Library (`onScrollToIndexFailed`).
 - fix: sincronização de progresso do leitor — 3 lacunas fechadas (flush no AppState, flush ao
-  abrir capítulo, guarda no timer de 2s).
+- abrir capítulo, guarda no timer de 2s).
+- fix: marcar seleção em lote usa 1 request, não N POSTs paralelos.
+- fix: limiar de "capítulo lido" reduzido de 98% para 95%.
+
+**[en]**
+- **refactor: camada de dados do RN reorganizada** — Services (Layer 4), Tools de domínio
+- (`ChapterTool`/`SerieTool`/`LibraryTool`), managers de cache/preferences/eventos; a pasta
+- `transforms/` por tela deixou de existir.
+- feat: novo EventBus RN→RN (com proteção contra ciclo de cadeia) — handoff Library ↔ Following
+- sem recarregar a lista, e a Library reage a marca de leitura vinda de outra tela.
+- feat: nova tela de leitura (reader-v2, depois promovida a `reader`) — janela append-only com
+- `moveFocus`, elimina a classe de bugs de troca de capítulo.
+- feat: nova tela de servidores no Config — grupos com múltiplas URLs, probe de conexão e
+- cascata de URL ativa, sobre `:server`.
+- feat: seção de servidor de metadados externos no Config.
+- feat: splash reescrita como rota do RN — decide a navegação e aquece a Library; sem
+- `SplashActivity` nativa (o gate de OTA foi para a `MainActivity`).
+- feat: 3 modos de aviso de OTA na splash (`required` trava, `highly_recommended` só avisa,
+- `recommended` baixa em background com botão de atualizar).
+- feat: idioma reage ao locale do SO em runtime.
+- feat: modo imersivo do leitor desenha edge-to-edge por trás do notch/câmera.
+- perf: Library carrega leve e enriquece por viewport.
+- fix: crash ao tocar no índice A-Z da Library (`onScrollToIndexFailed`).
+- fix: sincronização de progresso do leitor — 3 lacunas fechadas (flush no AppState, flush ao
+- abrir capítulo, guarda no timer de 2s).
 - fix: marcar seleção em lote usa 1 request, não N POSTs paralelos.
 - fix: limiar de "capítulo lido" reduzido de 98% para 95%.
 
