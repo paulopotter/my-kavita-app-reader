@@ -5,6 +5,7 @@ import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
 import { ChapterEvents, ChapterTool } from '../../../shared/tools/chapters';
 import { EventBus, useEvent } from '../../../shared/managers/events';
+import { useImmersive } from '../../../shared/context/immersive';
 import { ReadingProgressManager } from '../../../shared/managers/store';
 import type {
   FocusMoveTrigger,
@@ -50,6 +51,8 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     reducer,
     seriesNameHint ? { ...initialState, seriesName: seriesNameHint } : initialState,
   );
+
+  const { setImmersive } = useImmersive();
 
   // ── live mirrors of state, for callbacks that must read the freshest committed value ──
   const stateRef = useRef<State>(state);
@@ -629,14 +632,21 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     let cancelled = false;
     ReaderScreenControl.fetchImmersiveModePref()
       .then(enabled => {
-        if (!cancelled && enabled) {ReaderScreenControl.setImmersiveMode(true).catch(() => {});}
+        if (!cancelled && enabled) {
+          ReaderScreenControl.setImmersiveMode(true).catch(() => {});
+          // Tell the app shell to drop its root status-bar padding so the reader goes fully
+          // edge-to-edge (behind the cutout). The Kotlin side hides the bars + SHORT_EDGES; this
+          // removes the RN-side paddingTop that would otherwise still push the content down.
+          setImmersive(true);
+        }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
       ReaderScreenControl.setImmersiveMode(false).catch(() => {});
+      setImmersive(false);
     };
-  }, []);
+  }, [setImmersive]);
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(netState => {
