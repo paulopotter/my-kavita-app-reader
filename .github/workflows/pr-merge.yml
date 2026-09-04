@@ -1,8 +1,8 @@
 name: PR Merge
 
-# Separate workflow from pr-code.yml/pr-no-code.yml on purpose: pull_request only fires
-# "closed" here (not opened/synchronize/reopened), so these jobs never show up as "skipped"
-# checks while a PR is just open or getting pushed to — same reasoning as rc-build.yml.
+# Separate workflow from pr.yml on purpose: pull_request only fires "closed" here (not
+# opened/synchronize/reopened), so these jobs never show up as "skipped" checks while a PR is
+# just open or getting pushed to — same reasoning as rc-build.yml.
 on:
   pull_request:
     branches: [main]

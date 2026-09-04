@@ -1,61 +1,32 @@
 name: PR Checks (code)
 
-# No `paths:` filter here on purpose: paths: evaluates only the current push's own diff, not
-# the PR's accumulated diff against main — so a PR with an early commit touching android/
-# followed by doc-only commits would stop running these checks on later pushes, even though
-# the code change is still sitting there unvalidated. Instead this always fires, and
-# detect-changes decides — from the full origin/main...HEAD diff — whether the rest of the
-# jobs actually run. Once a PR has touched android/ or frontend/ even once, every subsequent
-# push keeps validating it, no matter what that specific push touches.
+# Reusable — called by pr.yml when the PR's accumulated diff touches android/ or frontend/.
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+  workflow_call: {}
 
 jobs:
-  detect-changes:
-    name: Detect code changes
+  validate-ota:
+    name: Validate OTA files
     runs-on: ubuntu-latest
-    outputs:
-      has_code: ${{ steps.diff.outputs.has_code }}
-      has_ota: ${{ steps.diff.outputs.has_ota }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Diff PR against base
-        id: diff
+      - name: Check if OTA files changed
+        id: ota_changed
         run: |
           FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || echo "")
-          HAS_CODE=false
-          HAS_OTA=false
-          while IFS= read -r f; do
-            case "$f" in
-              android/*|frontend/*) HAS_CODE=true ;;
-            esac
-            case "$f" in
-              policy-pending.json|latest.json) HAS_OTA=true ;;
-            esac
-          done <<< "$FILES"
-          echo "has_code=$HAS_CODE" >> "$GITHUB_OUTPUT"
-          echo "has_ota=$HAS_OTA" >> "$GITHUB_OUTPUT"
-
-  # ─── Checks (open/update only) ──────────────────────────────────────────────
-
-  validate-ota:
-    name: Validate OTA files
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_ota == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+          if echo "$FILES" | grep -qE "^(policy-pending\.json|latest\.json)$"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Validate OTA files
+        if: steps.ota_changed.outputs.changed == 'true'
         run: bash scripts/validate-ota.sh
 
   test-kotlin:
     name: Kotlin tests + coverage
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -94,8 +65,6 @@ jobs:
 
   test-js:
     name: JS tests + coverage
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -120,8 +89,6 @@ jobs:
 
   lint-kotlin:
     name: Lint Kotlin
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -151,8 +118,6 @@ jobs:
 
   lint-ts:
     name: Lint TypeScript
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -170,8 +135,6 @@ jobs:
 
   build-apk:
     name: Build APK (verification)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -193,8 +156,6 @@ jobs:
 
   build-bundle:
     name: Build JS Bundle (verification)
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

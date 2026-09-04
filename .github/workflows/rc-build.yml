@@ -1,9 +1,8 @@
 name: RC Build
 
-# Separate workflow from pr-code.yml on purpose: this only ever fires on issue_comment, so it
-# never shows up as a check on the pull_request event (a job living in pr-code.yml with an
-# issue_comment-only condition still gets listed — and shown "skipped" — on every push/open,
-# which is confusing).
+# Separate workflow from pr.yml on purpose: this only ever fires on issue_comment, so it never
+# shows up as a check on the pull_request event (a job living in pr.yml with an issue_comment-only
+# condition still gets listed — and shown "skipped" — on every push/open, which is confusing).
 on:
   issue_comment:
     types: [created]

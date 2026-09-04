@@ -1,0 +1,54 @@
+name: PR Checks
+
+# Orchestrator: the only workflow here that listens to pull_request directly. Detects what the
+# PR's accumulated diff against main touches (not just the current push — a path filter on
+# pull_request itself only sees the current push's diff, which is why this logic lives in a job
+# instead of `on: pull_request: paths:`) and calls pr-code.yml / pr-no-code.yml as needed. Both
+# can run on the same push (a PR touching android/ and .github/workflows/ together validates
+# both); either can be skipped when its domain was never touched by the PR.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  detect-changes:
+    name: Detect what changed
+    runs-on: ubuntu-latest
+    outputs:
+      has_code: ${{ steps.diff.outputs.has_code }}
+      has_workflow_changes: ${{ steps.diff.outputs.has_workflow_changes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Diff PR against base
+        id: diff
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || echo "")
+          HAS_CODE=false
+          HAS_WORKFLOW_CHANGES=false
+          while IFS= read -r f; do
+            case "$f" in
+              android/*|frontend/*) HAS_CODE=true ;;
+            esac
+            case "$f" in
+              .github/workflows/*) HAS_WORKFLOW_CHANGES=true ;;
+            esac
+          done <<< "$FILES"
+          echo "has_code=$HAS_CODE" >> "$GITHUB_OUTPUT"
+          echo "has_workflow_changes=$HAS_WORKFLOW_CHANGES" >> "$GITHUB_OUTPUT"
+
+  code:
+    name: Code checks
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_code == 'true'
+    uses: ./.github/workflows/pr-code.yml
+    secrets: inherit
+
+  no-code:
+    name: No-code checks
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_workflow_changes == 'true'
+    uses: ./.github/workflows/pr-no-code.yml
+    secrets: inherit

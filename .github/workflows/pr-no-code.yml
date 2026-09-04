@@ -1,47 +1,12 @@
 name: PR Checks (no-code)
 
-# Complements pr-code.yml. No `paths-ignore:` filter here either, for the same reason
-# pr-code.yml dropped its `paths:` filter: path filters see only the current push's own diff,
-# not the PR's accumulated diff against main. This always fires and checks the full
-# origin/main...HEAD diff itself — once a PR has touched android/ or frontend/ even once,
-# pr-code.yml is the one validating it from then on, so this job steps aside instead of
-# duplicating that work.
-#
-# Exists so a PR that never touches android/frontend still gets at least one passing check —
-# if branch protection ever requires status checks by name, a docs-only PR would otherwise be
-# stuck waiting on checks pr-code.yml's own jobs (skipped by its has_code condition) would
-# never produce.
+# Reusable — called by pr.yml when the PR's accumulated diff touches .github/workflows/.
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+  workflow_call: {}
 
 jobs:
-  detect-changes:
-    name: Detect code changes
-    runs-on: ubuntu-latest
-    outputs:
-      has_code: ${{ steps.diff.outputs.has_code }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Diff PR against base
-        id: diff
-        run: |
-          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || echo "")
-          HAS_CODE=false
-          while IFS= read -r f; do
-            case "$f" in
-              android/*|frontend/*) HAS_CODE=true ;;
-            esac
-          done <<< "$FILES"
-          echo "has_code=$HAS_CODE" >> "$GITHUB_OUTPUT"
-
   validate-workflows:
     name: Validate workflow files
-    needs: detect-changes
-    if: needs.detect-changes.outputs.has_code == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
