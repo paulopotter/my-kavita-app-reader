@@ -1,574 +1,536 @@
 # Architecture Map — load when you need file locations or layer rules
 
+Kotlin shell (`android/`) + React Native UI (`frontend/`) + OTA bundle.
+
 ---
 
 ## Directory Structure
 
 ```
 my-kavita-app-reader/
-├── android/                    # Kotlin shell (Android)
-│   ├── core/                   # Infrastructure: Room, lib adapters, build config
-│   ├── tools/                  # Reusable capabilities: request, bridge, plugins, schema validator
-│   ├── features/               # Business domains: kavita, bff, notifications
-│   └── app/                    # Android shell: services, manifest, DI wiring
+├── android/                       # Kotlin shell (Android) — 9 Gradle modules
+│   ├── core/                      # Room DB, migrations, schema validator, Hilt DB wiring
+│   ├── tools/                     # Reusable capabilities: network (RequestTool), OTA, datetime,
+│   │                             #   BackgroundExecute, config bridge (legacy)
+│   ├── cache/                     # Generic cache module (:cache) — persistent / memoryKotlin / network
+│   ├── preferences/               # Generic preference module (:preferences) — key/value/domain/variant
+│   ├── server/                    # Content-server abstraction (:server) + nested plugins/kavita/
+│   ├── content-digest/            # Domain contracts (:content-digest) — Page/Chapter/Series digests
+│   ├── external-metadata-server/  # External metadata (:external-metadata-server) + nested plugins/m3/
+│   ├── features/                  # LEGACY Kavita/BFF features — being removed (see "Legacy Kotlin")
+│   └── app/                       # Android shell: MainActivity, AppReactPackage, NativeModule bridges
 │
-├── frontend/                   # React Native / Expo
+├── frontend/                      # React Native
 │   └── src/
-│       ├── screens/            # One folder per screen (DDD: domain-first)
-│       │   └── reader/         # current convention (see notes below); serie/ matches
-│       │       ├── components/ # one subfolder per dumb component:
-│       │       │   └── reader-top-bar/  # <c>.component.tsx + <c>.styles.ts + <c>.tests.tsx + index.ts
-│       │       ├── hooks/      #   reader.hooks.ts, reader.reducer.ts
-│       │       ├── modes/      #   webtoon.adapter.ts (per rendering-mode translation)
-│       │       ├── reader.screen.tsx
-│       │       ├── reader.styles.ts
-│       │       └── reader.types.ts   # + reader.window.ts (screen-local model, no `Transform`)
+│       ├── screens/               # One folder per screen (domain-first)
+│       │   └── reader/            # current file convention (see below); serie/ matches
+│       │       ├── components/    #   one subfolder per dumb component
+│       │       ├── hooks/         #   reader.hooks.ts, reader.reducer.ts
+│       │       ├── modes/         #   webtoon.adapter.ts (per rendering-mode translation)
+│       │       ├── reader.screen.tsx / .styles.ts / .types.ts
+│       │       └── reader.model.ts / reader.window.ts   # screen-local pure model, no `Transform`
 │       └── shared/
-│           ├── components/     # Generic reusable components
-│           ├── hooks/          # Shared hooks
-│           ├── services/       # Shared domain services (Series, Chapter…)
-│           ├── transforms/     # Pure shared data functions
-│           └── bridge/         # TypeScript types for Kotlin tools
+│           ├── components/        # Generic dumb components
+│           ├── context/           # React contexts (startup, immersive)
+│           ├── services/          # Layer 4 — chapters/pages/serials/servers
+│           ├── tools/             # Layer 3 — domain normalizers + actions/methods/reader-prefs
+│           ├── managers/          # Layer 3 infra — caches/preferences/events/store
+│           ├── bridge/            # TypeScript types + NativeModule handles
+│           └── i18n/              # strings by language + hooks
 │
-├── docs/                       # Developer documentation
-│   ├── architecture/
-│   └── contributing/
-│
-├── site/                       # GitHub Pages (internationalised)
-├── scripts/                    # build, setup, deploy, release helpers
-│
-├── .github/
-│   ├── workflows/              # CI/CD pipelines
-│   ├── ISSUE_TEMPLATE/
-│   └── PULL_REQUEST_TEMPLATE/
-│
-└── .claude/                    # AI documentation (English)
-    ├── sessions/
-    │   ├── active/             # Plans in progress
-    │   └── backlog/items/      # Roadmap ideas without a numbered plan yet
-    ├── completions/            # Finished task docs + archive/
-    ├── skills/                 # Claude Code skills
-    ├── agents/                 # Subagents
-    └── templates/              # Document templates
+├── docs/                          # Public developer docs (architecture/, contributing/, external/)
+├── site/                          # GitHub Pages (internationalised)
+├── scripts/                       # build, setup, deploy, release, schema-validate helpers
+└── .claude/                       # AI docs (English) — sessions/, completions/, skills/, agents/
 ```
 
-### Screen file convention
+---
 
-Two conventions coexist. The **current** one — used by `serie/` and `reader/` (the screens
-rewritten under plan 017) and the target for any new or migrated screen:
+## The reference architecture — 6 layers (plan 017)
+
+One Gradle module per responsibility, all provider-agnostic except the plugin layer.
+
+| Layer | What | Modules / folders |
+|---|---|---|
+| 0 | OS / native primitives | — |
+| 1 | **Named plugins** — the only place a provider's real name/API is known | `:server/plugins/kavita/`, `:external-metadata-server/plugins/m3/` |
+| 2 | **Plugin abstraction** — reduces coupling to the named plugin | `:server`, `:external-metadata-server`, `:cache`, `:preferences` |
+| 3 | **Domain contracts** — compose Layer 2 into lapidated shapes (optional per domain) | `:content-digest` (Kotlin); `shared/tools/`, `shared/managers/` (RN) |
+| 4 | **RN Services** — group Layer 3 (or Layer 2) into screen-ready data | `shared/services/` |
+| 5 | **Front** — screens, components, navigation, theme | `frontend/src/screens/`, `shared/components/` |
+
+**Access rule**: a module accesses itself (same-layer composition) or the layer directly below.
+One named exception: **Layer 4 may reach Layer 3 *or* Layer 2 directly** (never Layer 1) — this
+is what lets a domain skip Layer 3. Any other cross-layer skip needs an explicit, justified
+exception (same bar as the Reader's native-rendering exception below).
+
+**A plugin lives physically nested inside the Layer 2 module that understands it**
+(`server/plugins/kavita/`), never in a neutral shared folder — so an out-of-layer import is
+visibly wrong from the folder structure alone.
+
+**Data flow**: `Bridge → Service → Tool/model → Hook → Screen → Component`. There is no
+per-screen `Transform` layer (see "No `Transform` layer").
+
+---
+
+## Domain Composition — micro → macro
+
+```
+Page  →  Chapter  →  Series  →  Library
+(micro)                         (macro)
+```
+
+Each domain only handles its own concern and delegates **downward** to the smaller domain:
+
+- `Chapter` formats/handles a chapter. `Series` calls the Chapter module when it needs chapter
+  data — it never re-derives it (e.g. never reads a chapter cache row itself).
+- `Library` is a **listing operation on Series** + a Layer 4 Service — there is no Layer 3
+  Library contract (a simple-enough domain skips Layer 3).
+- Same-layer composition is expected: `buildSeriesDigest` calls the Chapter module (both Layer
+  3); `buildChapterDigest` calls the Page module. What's forbidden is a domain computing
+  another domain's data instead of asking that domain's module.
+
+**In Kotlin**: `:content-digest` composes Page→Chapter→Series in one place
+(`contentdigest/{page,chapter,series}/`). Kotlin holds only the minimum Android-only logic
+(Room cache, authenticated HTTP, plugin adapters); ordering/formatting/business rules live in
+`:content-digest` or RN, never duplicated.
+
+**In RN**: the canonical shape of each domain is defined in `shared/tools/<domain>/`
+(`ChapterTool`, `SerieTool`, `ChaptersTool`); Services (`shared/services/<domain>/`) aggregate
+digests into screen-ready data. `shared/transforms/` no longer exists.
+
+---
+
+## Kotlin modules
+
+### `:core` — infrastructure (common)
+
+Room `AppDatabase` (schema v14), migrations in **pairs** (forward + backward, e.g.
+`Migration_13_14` + `Migration_14_13`), `SchemaValidator`, Hilt `DatabaseModule` (`@Provides`
+each DAO + registers all migrations). `core ← tools ← features` — never depends upward.
+
+Room tables split by model:
+
+| New model (active) | Purpose |
+|---|---|
+| `CacheEntity` (`:cache`) | Generic cache — `(key, variant)` PK, `domain`, `ttl`, `expiresAt` |
+| `PreferenceEntity` (`:preferences`) | Generic prefs — key/value/domain/variant, no TTL |
+| `ServerGroupEntity` / `ServerUrlEntity` | Server groups + URLs (`:server`) |
+| `ExternalMetadataGroupEntity` / `ExternalMetadataUrlEntity` | Groups + URLs (`:external-metadata-server`) |
+| `PageCacheEntity` | Page-URL cache (reader data side) |
+
+| Legacy model (being removed) | Still used by | Goes when |
+|---|---|---|
+| `ChapterCacheEntity` / `SeriesDetailCacheEntity` | `KavitaChapterFeature`, `KavitaSeriesFeature`, `SeriesModule` | Reader/Series Kotlin fully off `KavitaXFeature` |
+| `ReadingProgressEntity` | `KavitaChapterFeature` | idem |
+| `AuthConfigEntity` | `KavitaAuthFeature`, `ConfigStore` | Kavita auth moves to `:server/plugins/kavita/auth/` |
+| `ServerConfigEntity` | `StartupModule`, `ConfigStore`, `KavitaUrlSelector`, `BffFeature` | URL selection fully in `:server` |
+| `BffServerConfigEntity` | `BffFeature`, `ConfigStore` | BFF fully off the old feature |
+| `BffMatchEntity` | *nobody* — registered only | its own DROP-table task |
+
+### `:tools` — reusable capabilities (common base)
+
+`network/RequestTool.kt` (central HTTP), `network/ActiveUrlSelector.kt` (picks a healthy URL —
+has a known race, not yet migrated to `Cache.network`), `ota/OtaManager.kt` (checks
+`latest.json`, downloads, swaps on next boot, rollback after N crash-free opens; staleness via
+build timestamps, not version strings), `datetime/IsoDateTime.kt`, `cache/BackgroundExecute.kt`
+(generic fire-and-forget over `Cache`), `bridge/ConfigRepository.kt` + `ConfigStore.kt` (legacy
+config bridge — server/auth/BFF; the `*UiPreferences*` methods were removed in Task 039).
+
+### `:server` — Layer 1 + 2 (content-server abstraction)
+
+Replaces `KavitaSeriesFeature` / `KavitaChapterFeature` / `KavitaUrlSelector` / `KavitaAuthFeature`.
+
+| File | Layer | Role |
+|---|---|---|
+| `server/Server.kt` | L2 facade | **Routing only** — knows the active plugin, delegates. Manages `ServerGroupDao`, validates credentials, exposes `ServerResponse<T>` (`data` + `ServerActiveInfo` + `resolvedAtEpochMs`). Direct domain methods (`getChapter`, `getSeries`). |
+| `server/plugins/ServerPlugin.kt` | L2 | Interface + provider-agnostic shapes (`PluginSerial`, `PluginChapter`, `PluginProgress`…), named in contract vocabulary, not DTO vocabulary. |
+| `server/plugins/kavita/KavitaServerPlugin.kt` | L1→L2 | Adapter: raw Kavita ↔ generic shape. Holds decoded apiKey/JWT. `companion object Info` = plugin registration. |
+| `server/plugins/kavita/{auth,chapter,series}/Kavita*.kt` | L1 | Real Kavita REST (endpoints, DTOs) for auth, chapter/page, series. |
+
+`ServerResponse<T>`: every content-read method returns `data` + provenance in one envelope
+(kills the race a separate `getActiveInfo()` call would have). When a Layer 3 contract makes
+several `:server` calls, it keeps a running `server`/`resolvedAtEpochMs` pair overwritten after
+each call that *succeeds* — a tolerated failure leaves the last good value untouched.
+
+### `:content-digest` — Layer 3 (domain contracts)
+
+Composes Page→Chapter→Series in one place, cache-first built in.
+
+| File | Role |
+|---|---|
+| `contentdigest/page/PageDigest.kt` | `sealed interface PageDigest` (Success/Failure). `buildPageDigest(server, chapter, pageIndex, cache, force)` — url + dimensions + orientation + cache provenance. |
+| `contentdigest/page/ChapterSummary.kt` | Subset of chapter fields resolved *before* `ChapterDigest` builds `pages.list` — passed down to `buildPageDigest` to break the circularity. |
+| `contentdigest/chapter/ChapterDigest.kt` | `interface ChapterFields` + `sealed interface ChapterDigest` + `ChapterNeighborDigest` (no prev/next — cuts recursion). `readStatus` from `pages.count`/`readCount`. prev/next **merged** on write, not overwritten. |
+| `contentdigest/series/SeriesDigest.kt` | `interface SeriesFields` + `sealed interface SeriesDigest`. `chapters` built by calling the Chapter module (same layer). `resumePoint` cascade IN_PROGRESS → UNREAD → null. `metadata` = a 2nd network call. |
+| `contentdigest/series/ExternalMetadataDigest.kt` | 2-state digest of a series' external metadata — Success may carry `match = null`. |
+| `contentdigest/error/ErrorDigest.kt` | `data class ErrorDigest(code, message)` shared by Page/Chapter/Series. |
+
+**Result types are the `sealed interface` itself** — `PageDigest.Success` / `.Failure` are the
+two variants directly (no separate `XResult` wrapper). Same idiom as `OtaCheckResult`.
+
+### `:cache` — Layer 2 (generic cache)
+
+Replaces `@Volatile var` fields, per-domain Room cache tables, hand-rolled `Mutex`+`Map`.
+
+```kotlin
+class Cache {
+    val persistent: Persistent      // Room-backed, survives restart
+    val memoryKotlin: MemoryKotlin  // in-process Map, dies with the Kotlin process
+    val network: Network            // single-flight + TTL around a suspend block (not a value store)
+    fun storeFor(mode: CacheMode): CacheStore
+}
+```
+
+- `persistent`/`memoryKotlin` share `CacheStore`
+  (`get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/`purgeExpired`/`purgeOlderThan`).
+  `put()` returns the `CacheDescriptor` it produced (never `Unit`).
+- `network`: `run(key, ttlMs, block)` — a `Mutex` per key (not one global lock) + a TTL window.
+
+**Key/variant/domain** (`CacheEntity`): `domain` is a caller label (`"page"`/`"chapter"`/…)
+opaque to `Cache`, only for `invalidateDomain`/`invalidateVariant`. `variant` names which
+parameter(s) change a payload's shape (`"full"`, `"full:external"` — never the values); `key` =
+entity id + those values positionally (`"c1:true"`). No such parameter → `variant = ""`, `key` =
+bare id. PK = `(key, variant)`.
+
+**`CacheDescriptor`** is created at Layer 1, embedded in each digest's own `cache` field,
+`@Transient` (never serialized into the cached JSON — circular + redundant; always rebuilt from
+the real `CacheEntry` on read).
+
+### Cache-first pattern (`buildPageDigest` / `buildChapterDigest` / `buildSeriesDigest`)
+
+Each builder takes `cache: Cache` (required, passed explicitly — never a module singleton) and
+`force: Boolean = false`:
+
+- `force=false` + fresh hit → cached value, no network.
+- `force=false` + stale hit → returns the stale value now, fires a background refresh (same
+  function, `force=true`, own `CoroutineScope`) — the caller never waits.
+- `force=false` + miss, or `force=true` → fetch fresh, write before returning (a forced call
+  never skips the write, only the read).
+
+`force` propagates top-down: a forced Series refresh forces every Chapter and every Page.
+
+Keys today: Page `"chapterId:pageIndex"` (`domain="page"`, `variant=""`); Chapter
+`"chapterId:full"` (`domain="chapter"`, `variant="full"`); Series
+`"seriesId:full:includeExternalMetadata"` (`domain="series"`, `variant="full:external"`). All
+`mode = PERSISTENT` — no domain has needed `MEMORY_KOTLIN` yet (decided per case).
+
+**Known trade-off (backlog 017, not solved)**: a Chapter's cached JSON embeds its full
+`PageDigest` list (each Page also has its own cache entry — real duplication); a Series embeds
+full Chapters. A referenced-by-key cascade would fix it at the cost of N synchronous reads and
+harder staleness semantics.
+
+> **Read-path precedence** (force wins / cache-first + bg refresh / optimistic-local, and how
+> they compose — timestamps are the tiebreaker, not source priority) lives in
+> [`data-freshness.md`](data-freshness.md). Every read path follows it; when a concrete rule
+> seems to contradict it, the principle wins.
+
+### `:preferences` — Layer 2 (generic preferences)
+
+Replaced `series_sort_prefs` and `ui_preferences` entirely (the latter dropped in Task 039).
+Facade `Preferences.kt`: `get`/`put`/`delete`/`deleteDomain` (key/value/domain/variant), thin
+passthrough to `PreferenceDao`. **No TTL** — a preference is the source of truth, never stale.
+Single backend (Room) → `PreferenceDescriptor` has no `mode`.
+
+Domains on `:preferences` today: `chapterSortPrefs` (`ChaptersTool.sort`), `libraryLayout`
+(`library.prefs.ts`), `readerPrefs` (`ReaderPrefs` — keep-screen-on / immersive),
+`readingModePrefs` (`ReadingModeTool`).
+
+### `:external-metadata-server` — Layer 1 + 2 (external metadata)
+
+Replaces `features/bff/BffFeature.kt`. Own module because it enriches by correlated id, it
+doesn't read content. Facade `ExternalMetadataServer.kt` manages groups + `match`/`matches`
+(given a batch of series refs, returns metadata matches), exposes `ExternalMetadataResponse<T>`.
+`plugins/m3/M3Plugin.kt` is the user's personal BFF, uses `Cache.network` for single-flight.
+
+### `:app` — Android shell + NativeModule bridges
+
+`MainApplication.kt` (Hilt `Application`, injects everything into `AppReactPackage`, runs
+`OtaManager.discardStaleBundleIfNeeded()` on `onCreate`), `MainActivity.kt` (`ReactActivity`,
+owns the Android-12 splash via `core-splashscreen` — there is no `SplashActivity`),
+`AppReactPackage.kt` (**central registry of every NativeModule** — built by hand in
+`createNativeModules()`; Hilt injects deps *into `AppReactPackage`*, not into each bridge),
+`CrashGuard.kt`, `ReactBridgeSupport.kt` (`emitEvent` + `Result<T>.resolveOrReject`).
+
+**One NativeModule per responsibility, not per screen:**
+
+| Bridge | Reaches | Notes |
+|---|---|---|
+| `DigestBridgeModule` (+ `DigestBridgeMappers`) | `:content-digest` builders | `getPageDigest`, `getChapterDigest` (`{full, force}`), `getSeriesDigest` |
+| `ServerBridgeModule` | `:server` | server groups, `listSerials`, plugin-level reads/writes (`setChapterRead`, progress) |
+| `CacheBridgeModule` (+ `CacheBridgeMappers`) | `:cache` | `persistentX`/`memoryKotlinX` × get/put/invalidate/purge. `network` **not** bridged (its `block` is Kotlin) |
+| `PreferencesBridgeModule` (+ `PreferencesBridgeMappers`) | `:preferences` | get/put/delete/deleteDomain |
+| `ExternalMetadataBridgeModule` | `:external-metadata-server` | groups + `match`/`matches` |
+| `FollowedSeriesBridgeModule` | `FollowedSeriesDao` | follow is 100% local — separate from `SeriesModule` so `SerieTool` depends on just the DAO |
+| `ScreenControlModule` | WindowManager | `keepScreenOn`/`allowScreenOff`/`setImmersiveMode` — side-effect-only since Task 039 |
+| `NetworkStatusModule` | `ActiveUrlWatcher` | `activeUrlChanged` stream — genuinely native origin |
+| `OtaEventBridge` / `OtaBindingsModule` | `:tools` OTA | `otaBundleReady` event + Hilt `@Binds` |
+| `ReaderPageListView` / `ReaderPageListViewManager` | `ReaderPageList.kt` | Compose view exposed to RN (see Reader exception) |
+| `SeriesModule` (legacy) | `KavitaChapterFeature` / `KavitaSeriesFeature` | `getSeriesDetail`, `getCachedChapters`, `markChaptersRead/Unread`, `seriesFollowedIds` emitter. Shrinking; still used by the reader's mark path |
+| `ReaderChapterModule` (legacy) | `ChapterDataSource` | thin RPC — stays until the reader's non-digest consumers migrate |
+| `StartupModule` / `SetupModule` (legacy) | `SplashSyncCoordinator`, `KavitaAuthFeature`, `BffFeature` | splash sync + onboarding |
+| `ConfigRepository` / `DbValidator` (legacy) | `ConfigStore` | server/auth/BFF config; DB health for the splash |
+
+### Legacy Kotlin — `:features` (being removed)
+
+Everything in `android/features/` is the pre-plan-017 model. `:server` + `:content-digest`
+replace it. Still alive:
+
+| File | Replaced by | Removed when |
+|---|---|---|
+| `features/kavita/KavitaSeriesFeature.kt` | `:server` KavitaSeries + `:content-digest` SeriesDigest | `SeriesModule` / `SplashSyncCoordinator` off it |
+| `features/kavita/KavitaChapterFeature.kt` (impl. of `ChapterDataSource`) | `:server` KavitaChapter + `:content-digest` ChapterDigest/PageDigest | `ReaderChapterModule` / `SeriesModule` off it |
+| `features/kavita/chapter/ChapterDataSource.kt` | digest stack | its last consumers migrate |
+| `features/kavita/KavitaAuthFeature.kt` | `:server/plugins/kavita/auth/KavitaAuth.kt` | `SetupModule` migrated |
+| `features/kavita/KavitaUrlSelector.kt` | URL selection rises into `:server` | (Task 012 decision) |
+| `features/kavita/ActiveUrlWatcher.kt` | — **stays** (genuinely native origin) | — |
+| `features/bff/BffFeature.kt` | `:external-metadata-server` + `M3Plugin` | `LibraryModule.syncBff` gone (done) / `SetupModule` migrated |
+| `features/startup/SplashSyncCoordinator.kt` | (to redefine once Library/Reader fully migrate) | — |
+| `features/kavita/reader/ui/*` (`ReaderPageList.kt`, `SduNode.kt`, `PagePreloader.kt`, …) | — **stays** — the native-rendering exception, not legacy | — |
+
+---
+
+## Screen file convention (RN)
+
+**Current** — `serie/`, `reader/`, and `config/reader/` (rewritten / added under plan 017), the
+target for any new or migrated screen:
 
 - `<name>.screen.tsx`, `<name>.hooks.ts` (in `hooks/`), `<name>.types.ts`, `<name>.styles.ts` —
   all kebab-case, role in the filename.
 - Each dumb component gets its own subfolder: `components/<comp>/<comp>.component.tsx` +
   `<comp>.styles.ts` + `<comp>.tests.tsx` + `index.ts`. Style is always a separate file (no
   inline `StyleSheet.create` in a `.component.tsx`).
-- Pure state-shape logic that only this screen has goes in a screen-local model file
-  (`<name>.model.ts` / `<name>.window.ts` — see "No `Transform` layer" below), never a
-  `transforms/` folder. A screen is its own micro-ecosystem: it may keep its own `hooks/`,
-  `components/`, local model/adapter files — anything that concerns only itself. Shared domain
-  logic still lives in `shared/tools/<domain>/` or `shared/transforms/<domain>.ts`.
+- Pure state-shape logic only this screen has → a screen-local model file
+  (`<name>.model.ts` / `<name>.window.ts`), never a `transforms/` folder. **A screen is its own
+  micro-ecosystem** — it may keep its own `hooks/`, `components/`, local model/adapter files;
+  shared domain logic still lives in `shared/tools/<domain>/`.
 
-The **legacy** one — `config/`, `following/`, `library/`, `search/`, `setup/`, `splash/`:
-`LibraryScreen.tsx`, `useLibrary.ts`, `LibraryTransform.ts` (PascalCase, flat, `use*` hook).
-Migrate to the current convention when a screen is next touched substantially; don't rename
-wholesale for its own sake.
+**Legacy** — `config/` (except `config/reader/`), `following/`, `library/`, `search/`, `setup/`,
+`splash/`: `LibraryScreen.tsx`, `useLibrary.ts` (PascalCase, flat, `use*` hook). Some already
+have a `hooks/` subfolder (`library/hooks/library.hooks.ts`). Migrate to the current convention
+when a screen is next touched substantially; don't rename wholesale for its own sake.
 
 ### No `Transform` layer
 
-**Decided: there is no `transforms/` folder and no `*Transform.ts` file in a screen.** Pure
-derivation lives in one of:
+**There is no `transforms/` folder and no `*Transform.ts` file in a screen** (nor a
+`shared/transforms/` folder any more). Pure derivation lives in one of:
 
-- **The domain `Tool`** (`shared/tools/<domain>/<domain>.tool.ts`) — anything about normalizing
-  or formatting that domain's entity: turning a digest into the screen's shape, display labels,
-  "effectively read", resolve-initial-page, etc. `ChapterTool.format.title` /
-  `ChapterTool.mark.*` are the pattern; `ChapterTool.fromDigest` / `ChapterTool.order.*` extend
-  it.
-- **A screen-local model file** (`<name>.window.ts`, `<name>.model.ts`) — pure state-shape logic
-  that only that screen has and no other domain would reuse (e.g. the reader's `ReaderWindow`
-  math: `buildWindow`, `computeWindowAfterFocusMove`).
-- **The mode adapter** (`<screen>/modes/<mode>.adapter.ts`) — anything that translates for one
-  rendering mode (the webtoon report → trigger, window → native blocks).
-- **`shared/transforms/<domain>.ts`** still exists for genuinely cross-screen pure functions —
-  that is the *shared* layer, not a per-screen `Transform`.
+- **The domain `Tool`** (`shared/tools/<domain>/<domain>.tool.ts`) — normalizing/formatting that
+  domain's entity, for anything reusable across screens (`ChapterTool.format.title`,
+  `ChapterTool.mark.*`, `SerieTool.normalize`).
+- **A screen-local model file** (`<name>.model.ts` / `<name>.window.ts`) — pure state-shape
+  logic only that screen has (the reader's `reader.model.ts` chapter helpers and
+  `reader.window.ts` `ReaderWindow` math — Task 037).
+- **The mode adapter** (`<screen>/modes/<mode>.adapter.ts`) — per-rendering-mode translation
+  (webtoon report → trigger, window → native blocks).
 
 `serie/` already follows this (`sortChapters` inline in `serie.hooks.ts`, normalization in
-`SerieTool`/`ChapterTool`). `reader/` used to have a `transforms/` folder from its rewrite —
-Task 037 dissolved it: the chapter-shape/read-state helpers went to `screens/reader/reader.model.ts`
-(a screen-local model file — only the reader consumes them), the `ReaderWindow` math to
-`screens/reader/reader.window.ts`, and the webtoon report/blocks functions folded into
-`screens/reader/modes/webtoon.adapter.ts`. No `screens/*/` folder has a `transforms/` folder or a
-`*Transform.ts` file any more. The `CLAUDE.md` "Tool → Hook → Service → Transform → Screen →
-Component" line is stale on the `Transform` step; treat it as "Tool/model → Hook → …".
-
-## Domain Composition
-
-Domains are organized **micro → macro**. Each domain only handles its own
-concern and delegates downward to the smaller domain when needed:
-
-```
-Page  →  Chapter  →  Series  →  Library
-(micro)                          (macro)
-```
-
-### Rules
-
-- `Chapter` knows how to format/handle a chapter.
-- `Series` knows how to format/handle a series — calls `Chapter` when it needs
-  chapter data.
-- `Library` knows how to format/handle the library — calls `Series` when it
-  needs series data.
-- Each domain owns its transform, service, and bridge files.
-- **Never** put series-domain logic inside Library files, or chapter-domain
-  logic inside Series files.
-
-### In Kotlin
-
-Each subdomain lives in its own subfolder under `features/kavita/`:
-
-```
-features/kavita/
-├── library/    KavitaLibraryFeature.kt  — lists the library (POST /api/Series/all-v2)
-├── series/     KavitaSeriesFeature.kt   — single series detail + metadata
-└── chapter/    KavitaChapterFeature.kt  — chapters, mark-read/unread, progress
-                ChapterSyncCoordinator.kt
-```
-
-Kotlin is a **data bridge only** — it exposes raw data to RN and holds the
-minimum Android-only logic (Room cache, authenticated requests, sync
-coordinators). Business logic, ordering, and formatting live in RN.
-
-When to write Kotlin logic: only when there is an indispensable Android
-technical advantage — Room cache, authenticated HTTP, SyncCoordinator.
-Never duplicate logic the RN layer already performs.
-
-### In React Native
-
-```
-shared/transforms/series.ts    — pure functions for series domain
-shared/transforms/chapter.ts   — pure functions for chapter domain
-shared/bridge/series.ts        — types + bridge for Series/Chapter Native Module
-screens/series-detail/
-  SeriesDetailTransform.ts     — screen-specific derived data (sort, continue-chapter)
-  SeriesDetailService.ts       — thin wrapper delegating to bridge
-  useSeriesDetail.ts           — orchestrates state + side-effects
-```
-
-`screens/*/` contains only what is specific to that screen. Shared domain
-logic must live in `shared/transforms/<domain>.ts` so other screens can
-reuse it without crossing screen boundaries.
+`SerieTool`/`ChapterTool`). Task 037 dissolved the reader's `transforms/` folder.
 
 ---
 
-## Kotlin Layer Rules
+## RN shared layers
 
-| Layer      | May depend on  | Never depends on |
-|------------|---------------|-----------------|
-| `core/`    | —             | `tools/`, `features/` |
-| `tools/`   | `core/`       | `features/`     |
-| `features/`| `core/`, `tools/` | —           |
-| `app/`     | all three     | —               |
+### `shared/services/` — Layer 4
 
-## Key Concepts
+Thin wrappers: aggregate Layer 3 (digest) or Layer 2 (server) into screen-ready data. No cache,
+no transformation — the caller gets exactly what the bridge produced.
 
-- **Plugin point**: one install file wires up the active implementation;
-  the rest of the app only knows the abstraction.
-- **Bridge RPC**: JS calls Kotlin tools (`request`, `cachedRequest`,
-  `authenticatedRequest`, `db.*`, domain repos).
-- **Bridge Stream**: Kotlin emits events RN observes (`events.notification`,
-  `events.syncProgress`, `events.dbChanged`, `events.networkState`).
-- **JS-side DB**: isolated SQLite (not Room) for tables owned entirely by JS.
-  Can be promoted to Room later via a defined migration protocol.
-- **OTA**: app checks `latest.json` on startup; downloads newer JS bundle
-  in background; switches on next launch. Rollback: keeps previous bundle,
-  marks stable after N crash-free opens. Staleness after a local rebuild
-  is detected by comparing build timestamps, not version strings — see
-  `mistakes.md` #13.
-- **Layered preference override**: a setting can exist at up to three
-  priority levels — session-only (in-memory, resets on screen exit),
-  per-item persisted override (e.g. `series_sort_prefs`, with an explicit
-  reset-to-default action), and app-wide global default. The effective
-  value is resolved top-down (session > per-item > global) each time the
-  screen loads. First used for chapter sort mode in Series Detail; reuse
-  this pattern for any future setting that needs the same "quick session
-  tweak vs. sticky per-item vs. app default" shape.
+- `chapters/chapters.services.ts` — `ChapterService`: `get`/`getFull` via
+  `DigestBridge.getChapterDigest`; `raw`/`progress`/`status` via `ServerBridge`.
+  `status.set({seriesId, chapterId, isRead})` is the current mark path.
+- `pages/pages.services.ts` — `PageService`: `get` via `DigestBridge.getPageDigest`.
+- `serials/serials.services.ts` — `SerialsService`/`SerialService`: `list` direct on
+  `ServerBridge.listSerials`; `get`/`getFull` (single series, `{full, force}`),
+  `chapters.status.set` (batch mark).
+- `servers/servers.services.ts` + `servers/external.services.ts` — server groups; external
+  metadata `match`/`matches`.
 
-## Cache Guideline — `Cache` (Kotlin) + `CacheManager` (RN)
+### `shared/tools/` — Layer 3 (domain normalizers + generic tools)
 
-*Kotlin side implemented (Task 023). RN side (`CacheManager`) not started
-yet — see "Deliberately deferred" below.*
+Where the **canonical shape** of each domain is defined in RN, and optimistic actions live.
 
-> **Read-path precedence rules live in [`data-freshness.md`](data-freshness.md)** — force wins,
-> cache-first + background refresh, optimistic-local, and how they compose (timestamps are the
-> tiebreaker, not source priority). Every read path — Digest builders, Services/Tools, screen
-> hooks — follows it; when a concrete rule seems to contradict it, the principle wins.
+- `chapters/chapters.tool.ts` — `ChapterTool` (`normalize`, `format.title`,
+  `mark.read/unread/toggle/readMany/unreadMany` — optimistic → confirm → revert, via `onUpdate`
+  **and** `EventBus.emit(ChapterEvents.readStatusChanged, …)`). `ChaptersTool.sort` (global +
+  per-series override, via `PreferencesManager`).
+- `series/serie.tool.ts` — `SerieTool` (`normalize`, `isFollowed`, `toggleFollow` optimistic via
+  `FollowedSeriesBridge`).
+- `reader/reader-prefs.tool.ts` — `ReaderPrefs` (keep-screen-on / immersive, `:preferences`,
+  domain `readerPrefs`). In `shared/` because both Config and Reader consume it.
+- `actions/action.tool.ts` — `ActionContract` + `createNavigateAction(...)`, EventBus-ready.
+- `methods/methods.tool.ts` — `Methods.requireArgs(...)` (guards required fields against plain-JS
+  callers) + partial-arg walker.
 
-Every domain that needs local cache reuses one generic module (`:cache`,
-Layer 1 — as domain-agnostic as `:core` itself) instead of inventing its
-own ad-hoc mechanism, as `LibraryModule.kt`'s old `@Volatile var` fields,
-per-domain Room tables (`series_detail_cache`/`chapter_cache`), and
-`M3Plugin`'s/`ActiveUrlSelector`'s own hand-rolled `Mutex`+`Map` memoization
-all did historically (`M3Plugin` migrated to `Cache.network` in Task 023;
-`ActiveUrlSelector` has not been migrated yet).
+### `shared/managers/` — Layer 3 infra (not domain tools)
 
-### `Cache` (Kotlin) — three backends, one facade
+Generic RN infra, siblings of `:cache`/`:preferences` on the RN side.
 
-```kotlin
-class Cache {
-    val persistent: Persistent   // Room-backed, survives app restart
-    val memoryKotlin: MemoryKotlin // in-process Map, lives only as long as this Kotlin process
-    val network: Network          // not a value store — single-flight + TTL around a suspend block
-    fun storeFor(mode: CacheMode): CacheStore // resolves persistent/memoryKotlin automatically
-}
-```
+- `caches/` — `CacheManager` dispatches by mode (PERSISTENT / MEMORY_KOTLIN / MEMORY / NETWORK)
+  to the right handler. Thin — the cache-first *decision* lives in the Kotlin digest builders.
+  `network` is JS-only (the `block` never crosses the bridge). The RN-only `MEMORY` mode is not
+  built yet.
+- `preferences/` — `PreferencesManager`, thin passthrough to `PreferencesBridge`.
+- `events/` — `EventBus` (singleton pub/sub) + `createEvent<T>(name)` + `useEvent(token, handler)`.
+  RN→RN mechanism. Chain-cycle guard (same token re-entering / depth > 50).
+- `store/` — `ReadingProgressManager` (reader's local `{seriesId, page, scrollFraction}` per
+  chapterId, `domain: 'readingProgress'`, no TTL — its `cachedAtEpochMs` IS "updated at";
+  `resolveInitialPage` compares it against the server `resumePoint.recordedAtEpochMs`, newest
+  wins), `series-digest.store.ts` (SeriesDigestIndex the Library reads).
 
-- **`persistent`/`memoryKotlin`** both implement `CacheStore` — the same
-  contract (`get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/
-  `purgeExpired`/`purgeOlderThan`), differing only in where the data
-  physically lives. `put()` returns the `CacheDescriptor` it just produced
-  (never `Unit`) — a caller building a digest attaches provenance without
-  re-deriving it.
-- **`network`** protects a network call from redundant concurrent
-  execution (single-flight via a `Mutex` per key, not one global lock) plus
-  a TTL memoization window — a different shape (`run(key, ttlMs, block)`,
-  no `value`/`domain`/`variant`) but the same lifecycle parity as the other
-  two (`invalidate`/`purgeExpired`/`purgeOlderThan`).
+### `shared/bridge/` — types + NativeModule handles
 
-**Key/variant/domain convention** (`CacheEntity`, `:core`): `domain` is a
-caller-chosen label (`"page"`/`"chapter"`/`"series"`/...) opaque to `Cache`,
-only used for `invalidateDomain`/`invalidateVariant`. `variant` names which
-parameter(s) change a payload's shape (`"full"`, or `"full:external"` for
-more than one, colon-separated — never the values); `key` carries the
-entity id plus that same parameter's value(s) in the same positional order
-(`"c1:true"`, `"s1:true:false"`). A domain with no such parameter (e.g.
-Page) uses `variant = ""` and `key` = the bare id. Primary key is
-`(key, variant)` together.
+`index.ts` re-exports everything, renaming legacy types to `Legacy*` so they don't collide with
+the real ones in `digest.ts`. New: `digest.ts`, `server.ts`, `cache.ts`, `preferences.ts`,
+`external.ts`, `followedSeries.ts`. Legacy: `series.ts` (`SeriesBridge`), `config.ts`
+(`ConfigRepository` — `UiPreferences` removed in Task 039), `startup.ts`, `chapter.ts`,
+`page.ts`. Common: `network.ts` (`ActiveUrlChangedEmitter`).
 
-**`CacheDescriptor`** — created at Layer 1 (`:cache`), embedded inside a
-domain digest's own `cache` field (`PageDigest.Success.cache`,
-`ChapterDigest.Success.cache`, `SeriesDigest.Success.cache`, all
-`:content-digest`), marked `@Transient` on every digest (never serialized
-inside the JSON persisted in `Cache` itself — it would be circular at
-write time, and redundant with what `Cache` already knows for that row;
-always reconstructed from the real `CacheEntry` when a value is read back):
+---
 
-```kotlin
-enum class CacheMode { PERSISTENT, MEMORY_KOTLIN } // MEMORY (RN-only) and NETWORK never produce a descriptor
+## The 3 communication mechanisms (Task 013)
 
-data class CacheDescriptor(
-    val key: String,
-    val variant: String,
-    val domain: String,
-    val mode: CacheMode,
-    val cachedAtEpochMs: Long,
-    val expiresAtEpochMs: Long,
-)
-```
+1. **RN → Kotlin** — always `@ReactMethod` + `Promise` (request → execution → direct response).
+   No "imperative ref call" shape — a native-view command is a regular module method that
+   resolves its Promise only when the view confirms.
+2. **Kotlin → RN** (`NativeEventEmitter`, multi-listener) — **only** events Kotlin observes on
+   its own, never a response to an RN request (physical scroll `onVisiblePageChanged`, active-URL
+   change, Room `Flow`). Kotlin never broadcasts a confirmation of something RN asked for —
+   whoever asked gets the result directly, and propagating it further is that RN caller's job.
+3. **RN → RN** (`EventBus`, `shared/managers/events/`) — events with no native origin at all.
+   Each event is a typed **token** declared next to whoever first emits it
+   (`ChapterEvents.readStatusChanged` in `chapters.tool.ts`).
 
-### Cache-first pattern in `:content-digest` (`buildPageDigest`/`buildChapterDigest`/`buildSeriesDigest`)
-
-Each builder takes `cache: Cache` (required, same convention as `server:
-Server` — passed explicitly, never a module-level singleton) and
-`force: Boolean = false`:
-
-- `force = false` + fresh hit → returns the cached value, no network call.
-- `force = false` + stale hit → returns the stale value immediately, fires
-  a background refresh (the same function, `force = true`, on its own
-  `CoroutineScope`) that re-fetches and rewrites the cache — the original
-  caller never waits for it.
-- `force = false` + miss, or `force = true` → always fetches fresh and
-  writes the result before returning (a forced call never skips the write,
-  only the read).
-
-`force` propagates top-down through the domain composition: a forced
-Series refresh forces every Chapter it builds, which forces every Page —
-a manual "refresh everything" action from the Series level never leaves a
-stale Chapter or Page underneath a freshly-refreshed Series.
-
-Keys today: Page `"chapterId:pageIndex"` (`domain="page"`, `variant=""`);
-Chapter `"chapterId:full"` (`domain="chapter"`, `variant="full"`); Series
-`"seriesId:full:includeExternalMetadata"` (`domain="series"`,
-`variant="full:external"`). All three currently use `mode = PERSISTENT` —
-no domain has been judged to need `MEMORY_KOTLIN` yet (that decision is
-still made per case, only when a real reason shows up, not from a general
-survey).
-
-`ChapterDigest.Success.prevChapter`/`nextChapter` are merged on write, not
-overwritten blindly: a write that receives neither (e.g. a direct
-`getChapterDigest` RN call, no Series in the loop) preserves whatever
-neighbors an earlier Series-driven write already attached; a write that
-receives at least one neighbor always wins.
-
-**Known trade-off, deliberately not solved yet** (see backlog 017): a
-Chapter's cached JSON embeds its full `PageDigest` list (each Page also has
-its own separate cache entry — real duplication), and a Series embeds full
-`Chapter`s the same way. A referenced-by-key cascade (Chapter stores Page
-keys, re-reads each from `Cache` instead of embedding a copy) would remove
-the duplication and fix a subtle staleness gap (an embedded Page doesn't
-know it's expired even if its own TTL has elapsed), at the cost of turning
-one cache read into N synchronous reads and more complex staleness
-semantics — not implemented.
-
-### `BackgroundExecute` (`:tools`) — generic fire-and-forget with `Cache`
-
-```kotlin
-class BackgroundExecute {
-    fun launch(fetchFn: suspend () -> String): Job                                    // runs fetchFn, writes nothing
-    fun launchWithStore(fetchFn: suspend () -> String, descriptor: CacheDescriptor): Job // runs fetchFn, writes the result via Cache.storeFor(descriptor.mode)
-}
-```
-
-Both return the started `Job` — never awaited internally — so a caller
-that wants to react once the refresh finishes (e.g. an `EventBus` emit,
-once that exists) can call `job.invokeOnCompletion { ... }` itself.
-`:cache` was promoted to Layer 1 (as generic as `:core`) so `:tools`
-(Layer 1) could depend on it without inverting `core ← tools ← features`.
-Not used by the digest builders above (each calls itself recursively
-instead — it already knows how to fetch); available for other callers
-(e.g. a future RN-driven background refresh) that need the same
-fire-and-forget shape without duplicating the pattern.
-
-**`CacheManager` (RN) — implemented** (`shared/managers/caches/`). As
-predicted it's thin: the cache-first *decision* (read vs. fetch vs.
-stale-refresh) lives in the Kotlin digest builders, not here. `CacheManager`
-just exposes `CacheBridge` by mode — `persistent` / `memoryKotlin` ×
-`get`/`put`/`invalidate`/`invalidateDomain`/`invalidateVariant`/
-`purgeExpired`/`purgeOlderThan` (`network` deliberately not bridged — its
-`block` is a Kotlin function). The RN-only `MEMORY` mode is still not built.
-
-**Managers built on top of `CacheManager.persistent`** — a domain that
-needs a small typed store keyed by id wraps `CacheManager.persistent`
-rather than talking to the bridge directly:
-- **`PreferencesManager`** (`shared/managers/preferences/`) — over
-  `:preferences` (its own Room table, not `:cache`); used by
-  `ChaptersTool.sort`, `ReadingModeTool`.
-- **`ReadingProgressManager`** (`shared/managers/reading-progress/`) — the
-  reader's local reading position (`{ seriesId, page, scrollFraction }` per
-  chapterId), `domain: 'readingProgress'`, no TTL. The cache entry's
-  `cachedAtEpochMs` IS its "updated at" — `resolveInitialPage` compares it
-  against the server `resumePoint.recordedAtEpochMs`, newest wins (see
-  `data-freshness.md`). A temporary sync buffer, not the source of truth;
-  a boot reconciliation to prune it against the server is a separate task.
-
-**Deliberately deferred:**
-- **Who calls `purgeExpired`/`purgeOlderThan`** — implemented on
-  `persistent`/`memoryKotlin`/`network`, exposed over the bridge, but
-  nothing calls them yet. Expected to be a splash-screen routine on the RN
-  side.
-- **Whether a given field/domain should be `MEMORY_KOTLIN` instead of
-  `PERSISTENT`** — decided per case, only when a real reason shows up
-  (e.g. a field that changes too often to be worth surviving restart).
+---
 
 ## Reader Screen — the one native-rendering exception
 
-The reader (`screens/reader/`) is the **only** screen in this codebase where
-pixels are drawn by Kotlin instead of React Native. Every other screen is
-100% RN — this is a deliberate, narrow exception, not a precedent for
-"Kotlin can render UI when convenient."
+`screens/reader/` is the **only** screen where pixels are drawn by Kotlin. Every other screen is
+100% RN — a deliberate, narrow exception, not a precedent.
 
-### Why this screen breaks the rule
+**Why**: manga/webtoon pages are tall bitmaps (10,000+ px). FlashList (originally planned — see
+`completions/007-*`) hits Android's `GL_MAX_TEXTURE_SIZE` on some devices: a page taller than
+the GPU max renders collapsed or black, regardless of how JS slices scroll. No RN-only list
+avoids this. The fix is a Compose `LazyColumn` (`ReaderPageList.kt`, `features/kavita/reader/ui/`)
+exposed to RN as one native view (`ReaderPageListView` / `ReaderPageListViewManager`).
 
-Manga/webtoon pages are tall bitmaps (a single scan can be 10,000+ px tall).
-FlashList (the RN list originally planned for this screen — see
-`.claude/sessions/completions/007-*` for the full record) hits Android's
-`GL_MAX_TEXTURE_SIZE` ceiling on some devices: a webtoon page taller than
-the GPU's max texture dimension either renders as a collapsed strip or goes
-black, regardless of how the RN side slices scroll. No RN-only list
-implementation avoids this — the constraint is in the platform's texture
-pipeline, below anything JS can reach.
+### If native rendering is ever needed for another screen
 
-The fix requires a Compose `LazyColumn` (`ReaderPageList.kt`,
-`features/kavita/reader/ui/`), exposed to RN as a single native view
-(`ReaderPageListView`/`ReaderPageListViewManager`, `app/`). Compose's own
-draw pipeline (RenderNode/Canvas, width-constrained via `fillMaxWidth()`
-inside the list) doesn't hit the texture ceiling — confirmed against the
-reference project (my-manga-app-reader) using the same approach.
+Last resort, only for a platform ceiling no RN-side fix can reach. Same shape, in order:
 
-### If this needs to happen again for a different screen
-
-Native rendering is the **last resort**, only justified by a platform
-constraint no RN-side fix can work around (not "it's easier in Kotlin" or
-"it's faster to prototype"). Before reaching for it, exhaust RN-side
-options — including using Reanimated/Skia from the RN side, virtualizing
-differently, or downsampling. If a real platform ceiling forces the native
-path, follow the same shape this screen uses, in this order:
-
-1. **RN owns every decision, Kotlin only draws.** Which items are loaded,
-   when to advance/retreat, all business logic — stays in the hook
-   (`screens/reader/hooks/reader.hooks.ts`). The native view is a dumb
-   renderer: it receives a list of data and reports back what's visible
-   (`onVisiblePageChanged`) or what happened (`onTap`,
-   `onScrollToChapterHandled`). Kotlin never decides navigation, never
-   fetches data on its own.
-2. **Server-Driven UI (SDU) for anything besides the raw content itself.**
-   Don't hardcode headers/footers/labels/spacing as fixed Kotlin
-   Composables — RN sends a small generic node tree (`SduNode.kt`:
-   `Container`/`TextNode`/`Spacer`, interpreted by `SduNodeView`) describing
-   colors, text, padding, layout direction. Kotlin's only job is interpreting
-   that tree generically; it never encodes what a "header" or "footer" IS.
-   Any new visual composition is expressible as data from RN with zero
-   Kotlin changes. Extend the node vocabulary only when a real need shows
-   up (e.g. an `Icon` node), never speculatively.
-3. **Single Responsibility per Composable/file.** `ReaderPageList.kt` only
-   lays out entries and reports scroll signals; `SduNodeView` only
-   interprets SDU nodes; `ReaderPageImage` only decodes/displays one page;
-   `PagePreloader`/`SafeBitmapDecoder` only handle image loading. Don't let
-   one Composable both decide navigation and render pixels.
-4. **Event-oriented, never polled.** The View emits discrete RN events
-   (`onVisiblePageChanged`, `onScrollToChapterHandled`, `onTap`) through
-   `RCTEventEmitter` — RN reacts to them, it never polls Kotlin state.
-   One-shot requests (e.g. "scroll to this chapter") are cleared back to
-   null by RN once handled (`onScrollToChapterHandled`), so a natural
-   forward scroll is never fought by a stale programmatic jump.
+1. **RN owns every decision, Kotlin only draws.** Loading, advance/retreat, all business logic
+   stays in `reader.hooks.ts`. The native view receives a list and reports what's visible
+   (`onVisiblePageChanged`) or what happened (`onTap`, `onScrollToChapterHandled`).
+2. **Server-Driven UI for anything but raw content.** RN sends a small generic node tree
+   (`SduNode.kt`: `Container`/`TextNode`/`Spacer`, interpreted by `SduNodeView`). Kotlin never
+   encodes what a "header" is. Extend the vocabulary only on a real need.
+3. **Single Responsibility per Composable/file.** `ReaderPageList.kt` lays out + reports scroll;
+   `SduNodeView` interprets nodes; `ReaderPageImage` decodes one page; `PagePreloader` /
+   `SafeBitmapDecoder` handle loading.
+4. **Event-oriented, never polled.** Discrete RN events via `RCTEventEmitter`. One-shot requests
+   ("scroll to this chapter") are cleared to null by RN once handled.
+5. **Decoupled from any provider.** The View's props (`ChapterBlock`: `chapterId`, `pageUrls`,
+   `pageAspectRatios`, `firstNode`, `lastNode`) carry plain data — the rendering layer has no
+   idea what "Kavita" is.
 
 ### Chapter-switch contract (`ReaderWindow` + `moveFocus`)
 
-The reader had a class of recurring navigation bugs (documented: pressing
-"next" on chapter 26 jumped straight to 28) caused by **two uncoordinated
-mechanisms writing the same chapter-navigation state** — the native list's
-continuous scroll (`onVisiblePageChanged`) and the manual overlay arrow —
-racing through a read-modify-write on a named `{prev, curr, next}` trio.
-The rewrite (`screens/reader/`) replaces that with one model and one path:
+The reader had recurring navigation bugs (pressing "next" on chapter 26 jumped to 28) caused by
+**two uncoordinated mechanisms writing the same navigation state** — native continuous scroll
+and the overlay arrow, racing a read-modify-write on a `{prev, curr, next}` trio. The rewrite
+replaces that with one model, one path:
 
-- **`ReaderWindow { entries: LoadedChapterEntry[]; focusedIndex: number }`** —
-  a position-indexed window (a ruler + a pointer), a contiguous slice of the
-  series' canonical reading order. `focusedIndex` is the *only* source of
-  truth for "where the user is"; there is no separate `curr` that can
-  desync. Moving chapter = moving the index, one atomic assignment in the
-  reducer. The window is **append-only** on natural scroll
-  (`computeWindowAfterFocusMove` only ever moves `focusedIndex` or grows an
-  end) — it never reorders or drops an entry, so the native list's scroll
-  position stays valid across a crossing.
+- **`ReaderWindow { entries: LoadedChapterEntry[]; focusedIndex: number }`** — a position-indexed
+  window (ruler + pointer), a contiguous slice of the series' canonical reading order.
+  `focusedIndex` is the *only* source of truth for "where the user is". Moving chapter = moving
+  the index, one atomic reducer assignment. **Append-only** on natural scroll
+  (`computeWindowAfterFocusMove` only moves the index or grows an end) — never reorders/drops, so
+  the native scroll position stays valid across a crossing.
+- **One path for a scroll crossing: `moveFocus(trigger)`** in `reader.hooks.ts`. The screen
+  forwards the native payload verbatim (`onNativePosition`); the hook dispatches
+  `MOVE_FOCUS { trigger, order }` and the **reducer** computes the transition against its own
+  `state.window`, so two reports in one React batch serialize. No settling timer, no parallel
+  window copy.
+- **Arrows / jump reload, they don't scroll.** They call
+  `openChapter(targetId, { startAtBeginning: true })` — the same flow that opens the screen —
+  building a fresh `[prev?, target, next?]` window and bumping `State.nativeListKey`. The screen
+  passes `nativeListKey` as the `key` of `<ReaderPageListView>`, so React remounts the native
+  view fresh on the target chapter with no inherited scroll offset. Deliberate:
+  `scrollToItem` / `scrollToPositionWithOffset` proved unreliable across many device builds. A
+  natural-scroll crossing does **not** bump `nativeListKey`.
+- **Cold-open prev.** A bare `ChapterService.getFull` carries no embedded `prevChapter` (only a
+  Series-driven fetch attaches those), and on first open the canonical order hasn't loaded — so
+  `buildWindow` can't include the prev. `reconcileWindow` (run once the order lands) prepends it.
+- **`scrollRequest`** — a one-shot `{ chapterId, page }` used only for "continue reading" (initial
+  page != 0), never set by a native-scroll report. Consumed via `onScrollToChapterHandled`.
 
-- **One path for a scroll crossing: `moveFocus(trigger)`** in
-  `reader.hooks.ts`. The screen forwards the native payload verbatim
-  (`onNativePosition`); the hook decides. `moveFocus` just dispatches
-  `MOVE_FOCUS { trigger, order }` and the **reducer** computes the
-  transition against its own `state.window`, so two reports in the same
-  React batch serialize (the 2nd builds on the 1st's result) — no settling
-  timer, no parallel window copy in a ref.
+The Kotlin side is unchanged by this contract — window, `moveFocus`, reducer, remount trigger are
+all RN. If a piece looks easier in Kotlin, that's a design error in the RN model, not an
+exception.
 
-- **Arrows / jump reload, they don't scroll.** The overlay arrows call
-  `openChapter(targetId, { startAtBeginning: true })` — the same flow that
-  opens the screen — which builds a fresh `[prev?, target, next?]` window
-  and bumps `State.nativeListKey`. The screen passes `nativeListKey` as the
-  `key` of `<ReaderPageListView>`, so React unmounts the native view and
-  mounts a new one: the Compose `LazyColumn` is created fresh on the target
-  chapter with no inherited scroll offset. This is deliberate —
-  `listState.scrollToItem` / `LinearLayoutManager.scrollToPositionWithOffset`
-  both proved unreliable across many device builds when the `blocks` list
-  changed and an old block survived (the list stayed anchored on the
-  survivor). Remounting sidesteps programmatic scroll entirely for a switch.
-  A natural-scroll crossing does **not** bump `nativeListKey` (no remount
-  mid-scroll).
+### `ChapterDataSource` — the swappable-provider boundary (legacy)
 
-- **Cold-open prev.** A bare `ChapterService.getFull` carries no embedded
-  `prevChapter`/`nextChapter` (those are only attached by a Series-driven
-  fetch), and on the first open the canonical series order hasn't loaded
-  yet — so `buildWindow` can't include the prev. `reconcileWindow` (run once
-  the order lands) prepends it. Without the prev in the window there is no
-  block above the opened chapter and backward scroll has nowhere to go.
+The reader's own chapter/page data now comes through `shared/services/chapters`
+(`ChapterService.getFull` → `DigestBridge.getChapterDigest`) backed by `:content-digest`.
+`ChapterDataSource` (`features/kavita/chapter/`) remains the boundary for its *other* consumers
+(`SplashSyncCoordinator`, and concrete `KavitaChapterFeature` calls from `SeriesModule`). It's a
+provider-agnostic interface (`getPageUrls`, `getPageDimensions`, `getLocalProgress`…);
+`KavitaChapterFeature` implements it; `FeaturesModule` binds them via Hilt `@Binds`;
+`ReaderChapterModule` depends on the interface, never the concrete class.
 
-- **`scrollRequest`** is a one-shot `{ chapterId, page }` used only for
-  "continue reading" (initial page != 0) — never set by a native-scroll
-  report. Consumed via `onScrollToChapterHandled` → `SCROLL_REQUEST_HANDLED`.
+### Immersive mode
 
-The Kotlin side is unchanged by this contract: all of it — window,
-`moveFocus`, the reducer, the remount trigger — is RN. If it ever looks
-easier to solve a piece of this in Kotlin, that is a design error in the RN
-model, not a justified exception.
-5. **Decoupled from any specific data provider.** The View's props
-   (`ChapterBlock`: `chapterId`, `pageUrls`, `pageAspectRatios`, `firstNode`,
-   `lastNode`) carry plain data, not Kavita-specific types — the Kotlin
-   rendering layer has no idea what "Kavita" is. Provider-specific logic
-   stays entirely in the data layer feeding the hook
-   (`shared/services/chapters` / `shared/services/serials` → the Kotlin
-   `:content-digest` layer, see below), never in the native view.
-
-### `ChapterDataSource` — the swappable-provider boundary
-
-> The **reader's own** chapter/page data now comes through
-> `shared/services/chapters` (`ChapterService.getFull` →
-> `DigestBridge.getChapterDigest`) backed by the Kotlin `:content-digest`
-> layer, not through `ReaderChapterModule`/`ChapterDataSource`. The section
-> below still describes `ChapterDataSource` because it remains the boundary
-> for its other consumers (`SplashSyncCoordinator`, and the concrete
-> `KavitaChapterFeature` calls from `LibraryModule`/`SeriesModule`).
-
-The Kotlin *data* side of the reader (not the rendering side above) follows
-the interface+impl+binding pattern already used for `KavitaUrlSource`/
-`KavitaUrlSelector`: `ChapterDataSource` (`features/kavita/chapter/`) is a
-provider-agnostic interface — `getPageUrls`, `getPageDimensions`,
-`getLocalProgress`, etc. `KavitaChapterFeature` implements it (the only
-class that knows Kavita's REST paths/DTOs); `FeaturesModule` binds the two
-via Hilt `@Binds`. `ReaderChapterModule` (the NativeModule bridge exposed
-to RN) depends on the interface, never on `KavitaChapterFeature` directly —
-swapping the manga provider means adding a new `ChapterDataSource`
-implementation and rebinding it, with zero changes to the bridge or to RN.
-
-`LibraryModule`/`SeriesModule` still inject `KavitaChapterFeature`
-concretely, because they call methods outside `ChapterDataSource`'s
-contract (`listChaptersForSeries`, `markChaptersRead`/`Unread`) — that's a
-known, deliberate asymmetry, not an oversight to "fix" by widening the
-interface without a real second use case.
-
-### NativeModule split: one module per responsibility, not per screen
-
-A single `ReaderModule` used to bridge chapter/page data, screen-wake
-control, and network-URL watching — three unrelated concerns under one
-screen-named class (see `mistakes.md` #3). It's split into:
-
-- `ReaderChapterModule` (`app/`) — thin RPC over `ChapterDataSource`.
-- `ScreenControlModule` (`app/`) — generic `keepScreenOn`/`allowScreenOff`/
-  `getKeepScreenOnDuringReading`, reusable by any future screen that needs
-  to keep the display awake.
-- `NetworkStatusModule` (`app/`) — the `activeUrlChanged` event stream
-  (`ActiveUrlWatcher`), also screen-agnostic.
-
-Shared NativeModule boilerplate (RN event emission, `Result<T>` →
-`Promise` resolution) is factored into `ReactBridgeSupport.kt`
-(`emitEvent`, `resolveOrReject`) rather than hand-rolled per module.
-
-## Versioning
-
-- `android/app/build.gradle.kts` → `versionCode` / `versionName` (APK)
-- `frontend/package.json` → `bundleVersion` (JS bundle)
-- Both are bumped by the `versionar-build` skill before any device build.
-
-## android/node_modules
-
-`android/node_modules` is a **symlink** to `frontend/node_modules`, not a
-real directory. It exists because the Android Gradle plugin for React Native
-resolves packages (e.g. `react-native-screens`) relative to `android/`, so
-`node_modules` must be reachable from there.
-
-- Created automatically by `make setup` after `yarn install`.
-- Never committed — covered by `.gitignore`.
-- After a fresh clone: run `make setup` before `make build-android`.
-
-## Generated Assets (Metro)
-
-`make build-bundle` (i.e. `yarn bundle:android`) copies image assets from
-`frontend/src/assets/` into `android/app/src/main/res/drawable-*/` using a
-path-encoded naming convention:
-
-| Source file | Generated drawable name |
-|---|---|
-| `src/assets/ic_splash.png` | `src_assets_ic_splash.png` |
-
-Metro maps asset density suffixes to Android drawable buckets:
-
-| Suffix | Drawable bucket |
-|---|---|
-| `@1x` | `drawable-mdpi` |
-| `@1.5x` | `drawable-hdpi` |
-| `@2x` | `drawable-xhdpi` |
-| `@3x` | `drawable-xxhdpi` |
-| `@4x` | `drawable-xxxhdpi` |
-
-These generated files are **not committed** — `.gitignore` excludes
-`drawable-*/src_assets_*` and `drawable-*/node_modules_*`. They are
-recreated on every `make build-bundle`.
+`ScreenControlModule.setImmersiveMode(enabled)`: hides system bars +
+`layoutInDisplayCutoutMode = SHORT_EDGES` (API 28+) so content draws behind the notch, and a
+decorView inset listener zeroes `systemBars()` + `displayCutout()` (RN's `ReactRootView` would
+otherwise re-add padding). RN side: `shared/context/immersive/` — `App.tsx` drops its root
+`paddingTop: statusBarHeight` while `immersive` is on (set by `reader.hooks.ts` on mount,
+cleared on unmount). Immersive off keeps the padding so notifications stay visible.
 
 ---
 
-**Last Updated**: 2026-09-01
+## Kotlin Layer Rules (legacy 3-layer, still true for `:core`/`:tools`/`:features`)
+
+| Layer | May depend on | Never depends on |
+|---|---|---|
+| `core/` | — | `tools/`, `features/` |
+| `tools/` | `core/`, `cache/` | `features/` |
+| `features/` | `core/`, `tools/` | — |
+| `app/` | all | — |
+
+`:cache` was promoted next to `:core` (as generic as `:core` itself) so `:tools` can depend on
+it without inverting `core ← tools`.
+
+---
+
+## Layered preference override
+
+A setting can exist at up to three priority levels — session-only (in-memory, resets on screen
+exit), per-item persisted override (with an explicit reset-to-default action), app-wide global
+default. Effective value resolved top-down (session > per-item > global) each screen load. Used
+for chapter sort mode (`ChaptersTool.sort`) and reading mode (`ReadingModeTool`); reuse this
+shape for any "quick session tweak vs. sticky per-item vs. app default" setting.
+
+---
+
+## Versioning
+
+- `android/app/build.gradle.kts` → `versionName` (APK). `versionCode` is derived from
+  `git rev-list --count HEAD` — never hand-edited.
+- `frontend/package.json` → `version` (JS bundle; read into `BuildConfig.RN_VERSION`, shown as
+  "F:" in the version footer).
+- Both bumped by the `versionar-build` skill before any device build (`-rcN` for unapproved
+  test builds, stripped on approval).
+
+## android/node_modules
+
+A **symlink** to `frontend/node_modules` — the Android Gradle plugin for RN resolves packages
+relative to `android/`. Created by `make setup`, never committed. After a fresh clone: `make
+setup` before `make build-android`.
+
+## Generated Assets (Metro)
+
+`make build-bundle` copies `frontend/src/assets/` into `android/app/src/main/res/drawable-*/`
+with a path-encoded name (`src/assets/ic_splash.png` → `src_assets_ic_splash.png`). Density
+suffixes map `@1x`→mdpi … `@4x`→xxxhdpi. Not committed (`.gitignore` excludes
+`drawable-*/src_assets_*`).
