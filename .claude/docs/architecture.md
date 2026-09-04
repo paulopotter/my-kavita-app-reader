@@ -68,6 +68,16 @@ exception (same bar as the Reader's native-rendering exception below).
 (`server/plugins/kavita/`), never in a neutral shared folder — so an out-of-layer import is
 visibly wrong from the folder structure alone.
 
+**Generalizer pattern** (Task 014): every point that talks to the outside world gets the full
+structure — a Layer 2 "generalizer" Gradle module with `plugins/<name>/` (Layer 1 raw plugin)
+nested inside, an internal adapter interface plugins implement, and the generalizer's own public
+API (free to name/shape methods differently from that interface — e.g. `Server.getChapter` vs.
+the adapter's `getChapter`). The trigger is **"does this talk to the outside?"**, never "how
+many providers might it have" — a domain with one plausible provider forever still gets the full
+shape. The inverse: code that lives entirely *inside* the app never becomes a Layer 1 plugin.
+`:server` (Kavita) and `:external-metadata-server` (m3) are the two instances today; a new
+external connection (notifications, a second metadata source) reuses this shape.
+
 **Data flow**: `Bridge → Service → Tool/model → Hook → Screen → Component`. There is no
 per-screen `Transform` layer (see "No `Transform` layer").
 
@@ -345,6 +355,29 @@ no transformation — the caller gets exactly what the bridge produced.
   `chapters.status.set` (batch mark).
 - `servers/servers.services.ts` + `servers/external.services.ts` — server groups; external
   metadata `match`/`matches`.
+
+**Conventions** (Task 021, project-wide for new code):
+
+- **File naming** `name.type.ext` (`pages.services.ts`, `pages.tests.ts`); folder/file always
+  plural even when the domain's real operations are singular-only. Tests live beside the file
+  (the older `__tests__/` pattern is not migrated retroactively). `index.ts` is re-export only.
+- **Namespace**: a plural const (`SerialsService`) holds batch ops (`list`); a singular const
+  (`SerialService`) holds single-item ops (`get`/`getFull`). No empty plural namespace created
+  speculatively. Every exported name ends in `Service`.
+- **Args**: any method with ≥1 argument takes exactly one named object, never positional (so
+  `Methods.bound()` can merge fixed fields generically). A `full` flag is two methods (`get` /
+  `getFull`), never a boolean. A binary bridge write (`setChapterRead`) is 3 methods:
+  `status.set({..., isRead})` + `read`/`unread` wrappers.
+- **`raw`** is the one namespace for direct non-digest bridge reads (`ChapterService.raw.get` →
+  `ServerBridge.getChapter`).
+- **Isolation**: a Service only ever calls its own bridge file(s) — `DigestBridge` and/or
+  `ServerBridge`. It never imports another domain's digest/Service to reach data it doesn't
+  already have embedded — it calls that domain's **Service**. (This governs the Service *code*'s
+  imports; a bridge payload that already embeds `chapters.list` is returned as-is, not
+  re-fetched.)
+- **`bound(fixed)`**: every Service exposes one — `ChapterService.bound({seriesId, chapterId})`
+  returns an equivalent object where each method takes a partial arg with `fixed` merged in.
+  Pure convenience over repeating ids, never a cache — every call still hits the bridge fresh.
 
 ### `shared/tools/` — Layer 3 (domain normalizers + generic tools)
 

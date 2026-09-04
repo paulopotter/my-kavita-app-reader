@@ -2,45 +2,49 @@
 
 Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
 
-## Docs (load on demand)
-- Commands/build/sessions → `.claude/docs/quickstart.md`
-- File locations/layers → `.claude/docs/architecture.md`
-- Pitfalls → `.claude/docs/mistakes.md`
-- Read-path freshness (force / cache-first / optimistic) → `.claude/docs/data-freshness.md`
+## Docs — under `.claude/docs/`, load on demand
+- Commands / build / sessions → `quickstart.md`
+- File locations / layers → `architecture.md`
+- Pitfalls → `mistakes.md`
+- Read-path freshness (force / cache-first / optimistic) → `data-freshness.md`
 
-## Invariants
-- No personal data in code (no IPs, tokens, private usernames)
-- Features gated by missing config, never by `if`
-- Screen never imports from another screen — only `shared/`
-- Dummy component never imports a service
-- Kotlin tool always global, never screen-coupled
-- Used by 2nd screen → promote to `shared/`
-- Kotlin layers: `core` ← `tools` ← `features` (unidirectional)
-- Zero telemetry / analytics / user identifiers
-- Domain Composition: micro → macro (Page → Chapter → Series → Library).
-  Each domain only handles its own concern and delegates downward.
-  See architecture.md § Domain Composition for full rules.
+## Code structure
+- Data flow: `Bridge → Service → Tool/model → Hook → Screen → Component`
+- A screen never imports from another screen — only from `shared/`. Used by a 2nd screen → promote to `shared/`
+- A dumb component never imports a service; a Kotlin tool is always global, never screen-coupled
+- A Service only calls its own bridge (`DigestBridge`/`ServerBridge`). Needs another domain →
+  call that domain's Service, never its bridge/digest directly
+- Provider knowledge lives only in `plugins/<name>/`, nested inside its generalizer module.
+  Every external connection gets a generalizer + plugin (even with one provider); internal-only
+  code never becomes a plugin
+- New file: `name.type.ext`, folder/file always plural, test beside it (not `__tests__/`). A
+  method with an argument → one named object, never positional
+- Domain Composition: micro → macro (Page → Chapter → Series → Library); each domain handles only
+  its own concern and delegates downward. Full rules → architecture.md § Domain Composition
 
-## Rules
-- **"Splash" = the RN splash** (`frontend/src/screens/splash/`). Always, unless the user
-  explicitly says "Splash do Kotlin". The Kotlin/native splash (Android 12 SplashScreen API held
-  by `MainActivity` via `core-splashscreen`) is **frozen**: it already has the bare minimum (a
-  static colour + icon, drawn by the OS before any code runs) and must not gain logic, UI, or
-  config. Everything else — progress, versions, OTA advisory dialogs, warm-up, theming — lives in
-  the RN splash. There is no `SplashActivity` anymore (Task 038).
+## Process
+- **Contract change** — a public hook signature, an event shape, navigation behavior, a domain
+  digest (`useReader()`, an EventBus event, a route, `SeriesDigest`). Describe it in text and
+  wait for approval **before** editing code, even if it looks small. A point fix (label, color,
+  icon, typo, spacing — no behavior change) doesn't need this
+- Test + approval before committing. Cannot commit Kotlin/TS source without `make coverage`
+  passing (pre-commit hook enforces it)
+- Build for device → `versionar-build` skill (bump `-rcN` + compile-check before asking the user
+  to test). "The log" = the newest `/tmp/reader-log-v*.txt` by mtime, never the `N` last mentioned
+- Commits: Conventional Commits, pt-BR message, no `Co-Authored-By`
 - Replies → pt-BR; code + `.claude/` → English
-- Commits: Conventional Commits, pt-BR message, no Co-Authored-By
-- Build for device → `versionar-build` skill (APK + bundle both get `-rcN`)
-- Test + approval before commit
-- Data flow: `Bridge → Service → Tool/model → Hook → Screen → Component` (no per-screen
-  `Transform` layer — see architecture.md § "No `Transform` layer")
+
+## Fixed conventions
+- No personal data in code (IPs, tokens, private usernames). Zero telemetry / analytics / user
+  identifiers
+- A feature is gated by missing config, never by an `if`
+- All UI text is translatable — never hardcode a string in one language
+- "Splash" = the RN one (`frontend/src/screens/splash/`). The native one is just the OS minimum
+  — frozen
 
 ## Coverage
-- Every feature ships with tests. Only skip if technically impossible — ask the user first.
-- Never let coverage drop below the current floor (checked by `koverVerify` + Jest threshold).
-- After finishing a task: run `make coverage`. If coverage increased, bump the floor:
-  - Kotlin: `COVERAGE_FLOOR_KOTLIN` in `android/build.gradle.kts` → `minValue`
-  - JS: `coverageThreshold` in `frontend/package.json`
-- Cannot commit Kotlin/TS source without passing `make coverage` first (pre-commit hook enforces this).
-- Cannot close a task without passing coverage.
-- Floors live in code, not here (avoids drift): Kotlin → `COVERAGE_FLOOR_KOTLIN` comment in `android/build.gradle.kts`; JS → `coverageThreshold` in `frontend/package.json`.
+- Every feature ships with tests. Only skip if technically impossible — ask the user first
+- Never let coverage drop below the current floor (`koverVerify` + Jest threshold)
+- After a task: run `make coverage`. If it rose, bump the floor — Kotlin: `COVERAGE_FLOOR_KOTLIN`
+  in `android/build.gradle.kts`; JS: `coverageThreshold` in `frontend/package.json`
+- Cannot close a task without coverage passing
