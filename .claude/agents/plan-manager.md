@@ -21,6 +21,9 @@ and `.claude/completions/`. Follow the structure exactly.
 1. Invoke the `atualizar-changelog` skill — it cross-checks the
    `<origin-tag>..HEAD` diff against the plan's work and updates
    `CHANGELOG.md`'s `[Unreleased]` block. Show its diff to the user.
+   `CHANGELOG.md` is public-facing: verify its output never names this plan's
+   number/folder, says "fecha o plano", or references a `.claude/` path — that
+   vocabulary belongs in this agent's own archiving steps below, not there.
 2. **Ask the user whether this plan promotes a component version** beyond
    what the commit prefixes give (a large architectural plan often warrants
    a major the polite `feat:` commits don't). If yes, add a `Release-As:`
