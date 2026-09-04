@@ -99,8 +99,11 @@ done < <(git log "$COMMIT_RANGE" --format="%H%x09%s" 2>/dev/null)
 # oldest-first, so a later Release-As wins per component.
 while IFS= read -r spec; do
   [ -z "$spec" ] && continue
-  level=$(echo "$spec" | grep -oiE '^(major|minor|patch)' | tr '[:upper:]' '[:lower:]')
-  scope=$(echo "$spec" | grep -oiE '\((android|frontend|both)\)' | tr -d '()' | tr '[:upper:]' '[:lower:]')
+  # Scope is optional (a bare "Release-As: major" applies to both) — grep -oiE returning no
+  # match exits 1, which set -o pipefail propagates through the whole pipe and kills the script
+  # under set -e; `|| true` lets an absent match resolve to an empty string instead.
+  level=$(echo "$spec" | grep -oiE '^(major|minor|patch)' | tr '[:upper:]' '[:lower:]' || true)
+  scope=$(echo "$spec" | grep -oiE '\((android|frontend|both)\)' | tr -d '()' | tr '[:upper:]' '[:lower:]' || true)
   [ -z "$level" ] && continue
   case "${scope:-both}" in
     android)  KOTLIN_OVERRIDE="$level" ;;
