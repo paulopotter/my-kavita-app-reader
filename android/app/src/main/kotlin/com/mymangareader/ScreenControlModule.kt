@@ -1,5 +1,6 @@
 package com.mymangareader
 
+import android.os.Build
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -89,6 +90,21 @@ class ScreenControlModule @Inject constructor(
                 controller.show(WindowInsetsCompat.Type.systemBars())
                 window.decorView.setOnApplyWindowInsetsListener { _, insets -> insets }
             }
+            // Além de esconder as barras: deixar a Window se estender por dentro do recorte de
+            // câmera/notch (a faixa no topo em retrato). Sem isso o modo imersivo esconde a status
+            // bar mas o sistema ainda reserva a altura do cutout — sobra um gap com a cor do
+            // windowBackground onde a barra estava. SHORT_EDGES = tela cheia real, o conteúdo passa
+            // por trás da câmera. Restaurado para DEFAULT ao sair. Campo só existe em API 28+; em
+            // 26/27 (minSdk 26) o comportamento continua o de hoje, sem regressão.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode = if (enabled) {
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    } else {
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                    }
+                }
+            }
             // Força o sistema a recalcular/reaplicar os insets imediatamente (sem esperar o
             // próximo evento natural, ex: rotação), tanto ao ligar quanto ao desligar.
             window.decorView.requestApplyInsets()
@@ -106,10 +122,18 @@ class ScreenControlModule @Inject constructor(
     companion object {
         // Extraído como função nomeada (não lambda inline) para ser testável isoladamente sem
         // precisar inspecionar o listener instalado numa View real.
+        //
+        // Zera systemBars() E displayCutout(): com LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES a
+        // Window já ocupa a faixa da câmera, mas o inset de displayCutout continua sendo propagado
+        // pra ReactRootView, que aplicaria padding por ele e recriaria um gap (menor, do tamanho do
+        // recorte). Zerando os dois, o conteúdo do Reader de fato desenha de borda a borda, por
+        // trás da câmera. Restaurado ao sair do imersivo (o listener volta a devolver os insets
+        // originais sem modificação).
         internal fun zeroOutSystemBarsInsets(view: android.view.View, insets: android.view.WindowInsets): android.view.WindowInsets {
             val compat = WindowInsetsCompat.toWindowInsetsCompat(insets, view)
             return WindowInsetsCompat.Builder(compat)
                 .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.NONE)
+                .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.NONE)
                 .build()
                 .toWindowInsets() ?: insets
         }
