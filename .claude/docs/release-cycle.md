@@ -41,6 +41,22 @@ release.yml triggers on new tag
 - anything else (`fix`, `chore`, `refactor`, etc.) → patch
 - If only one side changed, the other repeats its current version with "No changes"
 
+**`Release-As:` override.** A `Release-As: <level>` **trailer** on any commit in the range
+forces the bump, overriding the prefix calculation above. Use it when the accumulated commits
+deserve a bigger bump than their prefixes give — most often at plan closure, where a large
+architectural plan lands as dozens of polite `feat:` commits that together warrant a major.
+
+```
+Release-As: major                # both components
+Release-As: minor (android)      # Kotlin only
+Release-As: major (frontend)     # RN only
+```
+
+It must be a real git trailer: the **last paragraph** of the commit message, with **no blank
+line** between it and any other trailer (`Co-Authored-By`, etc.). A mention in the body is
+ignored. Decided consciously at plan closure, not by accident. Last `Release-As:` per component
+wins. Handled by `scripts/ci/compute-semver-bumps.sh`.
+
 ---
 
 ## Writing the [Unreleased] section

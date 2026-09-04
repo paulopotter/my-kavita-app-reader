@@ -21,13 +21,19 @@ and `.claude/completions/`. Follow the structure exactly.
 1. Invoke the `atualizar-changelog` skill — it cross-checks the
    `<origin-tag>..HEAD` diff against the plan's work and updates
    `CHANGELOG.md`'s `[Unreleased]` block. Show its diff to the user.
-2. Move the whole plan folder from `.claude/sessions/active/` to
+2. **Ask the user whether this plan promotes a component version** beyond
+   what the commit prefixes give (a large architectural plan often warrants
+   a major the polite `feat:` commits don't). If yes, add a `Release-As:`
+   trailer to the archive commit's body (`Release-As: major`, or
+   `... (android)` / `(frontend)` to scope it) — see
+   `.claude/docs/release-cycle.md` § "Semver bump rules". If no, skip.
+3. Move the whole plan folder from `.claude/sessions/active/` to
    `.claude/completions/archive/` — never delete, never rewrite content.
-3. Update `.claude/sessions/INDEX.md` — remove from "In progress".
-4. Update `.claude/completions/archive/INDEX.md` — add with a one-line
+4. Update `.claude/sessions/INDEX.md` — remove from "In progress".
+5. Update `.claude/completions/archive/INDEX.md` — add with a one-line
    description.
-5. Fix any relative links inside moved files.
-6. Translate all documents to English when archiving.
+6. Fix any relative links inside moved files.
+7. Translate all documents to English when archiving.
 
 ## Per-task completion doc (task without a plan)
 
