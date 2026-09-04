@@ -1,6 +1,6 @@
 # Task 039 — Retire the `ui_preferences` Room table; move the 2 reading toggles to `:preferences` (Phase 5 — Corrections)
 
-**Status:** todo
+**Status:** done
 
 > Promotes backlog item `.claude/sessions/backlog/items/022-aposentar-ui-preferences-room.md` to
 > a numbered task. `ui_preferences` (Room, `:core`) is the last orphan of the old preference
@@ -130,3 +130,68 @@ Migrating one side without the other breaks the other on-device.
 - Device-smoked: fresh install + upgrade-over-existing, both open clean; toggles work and
   persist across restart.
 - Explicit user approval before `finalizar-task`.
+
+## Result
+
+**Delivered.** `ui_preferences` retired; Room at v14.
+
+**Slice 1 — RN** (`d9a4b5c`). New `frontend/src/shared/tools/reader/reader-prefs.tool.ts` —
+`ReaderPrefs` (`PreferencesManager`, domain `readerPrefs`, key `reader`, variants
+`keepScreenOn`/`immersiveMode`, `'true'`/`'false'` string values). In `shared/tools/` because two
+screens consume it (Config writes, Reader reads — same shape as `ChaptersTool.sort`). `config/
+reader/reader.hooks.ts` and `reader/reader.screen-control.ts` now read/write via `ReaderPrefs`;
+`shared/bridge/config.ts` lost `UiPreferences` + `getUiPreferences`/`upsertUiPreferences`.
+
+**Slice 2 — Kotlin `ScreenControlModule`** (`3dd11e2`). Dropped `getKeepScreenOnDuringReading` /
+`getImmersiveModeDuringReading`, the `@Inject uiPreferencesDao`, the `CoroutineScope`, idle
+imports. Side-effect-only now (WindowManager). `AppReactPackage` / `MainApplication` stopped
+injecting `uiPreferencesDao` into it.
+
+**Slice 3 — Kotlin `ConfigRepository` / `ConfigStore`** (`0e0778b`). Removed all
+`*UiPreferences*` methods, the `@Inject uiPreferencesDao`, `UiPreferencesDao`/`Entity` imports,
+`FakeUiPreferencesDao` + the UI-pref test cases.
+
+**Slice 4 — Kotlin `:core` DROP** (`Migration_13_14.kt` commit). New `Migration_13_14.kt`
+(file-per-pair, as `scripts/validate-room-schema.sh` requires): `Migration_13_14` = `DROP TABLE
+ui_preferences`; `Migration_14_13` recreates it empty with the v13 schema (downgrade path).
+`AppDatabase` at `version = 14`, `UiPreferencesEntity` out of the entity list,
+`uiPreferencesDao()` gone; `DatabaseModule` lost `provideUiPreferencesDao`.
+`UiPreferencesEntity.kt` / `UiPreferencesDao.kt` deleted. `schemas/AppDatabase/14.json`
+generated + committed. New `Migration_13_14_Test.kt` (drop + downgrade round-trip).
+
+**Deviation from plan:** the migration went in its own `Migration_13_14.kt`, not aggregated
+into `Migration_12_13.kt` — `validate-room-schema.sh` enforces one file per version pair.
+
+**No data migration** (user's call): `keepScreenOn` / `immersiveMode` reset to their defaults
+(true / false) once on the first post-upgrade boot; the user reconfigures.
+
+**Also fixed here** (pre-existing immersive-mode bugs, own commits `a1db125` + `5f9a8ed`):
+- `ScreenControlModule.setImmersiveMode` now sets
+  `layoutInDisplayCutoutMode = LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` (API 28+) and
+  `zeroOutSystemBarsInsets` also zeroes `displayCutout()` — the reader draws behind the
+  notch/camera.
+- New `frontend/src/shared/context/immersive/` — `App.tsx` drops its root `paddingTop:
+  statusBarHeight` while `immersive` is on (set by `reader.hooks.ts` on mount / cleared on
+  unmount). Immersive off keeps the padding so notifications stay visible.
+
+**Versions:** APK `0.8.0-rc105` → `0.8.0-rc109`; bundle `0.9.0-rc105` → `0.9.0-rc109`.
+
+**Tests:** `./gradlew test koverVerify` green (incl. the 2 new migration tests + the 3 new
+`ScreenControlModuleRobolectricTest` cutout cases); `yarn test:coverage` — 72 suites / 862 tests
+green, coverage 91.75/90.98/79.74/91.75 (no floor drop); `scripts/validate-room-schema.sh`
+green. Device-smoked at rc109 (`make redeploy-log`, install over existing): 13→14 migration ran,
+app opened clean, toggles work and persist across restart, immersive mode draws edge-to-edge
+behind the cutout.
+
+**Approval:** user confirmed each device-smoke in this conversation ("funcionou" after rc108 for
+the immersive fixes, "funcionou, pode fazer a fatia 5" after rc109 for slices 2-4).
+
+## Out of scope / follow-ups
+
+- `bff_match` (`BffMatchEntity`) is also fully orphaned — `BffMatchDao` has no real callers, only
+  the `AppDatabase`/`DatabaseModule` registration. Candidate for the same `DROP TABLE` treatment,
+  separate task.
+- The other 7 legacy Room tables (`chapter_cache`, `series_detail_cache`, `reading_progress`,
+  `page_cache`, `auth_config`, `server_config`, `bff_server_config`) still have live old-model
+  code behind them (`KavitaChapterFeature`/`KavitaSeriesFeature`/`KavitaAuthFeature`/`BffFeature`)
+  — they go only when those features are switched off.

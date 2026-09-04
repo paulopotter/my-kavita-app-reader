@@ -110,7 +110,7 @@ Layer 5  Front                screens/, shared/components, navigation
 | `ChapterCacheDao.kt` / `ChapterCacheEntity.kt` | antigo | Cache Room de capítulos por série. Lido por `KavitaSeriesFeature`, `KavitaChapterFeature`, `SeriesModule`, `SplashSyncCoordinator`. Alvo de remoção (Task 036). |
 | `SeriesDetailCacheDao.kt` / `SeriesDetailCacheEntity.kt` | antigo | Cache Room do detalhe de série. |
 | `ReadingProgressDao.kt` / `ReadingProgressEntity.kt` | antigo | Progresso de leitura local por capítulo (page + scrollFraction). |
-| `UiPreferencesDao.kt` / `UiPreferencesEntity.kt` | antigo | Preferências de UI (viewMode/sortMode da Library, keepScreenOn). Parcialmente migrado pro `:preferences`. |
+| ~~`UiPreferencesDao.kt` / `UiPreferencesEntity.kt`~~ | **removido (Task 039)** | Preferências de UI. Todas migradas: sort de capítulo → `:preferences` (`chapterSortPrefs`, Migration_12_13); layout da Library → `:preferences` (`libraryLayout`); idioma → locale por-app do SO; keepScreenOn/immersiveMode → `:preferences` (`readerPrefs`, RN-side `ReaderPrefs`). Tabela dropada na migração 13→14. |
 | `AuthConfigDao.kt` / `AuthConfigEntity.kt` | antigo | JWT + apiKey do Kavita (usado por `KavitaAuthFeature`). |
 | `ServerConfigDao.kt` / `ServerConfigEntity.kt` | antigo | URLs registradas de servidor Kavita (multi-URL pro mesmo servidor). |
 | `BffMatchDao/Entity`, `BffServerConfigDao/Entity` | antigo | Config + matches do BFF (metadata externa) — modelo antigo do BFF. |
@@ -203,7 +203,9 @@ mecanismo, `Mutex`+`Map` à mão.
 
 ### 2.7 `:preferences` — MODELO NOVO, Layer 2 (preferências genéricas)
 
-Substitui `series_sort_prefs` (tabela dedicada) e parte do `UiPreferencesDao`.
+Substituiu `series_sort_prefs` (tabela dedicada) e `ui_preferences` por inteiro (essa última
+dropada na Task 039 — sort de capítulo, layout da Library e os 2 toggles de leitura já vivem
+aqui; idioma virou locale por-app do SO).
 
 | Arquivo | Responsabilidade |
 |---|---|
@@ -396,7 +398,7 @@ Dummy components: só renderizam props, nunca chamam service (regra `mistakes.md
 | Seleção de URL | `KavitaUrlSelector` + `ServerConfigDao` | lógica sobe pro `:server` (lê `ServerGroupDao`/`ServerUrlDao`) | 012/014 |
 | Metadata externa | `features/bff/BffFeature` + `BffMatchDao`/`BffServerConfigDao` | `:external-metadata-server` + `M3Plugin` + `ExternalMetadata*Dao` | (plano 017 impl.) |
 | Cache | `chapter_cache`/`series_detail_cache` + `@Volatile` do `LibraryModule` | `:cache` (`CacheDao` genérico) | em progresso |
-| Preferências | `series_sort_prefs` + parte de `UiPreferencesDao` | `:preferences` (`PreferenceDao` genérico) | migração 12→13 feita; resto pendente |
+| Preferências | ~~`series_sort_prefs` + `ui_preferences`~~ | `:preferences` (`PreferenceDao` genérico) | **feito** — 12→13 (sort), Task 036 (layout), Task 039 (`ui_preferences` dropada, toggles de leitura → `readerPrefs`) |
 | Sync do splash | `SplashSyncCoordinator` grava no cache Room antigo | (a redefinir quando Library/Reader migrarem) | — |
 | Follow de série | `SeriesModule` emitter `seriesFollowedIds` (origem Room, fica) + `LibraryBridge.toggleFollow` (legado) vs. `FollowedSeriesBridge.toggle` (novo) | unificar; investigar se os dois caminhos disparam o mesmo emitter | (candidato EventBus / a investigar) |
 | CacheManager (RN) | — | `shared/managers/caches` existe; `purgeExpired`/`purgeOlderThan` sem caller (rotina de splash futura) | deferido |
