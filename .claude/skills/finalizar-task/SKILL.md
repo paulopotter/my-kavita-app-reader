@@ -18,6 +18,13 @@ committing*. This skill only runs after that approval.
 
 ## Steps
 
+0. **Run the `checar-arquitetura` skill (blocking).** Invoke it on this task's
+   committed diff. If it reports any BLOCKING finding, stop here: list the
+   findings and wait for the user to either fix the code or confirm each is a
+   false positive. Do NOT proceed to step 1 until the check passes (or the
+   user explicitly waives it). REPORT-ONLY findings (i18n) don't block —
+   surface them and continue.
+
 1. **Locate the plan folder** under `.claude/sessions/active/[N] - [name]/`.
    If unsure, check `.claude/sessions/INDEX.md`.
 
