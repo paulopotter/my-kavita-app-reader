@@ -10,9 +10,9 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-Fecha o plano 017 — reestruturação de domínio, contratos entre camadas e salvaguardas de
-processo. O detalhamento tarefa a tarefa está em `.claude/completions/` e no `INDEX.md` do
-plano arquivado (`.claude/completions/archive/017 - Reestruturacao/`).
+Reestruturação ampla da arquitetura: o backend Kotlin foi reorganizado em módulos isolados e a
+camada de dados do app passou por uma reformulação completa, trazendo uma nova tela de leitura,
+gestão de múltiplos servidores e diversas correções de sincronização e performance.
 
 ### Backend
 

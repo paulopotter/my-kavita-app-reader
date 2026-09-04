@@ -23,13 +23,17 @@ end-user-facing language when it cuts a version — this skill does not do that 
 - **Plan closure** (`plan-manager` archiving a finished plan, or the `<origin-tag>..HEAD` range
   has more than ~30 commits) — **do NOT list 1:1.** A 250-commit architecture plan is not 40
   bullets. Write:
-  - **1–3 umbrella bullets** naming the plan's arc (`refactor: reformulação da arquitetura em
-    módulos isolados para performance e manutenção`).
+  - **1–3 umbrella bullets** naming the arc of the change in terms of what shipped
+    (`refactor: reformulação da arquitetura em módulos isolados para performance e
+    manutenção`) — never the plan's internal name/number, and never a sentence like "fecha o
+    plano N" or a reference to `.claude/` paths (`completions/`, a plan's `INDEX.md`). The
+    changelog is public-facing; nobody reading it knows or cares what plan number did the
+    work — those pointers belong in the commit body or the task's completion doc, not here.
   - then only the **individually notable** changes — a contributor scanning the log would want
     each called out on its own (a shipped screen, a measurable perf win, a dropped table, a
     behavior change). Target ~8–12 total, not 40.
-  - the granular detail already lives in `.claude/completions/` and the archived plan's
-    `INDEX.md` — the changelog points there, it doesn't duplicate it.
+  - the granular task-by-task detail lives elsewhere in the repo's own process docs — the
+    changelog doesn't duplicate it and doesn't point to it either.
 
 ## Rules — read before touching the file
 
@@ -45,6 +49,10 @@ end-user-facing language when it cuts a version — this skill does not do that 
   Conventional Commits type: `feat:`, `fix:`, `perf:`, `refactor:`. No file names, no "foi
   adicionado X em Y.kt" — the *what changed*, not the *where*.
 - **Do not infer or pad.** Every bullet must correspond to a real change — either implemented and approved in this conversation, or plainly visible in the `<origin-tag>..HEAD` diff (the cross-check below). Never speculate about work that isn't in one of those two.
+- **No internal process jargon.** Never mention a plan's number/name, "fecha o plano", a task
+  ID, or a `.claude/` path (`completions/`, `sessions/`, a plan's `INDEX.md`) anywhere in the
+  Unreleased block — not in bullets, not in the intro line. This file is public-facing; that
+  vocabulary means nothing to a reader and doesn't belong here even as a pointer.
 - **Append, do not replace**, unless the user explicitly says to rewrite. If `[Unreleased]` already has content, add new bullets under the appropriate section heading (create the heading if missing).
 
 ## Input — conversation context, cross-checked against the real diff
