@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">My Manga Reader</string>
+
+    <!-- Plan 008 (Notifications & Deep Links) — Task 005 body copy, per README's copy table -->
+    <string name="notification_new_chapter_numbered">Capítulo %1$s disponível</string>
+    <string name="notification_new_chapter_unnumbered">Novo capítulo disponível</string>
+    <string name="notification_new_chapters_batch">%1$d novos capítulos disponíveis</string>
 </resources>
