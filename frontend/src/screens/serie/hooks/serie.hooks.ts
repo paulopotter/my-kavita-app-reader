@@ -222,6 +222,27 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     );
   }, []);
 
+  // Batch counterpart of applyMarkUpdate — ChapterTool.mark.readMany/unreadMany's onUpdateMany
+  // channel (see that tool's own doc). Folds the whole selection into ONE setSerie/.map() pass
+  // instead of one per chapter: marking a large selection (e.g. "mark all read" on a 200+ chapter
+  // series) was calling applyMarkUpdate once per id, each doing its own O(n) .map() over the full
+  // chapter list — O(n*m) synchronous work on the JS thread before the network call even started,
+  // which is what showed up as the UI freezing during a bulk mark.
+  const applyMarkUpdates = useCallback((updates: ChapterMarkUpdate[]) => {
+    if (updates.length === 0) {return;}
+    const statusById = new Map(updates.map(u => [u.chapterId, u.readStatus] as const));
+    setSerie(
+      current =>
+        current && {
+          ...current,
+          chapters: current.chapters.map(c => {
+            const readStatus = statusById.get(c.id);
+            return readStatus ? { ...c, readStatus } : c;
+          }),
+        },
+    );
+  }, []);
+
   // A mark from ANOTHER screen (the Reader marks as read while you scroll a chapter through) —
   // this screen is still mounted in the nav stack underneath, so it reacts here instead of
   // waiting for a focus reload (which would read the still-cached Kotlin SeriesDigest and show
@@ -313,18 +334,18 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   const markSelectedRead = useCallback(() => {
     const ids = [...selectedIds];
     if (ids.length > 0) {
-      ChapterTool.mark.readMany({ seriesId, chapterIds: ids, prevStatusById: prevStatusOf(selectedIds), onUpdate: applyMarkUpdate });
+      ChapterTool.mark.readMany({ seriesId, chapterIds: ids, prevStatusById: prevStatusOf(selectedIds), onUpdateMany: applyMarkUpdates });
     }
     exitSelectionMode();
-  }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdate, exitSelectionMode]);
+  }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdates, exitSelectionMode]);
 
   const markSelectedUnread = useCallback(() => {
     const ids = [...selectedIds];
     if (ids.length > 0) {
-      ChapterTool.mark.unreadMany({ seriesId, chapterIds: ids, prevStatusById: prevStatusOf(selectedIds), onUpdate: applyMarkUpdate });
+      ChapterTool.mark.unreadMany({ seriesId, chapterIds: ids, prevStatusById: prevStatusOf(selectedIds), onUpdateMany: applyMarkUpdates });
     }
     exitSelectionMode();
-  }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdate, exitSelectionMode]);
+  }, [selectedIds, seriesId, prevStatusOf, applyMarkUpdates, exitSelectionMode]);
 
   // ── scroll-to-top button visibility (presentation-only, owned by the hook per the "dumb
   // component / dumb screen" invariant — the screen just wires onScroll / onLayout and renders) ──
