@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { Bell, Library, Settings, Star } from 'lucide-react-native';
@@ -8,6 +9,29 @@ import { ConfigScreen } from '../screens/config';
 import { NotificationsScreen, useUnreadNotificationsCount } from '../screens/notifications';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
+import { NotificationsService } from '../shared/services/notifications';
+
+// Whether notifications are enabled right now (the real Android channel's own state — see Plan
+// 008 README Decision 10) — read straight from the shared Service, re-checked whenever the app
+// returns to foreground (the user may have just come back from the system settings screen). Only
+// used here to decide whether the Notifications tab shows at all; the full read/write surface
+// (open settings, etc.) belongs to config/notifications' own hook, not duplicated here.
+function useNotificationsEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const reload = () => {
+      NotificationsService.channel.isEnabled().then(setEnabled).catch(() => setEnabled(false));
+    };
+    reload();
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {reload();}
+    });
+    return () => sub.remove();
+  }, []);
+
+  return enabled;
+}
 
 const Tab = createBottomTabNavigator();
 
@@ -38,6 +62,7 @@ export function MainNavigator() {
   const navigation = useNavigation<any>();
   const isConfigSubScreenRef = useRef(false);
   const unreadNotificationsCount = useUnreadNotificationsCount();
+  const notificationsEnabled = useNotificationsEnabled();
 
   const handleRegisterBackHandler = (fn: (() => boolean) | null) => {
     isConfigSubScreenRef.current = fn !== null;
@@ -89,15 +114,17 @@ export function MainNavigator() {
           tabBarIcon: ({ focused }) => <Library size={20} color={focused ? ACTIVE : INACTIVE} />,
         }}
       />
-      <Tab.Screen
-        name={Routes.NOTIFICATIONS}
-        component={NotificationsScreen}
-        options={{
-          tabBarLabel: strings.navNotifications,
-          tabBarBadge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
-          tabBarIcon: ({ focused }) => <Bell size={20} color={focused ? ACTIVE : INACTIVE} />,
-        }}
-      />
+      {notificationsEnabled && (
+        <Tab.Screen
+          name={Routes.NOTIFICATIONS}
+          component={NotificationsScreen}
+          options={{
+            tabBarLabel: strings.navNotifications,
+            tabBarBadge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
+            tabBarIcon: ({ focused }) => <Bell size={20} color={focused ? ACTIVE : INACTIVE} />,
+          }}
+        />
+      )}
       <Tab.Screen
         name={Routes.CONFIG}
         options={{

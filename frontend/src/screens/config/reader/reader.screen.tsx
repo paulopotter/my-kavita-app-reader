@@ -1,5 +1,5 @@
 import React from 'react';
-import { Switch, Text, View } from 'react-native';
+import { Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../../shared/theme';
 import { useStrings } from '../../../shared/i18n';
 import { styles as chrome } from '../config.styles';
@@ -23,30 +23,37 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <View style={styles.container}>
-        <View style={styles.row}>
-          <Text style={styles.label}>{t.configKeepScreenOn}</Text>
-          {prefs && (
-            <Switch
-              value={prefs.keepScreenOnDuringReading}
-              onValueChange={v => update({ keepScreenOnDuringReading: v })}
-              thumbColor={prefs.keepScreenOnDuringReading ? colors.accent : colors.muted}
-              trackColor={{ false: colors.deep, true: '#7F1D1D' }}
-            />
-          )}
-        </View>
-        <View style={chrome.divider} />
-        <View style={styles.row}>
-          <Text style={styles.label}>{t.configImmersiveMode}</Text>
-          {prefs && (
-            <Switch
-              value={prefs.immersiveModeDuringReading}
-              onValueChange={v => update({ immersiveModeDuringReading: v })}
-              thumbColor={prefs.immersiveModeDuringReading ? colors.accent : colors.muted}
-              trackColor={{ false: colors.deep, true: '#7F1D1D' }}
-            />
-          )}
-        </View>
-        <View style={chrome.divider} />
+        {prefs && (
+          <>
+            {/* Tapping anywhere on the row toggles it, not just the Switch thumb. */}
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.7}
+              onPress={() => update({ keepScreenOnDuringReading: !prefs.keepScreenOnDuringReading })}>
+              <Text style={styles.label}>{t.configKeepScreenOn}</Text>
+              <Switch
+                value={prefs.keepScreenOnDuringReading}
+                onValueChange={v => update({ keepScreenOnDuringReading: v })}
+                thumbColor={prefs.keepScreenOnDuringReading ? colors.accent : colors.muted}
+                trackColor={{ false: colors.deep, true: '#7F1D1D' }}
+              />
+            </TouchableOpacity>
+            <View style={chrome.divider} />
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.7}
+              onPress={() => update({ immersiveModeDuringReading: !prefs.immersiveModeDuringReading })}>
+              <Text style={styles.label}>{t.configImmersiveMode}</Text>
+              <Switch
+                value={prefs.immersiveModeDuringReading}
+                onValueChange={v => update({ immersiveModeDuringReading: v })}
+                thumbColor={prefs.immersiveModeDuringReading ? colors.accent : colors.muted}
+                trackColor={{ false: colors.deep, true: '#7F1D1D' }}
+              />
+            </TouchableOpacity>
+            <View style={chrome.divider} />
+          </>
+        )}
       </View>
     </View>
   );
