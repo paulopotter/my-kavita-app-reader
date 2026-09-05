@@ -35,4 +35,27 @@ interface ChapterCacheDao {
         deleteBySeriesId(seriesId)
         insertAll(chapters)
     }
+
+    // Bulk mark-as-read/unread (e.g. "mark all read" on a series) was calling updateReadStatus
+    // once per chapter, each one its own individual SQLite commit — N sequential disk writes for
+    // one logical operation. Wrapping the same per-id updates in one @Transaction makes Room
+    // commit them together as a single write.
+    @Transaction
+    suspend fun updateReadStatusForChapters(updates: List<ChapterReadStatusUpdate>) {
+        updates.forEach {
+            updateReadStatus(
+                chapterId = it.chapterId,
+                readStatus = it.readStatus,
+                pagesRead = it.pagesRead,
+                updatedAtLocalMs = it.updatedAtLocalMs,
+            )
+        }
+    }
 }
+
+data class ChapterReadStatusUpdate(
+    val chapterId: String,
+    val readStatus: String,
+    val pagesRead: Int,
+    val updatedAtLocalMs: Long,
+)

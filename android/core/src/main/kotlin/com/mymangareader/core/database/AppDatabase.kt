@@ -22,8 +22,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExternalMetadataUrlEntity::class,
         CacheEntity::class,
         PreferenceEntity::class,
+        NotificationGroupEntity::class,
+        NotificationUrlEntity::class,
+        NotificationHistoryEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -56,6 +59,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cacheDao(): CacheDao
 
     abstract fun preferenceDao(): PreferenceDao
+
+    abstract fun notificationGroupDao(): NotificationGroupDao
+
+    abstract fun notificationUrlDao(): NotificationUrlDao
+
+    abstract fun notificationHistoryDao(): NotificationHistoryDao
 
     companion object {
         val MIGRATION_1_2 =
@@ -154,5 +163,7 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_13_12 = com.mymangareader.core.database.migrations.Migration_13_12
         val MIGRATION_13_14 = com.mymangareader.core.database.migrations.Migration_13_14
         val MIGRATION_14_13 = com.mymangareader.core.database.migrations.Migration_14_13
+        val MIGRATION_14_15 = com.mymangareader.core.database.migrations.Migration_14_15
+        val MIGRATION_15_14 = com.mymangareader.core.database.migrations.Migration_15_14
     }
 }
