@@ -35,7 +35,6 @@ MSG_NO_NODE              := ✗ node não encontrado
 MSG_NO_YARN              := ✗ yarn não encontrado
 MSG_NO_JAVA              := ✗ java não encontrado
 MSG_NO_ADB               := ✗ adb não encontrado (instale Android platform-tools)
-MSG_NO_ENV               := ✗ .env não encontrado — copie .env.example e preencha
 MSG_CONVERT_ENV          := → Convertendo .env → local.properties...
 MSG_INSTALL_HOOKS        := → Instalando git hooks...
 MSG_INSTALL_JS           := → Instalando dependências JS...
@@ -70,7 +69,6 @@ MSG_NO_NODE              := ✗ node not found
 MSG_NO_YARN              := ✗ yarn not found
 MSG_NO_JAVA              := ✗ java not found
 MSG_NO_ADB               := ✗ adb not found (install Android platform-tools)
-MSG_NO_ENV               := ✗ .env not found — copy .env.example and fill in your values
 MSG_CONVERT_ENV          := → Converting .env → local.properties...
 MSG_INSTALL_HOOKS        := → Installing git hooks...
 MSG_INSTALL_JS           := → Installing JS dependencies...
@@ -109,7 +107,6 @@ setup: ## $(MSG_SETUP)
 	@command -v yarn >/dev/null 2>&1 || { echo "$(MSG_NO_YARN)"; exit 1; }
 	@command -v java >/dev/null 2>&1 || { echo "$(MSG_NO_JAVA)"; exit 1; }
 	@command -v adb  >/dev/null 2>&1 || { echo "$(MSG_NO_ADB)"; exit 1; }
-	@[ -f .env ] || { echo "$(MSG_NO_ENV)"; exit 1; }
 	@echo "$(MSG_CONVERT_ENV)"
 	@scripts/env-to-local-properties.sh
 	@echo "$(MSG_INSTALL_HOOKS)"

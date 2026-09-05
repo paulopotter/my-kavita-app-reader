@@ -38,6 +38,34 @@ Before generating a build that goes to the user's device: apply the
 
 ---
 
+## Environment configuration (`.env`)
+
+`.env` (repo root, gitignored) is the single source of truth for build-time config — copy
+`.env.example`, fill in your values. `make setup` and `make build-android` both run
+`scripts/env-to-local-properties.sh`, which converts `.env` into `android/local.properties`
+(Gradle's own config format) before the build starts. Idempotent: a run with unchanged `.env`
+content is a no-op (no `local.properties` mtime churn).
+
+`.env` itself is optional — if it's absent, the script only needs `$ANDROID_HOME` or
+`$ANDROID_SDK_ROOT` in the shell to resolve the SDK path, and every other key is simply absent
+from `local.properties` (features gated by missing config just stay off, per this project's own
+rule — nothing crashes). It only fails if the SDK can't be resolved by any means.
+
+Keys today: `ANDROID_SDK_DIR`, `KAVITA_URL`, `KAVITA_API_KEY`, `OTA_MANIFEST_URL`, `BFF_URL`,
+`NOTIFICATION_PROVIDER`, `NTFY_URL`, `NTFY_TOPIC`, `DEEPLINK_HOSTS` (comma-separated, up to 5 —
+expanded into `deeplink.host1`..`deeplink.host5` for `android/app/build.gradle.kts`'s
+`generateDeepLinkHosts` task, which renders them into `AndroidManifest.xml`'s App Link
+intent-filters). `OTA_MANIFEST_URL` also has a CI-only path: `.github/workflows/release.yml`
+injects it as a real environment variable for the release build, bypassing `.env` entirely —
+`android/app/build.gradle.kts` reads `local.properties` first, then falls back to
+`System.getenv("OTA_MANIFEST_URL")`.
+
+To add a new build-time variable: add it to `.env.example` (documented, no real value) and to
+your own `.env`; `env-to-local-properties.sh` copies any unrecognized `KEY=value` line straight
+through unless it needs a Gradle-specific transformation (like `DEEPLINK_HOSTS`'s expansion).
+
+---
+
 ## OTA bundle
 
 The JS bundle has its own version, independent of the APK version.
