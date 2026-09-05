@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
-import type { NotificationGroupInfo, NotificationUrlInfo } from '../../../shared/bridge';
+import type { NotificationGroupInfo, NotificationUrlInfo, ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../shared/bridge';
 import { useStrings } from '../../../shared/i18n';
 import type { Strings } from '../../../shared/i18n';
 import { NotificationsService } from '../../../shared/services/notifications';
+import { ServerService, ServersService } from '../../../shared/services/servers';
 
 const DEFAULT_URL_TIMEOUT_MS = 5000;
 export const MAX_URLS_PER_GROUP = 2;
+export const MAX_GROUPS = 1;
+export const RETENTION_MIN_DAYS = 1;
+export const RETENTION_MAX_DAYS = 15;
+export const RETENTION_DEFAULT_DAYS = 7;
 
 // The channel row's read-only state (Decision 10 — see README): there is no writable "enabled"
 // anywhere in this hook, only a re-read of the real Android channel, refreshed whenever the app
@@ -39,15 +44,15 @@ export function useNotificationChannel(): UseNotificationChannelResult {
   return { enabled, openSettings };
 }
 
-// The 4 preference-backed toggles/setting below the channel row: scope (mutually exclusive
-// all/followed-only — UI-only exclusivity, see README Decision 6), cross-series grouping,
-// retention days.
+// The 4 preference-backed toggles/setting below the channel row: scope (scopeAll one-directionally
+// locks scopeFollowedOnly off — turning scopeFollowedOnly on never touches scopeAll, see README
+// Decision 6), cross-series grouping, retention days.
 export interface UseNotificationPrefsResult {
   loading: boolean;
   scopeAll: boolean;
   scopeFollowedOnly: boolean;
   groupAcrossSeries: boolean;
-  retentionDays: number | null;
+  retentionDays: number;
   setScopeAll: (enabled: boolean) => void;
   setScopeFollowedOnly: (enabled: boolean) => void;
   setGroupAcrossSeries: (enabled: boolean) => void;
@@ -59,7 +64,7 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
   const [scopeAll, setScopeAllState] = useState(false);
   const [scopeFollowedOnly, setScopeFollowedOnlyState] = useState(false);
   const [groupAcrossSeries, setGroupAcrossSeriesState] = useState(false);
-  const [retentionDays, setRetentionDaysState] = useState<number | null>(null);
+  const [retentionDays, setRetentionDaysState] = useState(RETENTION_DEFAULT_DAYS);
 
   useEffect(() => {
     Promise.all([
@@ -72,14 +77,14 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
         setScopeAllState(all);
         setScopeFollowedOnlyState(followedOnly);
         setGroupAcrossSeriesState(grouped);
-        setRetentionDaysState(retention);
+        setRetentionDaysState(retention ?? RETENTION_DEFAULT_DAYS);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  // scopeAll and scopeFollowedOnly are mutually exclusive in this screen's own state only (README
-  // Decision 6) — turning one on turns the other off and locks it until the active one goes back
-  // off. Neither the bridge nor NotificationResolver knows about this exclusivity.
+  // Only scopeAll locks scopeFollowedOnly off (README Decision 6) — turning scopeFollowedOnly on
+  // never touches scopeAll, since "all series" already implies every followed series too; the
+  // reverse would be the actual bug (blocking a broader scope because a narrower one is on).
   const setScopeAll = useCallback((enabled: boolean) => {
     setScopeAllState(enabled);
     if (enabled) {setScopeFollowedOnlyState(false);}
@@ -89,9 +94,7 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
 
   const setScopeFollowedOnly = useCallback((enabled: boolean) => {
     setScopeFollowedOnlyState(enabled);
-    if (enabled) {setScopeAllState(false);}
     NotificationsService.scope.setFollowedOnly({ enabled }).catch(() => {});
-    if (enabled) {NotificationsService.scope.setAll({ enabled: false }).catch(() => {});}
   }, []);
 
   const setGroupAcrossSeries = useCallback((enabled: boolean) => {
@@ -100,8 +103,9 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
   }, []);
 
   const setRetentionDays = useCallback((days: number) => {
-    setRetentionDaysState(days);
-    NotificationsService.retentionDays.set({ days }).catch(() => {});
+    const clamped = Math.min(RETENTION_MAX_DAYS, Math.max(RETENTION_MIN_DAYS, days));
+    setRetentionDaysState(clamped);
+    NotificationsService.retentionDays.set({ days: clamped }).catch(() => {});
   }, []);
 
   return {
@@ -117,21 +121,31 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
   };
 }
 
-// The notification-server groups section — same CRUD shape as useServer/useMetadataServer
-// (config/server/), minus credentials/health-check/connection-test, which ntfy-style groups
-// don't have.
+// The notification-server group section — same CRUD shape as useServer/useMetadataServer
+// (config/server/): single-group rule (MAX_GROUPS), active-URL tracking, per-URL test, and the
+// "link to a Kavita server" association (group-level linkedServerGroupId, URL-level
+// linkedServerUrlId) — mirrors ExternalMetadataServer's own two-level link.
 export interface UseNotificationGroupsResult {
   loading: boolean;
-  groups: NotificationGroupInfo[];
-  addGroup: (name: string, topic: string) => Promise<string | null>;
+  group: NotificationGroupInfo | null;
+  canAddGroup: boolean;
+  addGroup: (name: string, topic: string, linkedServerGroupId: string | undefined) => Promise<string | null>;
   removeGroup: (groupId: string) => Promise<void>;
 
-  urlsByGroup: Record<string, NotificationUrlInfo[]>;
-  canAddUrl: (groupId: string) => boolean;
-  canRemoveUrl: (groupId: string) => boolean; // false when only one URL remains
-  nextPriority: (groupId: string) => number;
-  addUrl: (groupId: string, url: string, priority: number) => Promise<string | null>;
-  removeUrl: (groupId: string, urlId: string) => Promise<void>;
+  urls: NotificationUrlInfo[];
+  activeUrlId: string | null;
+  canAddUrl: boolean;
+  canRemoveUrl: boolean; // false when only one URL remains
+  nextPriority: number;
+  addUrl: (url: string, priority: number, linkedServerUrlId: string | undefined) => Promise<string | null>;
+  updateUrl: (urlId: string, url: string, priority: number, linkedServerUrlId: string | undefined) => Promise<string | null>;
+  removeUrl: (urlId: string) => Promise<void>;
+  testUrl: (url: string) => Promise<UrlProbeResult>;
+
+  // For the "link this URL to a server URL" picker in the URL modal, and the group modal's own
+  // "link to a server" picker.
+  linkedServerGroups: ServerGroupInfo[];
+  urlsOfServerGroup: (serverGroupId: string) => Promise<ServerUrlInfo[]>;
 
   reload: () => Promise<void>;
 }
@@ -141,22 +155,30 @@ const NTFY_PROVIDER_ID = 'ntfy';
 export function useNotificationGroups(): UseNotificationGroupsResult {
   const t = useStrings();
   const [loading, setLoading] = useState(true);
-  const [groups, setGroups] = useState<NotificationGroupInfo[]>([]);
-  const [urlsByGroup, setUrlsByGroup] = useState<Record<string, NotificationUrlInfo[]>>({});
+  const [group, setGroup] = useState<NotificationGroupInfo | null>(null);
+  const [urls, setUrls] = useState<NotificationUrlInfo[]>([]);
+  const [activeUrlId, setActiveUrlId] = useState<string | null>(null);
+  const [linkedServerGroups, setLinkedServerGroups] = useState<ServerGroupInfo[]>([]);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await NotificationsService.groups.list();
-      setGroups(list);
-      const urlLists = await Promise.all(
-        list.map(g => NotificationsService.groups.urls.list({ groupId: g.id }).catch(() => [])),
-      );
-      const byGroup: Record<string, NotificationUrlInfo[]> = {};
-      list.forEach((g, i) => {
-        byGroup[g.id] = [...urlLists[i]].sort((a, b) => a.priority - b.priority);
-      });
-      setUrlsByGroup(byGroup);
+      const [groups, serverGroups] = await Promise.all([NotificationsService.groups.list(), ServersService.groups.list()]);
+      setLinkedServerGroups(serverGroups);
+      const g = groups[0] ?? null; // single-group rule — this screen only ever shows groups[0]
+      setGroup(g);
+
+      if (g) {
+        const [groupUrls, active] = await Promise.all([
+          NotificationsService.groups.urls.list({ groupId: g.id }),
+          NotificationsService.groups.getActiveUrl().catch(() => null),
+        ]);
+        setUrls([...groupUrls].sort((a, b) => a.priority - b.priority));
+        setActiveUrlId(active && active.groupId === g.id ? active.urlId : null);
+      } else {
+        setUrls([]);
+        setActiveUrlId(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -166,12 +188,14 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
     reload();
   }, [reload]);
 
+  const canAddGroup = group == null;
+
   const addGroup = useCallback(
-    async (name: string, topic: string): Promise<string | null> => {
+    async (name: string, topic: string, linkedServerGroupId: string | undefined): Promise<string | null> => {
       if (!name.trim()) {return t.notificationsErrorGroupNameRequired;}
       if (!topic.trim()) {return t.notificationsErrorTopicRequired;}
       try {
-        await NotificationsService.groups.add({ name: name.trim(), providerId: NTFY_PROVIDER_ID, topic: topic.trim() });
+        await NotificationsService.groups.add({ name: name.trim(), providerId: NTFY_PROVIDER_ID, topic: topic.trim(), linkedServerGroupId });
         await reload();
         return null;
       } catch (e) {
@@ -189,22 +213,20 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
     [reload],
   );
 
-  const canAddUrl = useCallback((groupId: string) => (urlsByGroup[groupId]?.length ?? 0) < MAX_URLS_PER_GROUP, [urlsByGroup]);
-  const canRemoveUrl = useCallback((groupId: string) => (urlsByGroup[groupId]?.length ?? 0) > 1, [urlsByGroup]);
-  const nextPriority = useCallback((groupId: string) => {
-    const urls = urlsByGroup[groupId] ?? [];
-    return urls.length === 0 ? 0 : Math.max(...urls.map(u => u.priority)) + 1;
-  }, [urlsByGroup]);
+  const canAddUrl = urls.length < MAX_URLS_PER_GROUP;
+  const canRemoveUrl = urls.length > 1;
+  const nextPriority = urls.length === 0 ? 0 : Math.max(...urls.map(u => u.priority)) + 1;
 
   const addUrl = useCallback(
-    async (groupId: string, url: string, priority: number): Promise<string | null> => {
-      if (!groups.some(g => g.id === groupId)) {return t.notificationsErrorNoGroup;}
+    async (url: string, priority: number, linkedServerUrlId: string | undefined): Promise<string | null> => {
+      if (!group) {return t.notificationsErrorNoGroup;}
       try {
         await NotificationsService.groups.urls.add({
-          groupId,
+          groupId: group.id,
           url: url.trim(),
           timeoutMs: DEFAULT_URL_TIMEOUT_MS,
           priority: Math.max(0, priority),
+          linkedServerUrlId,
         });
         await reload();
         return null;
@@ -212,29 +234,68 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
         return e instanceof Error ? e.message : String(e);
       }
     },
-    [groups, reload, t],
+    [group, reload, t],
+  );
+
+  const updateUrl = useCallback(
+    async (urlId: string, url: string, priority: number, linkedServerUrlId: string | undefined): Promise<string | null> => {
+      if (!group) {return t.notificationsErrorNoGroup;}
+      try {
+        await NotificationsService.groups.urls.update({
+          groupId: group.id,
+          urlId,
+          url: url.trim(),
+          priority: Math.max(0, priority),
+          linkedServerUrlId,
+        });
+        await reload();
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : String(e);
+      }
+    },
+    [group, reload, t],
   );
 
   const removeUrl = useCallback(
-    async (groupId: string, urlId: string) => {
-      if ((urlsByGroup[groupId]?.length ?? 0) <= 1) {return;} // a group must keep at least one URL
-      await NotificationsService.groups.urls.remove({ groupId, urlId });
+    async (urlId: string) => {
+      if (!group || urls.length <= 1) {return;} // a group must keep at least one URL
+      await NotificationsService.groups.urls.remove({ groupId: group.id, urlId });
       await reload();
     },
-    [urlsByGroup, reload],
+    [group, urls.length, reload],
+  );
+
+  const testUrl = useCallback(
+    async (url: string): Promise<UrlProbeResult> => {
+      if (!group) {return { url, ok: false, status: null, elapsedMs: 0 };}
+      return NotificationsService.groups.urls.test({ groupId: group.id, url: url.trim() });
+    },
+    [group],
+  );
+
+  const urlsOfServerGroup = useCallback(
+    (serverGroupId: string) => ServerService.urls.list({ groupId: serverGroupId }),
+    [],
   );
 
   return {
     loading,
-    groups,
+    group,
+    canAddGroup,
     addGroup,
     removeGroup,
-    urlsByGroup,
+    urls,
+    activeUrlId,
     canAddUrl,
     canRemoveUrl,
     nextPriority,
     addUrl,
+    updateUrl,
     removeUrl,
+    testUrl,
+    linkedServerGroups,
+    urlsOfServerGroup,
     reload,
   };
 }

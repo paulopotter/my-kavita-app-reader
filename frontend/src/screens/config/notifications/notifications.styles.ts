@@ -11,9 +11,10 @@ export const styles = StyleSheet.create({
   },
   rowDisabled: { opacity: 0.45 },
   label: { flex: 1, color: colors.textOnDark, fontSize: 15, marginRight: 12 },
-  channelState: { color: colors.muted, fontSize: 13, marginRight: 10 },
-  channelBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: colors.accent },
-  channelBtnTxt: { color: colors.accent, fontSize: 12, fontWeight: '600' },
+  statusPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  statusPillOn: { backgroundColor: colors.positive },
+  statusPillOff: { backgroundColor: colors.mutedDim },
+  statusPillTxt: { color: colors.textOnDark, fontSize: 12, fontWeight: '700' },
 
   retentionRow: { paddingVertical: 16 },
   retentionLabel: { color: colors.textOnDark, fontSize: 15, marginBottom: 10 },

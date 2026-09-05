@@ -20,9 +20,12 @@ const mockRetentionSet = jest.fn();
 const mockGroupsList = jest.fn();
 const mockGroupsAdd = jest.fn();
 const mockGroupsRemove = jest.fn();
+const mockGetActiveUrl = jest.fn();
 const mockUrlsList = jest.fn();
 const mockUrlsAdd = jest.fn();
+const mockUrlsUpdate = jest.fn();
 const mockUrlsRemove = jest.fn();
+const mockUrlsTest = jest.fn();
 
 jest.mock('../../../shared/services/notifications', () => ({
   NotificationsService: {
@@ -48,13 +51,23 @@ jest.mock('../../../shared/services/notifications', () => ({
       list: (...a: unknown[]) => mockGroupsList(...a),
       add: (...a: unknown[]) => mockGroupsAdd(...a),
       remove: (...a: unknown[]) => mockGroupsRemove(...a),
+      getActiveUrl: (...a: unknown[]) => mockGetActiveUrl(...a),
       urls: {
         list: (...a: unknown[]) => mockUrlsList(...a),
         add: (...a: unknown[]) => mockUrlsAdd(...a),
+        update: (...a: unknown[]) => mockUrlsUpdate(...a),
         remove: (...a: unknown[]) => mockUrlsRemove(...a),
+        test: (...a: unknown[]) => mockUrlsTest(...a),
       },
     },
   },
+}));
+
+const mockServersList = jest.fn();
+const mockServerUrlsList = jest.fn();
+jest.mock('../../../shared/services/servers', () => ({
+  ServersService: { groups: { list: (...a: unknown[]) => mockServersList(...a) } },
+  ServerService: { urls: { list: (...a: unknown[]) => mockServerUrlsList(...a) } },
 }));
 
 import { useNotificationChannel, useNotificationGroups, useNotificationPrefs } from './notifications.hooks';
@@ -92,10 +105,13 @@ beforeEach(() => {
   mockScopeSetFollowedOnly.mockResolvedValue(undefined);
   mockGroupAcrossSeriesGet.mockResolvedValue(false);
   mockGroupAcrossSeriesSet.mockResolvedValue(undefined);
-  mockRetentionGet.mockResolvedValue(30);
+  mockRetentionGet.mockResolvedValue(7);
   mockRetentionSet.mockResolvedValue(undefined);
   mockGroupsList.mockResolvedValue([]);
+  mockGetActiveUrl.mockResolvedValue(null);
   mockUrlsList.mockResolvedValue([]);
+  mockServersList.mockResolvedValue([]);
+  mockServerUrlsList.mockResolvedValue([]);
 });
 
 // ── useNotificationChannel ───────────────────────────────────────────────────
@@ -137,11 +153,11 @@ describe('useNotificationChannel', () => {
 // ── useNotificationPrefs ─────────────────────────────────────────────────────
 
 describe('useNotificationPrefs', () => {
-  it('loads the 4 preference values', async () => {
+  it('loads the 4 preference values, defaulting retentionDays to 7 when unset', async () => {
     mockScopeGetAll.mockResolvedValue(true);
     mockScopeGetFollowedOnly.mockResolvedValue(false);
     mockGroupAcrossSeriesGet.mockResolvedValue(true);
-    mockRetentionGet.mockResolvedValue(45);
+    mockRetentionGet.mockResolvedValue(null);
 
     const { result } = renderHook(() => useNotificationPrefs());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -149,7 +165,7 @@ describe('useNotificationPrefs', () => {
     expect(result.current.scopeAll).toBe(true);
     expect(result.current.scopeFollowedOnly).toBe(false);
     expect(result.current.groupAcrossSeries).toBe(true);
-    expect(result.current.retentionDays).toBe(45);
+    expect(result.current.retentionDays).toBe(7);
   });
 
   it('setScopeAll(true) turns scopeFollowedOnly off and persists both', async () => {
@@ -167,8 +183,8 @@ describe('useNotificationPrefs', () => {
     expect(mockScopeSetFollowedOnly).toHaveBeenCalledWith({ enabled: false });
   });
 
-  it('setScopeFollowedOnly(true) turns scopeAll off and persists both', async () => {
-    mockScopeGetAll.mockResolvedValue(true);
+  it('setScopeFollowedOnly(true) never touches scopeAll', async () => {
+    mockScopeGetAll.mockResolvedValue(false);
     const { result } = renderHook(() => useNotificationPrefs());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -179,7 +195,7 @@ describe('useNotificationPrefs', () => {
     expect(result.current.scopeFollowedOnly).toBe(true);
     expect(result.current.scopeAll).toBe(false);
     expect(mockScopeSetFollowedOnly).toHaveBeenCalledWith({ enabled: true });
-    expect(mockScopeSetAll).toHaveBeenCalledWith({ enabled: false });
+    expect(mockScopeSetAll).not.toHaveBeenCalled();
   });
 
   it('turning scopeAll back off does not touch scopeFollowedOnly', async () => {
@@ -207,31 +223,71 @@ describe('useNotificationPrefs', () => {
     expect(mockGroupAcrossSeriesSet).toHaveBeenCalledWith({ enabled: true });
   });
 
-  it('setRetentionDays persists the value', async () => {
+  it('setRetentionDays clamps to [1, 15] and persists', async () => {
     const { result } = renderHook(() => useNotificationPrefs());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
-      result.current.setRetentionDays(45);
+      result.current.setRetentionDays(30);
     });
+    expect(result.current.retentionDays).toBe(15);
+    expect(mockRetentionSet).toHaveBeenCalledWith({ days: 15 });
 
-    expect(result.current.retentionDays).toBe(45);
-    expect(mockRetentionSet).toHaveBeenCalledWith({ days: 45 });
+    act(() => {
+      result.current.setRetentionDays(0);
+    });
+    expect(result.current.retentionDays).toBe(1);
+    expect(mockRetentionSet).toHaveBeenCalledWith({ days: 1 });
   });
 });
 
 // ── useNotificationGroups ────────────────────────────────────────────────────
 
 describe('useNotificationGroups', () => {
-  it('loads groups and, for each, its urls sorted by priority', async () => {
+  it('loads the single group and its urls sorted by priority', async () => {
     mockGroupsList.mockResolvedValue([group()]);
     mockUrlsList.mockResolvedValue([url({ id: 'b', priority: 2 }), url({ id: 'a', priority: 1 })]);
 
     const { result } = renderHook(() => useNotificationGroups());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.groups).toEqual([group()]);
-    expect(result.current.urlsByGroup.g1.map((u: { id: string }) => u.id)).toEqual(['a', 'b']);
+    expect(result.current.group).toEqual(group());
+    expect(result.current.urls.map(u => u.id)).toEqual(['a', 'b']);
+  });
+
+  it('canAddGroup is true with no group and false once one exists', async () => {
+    mockGroupsList.mockResolvedValue([]);
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.canAddGroup).toBe(true);
+
+    mockGroupsList.mockResolvedValue([group()]);
+    await act(async () => {
+      await result.current.reload();
+    });
+    expect(result.current.canAddGroup).toBe(false);
+  });
+
+  it('marks activeUrlId only when getActiveGroupUrl points at this group', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsList.mockResolvedValue([url()]);
+    mockGetActiveUrl.mockResolvedValue({ groupId: 'g1', urlId: 'u1' });
+
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.activeUrlId).toBe('u1');
+  });
+
+  it('activeUrlId is null when getActiveGroupUrl points at a different group', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsList.mockResolvedValue([url()]);
+    mockGetActiveUrl.mockResolvedValue({ groupId: 'other', urlId: 'u9' });
+
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.activeUrlId).toBeNull();
   });
 
   it('addGroup rejects a blank name without calling the service', async () => {
@@ -239,7 +295,7 @@ describe('useNotificationGroups', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     let err: string | null = null;
     await act(async () => {
-      err = await result.current.addGroup('', 'topic');
+      err = await result.current.addGroup('', 'topic', undefined);
     });
     expect(err).toBeTruthy();
     expect(mockGroupsAdd).not.toHaveBeenCalled();
@@ -250,24 +306,24 @@ describe('useNotificationGroups', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     let err: string | null = null;
     await act(async () => {
-      err = await result.current.addGroup('Home', '');
+      err = await result.current.addGroup('Home', '', undefined);
     });
     expect(err).toBeTruthy();
     expect(mockGroupsAdd).not.toHaveBeenCalled();
   });
 
-  it('addGroup adds via the ntfy provider and reloads', async () => {
+  it('addGroup adds via the ntfy provider, forwarding linkedServerGroupId, and reloads', async () => {
     mockGroupsAdd.mockResolvedValue(group());
     const { result } = renderHook(() => useNotificationGroups());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     let err: string | null = null;
     await act(async () => {
-      err = await result.current.addGroup('Home', 'chapters');
+      err = await result.current.addGroup('Home', 'chapters', 'server-1');
     });
 
     expect(err).toBeNull();
-    expect(mockGroupsAdd).toHaveBeenCalledWith({ name: 'Home', providerId: 'ntfy', topic: 'chapters' });
+    expect(mockGroupsAdd).toHaveBeenCalledWith({ name: 'Home', providerId: 'ntfy', topic: 'chapters', linkedServerGroupId: 'server-1' });
   });
 
   it('addGroup surfaces a rejected add as an error string', async () => {
@@ -277,7 +333,7 @@ describe('useNotificationGroups', () => {
 
     let err: string | null = null;
     await act(async () => {
-      err = await result.current.addGroup('Home', 'chapters');
+      err = await result.current.addGroup('Home', 'chapters', undefined);
     });
     expect(err).toBe('add failed');
   });
@@ -299,13 +355,13 @@ describe('useNotificationGroups', () => {
     mockUrlsList.mockResolvedValue([url()]);
     const { result } = renderHook(() => useNotificationGroups());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.canAddUrl('g1')).toBe(true);
+    expect(result.current.canAddUrl).toBe(true);
 
     mockUrlsList.mockResolvedValue([url({ id: 'a' }), url({ id: 'b' })]);
     await act(async () => {
       await result.current.reload();
     });
-    expect(result.current.canAddUrl('g1')).toBe(false);
+    expect(result.current.canAddUrl).toBe(false);
   });
 
   it('canRemoveUrl is false with only one url and true with more than one', async () => {
@@ -313,13 +369,13 @@ describe('useNotificationGroups', () => {
     mockUrlsList.mockResolvedValue([url()]);
     const { result } = renderHook(() => useNotificationGroups());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.canRemoveUrl('g1')).toBe(false);
+    expect(result.current.canRemoveUrl).toBe(false);
 
     mockUrlsList.mockResolvedValue([url({ id: 'a' }), url({ id: 'b' })]);
     await act(async () => {
       await result.current.reload();
     });
-    expect(result.current.canRemoveUrl('g1')).toBe(true);
+    expect(result.current.canRemoveUrl).toBe(true);
   });
 
   it('nextPriority is 0 for an empty group and max+1 otherwise', async () => {
@@ -327,27 +383,27 @@ describe('useNotificationGroups', () => {
     mockUrlsList.mockResolvedValue([]);
     const { result } = renderHook(() => useNotificationGroups());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.nextPriority('g1')).toBe(0);
+    expect(result.current.nextPriority).toBe(0);
 
     mockUrlsList.mockResolvedValue([url({ priority: 3 })]);
     await act(async () => {
       await result.current.reload();
     });
-    expect(result.current.nextPriority('g1')).toBe(4);
+    expect(result.current.nextPriority).toBe(4);
   });
 
-  it('addUrl rejects for an unknown group without calling the service', async () => {
+  it('addUrl rejects when there is no group without calling the service', async () => {
     const { result } = renderHook(() => useNotificationGroups());
     await waitFor(() => expect(result.current.loading).toBe(false));
     let err: string | null = null;
     await act(async () => {
-      err = await result.current.addUrl('missing', 'https://ntfy.sh', 0);
+      err = await result.current.addUrl('https://ntfy.sh', 0, undefined);
     });
     expect(err).toBeTruthy();
     expect(mockUrlsAdd).not.toHaveBeenCalled();
   });
 
-  it('addUrl adds and reloads', async () => {
+  it('addUrl adds forwarding linkedServerUrlId and reloads', async () => {
     mockGroupsList.mockResolvedValue([group()]);
     mockUrlsAdd.mockResolvedValue(url());
     const { result } = renderHook(() => useNotificationGroups());
@@ -355,11 +411,38 @@ describe('useNotificationGroups', () => {
 
     let err: string | null = null;
     await act(async () => {
-      err = await result.current.addUrl('g1', 'https://ntfy.sh', 0);
+      err = await result.current.addUrl('https://ntfy.sh', 0, 'server-url-1');
     });
 
     expect(err).toBeNull();
-    expect(mockUrlsAdd).toHaveBeenCalledWith({ groupId: 'g1', url: 'https://ntfy.sh', timeoutMs: 5000, priority: 0 });
+    expect(mockUrlsAdd).toHaveBeenCalledWith({
+      groupId: 'g1',
+      url: 'https://ntfy.sh',
+      timeoutMs: 5000,
+      priority: 0,
+      linkedServerUrlId: 'server-url-1',
+    });
+  });
+
+  it('updateUrl updates forwarding linkedServerUrlId and reloads', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsUpdate.mockResolvedValue(url());
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let err: string | null = null;
+    await act(async () => {
+      err = await result.current.updateUrl('u1', 'https://ntfy.sh', 1, 'server-url-2');
+    });
+
+    expect(err).toBeNull();
+    expect(mockUrlsUpdate).toHaveBeenCalledWith({
+      groupId: 'g1',
+      urlId: 'u1',
+      url: 'https://ntfy.sh',
+      priority: 1,
+      linkedServerUrlId: 'server-url-2',
+    });
   });
 
   it('removeUrl is a no-op when it is the last url of the group', async () => {
@@ -369,7 +452,7 @@ describe('useNotificationGroups', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
-      await result.current.removeUrl('g1', 'u1');
+      await result.current.removeUrl('u1');
     });
 
     expect(mockUrlsRemove).not.toHaveBeenCalled();
@@ -382,9 +465,42 @@ describe('useNotificationGroups', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
-      await result.current.removeUrl('g1', 'a');
+      await result.current.removeUrl('a');
     });
 
     expect(mockUrlsRemove).toHaveBeenCalledWith({ groupId: 'g1', urlId: 'a' });
+  });
+
+  it('testUrl forwards to the service when a group exists', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsTest.mockResolvedValue({ url: 'https://ntfy.sh', ok: true, status: 200, elapsedMs: 5 });
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const probe = await result.current.testUrl('https://ntfy.sh');
+
+    expect(mockUrlsTest).toHaveBeenCalledWith({ groupId: 'g1', url: 'https://ntfy.sh' });
+    expect(probe.ok).toBe(true);
+  });
+
+  it('testUrl returns a failed probe when there is no group', async () => {
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const probe = await result.current.testUrl('https://ntfy.sh');
+
+    expect(probe.ok).toBe(false);
+    expect(mockUrlsTest).not.toHaveBeenCalled();
+  });
+
+  it('urlsOfServerGroup forwards to ServerService.urls.list', async () => {
+    mockServerUrlsList.mockResolvedValue([{ id: 'su1', groupId: 'sg1', url: 'http://host', timeoutMs: 5000, priority: 0 }]);
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const urls = await result.current.urlsOfServerGroup('sg1');
+
+    expect(mockServerUrlsList).toHaveBeenCalledWith({ groupId: 'sg1' });
+    expect(urls).toEqual([{ id: 'su1', groupId: 'sg1', url: 'http://host', timeoutMs: 5000, priority: 0 }]);
   });
 });

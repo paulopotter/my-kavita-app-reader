@@ -2,17 +2,50 @@ import React, { useState } from 'react';
 import { Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../../shared/theme';
 import { useStrings } from '../../../shared/i18n';
+import { GroupCard, UrlModal } from '../components';
 import { styles as chrome } from '../config.styles';
-import { GroupCard } from './components/group-card';
 import { GroupModal } from './components/group-modal';
-import { UrlModal } from './components/url-modal';
-import { useNotificationChannel, useNotificationGroups, useNotificationPrefs, MAX_URLS_PER_GROUP } from './notifications.hooks';
+import {
+  useNotificationChannel,
+  useNotificationGroups,
+  useNotificationPrefs,
+  MAX_URLS_PER_GROUP,
+  RETENTION_MAX_DAYS,
+  RETENTION_MIN_DAYS,
+} from './notifications.hooks';
 import { styles } from './notifications.styles';
 
-const RETENTION_MIN_DAYS = 1;
-const RETENTION_MAX_DAYS = 365;
-const RETENTION_STEP_DAYS = 1;
-const RETENTION_DEFAULT_DAYS = 30;
+// A Switch row whose entire line (label included) is a toggle target — tapping anywhere on the
+// row flips the value, not just the Switch thumb. Applied to every simple toggle in this screen;
+// see the project-wide feedback this generalizes from.
+function ToggleRow({
+  label,
+  value,
+  onValueChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.row, disabled && styles.rowDisabled]}
+      activeOpacity={0.7}
+      disabled={disabled}
+      onPress={() => onValueChange(!value)}>
+      <Text style={styles.label}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        thumbColor={value ? colors.accent : colors.muted}
+        trackColor={{ false: colors.deep, true: '#7F1D1D' }}
+      />
+    </TouchableOpacity>
+  );
+}
 
 export function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const t = useStrings();
@@ -20,18 +53,18 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const prefs = useNotificationPrefs();
   const groups = useNotificationGroups();
 
-  const [groupMenu, setGroupMenu] = useState<string | null>(null);
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupModalError, setGroupModalError] = useState<string | null>(null);
 
-  const [urlMenu, setUrlMenu] = useState<{ groupId: string; urlId: string; canRemove: boolean } | null>(null);
-  const [urlModal, setUrlModal] = useState<{ groupId: string; mode: 'add' } | null>(null);
+  const [urlModal, setUrlModal] = useState<{ mode: 'add' } | { mode: 'edit'; urlId: string; url: string; priority: number; linkedServerUrlId?: string } | null>(
+    null,
+  );
   const [urlModalError, setUrlModalError] = useState<string | null>(null);
+  const [urlMenu, setUrlMenu] = useState<{ urlId: string; canRemove: boolean } | null>(null);
 
-  const retentionDays = prefs.retentionDays ?? RETENTION_DEFAULT_DAYS;
-
-  const submitGroupModal = async (name: string, topic: string) => {
-    const err = await groups.addGroup(name, topic);
+  const submitGroupModal = async (name: string, topic: string, linkedServerGroupId: string | undefined) => {
+    const err = await groups.addGroup(name, topic, linkedServerGroupId);
     if (err) {setGroupModalError(err);}
     else {
       setGroupModalOpen(false);
@@ -39,9 +72,11 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const submitUrlModal = async (url: string, priority: number) => {
-    if (!urlModal) {return;}
-    const err = await groups.addUrl(urlModal.groupId, url, priority);
+  const submitUrlModal = async (url: string, priority: number, linkedServerUrlId?: string) => {
+    const err =
+      urlModal?.mode === 'add'
+        ? await groups.addUrl(url, priority, linkedServerUrlId)
+        : await groups.updateUrl(urlModal!.urlId, url, priority, linkedServerUrlId);
     if (err) {setUrlModalError(err);}
     else {
       setUrlModal(null);
@@ -60,110 +95,103 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
 
       <ScrollView contentContainerStyle={chrome.scroll}>
         {/* The channel row is not a real toggle — Android does not let this app change an
-            already-created channel's enabled state; pressing it only opens the system's own
-            settings screen for that channel (see README Decision 10). */}
-        <View style={styles.row}>
+            already-created channel's enabled state; tapping it opens the system's own settings
+            screen for that channel (see README Decision 10). The pill shows the current state. */}
+        <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={channel.openSettings}>
           <Text style={styles.label}>{t.notificationsChannelRowLabel}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.channelState}>
-              {channel.enabled == null ? '' : channel.enabled ? t.notificationsChannelStateOn : t.notificationsChannelStateOff}
+          <View style={[styles.statusPill, channel.enabled ? styles.statusPillOn : styles.statusPillOff]}>
+            <Text style={styles.statusPillTxt}>
+              {channel.enabled ? t.notificationsChannelStateOn : t.notificationsChannelStateOff}
             </Text>
-            <TouchableOpacity style={styles.channelBtn} onPress={channel.openSettings}>
-              <Text style={styles.channelBtnTxt}>{t.notificationsChannelOpenSettings}</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-        <View style={chrome.divider} />
-
-        <View style={[styles.row, prefs.scopeFollowedOnly && styles.rowDisabled]}>
-          <Text style={styles.label}>{t.notificationsScopeAll}</Text>
-          <Switch
-            value={prefs.scopeAll}
-            onValueChange={prefs.setScopeAll}
-            disabled={prefs.scopeFollowedOnly}
-            thumbColor={prefs.scopeAll ? colors.accent : colors.muted}
-            trackColor={{ false: colors.deep, true: '#7F1D1D' }}
-          />
-        </View>
-        <View style={chrome.divider} />
-
-        <View style={[styles.row, prefs.scopeAll && styles.rowDisabled]}>
-          <Text style={styles.label}>{t.notificationsScopeFollowedOnly}</Text>
-          <Switch
-            value={prefs.scopeFollowedOnly}
-            onValueChange={prefs.setScopeFollowedOnly}
-            disabled={prefs.scopeAll}
-            thumbColor={prefs.scopeFollowedOnly ? colors.accent : colors.muted}
-            trackColor={{ false: colors.deep, true: '#7F1D1D' }}
-          />
-        </View>
-        <View style={chrome.divider} />
-
-        <View style={styles.row}>
-          <Text style={styles.label}>{t.notificationsGroupAcrossSeries}</Text>
-          <Switch
-            value={prefs.groupAcrossSeries}
-            onValueChange={prefs.setGroupAcrossSeries}
-            thumbColor={prefs.groupAcrossSeries ? colors.accent : colors.muted}
-            trackColor={{ false: colors.deep, true: '#7F1D1D' }}
-          />
-        </View>
-        <View style={chrome.divider} />
-
-        <View style={styles.retentionRow}>
-          <Text style={styles.retentionLabel}>{t.notificationsRetentionLabel}</Text>
-          <View style={styles.retentionStepper}>
-            <TouchableOpacity
-              style={styles.stepperBtn}
-              onPress={() => prefs.setRetentionDays(Math.max(RETENTION_MIN_DAYS, retentionDays - RETENTION_STEP_DAYS))}>
-              <Text style={styles.stepperBtnTxt}>−</Text>
-            </TouchableOpacity>
-            <Text style={styles.retentionValue}>{`${retentionDays} ${t.notificationsRetentionDaysSuffix}`}</Text>
-            <TouchableOpacity
-              style={styles.stepperBtn}
-              onPress={() => prefs.setRetentionDays(Math.min(RETENTION_MAX_DAYS, retentionDays + RETENTION_STEP_DAYS))}>
-              <Text style={styles.stepperBtnTxt}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <Text style={chrome.section}>{t.notificationsGroupsTitle}</Text>
-
-        {groups.groups.map(g => (
-          <GroupCard
-            key={g.id}
-            name={g.name}
-            onGroupMenu={() => setGroupMenu(g.id)}
-            urls={groups.urlsByGroup[g.id] ?? []}
-            canAddUrl={groups.canAddUrl(g.id)}
-            onUrlMenu={urlId => setUrlMenu({ groupId: g.id, urlId, canRemove: groups.canRemoveUrl(g.id) })}
-            onAddUrl={() => {
-              setUrlModalError(null);
-              setUrlModal({ groupId: g.id, mode: 'add' });
-            }}
-            strings={{ urls: t.serverUrlsLabel, addUrl: t.serverAddUrl }}
-          />
-        ))}
-
-        <TouchableOpacity
-          style={styles.addDashedBtn}
-          onPress={() => {
-            setGroupModalError(null);
-            setGroupModalOpen(true);
-          }}>
-          <Text style={styles.addDashedTxt}>{t.notificationsAddGroup}</Text>
         </TouchableOpacity>
+        <View style={chrome.divider} />
+
+        {channel.enabled && (
+          <>
+            <ToggleRow
+              label={t.notificationsScopeAll}
+              value={prefs.scopeAll}
+              onValueChange={prefs.setScopeAll}
+            />
+            <View style={chrome.divider} />
+
+            <ToggleRow
+              label={t.notificationsScopeFollowedOnly}
+              value={prefs.scopeFollowedOnly}
+              onValueChange={prefs.setScopeFollowedOnly}
+              disabled={prefs.scopeAll}
+            />
+            <View style={chrome.divider} />
+
+            <ToggleRow
+              label={t.notificationsGroupAcrossSeries}
+              value={prefs.groupAcrossSeries}
+              onValueChange={prefs.setGroupAcrossSeries}
+            />
+            <View style={chrome.divider} />
+
+            <View style={styles.retentionRow}>
+              <Text style={styles.retentionLabel}>{t.notificationsRetentionLabel}</Text>
+              <View style={styles.retentionStepper}>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => prefs.setRetentionDays(prefs.retentionDays - 1)}
+                  disabled={prefs.retentionDays <= RETENTION_MIN_DAYS}>
+                  <Text style={styles.stepperBtnTxt}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.retentionValue}>{`${prefs.retentionDays} ${t.notificationsRetentionDaysSuffix}`}</Text>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => prefs.setRetentionDays(prefs.retentionDays + 1)}
+                  disabled={prefs.retentionDays >= RETENTION_MAX_DAYS}>
+                  <Text style={styles.stepperBtnTxt}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={chrome.section}>{t.notificationsGroupsTitle}</Text>
+
+            {groups.group && (
+              <GroupCard
+                name={groups.group.name}
+                credentialFields={[]}
+                maskCredential={() => null}
+                onGroupMenu={() => setGroupMenuOpen(true)}
+                urls={groups.urls}
+                activeUrlId={groups.activeUrlId}
+                canAddUrl={groups.urls.length < MAX_URLS_PER_GROUP}
+                onUrlMenu={urlId => setUrlMenu({ urlId, canRemove: groups.canRemoveUrl })}
+                onAddUrl={() => {
+                  setUrlModalError(null);
+                  setUrlModal({ mode: 'add' });
+                }}
+                strings={{ urls: t.serverUrlsLabel, addUrl: t.serverAddUrl }}
+              />
+            )}
+
+            {groups.canAddGroup && (
+              <TouchableOpacity
+                style={styles.addDashedBtn}
+                onPress={() => {
+                  setGroupModalError(null);
+                  setGroupModalOpen(true);
+                }}>
+                <Text style={styles.addDashedTxt}>{t.notificationsAddGroup}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
 
         {/* ── group context menu (delete only — no rename, see GroupModal's own doc) ── */}
-        <Modal transparent visible={groupMenu !== null} onRequestClose={() => setGroupMenu(null)}>
-          <TouchableOpacity style={styles.menuOverlay} onPress={() => setGroupMenu(null)} activeOpacity={1}>
+        <Modal transparent visible={groupMenuOpen} onRequestClose={() => setGroupMenuOpen(false)}>
+          <TouchableOpacity style={styles.menuOverlay} onPress={() => setGroupMenuOpen(false)} activeOpacity={1}>
             <View style={styles.menuBox}>
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
-                  const id = groupMenu;
-                  setGroupMenu(null);
-                  if (id) {groups.removeGroup(id);}
+                  setGroupMenuOpen(false);
+                  if (groups.group) {groups.removeGroup(groups.group.id);}
                 }}>
                 <Text style={[styles.menuItemTxt, styles.menuItemDanger]}>{t.serverListDelete}</Text>
               </TouchableOpacity>
@@ -171,20 +199,41 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
           </TouchableOpacity>
         </Modal>
 
-        {/* ── URL context menu (delete hidden when it's the last URL) ── */}
+        {/* ── URL context menu (edit + delete hidden when it's the last URL) ── */}
         <Modal transparent visible={urlMenu !== null} onRequestClose={() => setUrlMenu(null)}>
           <TouchableOpacity style={styles.menuOverlay} onPress={() => setUrlMenu(null)} activeOpacity={1}>
             <View style={styles.menuBox}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  const target = groups.urls.find(u => u.id === urlMenu?.urlId);
+                  setUrlMenu(null);
+                  if (target) {
+                    setUrlModalError(null);
+                    setUrlModal({
+                      mode: 'edit',
+                      urlId: target.id,
+                      url: target.url,
+                      priority: target.priority,
+                      linkedServerUrlId: target.linkedServerUrlId,
+                    });
+                  }
+                }}>
+                <Text style={styles.menuItemTxt}>{t.serverListEdit}</Text>
+              </TouchableOpacity>
               {urlMenu?.canRemove && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    const target = urlMenu;
-                    setUrlMenu(null);
-                    if (target) {groups.removeUrl(target.groupId, target.urlId);}
-                  }}>
-                  <Text style={[styles.menuItemTxt, styles.menuItemDanger]}>{t.serverListDelete}</Text>
-                </TouchableOpacity>
+                <>
+                  <View style={styles.menuDivider} />
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => {
+                      const id = urlMenu.urlId;
+                      setUrlMenu(null);
+                      groups.removeUrl(id);
+                    }}>
+                    <Text style={[styles.menuItemTxt, styles.menuItemDanger]}>{t.serverListDelete}</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           </TouchableOpacity>
@@ -193,6 +242,7 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
         {groupModalOpen && (
           <GroupModal
             t={t}
+            servers={groups.linkedServerGroups}
             submitError={groupModalError}
             onSubmit={submitGroupModal}
             onClose={() => {
@@ -206,8 +256,16 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
           <UrlModal
             t={t}
             mode={urlModal.mode}
-            initialPriority={groups.nextPriority(urlModal.groupId)}
+            initialUrl={urlModal.mode === 'edit' ? urlModal.url : undefined}
+            initialPriority={urlModal.mode === 'edit' ? urlModal.priority : groups.nextPriority}
             submitError={urlModalError}
+            link={{
+              servers: groups.linkedServerGroups,
+              urlsOf: groups.urlsOfServerGroup,
+              initialServerGroupId: groups.linkedServerGroups[0]?.id,
+              initialServerUrlId: urlModal.mode === 'edit' ? urlModal.linkedServerUrlId : undefined,
+            }}
+            onTest={groups.testUrl}
             onSubmit={submitUrlModal}
             onClose={() => {
               setUrlModal(null);
