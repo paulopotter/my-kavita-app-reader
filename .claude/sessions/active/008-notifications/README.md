@@ -354,10 +354,18 @@ frontend/src/
     notifications.screen.tsx               # sub-screen: groups config + toggles + retention
     notifications.hooks.ts
     components/...
-  screens/notifications/                    # in-app history screen
-    notifications-history.screen.tsx
-    notifications-history.hooks.ts
+  screens/notifications/                    # in-app history screen — its own MainNavigator tab,
+                                            # not a header icon (see Task 009's own note on why)
+    notifications.screen.tsx
+    notifications.hooks.ts                   # also exports useUnreadNotificationsCount, consumed
+                                            # by MainNavigator.tsx for the tab's badge
     components/...
+
+navigation/
+  routes.ts                                  # Routes.NOTIFICATIONS is a MainNavigator tab route,
+                                            # in BOTTOM_NAV_ROUTES — not a RootNavigator stack screen
+  MainNavigator.tsx                          # 4th tab (Following/Library/Notifications/Config),
+                                            # tabBarBadge driven by useUnreadNotificationsCount()
 ```
 
 **Data flow** (Kotlin hot path, no RN): WebSocket message → `NtfyPlugin` decodes →
