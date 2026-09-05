@@ -106,8 +106,9 @@ already holds (which the seed, if any, only pre-populates once on first run).
 
 The feature as a whole is gated by **missing config**, not a settings toggle read through an `if`:
 no notification group with at least one URL configured → the foreground service never starts,
-regardless of any other switch's state. The user-facing "enable notifications" toggle exists on
-top of that as a second, independent gate — both must be satisfied for the service to run.
+regardless of any other switch's state. The Android notification channel's own enabled state
+(Decision 10) exists on top of that as a second, independent gate — both must be satisfied for the
+service to run.
 
 ### 5. Series resolution: `seriesId` first, exact-name fallback, Kotlin-side
 
@@ -121,12 +122,16 @@ the equivalent Kotlin-side call through `:server`/`:content-digest`, never re-im
 name search doesn't return exactly one match, the event is discarded and logged — it never
 crashes the service and never guesses.
 
-### 6. Recipient filter: enabled + scope (all series vs. Following only)
+### 6. Recipient filter: channel state + scope (all series vs. Following only)
 
-Three independent preference flags, all under the `notifications` domain in `:preferences`:
+Two independent preference flags under the `notifications` domain in `:preferences`
+(`NotificationPreferenceKeys`), plus the Android channel's own enabled state (Decision 10) as the
+master switch:
 
-- **`enabled`** — master switch. `false` blocks every other flag from having any effect; the
-  service and every notification path stay off regardless of the other two.
+- **Channel enabled** (`NotificationChannelState.isEnabled()`, backed by the real Android
+  `NotificationChannel`, not a `:preferences` flag) — master switch. Disabled blocks every other
+  flag from having any effect; the service and every notification path stay off regardless of the
+  other two.
 - **`scopeAll`** — "notify for all series", not just followed ones.
 - **`scopeFollowedOnly`** — "notify for followed series only".
 
@@ -135,7 +140,7 @@ visually disables (locks) the other, and turning it back off unlocks it. This ex
 affordance only, enforced in the config screen's own state — there is no Android-level mechanism
 (e.g. separate notification channels) backing it, precisely so the two can never disagree at the
 OS level. At the point `NotificationResolver` decides whether to fire, the actual rule is a
-straightforward union: notify if `enabled` is true, **and** either `scopeAll` is true or (the
+straightforward union: notify if the channel is enabled, **and** either `scopeAll` is true or (the
 series is in Following **and** `scopeFollowedOnly` is true). If the UI's mutual exclusion is ever
 bypassed (e.g. both flags true through some future path), the effective behavior is simply "notify
 for all series" — never a double notification, never undefined behavior.
@@ -146,9 +151,9 @@ this resolution happens in Kotlin, at the point the event is about to become a n
 — never duplicated or re-decided anywhere else.
 
 This scope choice is app-internal only — it is not exposed as a separate Android notification
-channel. Android's system Settings for this app show a single notification channel (on/off, per
-Decision 10's bidirectional sync); which series qualify is a filtering decision this app makes
-before ever calling Android's notification API, not something the OS has a concept of.
+channel. Android's system Settings for this app show a single `new_chapters` notification channel
+(on/off, per Decision 10); which series qualify is a filtering decision this app makes before ever
+calling Android's notification API, not something the OS has a concept of.
 
 ### 7. Native notification format
 
@@ -190,11 +195,19 @@ the same config screen. A purge of anything older than `retentionDays` runs in t
 time the app opens — fire-and-forget, in the startup/splash flow, same spirit as the existing
 `BackgroundExecute` helper in `:tools` — and never blocks boot.
 
-### 10. Android notification channel stays in sync both ways
+### 10. The Android notification channel is the single source of truth for enabled/disabled
 
-If the user disables the app's notification channel directly from Android's system settings, the
-in-app toggle reflects that (and vice versa) — the two are kept in sync rather than the app
-silently continuing to "think" it's enabled while the OS is actually dropping every notification.
+Android does not let an app change an already-created `NotificationChannel`'s importance/enabled
+state programmatically — only the user can, from the system's own per-channel settings screen. So
+rather than attempting a bidirectional sync between an app-side preference and the OS channel (an
+approach that can only ever half-work), the channel itself is the only place "enabled" is stored.
+The app's role is: create the channel once on first start (`NotificationChannelSync`), read its
+current importance whenever it needs to know if notifications are on
+(`NotificationChannelState.isEnabled()`), and hand the user to the system's channel settings screen
+to change it (`openChannelSettings()`, `Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS`). The
+config screen's "enable notifications" control (Task 008) is therefore not a real toggle — it's a
+button/switch-styled affordance that opens that system screen, and its displayed state is whatever
+`isChannelEnabled()` returns on read, never independently settable from the app.
 
 ### 11. Publisher side is out of scope for this repository
 
@@ -274,11 +287,18 @@ android/notifications/                     # :notifications (Layer 2)
                                             # pool of unlinked groups — same algorithm as
                                             # ExternalMetadataServer.resolveNoHint, via UrlSelector
   NotificationConnectionGate.kt            # Task 006 — shouldConnect(): at least one URL AND the
-                                            # enabled toggle, extracted so the 4-case start/stop
+                                            # channel is enabled, extracted so the 4-case start/stop
                                             # matrix is testable without a real Android Service
   NotificationPoster.kt                    # Task 006 — boundary interface NotificationDisplay
                                             # (android/app/) implements, so :notifications never
                                             # depends on :app
+  NotificationChannelState.kt              # Task 007 — boundary interface NotificationChannelSync
+                                            # (android/app/) implements, so :notifications never
+                                            # depends on Context/NotificationManager
+  NotificationPreferenceKeys.kt            # Task 007 — centralizes the notifications domain's
+                                            # :preferences keys (scopeAll/scopeFollowedOnly/
+                                            # groupAcrossSeries/retentionDays), no "enabled" key —
+                                            # see Decision 10
   NotificationEventPipeline.kt             # Task 006 — resolve → shouldNotify → post, extracted
                                             # so this exact orchestration is unit-testable
   plugins/
@@ -313,9 +333,12 @@ android/app/src/main/kotlin/com/mymangareader/ (continued)
   NotificationDisplay.kt                   # builds + posts the native Notification, PendingIntent
                                             # built against the public mymangareader:// scheme;
                                             # implements NotificationPoster
-  NotificationsBridgeModule.kt             # RN bridge — groups CRUD, toggle, history CRUD, badge
-                                            # count (Tasks 006/007) — no deep-link concern in it
-  NotificationChannelSync.kt               # bidirectional channel-enabled sync
+  NotificationsBridgeModule.kt             # RN bridge — groups CRUD, channel state, history CRUD,
+                                            # badge count (Tasks 006/007) — no deep-link concern in it
+  NotificationsBridgeMappers.kt            # Task 007 — *WritableMap()/*WritableArray() mappers
+  NotificationChannelSync.kt               # Task 007 — creates the 2 channels once, implements
+                                            # NotificationChannelState by reading real channel
+                                            # importance, openChannelSettings() to the system screen
 
 frontend/src/
   App.tsx                                  # NavigationContainer's `linking` prop (deep links)
@@ -423,8 +446,8 @@ time if they diverge from what's written here.
       on the Reader with `seriesId=123`/`chapterId=456`.
 - [ ] With no notification group configured, the foreground service never starts (feature gated
       by missing config, confirmed via a fresh install with an empty seed).
-- [ ] Adding one URL to a group and enabling the toggle starts the service; the persistent
-      "connected" notification appears.
+- [ ] Adding one URL to a group with the Android notification channel enabled starts the service;
+      the persistent "connected" notification appears.
 - [ ] A single-series, single-chapter-with-number payload produces "Chapter X available".
 - [ ] A single-series, no-number payload produces "New chapter available".
 - [ ] A single-series, N-chapter payload produces "N new chapters available" (never lists numbers).
@@ -439,8 +462,9 @@ time if they diverge from what's written here.
 - [ ] A 2nd batch for the same series replaces the 1st notification (same id), never stacks.
 - [ ] Tapping a single-chapter notification opens the reader directly; tapping a multi-chapter one
       opens the series detail screen; both mark the corresponding history item as read.
-- [ ] Disabling the Android notification channel from system settings reflects in the in-app
-      toggle; re-enabling it there also reflects back.
+- [ ] Disabling the `new_chapters` Android notification channel from system settings is reflected
+      by `isChannelEnabled()` (and the config screen's read of it) on next check; the config
+      screen's "open channel settings" button lands on that channel's system screen.
 - [ ] Lowering `retentionDays` and reopening the app purges history older than the new value,
       without blocking the splash screen.
 - [ ] `make coverage` passes with the floor bumped for both Kotlin and JS if coverage rose.
