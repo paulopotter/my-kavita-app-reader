@@ -8,7 +8,7 @@ See `README.md` for full context, decisions, the payload contract, and the publi
 | [002](002-notification-provider-abstraction.md) | `NotificationProvider` (L2) + `NtfyProvider` (L1) — ntfy WebSocket plugin | 001 | done |
 | [003](003-series-resolver-and-filter.md) | `NotificationResolver` — seriesId/name resolution + Following + toggle filter | 001 | done |
 | [004](004-deep-link.md) | Deep links — `mymangareader://` scheme + optional configurable App Link hosts | — | done (pending device verification) |
-| [005](005-notification-display.md) | `NotificationDisplay` — native notification build/post/dedup + tap deep link | 001, 003, 004 | pending |
+| [005](005-notification-display.md) | `NotificationDisplay` — native notification build/post/dedup, foreground vs. in-app, tap deep link | 001, 003, 004 | done |
 | [006](006-foreground-service-connection.md) | `NotificationConnectionService` (foreground service) + start/stop lifecycle | 002, 003, 005 | pending |
 | [007](007-channel-sync-and-bridge.md) | `NotificationsBridgeModule` + bidirectional Android-channel sync | 001, 006 | pending |
 | [008](008-config-screen.md) | RN: `config/notifications/` — groups CRUD, toggles, retention setting | 007 | pending |

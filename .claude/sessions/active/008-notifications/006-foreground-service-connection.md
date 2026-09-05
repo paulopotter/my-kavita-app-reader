@@ -35,8 +35,13 @@ This service is the thing that actually wires the provider (002), resolver (003)
 
 - `android/app/src/main/kotlin/com/mymangareader/NotificationConnectionService.kt`
 - Matching test file — start/stop condition matrix (URL present/absent × toggle on/off → 4 cases,
-  only "both true" starts), and a fake-provider test confirming an incoming event flows through
-  resolver → display exactly once per event.
+  and a fake-provider test confirming an incoming event flows through resolver → display exactly
+  once per event. This is also where `NotificationDisplay.post()`'s own end-to-end behavior gets
+  its integration coverage (deferred from Task 005 on purpose — its individual pieces
+  (`notificationId` stability, `buildBody`'s 3 cases, the history dedup itself already covered in
+  `:notifications`) are already unit-tested there; testing `post()` end-to-end only pays off once
+  this service exists to drive a realistic event through the whole pipeline in one setup, instead
+  of duplicating a heavy Server/Notifications/Preferences fake rig twice).
 
 ## Files to modify
 
