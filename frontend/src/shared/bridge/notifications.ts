@@ -1,4 +1,5 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import type { UrlProbeResult } from './server';
 
 // Mirrors :notifications' Notifications facade (android/notifications) via
 // NotificationsBridgeModule.kt — groups/URL CRUD, the channel-backed enabled state, scope/
@@ -18,6 +19,7 @@ export interface NotificationUrlInfo {
   url: string;
   timeoutMs: number;
   priority: number;
+  linkedServerUrlId?: string;
 }
 
 export interface NotificationHistoryItem {
@@ -29,6 +31,13 @@ export interface NotificationHistoryItem {
   detectedAtMs: number;
   read: boolean;
   createdAtLocalMs: number;
+}
+
+// Which group/URL the foreground service is actually connected to right now — null when nothing
+// resolved (e.g. no healthy URL, or the service isn't running).
+export interface NotificationActiveGroupUrl {
+  groupId: string;
+  urlId: string;
 }
 
 export interface UnreadCountChangedEvent {
@@ -48,8 +57,24 @@ interface NotificationsBridgeModuleInterface {
   addGroup(params: { name: string; providerId: string; topic: string; linkedServerGroupId?: string }): Promise<NotificationGroupInfo>;
   removeGroup(params: { groupId: string }): Promise<void>;
   listGroupUrls(params: { groupId: string }): Promise<NotificationUrlInfo[]>;
-  addGroupUrl(params: { groupId: string; url: string; timeoutMs: number; priority: number }): Promise<NotificationUrlInfo>;
+  addGroupUrl(params: {
+    groupId: string;
+    url: string;
+    timeoutMs: number;
+    priority: number;
+    linkedServerUrlId?: string;
+  }): Promise<NotificationUrlInfo>;
+  updateGroupUrl(params: {
+    groupId: string;
+    urlId: string;
+    url?: string;
+    timeoutMs?: number;
+    priority?: number;
+    linkedServerUrlId?: string;
+  }): Promise<NotificationUrlInfo>;
   removeGroupUrl(params: { groupId: string; urlId: string }): Promise<void>;
+  testGroupUrl(params: { groupId: string; url: string }): Promise<UrlProbeResult>;
+  getActiveGroupUrl(): Promise<NotificationActiveGroupUrl | null>;
 
   // scope/grouping/retention preferences
   getScopeAll(): Promise<boolean>;
@@ -78,8 +103,24 @@ const native: {
   addGroup(name: string, providerId: string, topic: string, linkedServerGroupId: string | undefined): Promise<NotificationGroupInfo>;
   removeGroup(groupId: string): Promise<void>;
   listGroupUrls(groupId: string): Promise<NotificationUrlInfo[]>;
-  addGroupUrl(groupId: string, url: string, timeoutMs: number, priority: number): Promise<NotificationUrlInfo>;
+  addGroupUrl(
+    groupId: string,
+    url: string,
+    timeoutMs: number,
+    priority: number,
+    linkedServerUrlId: string | undefined,
+  ): Promise<NotificationUrlInfo>;
+  updateGroupUrl(
+    groupId: string,
+    urlId: string,
+    url: string | undefined,
+    timeoutMs: number,
+    priority: number,
+    linkedServerUrlId: string | undefined,
+  ): Promise<NotificationUrlInfo>;
   removeGroupUrl(groupId: string, urlId: string): Promise<void>;
+  testGroupUrl(groupId: string, url: string): Promise<UrlProbeResult>;
+  getActiveGroupUrl(): Promise<NotificationActiveGroupUrl | null>;
   getScopeAll(): Promise<boolean>;
   setScopeAll(enabled: boolean): Promise<void>;
   getScopeFollowedOnly(): Promise<boolean>;
@@ -103,8 +144,13 @@ export const NotificationsBridge: NotificationsBridgeModuleInterface = {
   addGroup: ({ name, providerId, topic, linkedServerGroupId }) => native.addGroup(name, providerId, topic, linkedServerGroupId),
   removeGroup: ({ groupId }) => native.removeGroup(groupId),
   listGroupUrls: ({ groupId }) => native.listGroupUrls(groupId),
-  addGroupUrl: ({ groupId, url, timeoutMs, priority }) => native.addGroupUrl(groupId, url, timeoutMs, priority),
+  addGroupUrl: ({ groupId, url, timeoutMs, priority, linkedServerUrlId }) =>
+    native.addGroupUrl(groupId, url, timeoutMs, priority, linkedServerUrlId),
+  updateGroupUrl: ({ groupId, urlId, url, timeoutMs, priority, linkedServerUrlId }) =>
+    native.updateGroupUrl(groupId, urlId, url, timeoutMs ?? -1, priority ?? -1, linkedServerUrlId),
   removeGroupUrl: ({ groupId, urlId }) => native.removeGroupUrl(groupId, urlId),
+  testGroupUrl: ({ groupId, url }) => native.testGroupUrl(groupId, url),
+  getActiveGroupUrl: () => native.getActiveGroupUrl(),
 
   getScopeAll: () => native.getScopeAll(),
   setScopeAll: ({ enabled }) => native.setScopeAll(enabled),

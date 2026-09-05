@@ -36,13 +36,28 @@ describe('NotificationsBridge', () => {
   });
 
   it('addGroupUrl unwraps the named object into positional args', async () => {
-    await NotificationsBridge.addGroupUrl({ groupId: 'g1', url: 'https://ntfy.sh', timeoutMs: 5000, priority: 0 });
-    expect(native.addGroupUrl).toHaveBeenCalledWith('g1', 'https://ntfy.sh', 5000, 0);
+    await NotificationsBridge.addGroupUrl({ groupId: 'g1', url: 'https://ntfy.sh', timeoutMs: 5000, priority: 0, linkedServerUrlId: 'su1' });
+    expect(native.addGroupUrl).toHaveBeenCalledWith('g1', 'https://ntfy.sh', 5000, 0, 'su1');
+  });
+
+  it('updateGroupUrl unwraps the named object, defaulting omitted timeoutMs/priority to -1', async () => {
+    await NotificationsBridge.updateGroupUrl({ groupId: 'g1', urlId: 'u1', url: 'https://ntfy.sh' });
+    expect(native.updateGroupUrl).toHaveBeenCalledWith('g1', 'u1', 'https://ntfy.sh', -1, -1, undefined);
   });
 
   it('removeGroupUrl unwraps groupId/urlId', async () => {
     await NotificationsBridge.removeGroupUrl({ groupId: 'g1', urlId: 'u1' });
     expect(native.removeGroupUrl).toHaveBeenCalledWith('g1', 'u1');
+  });
+
+  it('testGroupUrl unwraps groupId/url', async () => {
+    await NotificationsBridge.testGroupUrl({ groupId: 'g1', url: 'https://ntfy.sh' });
+    expect(native.testGroupUrl).toHaveBeenCalledWith('g1', 'https://ntfy.sh');
+  });
+
+  it('getActiveGroupUrl takes no arguments', async () => {
+    await NotificationsBridge.getActiveGroupUrl();
+    expect(native.getActiveGroupUrl).toHaveBeenCalledWith();
   });
 
   it('scope getters take no arguments', async () => {

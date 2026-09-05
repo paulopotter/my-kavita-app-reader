@@ -9,7 +9,10 @@ jest.mock('../../bridge/notifications', () => ({
     removeGroup: jest.fn(),
     listGroupUrls: jest.fn(),
     addGroupUrl: jest.fn(),
+    updateGroupUrl: jest.fn(),
     removeGroupUrl: jest.fn(),
+    testGroupUrl: jest.fn(),
+    getActiveGroupUrl: jest.fn(),
     getScopeAll: jest.fn(),
     setScopeAll: jest.fn(),
     getScopeFollowedOnly: jest.fn(),
@@ -104,9 +107,46 @@ describe('NotificationsService.groups', () => {
     expect(result).toBe(url);
   });
 
+  it('urls.update forwards groupId/urlId/url/timeoutMs/priority/linkedServerUrlId to NotificationsBridge.updateGroupUrl', async () => {
+    const url = { id: 'u1', groupId: 'g1', url: 'https://lan.local', timeoutMs: 5000, priority: 1, linkedServerUrlId: 'su1' };
+    (NotificationsBridge.updateGroupUrl as jest.Mock).mockResolvedValue(url);
+    const result = await NotificationsService.groups.urls.update({
+      groupId: 'g1',
+      urlId: 'u1',
+      url: 'https://lan.local',
+      priority: 1,
+      linkedServerUrlId: 'su1',
+    });
+    expect(NotificationsBridge.updateGroupUrl).toHaveBeenCalledWith({
+      groupId: 'g1',
+      urlId: 'u1',
+      url: 'https://lan.local',
+      timeoutMs: undefined,
+      priority: 1,
+      linkedServerUrlId: 'su1',
+    });
+    expect(result).toBe(url);
+  });
+
   it('urls.remove forwards groupId/urlId to NotificationsBridge.removeGroupUrl', async () => {
     await NotificationsService.groups.urls.remove({ groupId: 'g1', urlId: 'u1' });
     expect(NotificationsBridge.removeGroupUrl).toHaveBeenCalledWith({ groupId: 'g1', urlId: 'u1' });
+  });
+
+  it('urls.test forwards groupId/url to NotificationsBridge.testGroupUrl', async () => {
+    const probe = { url: 'https://lan.local', ok: true, status: 200, elapsedMs: 5 };
+    (NotificationsBridge.testGroupUrl as jest.Mock).mockResolvedValue(probe);
+    const result = await NotificationsService.groups.urls.test({ groupId: 'g1', url: 'https://lan.local' });
+    expect(NotificationsBridge.testGroupUrl).toHaveBeenCalledWith({ groupId: 'g1', url: 'https://lan.local' });
+    expect(result).toBe(probe);
+  });
+
+  it('getActiveUrl forwards to NotificationsBridge.getActiveGroupUrl', async () => {
+    const active = { groupId: 'g1', urlId: 'u1' };
+    (NotificationsBridge.getActiveGroupUrl as jest.Mock).mockResolvedValue(active);
+    const result = await NotificationsService.groups.getActiveUrl();
+    expect(NotificationsBridge.getActiveGroupUrl).toHaveBeenCalledWith();
+    expect(result).toBe(active);
   });
 });
 

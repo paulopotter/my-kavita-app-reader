@@ -1,8 +1,10 @@
 import {
   NotificationsBridge,
+  type NotificationActiveGroupUrl,
   type NotificationGroupInfo,
   type NotificationHistoryItem,
   type NotificationUrlInfo,
+  type UrlProbeResult,
 } from '../../bridge';
 
 // Layer 4 — thin wrapper over NotificationsBridge (Task 007). No cache, no transformation:
@@ -43,6 +45,11 @@ export const NotificationsService = {
     remove({ groupId }: { groupId: string }): Promise<void> {
       return NotificationsBridge.removeGroup({ groupId });
     },
+    // Which group/URL the foreground service is actually connected to right now (null if nothing
+    // resolved) — used to mark the active row, same as ServerService.urls.getActive's role.
+    getActiveUrl(): Promise<NotificationActiveGroupUrl | null> {
+      return NotificationsBridge.getActiveGroupUrl();
+    },
     urls: {
       list({ groupId }: { groupId: string }): Promise<NotificationUrlInfo[]> {
         return NotificationsBridge.listGroupUrls({ groupId });
@@ -52,16 +59,40 @@ export const NotificationsService = {
         url,
         timeoutMs,
         priority,
+        linkedServerUrlId,
       }: {
         groupId: string;
         url: string;
         timeoutMs: number;
         priority: number;
+        linkedServerUrlId?: string;
       }): Promise<NotificationUrlInfo> {
-        return NotificationsBridge.addGroupUrl({ groupId, url, timeoutMs, priority });
+        return NotificationsBridge.addGroupUrl({ groupId, url, timeoutMs, priority, linkedServerUrlId });
+      },
+      update({
+        groupId,
+        urlId,
+        url,
+        timeoutMs,
+        priority,
+        linkedServerUrlId,
+      }: {
+        groupId: string;
+        urlId: string;
+        url?: string;
+        timeoutMs?: number;
+        priority?: number;
+        linkedServerUrlId?: string;
+      }): Promise<NotificationUrlInfo> {
+        return NotificationsBridge.updateGroupUrl({ groupId, urlId, url, timeoutMs, priority, linkedServerUrlId });
       },
       remove({ groupId, urlId }: { groupId: string; urlId: string }): Promise<void> {
         return NotificationsBridge.removeGroupUrl({ groupId, urlId });
+      },
+      // Point check on a typed-in URL — does not change which URL is active. Mirrors
+      // ServerService.urls.test's role.
+      test({ groupId, url }: { groupId: string; url: string }): Promise<UrlProbeResult> {
+        return NotificationsBridge.testGroupUrl({ groupId, url });
       },
     },
   },
