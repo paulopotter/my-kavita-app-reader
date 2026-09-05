@@ -122,6 +122,13 @@ android {
         buildConfig = true
         compose = true
     }
+
+    // Robolectric needs the real merged resources (strings.xml) to resolve Context.getString —
+    // without this, R.string ids resolve fine at compile time but throw NotFoundException at
+    // runtime under test (NotificationDisplayTest, Plan 008 Task 005).
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 // ── Deep link hosts (Plan 008 Task 004) ─────────────────────────────────────
@@ -238,9 +245,11 @@ dependencies {
     implementation(project(":external-metadata-server"))
     implementation(project(":cache"))
     implementation(project(":preferences"))
+    implementation(project(":notifications"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)
@@ -267,4 +276,5 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }

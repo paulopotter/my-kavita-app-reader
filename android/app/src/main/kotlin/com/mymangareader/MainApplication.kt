@@ -154,6 +154,7 @@ class MainApplication :
             DefaultNewArchitectureEntryPoint.load()
         }
         crashGuard.install()
+        AppForegroundState.register()
 
         applicationScope.launch {
             _bootGate.value = otaManager.check()

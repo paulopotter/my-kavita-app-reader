@@ -49,6 +49,8 @@ class AppReactPackage(
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
         val otaBridge = OtaEventBridge(context, otaStore)
         OtaEventBridge.register(otaBridge)
+        val notificationsBridge = NotificationsBridgeModule(context)
+        NotificationsBridgeModule.register(notificationsBridge)
         return listOf(
             ConfigRepository(configStore, context),
             DbValidatorModule(dbStatus, context),
@@ -71,6 +73,7 @@ class AppReactPackage(
             CacheBridgeModule(cache, context),
             FollowedSeriesBridgeModule(followedSeriesDao, context),
             PreferencesBridgeModule(preferences, context),
+            notificationsBridge,
         )
     }
 
