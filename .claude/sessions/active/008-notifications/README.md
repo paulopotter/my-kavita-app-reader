@@ -268,6 +268,19 @@ android/notifications/                     # :notifications (Layer 2)
                                             # FollowedSeriesDao, :preferences for the 3 scope flags —
                                             # lives here, not in android/app/, since none of that
                                             # requires the app module specifically)
+  NotificationGroupResolver.kt             # Task 006 — which group/URL to connect to right now:
+                                            # tries the group linked to the active Kavita server
+                                            # group first (linkedServerGroupId), falls back to the
+                                            # pool of unlinked groups — same algorithm as
+                                            # ExternalMetadataServer.resolveNoHint, via UrlSelector
+  NotificationConnectionGate.kt            # Task 006 — shouldConnect(): at least one URL AND the
+                                            # enabled toggle, extracted so the 4-case start/stop
+                                            # matrix is testable without a real Android Service
+  NotificationPoster.kt                    # Task 006 — boundary interface NotificationDisplay
+                                            # (android/app/) implements, so :notifications never
+                                            # depends on :app
+  NotificationEventPipeline.kt             # Task 006 — resolve → shouldNotify → post, extracted
+                                            # so this exact orchestration is unit-testable
   plugins/
     NotificationPlugin.kt                  # L2 interface: connect/disconnect/observe — lives
                                             # inside plugins/, mirroring ServerPlugin's own location
@@ -277,15 +290,29 @@ android/notifications/                     # :notifications (Layer 2)
 
 android/core/src/main/kotlin/.../database/
   NotificationGroupEntity.kt / Dao.kt       # Room — group + priority-ordered URLs (mirrors
-  NotificationUrlEntity.kt / Dao.kt         # ServerGroupEntity/ServerUrlEntity's own split)
+                                            # ServerGroupEntity/ServerUrlEntity's own split);
+                                            # linkedServerGroupId (Task 006) — plain string column,
+                                            # no @ForeignKey, same convention as
+                                            # ExternalMetadataGroupEntity's own link
+  NotificationUrlEntity.kt / Dao.kt
   NotificationHistoryEntity.kt / Dao.kt     # Room — persisted history item
   migrations/Migration_14_15.kt             # forward (creates the 3 tables) + reverse pair,
                                             # same file, same convention as Migration_13_14.kt
+  migrations/Migration_15_16.kt             # Task 006 — adds linkedServerGroupId (ALTER TABLE ADD
+                                            # COLUMN forward, copy/drop/rename table for the
+                                            # reverse — no portable DROP COLUMN across versions)
 
 android/app/src/main/kotlin/com/mymangareader/ (continued)
-  NotificationConnectionService.kt         # Foreground service — owns the WebSocket lifecycle
+  NotificationConnectionService.kt         # Foreground service — owns the WebSocket lifecycle,
+                                            # delegates every step to NotificationGroupResolver/
+                                            # NotificationConnectionGate/NotificationEventPipeline.
+                                            # start(context)/stop(context) — plain Context calls,
+                                            # no automatic trigger yet (Task 007's job)
+  NotificationsBindingsModule.kt           # Task 006 — @Binds NotificationDisplay as the
+                                            # NotificationPoster :notifications depends on
   NotificationDisplay.kt                   # builds + posts the native Notification, PendingIntent
-                                            # built against the public mymangareader:// scheme
+                                            # built against the public mymangareader:// scheme;
+                                            # implements NotificationPoster
   NotificationsBridgeModule.kt             # RN bridge — groups CRUD, toggle, history CRUD, badge
                                             # count (Tasks 006/007) — no deep-link concern in it
   NotificationChannelSync.kt               # bidirectional channel-enabled sync
