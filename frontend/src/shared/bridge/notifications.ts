@@ -47,6 +47,7 @@ interface NotificationsBridgeModuleInterface {
   listGroups(): Promise<NotificationGroupInfo[]>;
   addGroup(params: { name: string; providerId: string; topic: string; linkedServerGroupId?: string }): Promise<NotificationGroupInfo>;
   removeGroup(params: { groupId: string }): Promise<void>;
+  listGroupUrls(params: { groupId: string }): Promise<NotificationUrlInfo[]>;
   addGroupUrl(params: { groupId: string; url: string; timeoutMs: number; priority: number }): Promise<NotificationUrlInfo>;
   removeGroupUrl(params: { groupId: string; urlId: string }): Promise<void>;
 
@@ -76,6 +77,7 @@ const native: {
   listGroups(): Promise<NotificationGroupInfo[]>;
   addGroup(name: string, providerId: string, topic: string, linkedServerGroupId: string | undefined): Promise<NotificationGroupInfo>;
   removeGroup(groupId: string): Promise<void>;
+  listGroupUrls(groupId: string): Promise<NotificationUrlInfo[]>;
   addGroupUrl(groupId: string, url: string, timeoutMs: number, priority: number): Promise<NotificationUrlInfo>;
   removeGroupUrl(groupId: string, urlId: string): Promise<void>;
   getScopeAll(): Promise<boolean>;
@@ -100,6 +102,7 @@ export const NotificationsBridge: NotificationsBridgeModuleInterface = {
   listGroups: () => native.listGroups(),
   addGroup: ({ name, providerId, topic, linkedServerGroupId }) => native.addGroup(name, providerId, topic, linkedServerGroupId),
   removeGroup: ({ groupId }) => native.removeGroup(groupId),
+  listGroupUrls: ({ groupId }) => native.listGroupUrls(groupId),
   addGroupUrl: ({ groupId, url, timeoutMs, priority }) => native.addGroupUrl(groupId, url, timeoutMs, priority),
   removeGroupUrl: ({ groupId, urlId }) => native.removeGroupUrl(groupId, urlId),
 

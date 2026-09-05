@@ -23,6 +23,7 @@ const NATIVE_MODULE_NAMES = [
   'ExternalMetadataBridgeModule',
   'FollowedSeriesBridgeModule',
   'NetworkStatusModule',
+  'NotificationsBridgeModule',
   'OtaEventBridge',
   'PreferencesBridgeModule',
   'ReaderChapterModule',

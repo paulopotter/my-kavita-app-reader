@@ -5,6 +5,7 @@ export * from './digest';
 export * from './external';
 export * from './followed-series';
 export * from './network';
+export * from './notifications';
 export * from './page';
 export * from './preferences';
 export * from './server';
