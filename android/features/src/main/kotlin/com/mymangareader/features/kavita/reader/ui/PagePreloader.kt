@@ -3,6 +3,7 @@ package com.mymangareader.features.kavita.reader.ui
 import android.content.Context
 import coil.ImageLoader
 import coil.imageLoader
+import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,10 +32,27 @@ internal class PagePreloader(
 
     private val activeJobs = mutableMapOf<String, Job>()
 
+    // The URL most recently reported as fully out of the preload window (see updateWindow) —
+    // evicted from Coil's in-memory cache on the NEXT call rather than immediately: the visible
+    // page itself is one step outside this preloader's own window (PAGE_PRELOAD_RADIUS excludes
+    // visibleIndex, see computePreloadWindow) but Coil's memory cache is still what serves it on
+    // re-render, so evicting a URL the instant it drops out risks evicting the page still on
+    // screen for a tick. Delaying eviction by one window update gives that page one more cycle to
+    // actually leave the viewport first.
+    private var previousWindow: Set<String> = emptySet()
+
     /**
      * Recomputes the desired preload window. Cancels in-flight jobs whose URL fell out of the
      * window (e.g. the reader scrolled back the other way) and starts jobs only for URLs not
      * already in flight — already-cached URLs resolve near-instantly inside imageLoader.execute.
+     *
+     * Also evicts decoded pages from Coil's in-memory cache once they've been out of the window
+     * for a full update cycle — full-resolution manga/webtoon pages are large ARGB_8888 bitmaps
+     * (SafeBitmapDecoder never downsamples), and the reader's chapter window only ever grows
+     * (reader.window.ts is append-only, by design), so nothing else ever tells Coil a page is no
+     * longer relevant. Only the memory cache is cleared — the disk cache (and Coil's own
+     * automatic re-caching on the next request) is untouched, so scrolling back to a page that
+     * was evicted is a cheap disk hit, not a re-download.
      */
     fun updateWindow(orderedUrls: List<String>) {
         val desired = orderedUrls.toSet()
@@ -42,6 +60,11 @@ internal class PagePreloader(
         activeJobs.keys.filterNot { it in desired }.forEach { url ->
             activeJobs.remove(url)?.cancel()
         }
+
+        previousWindow
+            .filterNot { it in desired }
+            .forEach { url -> imageLoader.memoryCache?.remove(MemoryCache.Key(url)) }
+        previousWindow = desired
 
         orderedUrls.forEach { url ->
             if (url !in activeJobs) {

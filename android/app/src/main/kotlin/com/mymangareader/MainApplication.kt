@@ -4,6 +4,7 @@ import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -197,6 +198,21 @@ class MainApplication :
         ImageLoader
             .Builder(this)
             .components { add(SafeBitmapDecoder.Factory()) }
+            // Coil's default in-memory cache has no size floor tied to this app's content: reader
+            // pages are decoded at their original resolution (SafeBitmapDecoder never downsamples —
+            // see its own doc on why: downsampling breaks AVIF decode on some devices), so a manga/
+            // webtoon page can be tens of MB as a raw ARGB_8888 bitmap. Left at Coil's own default
+            // (~25% of available app memory, sized with no awareness of that), a few pages held by
+            // the preloader's window are enough to push the process's total RAM well past what a
+            // reader app should need. An explicit, smaller ceiling caps how much of that decoded
+            // pixel data stays memory-resident — pages beyond it fall back to a disk-cache hit
+            // (cheap: no re-download) instead of a second full decode.
+            .memoryCache {
+                MemoryCache
+                    .Builder(this)
+                    .maxSizePercent(READER_MEMORY_CACHE_PERCENT)
+                    .build()
+            }
             // Coil's default disk cache is 2% of free disk space, which on a nearly-full device
             // can be too small to hold more than a couple of chapters — pages get evicted and
             // re-downloaded on every reopen even though nothing on the server changed. A manga
@@ -228,6 +244,7 @@ class MainApplication :
 
     companion object {
         private const val READER_DISK_CACHE_MAX_BYTES = 500L * 1024 * 1024
+        private const val READER_MEMORY_CACHE_PERCENT = 0.15
         private const val STABLE_BOOT_DELAY_MS = 5_000L
     }
 }
