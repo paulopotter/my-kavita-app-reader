@@ -3,6 +3,7 @@ package com.mymangareader.features.kavita.chapter
 import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
+import com.mymangareader.core.database.ChapterReadStatusUpdate
 import com.mymangareader.core.database.PageCacheDao
 import com.mymangareader.core.database.PageCacheEntity
 import com.mymangareader.core.database.ReadingProgressDao
@@ -280,14 +281,16 @@ class KavitaChapterFeature
                     if (http.status != 200) error("Mark chapters failed: HTTP ${http.status}")
                     val now = System.currentTimeMillis()
                     val pagesById = chapterCacheDao.getBySeriesId(seriesId).associate { it.id to it.pageCount }
-                    chapterIds.forEach { chapterId ->
-                        chapterCacheDao.updateReadStatus(
-                            chapterId = chapterId,
-                            readStatus = readStatus,
-                            pagesRead = if (readStatus == "READ") pagesById[chapterId] ?: 0 else 0,
-                            updatedAtLocalMs = now,
-                        )
-                    }
+                    chapterCacheDao.updateReadStatusForChapters(
+                        chapterIds.map { chapterId ->
+                            ChapterReadStatusUpdate(
+                                chapterId = chapterId,
+                                readStatus = readStatus,
+                                pagesRead = if (readStatus == "READ") pagesById[chapterId] ?: 0 else 0,
+                                updatedAtLocalMs = now,
+                            )
+                        },
+                    )
                 }
         }
     }

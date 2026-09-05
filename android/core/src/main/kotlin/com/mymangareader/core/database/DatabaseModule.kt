@@ -39,6 +39,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_13_12,
                 AppDatabase.MIGRATION_13_14,
                 AppDatabase.MIGRATION_14_13,
+                AppDatabase.MIGRATION_14_15,
+                AppDatabase.MIGRATION_15_14,
             ).build()
 
     @Provides
@@ -85,4 +87,13 @@ object DatabaseModule {
 
     @Provides
     fun providePreferenceDao(db: AppDatabase): PreferenceDao = db.preferenceDao()
+
+    @Provides
+    fun provideNotificationGroupDao(db: AppDatabase): NotificationGroupDao = db.notificationGroupDao()
+
+    @Provides
+    fun provideNotificationUrlDao(db: AppDatabase): NotificationUrlDao = db.notificationUrlDao()
+
+    @Provides
+    fun provideNotificationHistoryDao(db: AppDatabase): NotificationHistoryDao = db.notificationHistoryDao()
 }

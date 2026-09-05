@@ -4,6 +4,7 @@ import com.mymangareader.core.database.AuthConfigDao
 import com.mymangareader.core.database.AuthConfigEntity
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.ChapterCacheEntity
+import com.mymangareader.core.database.ChapterReadStatusUpdate
 import com.mymangareader.core.database.PageCacheDao
 import com.mymangareader.core.database.PageCacheEntity
 import com.mymangareader.core.database.ReadingProgressDao
@@ -50,6 +51,11 @@ private class FakeChapterCacheDao : ChapterCacheDao {
     val chapters = mutableMapOf<String, ChapterCacheEntity>()
     val updateCalls = mutableListOf<Triple<String, String, Int>>()
 
+    // Set by a test that wants updateReadStatusForChapters to fail partway through the batch —
+    // simulates a mid-transaction error, so the test can assert the whole batch rolls back
+    // (@Transaction semantics) rather than applying only the updates before the failing one.
+    var failOnChapterId: String? = null
+
     override suspend fun getBySeriesId(seriesId: String) = chapters.values.filter { it.seriesId == seriesId }
 
     override suspend fun updateReadStatus(
@@ -58,10 +64,28 @@ private class FakeChapterCacheDao : ChapterCacheDao {
         pagesRead: Int,
         updatedAtLocalMs: Long,
     ) {
+        if (chapterId == failOnChapterId) error("simulated failure for $chapterId")
         updateCalls.add(Triple(chapterId, readStatus, pagesRead))
         chapters[chapterId]?.let {
             chapters[chapterId] = it.copy(readStatus = readStatus, pagesRead = pagesRead)
         }
+    }
+
+    // Real Room semantics: @Transaction means the whole batch commits or none of it does. The
+    // fake mirrors that by staging every update and only writing them to `chapters` once all of
+    // them have succeeded — a failure partway through leaves the map untouched, same as a real
+    // SQLite rollback would.
+    override suspend fun updateReadStatusForChapters(updates: List<ChapterReadStatusUpdate>) {
+        val staged = chapters.toMutableMap()
+        updates.forEach {
+            if (it.chapterId == failOnChapterId) error("simulated failure for ${it.chapterId}")
+            updateCalls.add(Triple(it.chapterId, it.readStatus, it.pagesRead))
+            staged[it.chapterId]?.let { entity ->
+                staged[it.chapterId] = entity.copy(readStatus = it.readStatus, pagesRead = it.pagesRead)
+            }
+        }
+        chapters.clear()
+        chapters.putAll(staged)
     }
 
     override suspend fun insertAll(chapters: List<ChapterCacheEntity>) {
@@ -171,6 +195,89 @@ class KavitaChapterFeatureTest {
             assertTrue(result.isSuccess)
             assertEquals("READ", chapterCacheDao.chapters["1"]?.readStatus)
             assertEquals(20, chapterCacheDao.chapters["1"]?.pagesRead)
+        }
+
+    @Test
+    fun `markChaptersRead com varios capitulos atualiza todos em uma unica chamada em lote`() =
+        runTest {
+            chapterCacheDao.insertAll(
+                listOf(
+                    ChapterCacheEntity(
+                        id = "1",
+                        seriesId = "10",
+                        title = "Cap 1",
+                        number = "1",
+                        pageCount = 20,
+                        sortOrder = 1.0,
+                        readStatus = "UNREAD",
+                        pagesRead = 0,
+                        updatedAtLocalMs = null,
+                    ),
+                    ChapterCacheEntity(
+                        id = "2",
+                        seriesId = "10",
+                        title = "Cap 2",
+                        number = "2",
+                        pageCount = 15,
+                        sortOrder = 2.0,
+                        readStatus = "UNREAD",
+                        pagesRead = 0,
+                        updatedAtLocalMs = null,
+                    ),
+                ),
+            )
+            server.enqueue(MockResponse().setResponseCode(200))
+
+            val result = feature.markChaptersRead("10", listOf("1", "2"))
+
+            assertTrue(result.isSuccess)
+            assertEquals("READ", chapterCacheDao.chapters["1"]?.readStatus)
+            assertEquals(20, chapterCacheDao.chapters["1"]?.pagesRead)
+            assertEquals("READ", chapterCacheDao.chapters["2"]?.readStatus)
+            assertEquals(15, chapterCacheDao.chapters["2"]?.pagesRead)
+        }
+
+    // updateReadStatusForChapters is @Transaction — a failure partway through the batch must roll
+    // back every update in it, not leave a half-applied local cache (the previous per-id-loop
+    // implementation had no such guarantee: N independent commits, so a mid-batch failure left
+    // some chapters marked and others not).
+    @Test
+    fun `markChaptersRead com falha no meio do lote nao aplica nenhuma atualizacao local`() =
+        runTest {
+            chapterCacheDao.insertAll(
+                listOf(
+                    ChapterCacheEntity(
+                        id = "1",
+                        seriesId = "10",
+                        title = "Cap 1",
+                        number = "1",
+                        pageCount = 20,
+                        sortOrder = 1.0,
+                        readStatus = "UNREAD",
+                        pagesRead = 0,
+                        updatedAtLocalMs = null,
+                    ),
+                    ChapterCacheEntity(
+                        id = "2",
+                        seriesId = "10",
+                        title = "Cap 2",
+                        number = "2",
+                        pageCount = 15,
+                        sortOrder = 2.0,
+                        readStatus = "UNREAD",
+                        pagesRead = 0,
+                        updatedAtLocalMs = null,
+                    ),
+                ),
+            )
+            chapterCacheDao.failOnChapterId = "2"
+            server.enqueue(MockResponse().setResponseCode(200))
+
+            val result = feature.markChaptersRead("10", listOf("1", "2"))
+
+            assertTrue(result.isFailure)
+            assertEquals("UNREAD", chapterCacheDao.chapters["1"]?.readStatus)
+            assertEquals("UNREAD", chapterCacheDao.chapters["2"]?.readStatus)
         }
 
     @Test
