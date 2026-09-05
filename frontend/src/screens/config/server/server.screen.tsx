@@ -3,9 +3,7 @@ import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import type { ServerGroupInfo, ServerUrlInfo } from '../../../shared/bridge';
 import { useStrings } from '../../../shared/i18n';
 import { styles as chrome } from '../config.styles';
-import { GroupCard } from './components/group-card';
-import { ServerModal } from './components/modal';
-import { UrlModal } from './components/url-modal';
+import { GroupCard, ServerModal, UrlModal } from '../components';
 import {
   useMetadataServer,
   useServer,

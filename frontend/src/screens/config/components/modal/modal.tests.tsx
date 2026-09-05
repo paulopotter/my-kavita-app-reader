@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { getStrings } from '../../../../../shared/i18n/strings';
-import type { ProviderInfo } from '../../../../../shared/bridge/server';
+import { getStrings } from '../../../../shared/i18n/strings';
+import type { ProviderInfo } from '../../../../shared/bridge/server';
 import { ServerModal, type ServerModalProps } from './modal.component';
 
 const t = getStrings('en');

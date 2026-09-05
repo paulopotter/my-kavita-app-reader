@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { getStrings } from '../../../../../shared/i18n/strings';
-import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../../shared/bridge/server';
+import { getStrings } from '../../../../shared/i18n/strings';
+import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../shared/bridge/server';
 import { UrlModal, type UrlModalProps } from './url-modal.component';
 
 const t = getStrings('en');

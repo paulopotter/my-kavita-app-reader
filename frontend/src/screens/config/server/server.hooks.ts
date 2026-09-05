@@ -11,6 +11,7 @@ import {
   ServersService,
 } from '../../../shared/services/servers';
 import { StringTool } from '../../../shared/tools/string';
+import type { ServerCredentials } from '../components/modal';
 import type { ConnStatus } from './server.types';
 
 // ⚠️ TASK 035 — LAYER 1 + 2 + 3 (server + URLs + metadata server).
@@ -47,9 +48,7 @@ async function emitActiveUrlChanged(groupId: string): Promise<void> {
   }
 }
 
-export interface ServerCredentials {
-  [field: string]: string;
-}
+export type { ServerCredentials };
 
 export interface UseServerResult {
   loading: boolean;

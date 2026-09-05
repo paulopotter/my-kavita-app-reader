@@ -32,7 +32,7 @@ describe('GroupModal', () => {
 
     fireEvent.changeText(getByPlaceholderText(t.notificationsGroupModalTopicPlaceholder), 'chapters');
     fireEvent.press(getByText(t.serverFormSave));
-    expect(onSubmit).toHaveBeenCalledWith('Home', 'chapters');
+    expect(onSubmit).toHaveBeenCalledWith('Home', 'chapters', undefined);
   });
 
   it('shows the submit error when given', () => {

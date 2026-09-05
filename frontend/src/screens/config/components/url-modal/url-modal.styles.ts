@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../../shared/theme';
+import { colors } from '../../../../shared/theme';
 
 // Add / edit a single URL of a server. URL + priority + a "test connection" button that only
 // checks that URL is reachable (never changes which URL is active).

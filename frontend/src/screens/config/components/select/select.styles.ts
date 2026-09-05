@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../../shared/theme';
+import { colors } from '../../../../shared/theme';
 
 // A tap-to-open single-choice select. The trigger shows the current value; the sheet lists every
 // option one per row. Used where a chip row would get unreadable (e.g. many URLs).

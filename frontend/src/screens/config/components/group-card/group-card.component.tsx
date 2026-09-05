@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import type { ProviderCredentialField } from '../../../../../shared/bridge';
+import type { ProviderCredentialField } from '../../../../shared/bridge';
 import { Row } from '../row';
 import { styles } from './group-card.styles';
 
@@ -28,17 +28,19 @@ export interface GroupCardProps {
   // undefined for rows with no sub-line.
   urlSubline?: (urlId: string) => string | undefined;
 
-  connTesting: boolean;
-  connMessage: string;
-  connStatus: 'idle' | 'testing' | 'ok' | 'error';
-  onTestConnection: () => void;
+  // Omitted entirely → no "test connection" section rendered (config/notifications doesn't have
+  // a group-level connection test, only the per-URL test in its own UrlModal).
+  connTesting?: boolean;
+  connMessage?: string;
+  connStatus?: 'idle' | 'testing' | 'ok' | 'error';
+  onTestConnection?: () => void;
 
   strings: {
     urls: string;
     addUrl: string;
-    testConnection: string;
-    testing: string;
-    connectionOk: string;
+    testConnection?: string;
+    testing?: string;
+    connectionOk?: string;
   };
 }
 
@@ -108,7 +110,7 @@ export function GroupCard({
           </TouchableOpacity>
         )}
 
-        {urls.length > 0 && (
+        {onTestConnection && urls.length > 0 && (
           <>
             <View style={styles.actionRow}>
               <TouchableOpacity

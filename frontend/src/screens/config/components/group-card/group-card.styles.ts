@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../../shared/theme';
+import { colors } from '../../../../shared/theme';
 
 // The section card for one server (or metadata server): a header (name + ⋯), then masked
 // credential rows, then the URL list with add / test buttons.

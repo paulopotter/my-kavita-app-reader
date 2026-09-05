@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import type { ProviderCredentialField } from '../../../../../shared/bridge/server';
+import type { ProviderCredentialField } from '../../../../shared/bridge/server';
 import { GroupCard, type GroupCardProps } from './group-card.component';
 
 const CRED_FIELDS: ProviderCredentialField[] = [

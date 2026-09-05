@@ -1,10 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import type { ProviderInfo } from '../../../../../shared/bridge';
-import type { Strings } from '../../../../../shared/i18n';
-import { UrlTool } from '../../../../../shared/tools/url';
-import type { ServerCredentials } from '../../server.hooks';
+import type { ProviderInfo } from '../../../../shared/bridge';
+import type { Strings } from '../../../../shared/i18n';
+import { UrlTool } from '../../../../shared/tools/url';
 import { styles } from './modal.styles';
+
+// Shared shape for a provider's credential values, keyed by ProviderCredentialField.name — used
+// by both config/server and config/notifications (whichever provider's group this modal is
+// adding/editing).
+export interface ServerCredentials {
+  [field: string]: string;
+}
 
 // Add / edit a server (an :server group). Dumb: the screen owns providers + the submit action;
 // this renders the provider select (disabled while there's only one), a name field, and one
