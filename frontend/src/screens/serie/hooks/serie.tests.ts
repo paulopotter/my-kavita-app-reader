@@ -774,6 +774,79 @@ describe('useSerie — selection mode', () => {
     expect(mockMarkReadMany).not.toHaveBeenCalled();
   });
 
+  // applyMarkUpdates (the onUpdateMany channel) folds the whole batch into ONE setSerie/.map()
+  // pass instead of one per chapter — marking a large selection was calling the per-id
+  // applyMarkUpdate once per chapter, each one re-copying the WHOLE chapters array, which is what
+  // showed up as the UI freezing on a large "mark all read" selection. These tests exercise that
+  // channel directly (readMany/unreadMany are mocked, so this simulates what the real
+  // ChapterTool.mark.readMany does: call onUpdateMany once with the whole batch).
+  describe('markSelectedRead / markSelectedUnread — batched local state via onUpdateMany', () => {
+    it('applies every selected chapter’s new status from a single onUpdateMany call', async () => {
+      mockMarkReadMany.mockImplementation(({ onUpdateMany }) => {
+        onUpdateMany([
+          { seriesId: 's1', chapterId: 'c1', readStatus: 'READ' },
+          { seriesId: 's1', chapterId: 'c2', readStatus: 'READ' },
+        ]);
+        return Promise.resolve();
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.onChapterLongPress('c1'));
+      act(() => result.current.onChapterClick('c2'));
+      act(() => result.current.markSelectedRead());
+      expect(result.current.chapters.every(c => c.readStatus === 'READ')).toBe(true);
+    });
+
+    it('leaves an unselected chapter untouched after a batch mark', async () => {
+      mockMarkReadMany.mockImplementation(({ onUpdateMany }) => {
+        onUpdateMany([{ seriesId: 's1', chapterId: 'c1', readStatus: 'READ' }]);
+        return Promise.resolve();
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.onChapterLongPress('c1'));
+      act(() => result.current.markSelectedRead());
+      expect(result.current.chapters.find(c => c.id === 'c1')?.readStatus).toBe('READ');
+      expect(result.current.chapters.find(c => c.id === 'c2')?.readStatus).toBe('UNREAD');
+    });
+
+    it('applies a batch unread the same way', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        chapters: [
+          { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'READ' },
+          { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'READ' },
+        ],
+      });
+      mockMarkUnreadMany.mockImplementation(({ onUpdateMany }) => {
+        onUpdateMany([
+          { seriesId: 's1', chapterId: 'c1', readStatus: 'UNREAD' },
+          { seriesId: 's1', chapterId: 'c2', readStatus: 'UNREAD' },
+        ]);
+        return Promise.resolve();
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.onChapterLongPress('c1'));
+      act(() => result.current.onChapterClick('c2'));
+      act(() => result.current.markSelectedUnread());
+      expect(result.current.chapters.every(c => c.readStatus === 'UNREAD')).toBe(true);
+    });
+
+    it('does nothing when onUpdateMany is called with an empty batch', async () => {
+      mockMarkReadMany.mockImplementation(({ onUpdateMany }) => {
+        onUpdateMany([]);
+        return Promise.resolve();
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      const before = result.current.chapters;
+      act(() => result.current.onChapterLongPress('c1'));
+      act(() => result.current.markSelectedRead());
+      expect(result.current.chapters).toBe(before);
+    });
+  });
+
   describe('scroll-to-top button visibility', () => {
     const layout = (h: number) => ({ nativeEvent: { layout: { height: h } } }) as never;
     const scroll = (y: number) => ({ nativeEvent: { contentOffset: { y } } }) as never;

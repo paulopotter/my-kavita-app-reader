@@ -58,17 +58,27 @@ function emitReadStatusChanged(
 
 // Shared body of ChapterTool.mark.readMany / unreadMany — see readMany's doc. One
 // ChapterService.status.setMany for the whole list; optimistic/confirm/revert applied per id.
+//
+// `onUpdateMany` (batch) vs `onUpdate` (per-id, inherited from the single-chapter mark contract):
+// a caller applying N updates to React state via `onUpdate` in this file's own forEach loops was
+// triggering one setState per chapter — O(N²) work (each setState re-copies the caller's whole
+// chapter array) that showed up as a UI freeze marking large selections read. `onUpdateMany` gives
+// a caller like SerieScreen a single callback with the whole batch, so it can fold all N changes
+// into one setState. `emitReadStatusChanged` still fires once per id — other screens/listeners
+// (Library, EventBus) still need one event per chapter; only the LOCAL React-state channel batches.
 function markMany(
   {
     seriesId,
     chapterIds,
     prevStatusById,
     onUpdate,
+    onUpdateMany,
   }: {
     seriesId: string;
     chapterIds: string[];
     prevStatusById?: Record<string, ChapterReadStatus>;
     onUpdate?: (update: ChapterMarkUpdate) => void;
+    onUpdateMany?: (updates: ChapterMarkUpdate[]) => void;
   },
   isRead: boolean,
 ): Promise<ChapterMarkUpdate[]> {
@@ -80,6 +90,7 @@ function markMany(
     readStatus: targetStatus,
   }));
 
+  onUpdateMany?.(optimistic);
   optimistic.forEach(update => {
     onUpdate?.(update);
     emitReadStatusChanged(update, 'optimistic', prevStatusById?.[update.chapterId]);
@@ -88,22 +99,24 @@ function markMany(
   ChapterService.status
     .setMany({ seriesId, chapterIds, isRead })
     .then(() => {
+      onUpdateMany?.(optimistic);
       optimistic.forEach(update => {
         onUpdate?.(update);
         emitReadStatusChanged(update, 'confirmed', prevStatusById?.[update.chapterId]);
       });
     })
     .catch(() => {
-      chapterIds.forEach(chapterId => {
-        const reverted: ChapterMarkUpdate = {
-          seriesId,
-          chapterId,
-          readStatus: prevStatusById?.[chapterId] ?? fallbackStatus,
-        };
-        onUpdate?.(reverted);
+      const reverted: ChapterMarkUpdate[] = chapterIds.map(chapterId => ({
+        seriesId,
+        chapterId,
+        readStatus: prevStatusById?.[chapterId] ?? fallbackStatus,
+      }));
+      onUpdateMany?.(reverted);
+      reverted.forEach(update => {
+        onUpdate?.(update);
         // From an aggregate listener's POV the "previous" state is the optimistic one it already
         // applied — so it can undo exactly that.
-        emitReadStatusChanged(reverted, 'reverted', targetStatus);
+        emitReadStatusChanged(update, 'reverted', targetStatus);
       });
     });
 
@@ -285,6 +298,7 @@ export const ChapterTool = {
       chapterIds: string[];
       prevStatusById?: Record<string, ChapterReadStatus>;
       onUpdate?: (update: ChapterMarkUpdate) => void;
+      onUpdateMany?: (updates: ChapterMarkUpdate[]) => void;
     }): Promise<ChapterMarkUpdate[]> => markMany(args, true),
 
     unreadMany: (args: {
@@ -292,6 +306,7 @@ export const ChapterTool = {
       chapterIds: string[];
       prevStatusById?: Record<string, ChapterReadStatus>;
       onUpdate?: (update: ChapterMarkUpdate) => void;
+      onUpdateMany?: (updates: ChapterMarkUpdate[]) => void;
     }): Promise<ChapterMarkUpdate[]> => markMany(args, false),
 
     // Reads the real current status first (so it can pass a real prevStatus down, instead of
