@@ -7,6 +7,7 @@ import { useConfigLanguage, useConfigMenu } from './config.hooks';
 import { styles } from './config.styles';
 import type { ConfigScreenProps, ConfigSubScreen } from './config.types';
 import { DebugScreen } from './debug';
+import { NotificationsScreen } from './notifications';
 import { ReaderPrefsScreen } from './reader';
 import { SerieSortScreen } from './serie';
 import { ServerScreen } from './server';
@@ -42,6 +43,8 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
       return <ReaderPrefsScreen onBack={goBack} />;
     case 'serie':
       return <SerieSortScreen onBack={goBack} />;
+    case 'notifications':
+      return <NotificationsScreen onBack={goBack} />;
     case 'debug':
       return <DebugScreen onBack={goBack} />;
     default:
@@ -73,6 +76,12 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('serie')}>
         <Text style={styles.menuRowLabel}>{t.configMenuChapter}</Text>
+        <Text style={styles.menuRowArrow}>›</Text>
+      </TouchableOpacity>
+      <View style={styles.divider} />
+
+      <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('notifications')}>
+        <Text style={styles.menuRowLabel}>{t.configMenuNotifications}</Text>
         <Text style={styles.menuRowArrow}>›</Text>
       </TouchableOpacity>
       <View style={styles.divider} />

@@ -1,0 +1,51 @@
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../shared/theme';
+
+export const styles = StyleSheet.create({
+  container: { padding: 16 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  rowDisabled: { opacity: 0.45 },
+  label: { flex: 1, color: colors.textOnDark, fontSize: 15, marginRight: 12 },
+  channelState: { color: colors.muted, fontSize: 13, marginRight: 10 },
+  channelBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: colors.accent },
+  channelBtnTxt: { color: colors.accent, fontSize: 12, fontWeight: '600' },
+
+  retentionRow: { paddingVertical: 16 },
+  retentionLabel: { color: colors.textOnDark, fontSize: 15, marginBottom: 10 },
+  retentionStepper: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  stepperBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperBtnTxt: { color: colors.accent, fontSize: 18, fontWeight: '700' },
+  retentionValue: { color: colors.textOnDark, fontSize: 15, minWidth: 80, textAlign: 'center' },
+
+  addDashedBtn: {
+    marginTop: 6,
+    padding: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.accent,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  addDashedTxt: { color: colors.accent, fontWeight: '600', fontSize: 13 },
+
+  // context-menu modal
+  menuOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' },
+  menuBox: { backgroundColor: colors.card, borderRadius: 12, width: 200, overflow: 'hidden' },
+  menuItem: { padding: 16, alignItems: 'center' },
+  menuItemTxt: { color: colors.textOnDark, fontSize: 15 },
+  menuItemDanger: { color: colors.msgError },
+  menuDivider: { height: 1, backgroundColor: colors.deep },
+});

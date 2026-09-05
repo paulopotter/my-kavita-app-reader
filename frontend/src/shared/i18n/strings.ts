@@ -18,6 +18,7 @@ export interface Strings {
   configMenuServer: string;
   configMenuReading: string;
   configMenuChapter: string;
+  configMenuNotifications: string;
   configChapterSortGroupTitle: string;
 
   // ── Server form ─────────────────────────────────────────────────────────
@@ -226,6 +227,34 @@ export interface Strings {
   serverErrorNoServer: string;
   serverErrorNoMetadataServer: string;
   serverErrorUrlInvalid: string;
+
+  // ── Notifications config screen (Plan 008 Task 008) ──────────────────────
+  notificationsSectionTitle: string;
+  notificationsChannelRowLabel: string;
+  notificationsChannelStateOn: string;
+  notificationsChannelStateOff: string;
+  notificationsChannelOpenSettings: string;
+  notificationsScopeAll: string;
+  notificationsScopeFollowedOnly: string;
+  notificationsGroupAcrossSeries: string;
+  notificationsRetentionLabel: string;
+  notificationsRetentionDaysSuffix: string;
+  notificationsGroupsTitle: string;
+  notificationsAddGroup: string;
+  notificationsGroupModalNewTitle: string;
+  notificationsGroupModalEditTitle: string;
+  notificationsGroupModalNameLabel: string;
+  notificationsGroupModalNamePlaceholder: string;
+  notificationsGroupModalTopicLabel: string;
+  notificationsGroupModalTopicPlaceholder: string;
+  notificationsUrlModalNewTitle: string;
+  notificationsUrlModalEditTitle: string;
+  notificationsUrlModalUrlLabel: string;
+  notificationsUrlModalUrlPlaceholder: string;
+  notificationsErrorNoGroup: string;
+  notificationsErrorGroupNameRequired: string;
+  notificationsErrorTopicRequired: string;
+  notificationsErrorUrlInvalid: string;
 }
 
 const ptBR: Strings = {
@@ -245,6 +274,7 @@ const ptBR: Strings = {
   configMenuServer: 'Servidor',
   configMenuReading: 'Preferências de leitura',
   configMenuChapter: 'Página do mangá',
+  configMenuNotifications: 'Notificações',
   configChapterSortGroupTitle: 'Ordenação de capítulos',
 
   serverFormUrlLabel: 'URL do servidor',
@@ -430,6 +460,33 @@ const ptBR: Strings = {
   serverErrorNoServer: 'Nenhum servidor',
   serverErrorNoMetadataServer: 'Nenhum servidor de metadados',
   serverErrorUrlInvalid: 'URL inválida (use http:// ou https://)',
+
+  notificationsSectionTitle: 'Notificações',
+  notificationsChannelRowLabel: 'Notificações do sistema',
+  notificationsChannelStateOn: 'Ativadas',
+  notificationsChannelStateOff: 'Desativadas',
+  notificationsChannelOpenSettings: 'Abrir configurações',
+  notificationsScopeAll: 'Notificar sobre todas as séries',
+  notificationsScopeFollowedOnly: 'Notificar apenas séries seguidas',
+  notificationsGroupAcrossSeries: 'Agrupar notificações de várias séries',
+  notificationsRetentionLabel: 'Manter histórico por',
+  notificationsRetentionDaysSuffix: 'dias',
+  notificationsGroupsTitle: 'Servidores de notificação',
+  notificationsAddGroup: '+ Adicionar servidor de notificação',
+  notificationsGroupModalNewTitle: 'Novo servidor de notificação',
+  notificationsGroupModalEditTitle: 'Editar servidor de notificação',
+  notificationsGroupModalNameLabel: 'Nome',
+  notificationsGroupModalNamePlaceholder: 'Casa',
+  notificationsGroupModalTopicLabel: 'Tópico',
+  notificationsGroupModalTopicPlaceholder: 'novos-capitulos',
+  notificationsUrlModalNewTitle: 'Nova URL',
+  notificationsUrlModalEditTitle: 'Editar URL',
+  notificationsUrlModalUrlLabel: 'URL',
+  notificationsUrlModalUrlPlaceholder: 'https://ntfy.sh',
+  notificationsErrorNoGroup: 'Nenhum servidor de notificação',
+  notificationsErrorGroupNameRequired: 'Nome obrigatório',
+  notificationsErrorTopicRequired: 'Tópico obrigatório',
+  notificationsErrorUrlInvalid: 'URL inválida (use http:// ou https://)',
 };
 
 const en: Strings = {
@@ -449,6 +506,7 @@ const en: Strings = {
   configMenuServer: 'Server',
   configMenuReading: 'Reading preferences',
   configMenuChapter: 'Manga page',
+  configMenuNotifications: 'Notifications',
   configChapterSortGroupTitle: 'Chapter sort order',
 
   serverFormUrlLabel: 'Server URL',
@@ -634,6 +692,33 @@ const en: Strings = {
   serverErrorNoServer: 'No server',
   serverErrorNoMetadataServer: 'No metadata server',
   serverErrorUrlInvalid: 'Invalid URL (use http:// or https://)',
+
+  notificationsSectionTitle: 'Notifications',
+  notificationsChannelRowLabel: 'System notifications',
+  notificationsChannelStateOn: 'On',
+  notificationsChannelStateOff: 'Off',
+  notificationsChannelOpenSettings: 'Open settings',
+  notificationsScopeAll: 'Notify for all series',
+  notificationsScopeFollowedOnly: 'Notify for followed series only',
+  notificationsGroupAcrossSeries: 'Group notifications across series',
+  notificationsRetentionLabel: 'Keep history for',
+  notificationsRetentionDaysSuffix: 'days',
+  notificationsGroupsTitle: 'Notification servers',
+  notificationsAddGroup: '+ Add notification server',
+  notificationsGroupModalNewTitle: 'New notification server',
+  notificationsGroupModalEditTitle: 'Edit notification server',
+  notificationsGroupModalNameLabel: 'Name',
+  notificationsGroupModalNamePlaceholder: 'Home',
+  notificationsGroupModalTopicLabel: 'Topic',
+  notificationsGroupModalTopicPlaceholder: 'new-chapters',
+  notificationsUrlModalNewTitle: 'New URL',
+  notificationsUrlModalEditTitle: 'Edit URL',
+  notificationsUrlModalUrlLabel: 'URL',
+  notificationsUrlModalUrlPlaceholder: 'https://ntfy.sh',
+  notificationsErrorNoGroup: 'No notification server',
+  notificationsErrorGroupNameRequired: 'Name is required',
+  notificationsErrorTopicRequired: 'Topic is required',
+  notificationsErrorUrlInvalid: 'Invalid URL (use http:// or https://)',
 };
 
 export const allStrings: Record<Language, Strings> = { 'pt-BR': ptBR, en };
