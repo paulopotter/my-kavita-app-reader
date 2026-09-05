@@ -8,10 +8,16 @@ import androidx.room.PrimaryKey
 // column, same "this table knows nothing about which providers exist" convention as
 // ServerGroupEntity.providerId); its candidate URLs live in NotificationUrlEntity, same split as
 // server_group/server_url.
+//
+// linkedServerGroupId (Task 006) — plain string column, no @ForeignKey enforced (:notifications
+// lives in a sibling Gradle module from :server, same reasoning as
+// ExternalMetadataGroupEntity.linkedServerGroupId). null means this notification group applies to
+// any active Kavita server group.
 @Entity(tableName = "notification_group")
 data class NotificationGroupEntity(
     @PrimaryKey val id: String,
     val name: String,
     val providerId: String,
     val topic: String,
+    val linkedServerGroupId: String? = null,
 )
