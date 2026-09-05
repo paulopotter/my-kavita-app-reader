@@ -2,13 +2,17 @@ package com.mymangareader.notifications
 
 import com.mymangareader.core.database.NotificationGroupDao
 import com.mymangareader.core.database.NotificationGroupEntity
+import com.mymangareader.core.database.NotificationHistoryDao
+import com.mymangareader.core.database.NotificationHistoryEntity
 import com.mymangareader.core.database.NotificationUrlDao
 import com.mymangareader.core.database.NotificationUrlEntity
+import com.mymangareader.core.database.PreferenceDao
+import com.mymangareader.core.database.PreferenceEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
-// Shared fakes for NotificationGroupDao/NotificationUrlDao — used by NotificationsTest and
-// NotificationGroupResolverTest, one copy per Gradle source set.
+// Shared fakes for NotificationGroupDao/NotificationUrlDao/NotificationHistoryDao/PreferenceDao —
+// used across this module's tests, one copy per Gradle source set.
 
 class FakeNotificationGroupDao : NotificationGroupDao {
     private val rows = mutableMapOf<String, NotificationGroupEntity>()
@@ -55,5 +59,61 @@ class FakeNotificationUrlDao : NotificationUrlDao {
 
     override suspend fun deleteByGroupId(groupId: String) {
         rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) }
+    }
+}
+
+class FakeNotificationHistoryDao : NotificationHistoryDao {
+    private val rows = mutableMapOf<String, NotificationHistoryEntity>()
+
+    override suspend fun insertOrReplace(entity: NotificationHistoryEntity) {
+        rows[entity.id] = entity
+    }
+
+    override fun observeAll(): Flow<List<NotificationHistoryEntity>> = MutableStateFlow(rows.values.sortedByDescending { it.detectedAtMs })
+
+    override suspend fun listAll(): List<NotificationHistoryEntity> = rows.values.sortedByDescending { it.detectedAtMs }
+
+    override suspend fun getById(id: String): NotificationHistoryEntity? = rows[id]
+
+    override suspend fun markRead(id: String) {
+        rows[id]?.let { rows[id] = it.copy(read = true) }
+    }
+
+    override suspend fun markAllRead() {
+        rows.keys.toList().forEach { id -> rows[id] = rows.getValue(id).copy(read = true) }
+    }
+
+    override suspend fun delete(id: String) {
+        rows.remove(id)
+    }
+
+    override suspend fun deleteOlderThan(epochMs: Long) {
+        rows.values.filter { it.createdAtLocalMs < epochMs }.forEach { rows.remove(it.id) }
+    }
+
+    override suspend fun countUnread(): Int = rows.values.count { !it.read }
+}
+
+class FakePreferenceDao : PreferenceDao {
+    private val rows = mutableMapOf<String, PreferenceEntity>()
+
+    override suspend fun getByKey(
+        key: String,
+        variant: String,
+    ): PreferenceEntity? = rows["$key:$variant"]
+
+    override suspend fun upsert(entity: PreferenceEntity) {
+        rows["${entity.key}:${entity.variant}"] = entity
+    }
+
+    override suspend fun deleteByKey(
+        key: String,
+        variant: String,
+    ) {
+        rows.remove("$key:$variant")
+    }
+
+    override suspend fun deleteByDomain(domain: String) {
+        rows.values.filter { it.domain == domain }.forEach { rows.remove("${it.key}:${it.variant}") }
     }
 }

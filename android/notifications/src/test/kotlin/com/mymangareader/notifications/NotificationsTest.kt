@@ -1,9 +1,6 @@
 package com.mymangareader.notifications
 
-import com.mymangareader.core.database.NotificationHistoryDao
 import com.mymangareader.core.database.NotificationHistoryEntity
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -12,40 +9,9 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
-// ── Fakes specific to this test (FakeNotificationGroupDao/FakeNotificationUrlDao live in
-// NotificationTestFakes.kt, shared with NotificationGroupResolverTest) ──
-
-private class FakeNotificationHistoryDao : NotificationHistoryDao {
-    private val rows = mutableMapOf<String, NotificationHistoryEntity>()
-
-    override suspend fun insertOrReplace(entity: NotificationHistoryEntity) {
-        rows[entity.id] = entity
-    }
-
-    override fun observeAll(): Flow<List<NotificationHistoryEntity>> = MutableStateFlow(rows.values.sortedByDescending { it.detectedAtMs })
-
-    override suspend fun listAll(): List<NotificationHistoryEntity> = rows.values.sortedByDescending { it.detectedAtMs }
-
-    override suspend fun getById(id: String): NotificationHistoryEntity? = rows[id]
-
-    override suspend fun markRead(id: String) {
-        rows[id]?.let { rows[id] = it.copy(read = true) }
-    }
-
-    override suspend fun markAllRead() {
-        rows.keys.toList().forEach { id -> rows[id] = rows.getValue(id).copy(read = true) }
-    }
-
-    override suspend fun delete(id: String) {
-        rows.remove(id)
-    }
-
-    override suspend fun deleteOlderThan(epochMs: Long) {
-        rows.values.filter { it.createdAtLocalMs < epochMs }.forEach { rows.remove(it.id) }
-    }
-
-    override suspend fun countUnread(): Int = rows.values.count { !it.read }
-}
+// ── Fakes specific to this test (FakeNotificationGroupDao/FakeNotificationUrlDao/
+// FakeNotificationHistoryDao live in NotificationTestFakes.kt, shared across this module's tests)
+// ──
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 

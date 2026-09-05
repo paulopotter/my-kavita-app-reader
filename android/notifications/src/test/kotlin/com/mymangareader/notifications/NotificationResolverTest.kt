@@ -3,8 +3,6 @@ package com.mymangareader.notifications
 import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.FollowedSeriesEntity
-import com.mymangareader.core.database.PreferenceDao
-import com.mymangareader.core.database.PreferenceEntity
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlEntity
 import com.mymangareader.notifications.plugins.RawNotificationEvent
@@ -48,29 +46,7 @@ private class FakeFollowedSeriesDao : FollowedSeriesDao {
     }
 }
 
-private class FakePreferenceDao : PreferenceDao {
-    private val rows = mutableMapOf<String, PreferenceEntity>()
-
-    override suspend fun getByKey(
-        key: String,
-        variant: String,
-    ): PreferenceEntity? = rows["$key:$variant"]
-
-    override suspend fun upsert(entity: PreferenceEntity) {
-        rows["${entity.key}:${entity.variant}"] = entity
-    }
-
-    override suspend fun deleteByKey(
-        key: String,
-        variant: String,
-    ) {
-        rows.remove("$key:$variant")
-    }
-
-    override suspend fun deleteByDomain(domain: String) {
-        rows.values.filter { it.domain == domain }.forEach { rows.remove("${it.key}:${it.variant}") }
-    }
-}
+// FakePreferenceDao lives in NotificationTestFakes.kt, shared across this module's tests.
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
