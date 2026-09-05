@@ -34,6 +34,11 @@ fun NotificationUrlInfo.toWritableMap(): WritableMap =
         putInt("priority", priority)
     }
 
+fun List<NotificationUrlInfo>.toUrlsWritableArray(): WritableArray =
+    Arguments.createArray().also { arr ->
+        forEach { arr.pushMap(it.toWritableMap()) }
+    }
+
 fun NotificationHistoryItem.toWritableMap(): WritableMap =
     Arguments.createMap().apply {
         putString("id", id)

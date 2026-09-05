@@ -64,6 +64,16 @@ class NotificationsBridgeModule(
     }
 
     @ReactMethod
+    fun listGroupUrls(
+        groupId: String,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.group(groupId).getUrls() }.resolveOrReject(promise, "LIST_GROUP_URLS_ERROR") { it.toUrlsWritableArray() }
+        }
+    }
+
+    @ReactMethod
     fun addGroup(
         name: String,
         providerId: String,
