@@ -6,4 +6,8 @@
     <string name="notification_new_chapter_numbered">Chapter %1$s available</string>
     <string name="notification_new_chapter_unnumbered">New chapter available</string>
     <string name="notification_new_chapters_batch">%1$d new chapters available</string>
+
+    <!-- Plan 008 Task 006 — persistent low-priority notification required while the foreground
+         service holds the WebSocket connection open -->
+    <string name="notification_connection_connected">Connected to notification server</string>
 </resources>

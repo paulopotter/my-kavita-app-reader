@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".MainApplication"
@@ -49,6 +52,11 @@
             -->
         <!-- GENERATED_DEEP_LINK_HOSTS_END -->
         </activity>
+
+        <service
+            android:name=".NotificationConnectionService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

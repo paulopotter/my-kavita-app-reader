@@ -11,6 +11,7 @@ import androidx.core.graphics.drawable.toBitmap
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.mymangareader.notifications.NewNotificationHistoryItem
+import com.mymangareader.notifications.NotificationPoster
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.notifications.ResolvedSeriesEvent
 import com.mymangareader.preferences.Preferences
@@ -45,10 +46,10 @@ class NotificationDisplay
         private val notifications: Notifications,
         private val server: Server,
         private val preferences: Preferences,
-    ) {
+    ) : NotificationPoster {
         private val notificationManager = NotificationManagerCompat.from(context)
 
-        suspend fun post(resolved: ResolvedSeriesEvent) {
+        override suspend fun post(resolved: ResolvedSeriesEvent) {
             notifications.history.insertOrReplace(
                 NewNotificationHistoryItem(
                     id = notificationHistoryId(resolved.seriesId),
