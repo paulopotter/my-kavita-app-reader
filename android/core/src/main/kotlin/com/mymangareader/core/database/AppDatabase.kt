@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         NotificationUrlEntity::class,
         NotificationHistoryEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -167,5 +167,7 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_15_14 = com.mymangareader.core.database.migrations.Migration_15_14
         val MIGRATION_15_16 = com.mymangareader.core.database.migrations.Migration_15_16
         val MIGRATION_16_15 = com.mymangareader.core.database.migrations.Migration_16_15
+        val MIGRATION_16_17 = com.mymangareader.core.database.migrations.Migration_16_17
+        val MIGRATION_17_16 = com.mymangareader.core.database.migrations.Migration_17_16
     }
 }

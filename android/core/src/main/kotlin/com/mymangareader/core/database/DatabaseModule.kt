@@ -43,6 +43,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_15_14,
                 AppDatabase.MIGRATION_15_16,
                 AppDatabase.MIGRATION_16_15,
+                AppDatabase.MIGRATION_16_17,
+                AppDatabase.MIGRATION_17_16,
             ).build()
 
     @Provides
