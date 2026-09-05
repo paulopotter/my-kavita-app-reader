@@ -22,6 +22,7 @@ export const BOTTOM_NAV_ROUTES = new Set<string>([
   Routes.LIBRARY,
   Routes.FOLLOWING,
   Routes.SEARCH,
+  Routes.NOTIFICATIONS,
   Routes.CONFIG,
 ]);
 

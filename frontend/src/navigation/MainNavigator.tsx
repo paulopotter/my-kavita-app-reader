@@ -1,10 +1,11 @@
 import React, { useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import { Library, Settings, Star } from 'lucide-react-native';
+import { Bell, Library, Settings, Star } from 'lucide-react-native';
 import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library';
 import { ConfigScreen } from '../screens/config';
+import { NotificationsScreen, useUnreadNotificationsCount } from '../screens/notifications';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
 
@@ -36,6 +37,7 @@ export function MainNavigator() {
   const strings = useStrings();
   const navigation = useNavigation<any>();
   const isConfigSubScreenRef = useRef(false);
+  const unreadNotificationsCount = useUnreadNotificationsCount();
 
   const handleRegisterBackHandler = (fn: (() => boolean) | null) => {
     isConfigSubScreenRef.current = fn !== null;
@@ -85,6 +87,15 @@ export function MainNavigator() {
         options={{
           tabBarLabel: strings.navLibrary,
           tabBarIcon: ({ focused }) => <Library size={20} color={focused ? ACTIVE : INACTIVE} />,
+        }}
+      />
+      <Tab.Screen
+        name={Routes.NOTIFICATIONS}
+        component={NotificationsScreen}
+        options={{
+          tabBarLabel: strings.navNotifications,
+          tabBarBadge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
+          tabBarIcon: ({ focused }) => <Bell size={20} color={focused ? ACTIVE : INACTIVE} />,
         }}
       />
       <Tab.Screen

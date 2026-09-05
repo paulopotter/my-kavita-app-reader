@@ -6,7 +6,6 @@ import { SplashScreen } from '../screens/splash';
 import { SetupScreen } from '../screens/config/setup';
 import { SerieScreen } from '../screens/serie';
 import { ReaderScreen } from '../screens/reader';
-import { NotificationsScreen } from '../screens/notifications/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -53,11 +52,6 @@ export function RootNavigator({ initialRoute = Routes.SPLASH, onSetupComplete }:
           const p = params as any;
           return `${p?.seriesId}/${p?.chapterId}`;
         }}
-      />
-
-      <Stack.Screen
-        name={Routes.NOTIFICATIONS}
-        component={NotificationsScreen}
       />
     </Stack.Navigator>
   );

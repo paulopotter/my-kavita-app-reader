@@ -90,6 +90,7 @@ export interface Strings {
   navLibrary: string;
   navFollowing: string;
   navSearch: string;
+  navNotifications: string;
   navConfig: string;
 
   // ── Splash screen ─────────────────────────────────────────────────────────
@@ -255,6 +256,15 @@ export interface Strings {
   notificationsErrorGroupNameRequired: string;
   notificationsErrorTopicRequired: string;
   notificationsErrorUrlInvalid: string;
+
+  // ── Notifications history screen (Plan 008 Task 009) ─────────────────────
+  notificationsHistoryTitle: string;
+  notificationsHistoryEmpty: string;
+  notificationsHistoryMarkAllRead: string;
+  notificationsHistoryDelete: string;
+  notificationsHistoryBodyBatch: string; // "{0}" = chapter count
+  notificationsHistoryBodyNumbered: string; // "{0}" = chapter number
+  notificationsHistoryBodyUnnumbered: string;
 }
 
 const ptBR: Strings = {
@@ -337,6 +347,7 @@ const ptBR: Strings = {
   navLibrary: 'Biblioteca',
   navFollowing: 'Seguindo',
   navSearch: 'Buscar',
+  navNotifications: 'Notificações',
   navConfig: 'Ajustes',
 
   splashVersion: 'v',
@@ -487,6 +498,14 @@ const ptBR: Strings = {
   notificationsErrorGroupNameRequired: 'Nome obrigatório',
   notificationsErrorTopicRequired: 'Tópico obrigatório',
   notificationsErrorUrlInvalid: 'URL inválida (use http:// ou https://)',
+
+  notificationsHistoryTitle: 'Notificações',
+  notificationsHistoryEmpty: 'Nenhuma notificação ainda',
+  notificationsHistoryMarkAllRead: 'Marcar tudo como lido',
+  notificationsHistoryDelete: 'Excluir',
+  notificationsHistoryBodyBatch: '{0} novos capítulos disponíveis',
+  notificationsHistoryBodyNumbered: 'Capítulo {0} disponível',
+  notificationsHistoryBodyUnnumbered: 'Novo capítulo disponível',
 };
 
 const en: Strings = {
@@ -569,6 +588,7 @@ const en: Strings = {
   navLibrary: 'Library',
   navFollowing: 'Following',
   navSearch: 'Search',
+  navNotifications: 'Notifications',
   navConfig: 'Settings',
 
   splashVersion: 'v',
@@ -719,6 +739,14 @@ const en: Strings = {
   notificationsErrorGroupNameRequired: 'Name is required',
   notificationsErrorTopicRequired: 'Topic is required',
   notificationsErrorUrlInvalid: 'Invalid URL (use http:// or https://)',
+
+  notificationsHistoryTitle: 'Notifications',
+  notificationsHistoryEmpty: 'No notifications yet',
+  notificationsHistoryMarkAllRead: 'Mark all as read',
+  notificationsHistoryDelete: 'Delete',
+  notificationsHistoryBodyBatch: '{0} new chapters available',
+  notificationsHistoryBodyNumbered: 'Chapter {0} available',
+  notificationsHistoryBodyUnnumbered: 'New chapter available',
 };
 
 export const allStrings: Record<Language, Strings> = { 'pt-BR': ptBR, en };
