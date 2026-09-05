@@ -10,8 +10,7 @@ export const styles = StyleSheet.create({
     padding: 24,
   },
   message: { color: '#A0AEC0', fontSize: 16, marginTop: 12, textAlign: 'center' },
-  errorText: { color: '#FC8181', fontSize: 16, fontWeight: '600', marginBottom: 8, textAlign: 'center' },
-  errorDetail: { color: '#A0AEC0', fontSize: 13, marginBottom: 20, textAlign: 'center' },
+  errorText: { color: '#FC8181', fontSize: 16, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
   retryButton: { backgroundColor: '#E94560', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   retryText: { color: '#FFFFFF', fontWeight: '600' },
   topBar: {

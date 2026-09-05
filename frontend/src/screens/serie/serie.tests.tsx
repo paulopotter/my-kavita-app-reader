@@ -127,11 +127,15 @@ describe('SerieScreen', () => {
     expect(getByText(t.seriesDetailLoading)).toBeTruthy();
   });
 
+  // Only the generic friendly title is shown — the raw exception message (e.g. a
+  // kotlinx.serialization parse error leaking JSON offsets/paths) is never rendered directly, so a
+  // technical error string never reaches the user as-is.
   it('shows the error state when loading failed with nothing loaded yet', () => {
     mockSerieState.loading = false;
     mockSerieState.error = 'network down';
-    const { getByText } = render(<SerieScreen />);
-    expect(getByText('network down')).toBeTruthy();
+    const { getByText, queryByText } = render(<SerieScreen />);
+    expect(getByText(t.seriesDetailError)).toBeTruthy();
+    expect(queryByText('network down')).toBeNull();
   });
 
   it('retries by calling refresh from the error state', () => {

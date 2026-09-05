@@ -100,11 +100,14 @@ describe('LibraryScreen', () => {
     expect(getByText(t.libraryLoading)).toBeTruthy();
   });
 
+  // Only the generic friendly title is shown — the raw exception message (e.g. a
+  // kotlinx.serialization parse error leaking JSON offsets/paths) is never rendered directly, so a
+  // technical error string never reaches the user as-is.
   it('shows the error state with a retry that calls refresh', () => {
     mockHookState.error = 'boom';
-    const { getByText } = render(<LibraryScreen />);
+    const { getByText, queryByText } = render(<LibraryScreen />);
     expect(getByText(t.libraryError)).toBeTruthy();
-    expect(getByText('boom')).toBeTruthy();
+    expect(queryByText('boom')).toBeNull();
     fireEvent.press(getByText(t.libraryRetry));
     expect(mockRefresh).toHaveBeenCalled();
   });

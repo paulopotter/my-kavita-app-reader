@@ -140,7 +140,6 @@ export function SerieScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{t.seriesDetailError}</Text>
-        <Text style={styles.errorDetail}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refresh()}>
           <Text style={styles.retryText}>{t.seriesDetailRetry}</Text>
         </TouchableOpacity>

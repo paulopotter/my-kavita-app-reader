@@ -130,7 +130,6 @@ export function LibraryScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{t.libraryError}</Text>
-        <Text style={styles.errorDetail}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={refresh}>
           <Text style={styles.retryText}>{t.libraryRetry}</Text>
         </TouchableOpacity>
