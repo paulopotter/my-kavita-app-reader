@@ -29,6 +29,7 @@ import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.NotificationGroupResolver
 import com.mymangareader.notifications.NotificationRetentionPurge
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
@@ -100,6 +101,8 @@ class MainApplication :
 
     @Inject lateinit var notificationConnectionGate: NotificationConnectionGate
 
+    @Inject lateinit var notificationGroupResolver: NotificationGroupResolver
+
     @Inject lateinit var notificationRetentionPurge: NotificationRetentionPurge
 
     override val reactNativeHost: ReactNativeHost by lazy {
@@ -127,6 +130,7 @@ class MainApplication :
                         notifications = notifications,
                         notificationChannelSync = notificationChannelSync,
                         notificationConnectionGate = notificationConnectionGate,
+                        notificationGroupResolver = notificationGroupResolver,
                     )
 
             override fun getJSMainModuleName(): String = "index"

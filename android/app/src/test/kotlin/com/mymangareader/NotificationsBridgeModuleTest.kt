@@ -2,6 +2,7 @@ package com.mymangareader
 
 import com.facebook.react.bridge.ReactApplicationContext
 import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.NotificationGroupResolver
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
 import org.junit.Assert.assertEquals
@@ -22,6 +23,7 @@ class NotificationsBridgeModuleTest {
                 mock<Preferences>(),
                 mock<NotificationChannelSync>(),
                 mock<NotificationConnectionGate>(),
+                mock<NotificationGroupResolver>(),
                 mock<ReactApplicationContext>(),
             )
 

@@ -7,6 +7,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.mymangareader.notifications.NewNotificationGroup
 import com.mymangareader.notifications.NewNotificationUrl
 import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.NotificationGroupResolver
 import com.mymangareader.notifications.NotificationPreferenceKeys
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
@@ -36,6 +37,7 @@ class NotificationsBridgeModule(
     private val preferences: Preferences,
     private val notificationChannelSync: NotificationChannelSync,
     private val connectionGate: NotificationConnectionGate,
+    private val groupResolver: NotificationGroupResolver,
     context: ReactApplicationContext,
 ) : ReactContextBaseJavaModule(context) {
     override fun getName(): String = "NotificationsBridgeModule"
@@ -106,12 +108,37 @@ class NotificationsBridgeModule(
         url: String,
         timeoutMs: Int,
         priority: Int,
+        linkedServerUrlId: String?,
         promise: Promise,
     ) {
         scope.launch {
-            runCatching { notifications.group(groupId).addUrl(NewNotificationUrl(url, timeoutMs, priority)) }
+            runCatching { notifications.group(groupId).addUrl(NewNotificationUrl(url, timeoutMs, priority, linkedServerUrlId)) }
                 .onSuccess { reevaluateConnection() }
                 .resolveOrReject(promise, "ADD_GROUP_URL_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun updateGroupUrl(
+        groupId: String,
+        urlId: String,
+        url: String?,
+        timeoutMs: Double,
+        priority: Double,
+        linkedServerUrlId: String?,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching {
+                notifications.group(groupId).updateUrl(
+                    urlId = urlId,
+                    url = url,
+                    timeoutMs = timeoutMs.takeIf { it >= 0 }?.toInt(),
+                    priority = priority.takeIf { it >= 0 }?.toInt(),
+                    linkedServerUrlId = linkedServerUrlId,
+                )
+            }.onSuccess { reevaluateConnection() }
+                .resolveOrReject(promise, "UPDATE_GROUP_URL_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -125,6 +152,26 @@ class NotificationsBridgeModule(
             runCatching { notifications.group(groupId).removeUrl(urlId) }
                 .onSuccess { reevaluateConnection() }
                 .resolveOrReject(promise, "REMOVE_GROUP_URL_ERROR")
+        }
+    }
+
+    @ReactMethod
+    fun testGroupUrl(
+        groupId: String,
+        url: String,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.group(groupId).testUrl(url) }
+                .resolveOrReject(promise, "TEST_GROUP_URL_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
+    fun getActiveGroupUrl(promise: Promise) {
+        scope.launch {
+            runCatching { groupResolver.resolveActiveGroupUrlId() }
+                .resolveOrReject(promise, "GET_ACTIVE_GROUP_URL_ERROR") { it?.toActiveGroupUrlWritableMap() }
         }
     }
 
@@ -201,6 +248,7 @@ class NotificationsBridgeModule(
         scope.launch {
             runCatching {
                 preferences.put(NotificationPreferenceKeys.RETENTION_DAYS, days.toString(), domain = NotificationPreferenceKeys.DOMAIN)
+                Unit
             }.resolveOrReject(promise, "SET_RETENTION_DAYS_ERROR")
         }
     }

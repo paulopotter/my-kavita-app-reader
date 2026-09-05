@@ -6,6 +6,7 @@ import com.facebook.react.bridge.WritableMap
 import com.mymangareader.notifications.NotificationGroupInfo
 import com.mymangareader.notifications.NotificationHistoryItem
 import com.mymangareader.notifications.NotificationUrlInfo
+import com.mymangareader.tools.network.UrlProbeResult
 
 // toWritableMap()/toWritableArray() for :notifications' own types — kept out of
 // NotificationsBridgeModule.kt (which stays focused on @ReactMethod + runCatching), same
@@ -32,6 +33,22 @@ fun NotificationUrlInfo.toWritableMap(): WritableMap =
         putString("url", url)
         putInt("timeoutMs", timeoutMs)
         putInt("priority", priority)
+        linkedServerUrlId?.let { putString("linkedServerUrlId", it) } ?: putNull("linkedServerUrlId")
+    }
+
+fun UrlProbeResult.toWritableMap(): WritableMap =
+    Arguments.createMap().apply {
+        putString("url", url)
+        putBoolean("ok", ok)
+        val statusCode = status
+        if (statusCode != null) putInt("status", statusCode) else putNull("status")
+        putDouble("elapsedMs", elapsedMs.toDouble())
+    }
+
+fun Pair<String, String>.toActiveGroupUrlWritableMap(): WritableMap =
+    Arguments.createMap().apply {
+        putString("groupId", first)
+        putString("urlId", second)
     }
 
 fun List<NotificationUrlInfo>.toUrlsWritableArray(): WritableArray =

@@ -18,6 +18,7 @@ import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.NotificationGroupResolver
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
@@ -50,6 +51,7 @@ class AppReactPackage(
     private val notifications: Notifications,
     private val notificationChannelSync: NotificationChannelSync,
     private val notificationConnectionGate: NotificationConnectionGate,
+    private val notificationGroupResolver: NotificationGroupResolver,
 ) : ReactPackage {
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
         val otaBridge = OtaEventBridge(context, otaStore)
@@ -60,6 +62,7 @@ class AppReactPackage(
                 preferences = preferences,
                 notificationChannelSync = notificationChannelSync,
                 connectionGate = notificationConnectionGate,
+                groupResolver = notificationGroupResolver,
                 context = context,
             )
         NotificationsBridgeModule.register(notificationsBridge)
