@@ -49,6 +49,26 @@ class KavitaSeriesTest {
             assertEquals("#fff", dto.primaryColor)
         }
 
+    // Reproduces a real Kavita server response that broke the library screen: metadataProviderOverride
+    // came back as `null` even though the field is a plain int when it IS present, so it must be
+    // declared Int? in the DTO — a non-nullable Int with a default value only covers a MISSING key,
+    // not a PRESENT key whose value is null (kotlinx.serialization throws either way if you get that
+    // wrong, but the two failure modes look identical from the outside and are easy to conflate).
+    @Test
+    fun `listSeries tolerates a null metadataProviderOverride`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":1,"name":"Series A","metadataProviderOverride":null,"coverImage":"v4_c311.png"}]""",
+                ),
+            )
+
+            val dto = series.listSeries().single()
+
+            assertEquals(1, dto.id)
+            assertEquals(null, dto.metadataProviderOverride)
+        }
+
     @Test
     fun `listSeries throws on non-200`() =
         runTest {

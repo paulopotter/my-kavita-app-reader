@@ -50,7 +50,7 @@ data class KavitaSeriesDto(
     val dontMatch: Boolean = false,
     val isBlacklisted: Boolean = false,
     val isStandAlone: Boolean = false,
-    val metadataProviderOverride: Int = 0,
+    val metadataProviderOverride: Int? = null,
     val coverImage: String? = null,
     val primaryColor: String? = null,
     val secondaryColor: String? = null,
