@@ -2,7 +2,9 @@
 
 ## Em andamento
 
-_(nenhum plano em andamento)_
+| Plan | Description |
+|------|-------------|
+| [008 — Notifications & Deep Links](active/008-notifications/README.md) | 9 tasks — pending. `:notifications` module (foreground service + persistent ntfy WebSocket), series resolution/filter by Following, per-series native notifications, config sub-screen, in-app history with configurable retention, plus a new deep link mechanism (`mymangareader://` scheme + optional configurable App Link hosts) the notification tap depends on |
 
 ## Concluídos
 
@@ -21,7 +23,6 @@ _(nenhum plano em andamento)_
 | # | Item | Depends on |
 |---|------|------------|
 | [005](backlog/items/005-home-screen.md) | Home Screen | 001, 003 |
-| [008](backlog/items/008-notifications-screen.md) | Notifications Screen | 001, 003 |
 | [009](backlog/items/009-search-screen.md) | Search Screen | 003 |
 | [011](backlog/items/011-bff-plugin.md) | BFF Plugin | 001, 012 |
 | [012](backlog/items/012-js-side-db.md) | JS-Side Database | 001 |
