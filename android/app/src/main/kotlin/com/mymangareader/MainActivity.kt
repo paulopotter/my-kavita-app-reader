@@ -3,6 +3,7 @@ package com.mymangareader
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.appcompat.app.AlertDialog
@@ -39,6 +40,26 @@ class MainActivity : ReactActivity() {
     override fun getMainComponentName(): String = "mymangareader"
 
     override fun createReactActivityDelegate(): ReactActivityDelegate = DefaultReactActivityDelegate(this, mainComponentName, false)
+
+    // RN's own Linking module reads the deep link URI straight off getIntent() (see
+    // IntentModule.getInitialURL) — both for a cold start and, after onNewIntent below calls
+    // setIntent(), for a link received while already open. Rewriting the Intent's data here means
+    // React Navigation (`linking.config.ts`) only ever sees the internal `deeplink://` scheme,
+    // regardless of whether the real entry point was the static `mymangareader://` scheme or one
+    // of the configured http(s) App Link hosts (Plan 008 Task 004) — RN never needs to know hosts
+    // exist at all. Android already validated the incoming URI against a registered intent-filter
+    // before this Activity was ever started, so this never re-validates a host, only extracts path.
+    override fun getIntent(): Intent {
+        val original = super.getIntent()
+        val rawUri = original?.data?.toString() ?: return original
+        val normalized = normalizeDeepLinkUri(rawUri) ?: return original
+        return Intent(original).apply { data = Uri.parse(normalized) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
