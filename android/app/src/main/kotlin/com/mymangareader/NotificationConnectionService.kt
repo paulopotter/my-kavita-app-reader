@@ -23,7 +23,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val NOTIFICATION_ID_CONNECTED = 1001
-private const val CHANNEL_CONNECTION = "notifications_connection"
 
 /**
  * Foreground service that owns the notification plugin's WebSocket lifecycle — wires the plugin

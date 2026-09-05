@@ -12,6 +12,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.mymangareader.notifications.NewNotificationHistoryItem
 import com.mymangareader.notifications.NotificationPoster
+import com.mymangareader.notifications.NotificationPreferenceKeys
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.notifications.ResolvedSeriesEvent
 import com.mymangareader.preferences.Preferences
@@ -20,9 +21,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val CHANNEL_NEW_CHAPTERS = "new_chapters"
 private const val GROUP_NEW_CHAPTERS = "new_chapters_group"
-private const val PREFERENCES_KEY_GROUP_ACROSS_SERIES = "groupAcrossSeries"
 private const val BRAND_COLOR = 0xFF1A1A2E.toInt()
 private const val COVER_TARGET_SIZE_PX = 256
 
@@ -60,6 +59,7 @@ class NotificationDisplay
                     detectedAtMs = resolved.detectedAtMs,
                 ),
             )
+            NotificationsBridgeModule.notifyUnreadCountChanged(notifications.history.countUnread())
 
             if (AppForegroundState.isForeground.value) {
                 NotificationsBridgeModule.notifyNewNotificationReceived()
@@ -68,7 +68,7 @@ class NotificationDisplay
 
             val largeIcon = runCatching { loadCoverBitmap(resolved.seriesId) }.getOrNull()
             val body = buildBody(context, resolved.chapterIds, resolved.chapterNumbers)
-            val groupAcrossSeries = preferences.get(PREFERENCES_KEY_GROUP_ACROSS_SERIES)?.value == "true"
+            val groupAcrossSeries = preferences.get(NotificationPreferenceKeys.GROUP_ACROSS_SERIES)?.value == "true"
 
             val builder =
                 NotificationCompat

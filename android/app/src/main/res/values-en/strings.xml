@@ -10,4 +10,10 @@
     <!-- Plan 008 Task 006 — persistent low-priority notification required while the foreground
          service holds the WebSocket connection open -->
     <string name="notification_connection_connected">Connected to notification server</string>
+
+    <!-- Plan 008 Task 007 — the two Android notification channels this app creates -->
+    <string name="notification_channel_new_chapters_name">New chapters</string>
+    <string name="notification_channel_new_chapters_description">Alerts you when a series you follow gets a new chapter</string>
+    <string name="notification_channel_connection_name">Notification connection</string>
+    <string name="notification_channel_connection_description">Persistent notification while the app is connected to the notification server</string>
 </resources>

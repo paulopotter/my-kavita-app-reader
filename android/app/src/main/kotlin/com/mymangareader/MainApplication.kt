@@ -28,6 +28,8 @@ import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
+import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
 import com.mymangareader.tools.bridge.ConfigStore
@@ -91,6 +93,12 @@ class MainApplication :
 
     @Inject lateinit var preferences: Preferences
 
+    @Inject lateinit var notificationChannelSync: NotificationChannelSync
+
+    @Inject lateinit var notifications: Notifications
+
+    @Inject lateinit var notificationConnectionGate: NotificationConnectionGate
+
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
@@ -113,6 +121,9 @@ class MainApplication :
                         externalMetadataServer = externalMetadataServer,
                         cache = cache,
                         preferences = preferences,
+                        notifications = notifications,
+                        notificationChannelSync = notificationChannelSync,
+                        notificationConnectionGate = notificationConnectionGate,
                     )
 
             override fun getJSMainModuleName(): String = "index"
@@ -155,6 +166,7 @@ class MainApplication :
         }
         crashGuard.install()
         AppForegroundState.register()
+        notificationChannelSync.ensureChannelsCreated()
 
         applicationScope.launch {
             _bootGate.value = otaManager.check()

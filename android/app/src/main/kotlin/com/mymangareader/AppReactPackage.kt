@@ -17,6 +17,8 @@ import com.mymangareader.features.kavita.KavitaUrlSource
 import com.mymangareader.features.kavita.chapter.ChapterDataSource
 import com.mymangareader.features.kavita.chapter.KavitaChapterFeature
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
+import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
 import com.mymangareader.tools.bridge.ConfigRepository
@@ -45,11 +47,21 @@ class AppReactPackage(
     private val externalMetadataServer: ExternalMetadataServer,
     private val cache: Cache,
     private val preferences: Preferences,
+    private val notifications: Notifications,
+    private val notificationChannelSync: NotificationChannelSync,
+    private val notificationConnectionGate: NotificationConnectionGate,
 ) : ReactPackage {
     override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> {
         val otaBridge = OtaEventBridge(context, otaStore)
         OtaEventBridge.register(otaBridge)
-        val notificationsBridge = NotificationsBridgeModule(context)
+        val notificationsBridge =
+            NotificationsBridgeModule(
+                notifications = notifications,
+                preferences = preferences,
+                notificationChannelSync = notificationChannelSync,
+                connectionGate = notificationConnectionGate,
+                context = context,
+            )
         NotificationsBridgeModule.register(notificationsBridge)
         return listOf(
             ConfigRepository(configStore, context),
