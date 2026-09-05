@@ -90,7 +90,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount
-        versionName = "1.0.0"
+        versionName = "1.0.0-rc1"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
@@ -122,6 +122,111 @@ android {
         buildConfig = true
         compose = true
     }
+}
+
+// ── Deep link hosts (Plan 008 Task 004) ─────────────────────────────────────
+
+fun readDeepLinkHostsFromLocalProperties(localPropertiesFile: File): List<String> {
+    val properties = Properties()
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { properties.load(it) }
+    }
+    return (1..5)
+        .mapNotNull { index -> properties.getProperty("deeplink.host$index")?.trim() }
+        .filter { it.isNotEmpty() }
+}
+
+fun buildDeepLinkHostsBlock(hosts: List<String>): String {
+    if (hosts.isEmpty()) return ""
+
+    val dataElements = StringBuilder()
+    for (hostEntry in hosts) {
+        val host = hostEntry.substringBefore(':')
+        val port = hostEntry.substringAfter(':', missingDelimiterValue = "").ifEmpty { null }
+        for (scheme in listOf("http", "https")) {
+            dataElements.append("            <data\n")
+            dataElements.append("                android:scheme=\"$scheme\"\n")
+            dataElements.append("                android:host=\"$host\"\n")
+            if (port != null) {
+                dataElements.append("                android:port=\"$port\"\n")
+            }
+            dataElements.append("                android:pathPattern=\"/series/.*\" />\n")
+            dataElements.append("            <data\n")
+            dataElements.append("                android:scheme=\"$scheme\"\n")
+            dataElements.append("                android:host=\"$host\"\n")
+            if (port != null) {
+                dataElements.append("                android:port=\"$port\"\n")
+            }
+            dataElements.append("                android:pathPattern=\"/reader/.*/.*\" />\n")
+        }
+    }
+
+    return "        <intent-filter>\n" +
+        "            <action android:name=\"android.intent.action.VIEW\" />\n" +
+        "            <category android:name=\"android.intent.category.DEFAULT\" />\n" +
+        "            <category android:name=\"android.intent.category.BROWSABLE\" />\n" +
+        dataElements.toString() +
+        "        </intent-filter>\n"
+}
+
+fun writeDeepLinkHostsBlock(
+    manifestFile: File,
+    hosts: List<String>,
+) {
+    val generatedBlock = buildDeepLinkHostsBlock(hosts)
+    val manifestText = manifestFile.readText()
+    val startMarker = "GENERATED_DEEP_LINK_HOSTS_START"
+    val endMarker = "<!-- GENERATED_DEEP_LINK_HOSTS_END -->"
+    val startIndex = manifestText.indexOf(startMarker)
+    val endIndex = manifestText.indexOf(endMarker)
+    check(startIndex != -1 && endIndex != -1) {
+        "GENERATED_DEEP_LINK_HOSTS markers not found in $manifestFile"
+    }
+
+    // The generated block goes AFTER the instructional comment (which ends in "-->" after
+    // startMarker) — only the region between that comment's end and the end marker is rewritten;
+    // everything before/after stays exactly as it is in the file.
+    val commentEndIndex = manifestText.indexOf("-->", startIndex) + "-->".length
+    val before = manifestText.substring(0, commentEndIndex)
+    val after = manifestText.substring(endIndex)
+    val newManifestText = "$before\n$generatedBlock        $after"
+
+    if (newManifestText != manifestText) {
+        manifestFile.writeText(newManifestText)
+    }
+}
+
+// Fills the http(s) deep link block from `deeplink.host1`..`deeplink.host5` in local.properties
+// (a file outside version control — a user's personal server hosts never land in the repo).
+// Runs before any build.
+val generateDeepLinkHosts by tasks.registering {
+    val manifestFile = file("src/main/AndroidManifest.xml")
+    val localPropertiesFile = rootProject.file("local.properties")
+
+    inputs.file(localPropertiesFile).optional()
+    outputs.file(manifestFile)
+
+    doLast {
+        val hosts = readDeepLinkHostsFromLocalProperties(localPropertiesFile)
+        writeDeepLinkHostsBlock(manifestFile, hosts)
+        logger.lifecycle("AndroidManifest.xml updated with ${hosts.size} deep link host(s).")
+    }
+}
+
+// Clears the http(s) deep link block back to empty after producing an APK — only this region of
+// the manifest is touched, so any other manual edit to it stays intact. Keeps the committed
+// manifest free of a user's personal hosts even after a local build with local.properties filled in.
+val clearDeepLinkHosts by tasks.registering {
+    val manifestFile = file("src/main/AndroidManifest.xml")
+
+    doLast {
+        writeDeepLinkHostsBlock(manifestFile, emptyList())
+        logger.lifecycle("AndroidManifest.xml: deep link host block cleared post-build.")
+    }
+}
+
+tasks.matching { it.name.startsWith("pre") && it.name.endsWith("Build") }.configureEach {
+    dependsOn(generateDeepLinkHosts)
 }
 
 dependencies {
