@@ -29,6 +29,7 @@ import com.mymangareader.features.kavita.reader.ui.ReaderDebugFlags
 import com.mymangareader.features.kavita.reader.ui.SafeBitmapDecoder
 import com.mymangareader.features.kavita.series.KavitaSeriesFeature
 import com.mymangareader.notifications.NotificationConnectionGate
+import com.mymangareader.notifications.NotificationRetentionPurge
 import com.mymangareader.notifications.Notifications
 import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
@@ -98,6 +99,8 @@ class MainApplication :
     @Inject lateinit var notifications: Notifications
 
     @Inject lateinit var notificationConnectionGate: NotificationConnectionGate
+
+    @Inject lateinit var notificationRetentionPurge: NotificationRetentionPurge
 
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
@@ -174,6 +177,9 @@ class MainApplication :
         applicationScope.launch {
             delay(STABLE_BOOT_DELAY_MS)
             otaManager.recordStableBoot()
+        }
+        applicationScope.launch {
+            notificationRetentionPurge.purge()
         }
     }
 
