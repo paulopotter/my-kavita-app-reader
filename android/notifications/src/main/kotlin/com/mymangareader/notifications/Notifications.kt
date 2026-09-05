@@ -47,6 +47,7 @@ data class NotificationGroupInfo(
     val name: String,
     val providerId: String,
     val topic: String,
+    val linkedServerGroupId: String?,
 )
 
 data class NotificationUrlInfo(
@@ -65,6 +66,7 @@ data class NotificationGroupFullInfo(
     val name: String,
     val providerId: String,
     val topic: String,
+    val linkedServerGroupId: String?,
     val urls: List<NotificationUrlInfo>,
 )
 
@@ -72,6 +74,7 @@ data class NewNotificationGroup(
     val name: String,
     val providerId: String,
     val topic: String,
+    val linkedServerGroupId: String? = null,
 )
 
 data class NewNotificationUrl(
@@ -132,6 +135,7 @@ class Notifications
                             name = group.name,
                             providerId = group.providerId,
                             topic = group.topic,
+                            linkedServerGroupId = group.linkedServerGroupId,
                         )
                     notificationGroupDao.upsert(entity)
                     return entity.toInfo()
@@ -141,6 +145,8 @@ class Notifications
                     groupId: String,
                     name: String?,
                     topic: String?,
+                    linkedServerGroupId: String?,
+                    clearLinkedServerGroupId: Boolean,
                 ): NotificationGroupInfo {
                     val existing =
                         notificationGroupDao.getById(groupId)
@@ -151,6 +157,12 @@ class Notifications
                         existing.copy(
                             name = name ?: existing.name,
                             topic = topic ?: existing.topic,
+                            linkedServerGroupId =
+                                when {
+                                    clearLinkedServerGroupId -> null
+                                    linkedServerGroupId != null -> linkedServerGroupId
+                                    else -> existing.linkedServerGroupId
+                                },
                         )
                     notificationGroupDao.upsert(updated)
                     return updated.toInfo()
@@ -201,10 +213,15 @@ class Notifications
 
             suspend fun add(group: NewNotificationGroup): NotificationGroupInfo
 
+            // linkedServerGroupId: pass a value to (re)link, omit to leave unchanged, or pass
+            // clearLinkedServerGroupId=true to unlink — plain `null` alone is ambiguous between
+            // "don't touch it" and "clear it", so unlinking needs its own explicit flag.
             suspend fun update(
                 groupId: String,
                 name: String? = null,
                 topic: String? = null,
+                linkedServerGroupId: String? = null,
+                clearLinkedServerGroupId: Boolean = false,
             ): NotificationGroupInfo
 
             suspend fun remove(groupId: String)
@@ -257,6 +274,7 @@ class Notifications
                     name = group.name,
                     providerId = group.providerId,
                     topic = group.topic,
+                    linkedServerGroupId = group.linkedServerGroupId,
                     urls = getUrls(),
                 )
             }
@@ -315,6 +333,7 @@ private fun NotificationGroupEntity.toInfo() =
         name = name,
         providerId = providerId,
         topic = topic,
+        linkedServerGroupId = linkedServerGroupId,
     )
 
 private fun NotificationUrlEntity.toInfo() =

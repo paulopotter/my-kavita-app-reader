@@ -1,11 +1,7 @@
 package com.mymangareader.notifications
 
-import com.mymangareader.core.database.NotificationGroupDao
-import com.mymangareader.core.database.NotificationGroupEntity
 import com.mymangareader.core.database.NotificationHistoryDao
 import com.mymangareader.core.database.NotificationHistoryEntity
-import com.mymangareader.core.database.NotificationUrlDao
-import com.mymangareader.core.database.NotificationUrlEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -16,55 +12,8 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertFailsWith
 
-// ── Fakes ──────────────────────────────────────────────────────────────────
-
-private class FakeNotificationGroupDao : NotificationGroupDao {
-    private val rows = mutableMapOf<String, NotificationGroupEntity>()
-
-    override suspend fun upsert(entity: NotificationGroupEntity) {
-        rows[entity.id] = entity
-    }
-
-    override suspend fun delete(entity: NotificationGroupEntity) {
-        rows.remove(entity.id)
-    }
-
-    override fun observeAll(): Flow<List<NotificationGroupEntity>> = MutableStateFlow(rows.values.toList())
-
-    override suspend fun getAll(): List<NotificationGroupEntity> = rows.values.toList()
-
-    override suspend fun getById(id: String): NotificationGroupEntity? = rows[id]
-
-    override suspend fun deleteById(id: String) {
-        rows.remove(id)
-    }
-}
-
-private class FakeNotificationUrlDao : NotificationUrlDao {
-    private val rows = mutableMapOf<String, NotificationUrlEntity>()
-
-    override suspend fun upsert(entity: NotificationUrlEntity) {
-        rows[entity.id] = entity
-    }
-
-    override suspend fun delete(entity: NotificationUrlEntity) {
-        rows.remove(entity.id)
-    }
-
-    override fun observeByGroupId(groupId: String): Flow<List<NotificationUrlEntity>> = MutableStateFlow(rows.values.filter { it.groupId == groupId }.sortedBy { it.priority })
-
-    override suspend fun getByGroupId(groupId: String): List<NotificationUrlEntity> = rows.values.filter { it.groupId == groupId }.sortedBy { it.priority }
-
-    override suspend fun getById(id: String): NotificationUrlEntity? = rows[id]
-
-    override suspend fun deleteById(id: String) {
-        rows.remove(id)
-    }
-
-    override suspend fun deleteByGroupId(groupId: String) {
-        rows.values.filter { it.groupId == groupId }.forEach { rows.remove(it.id) }
-    }
-}
+// ── Fakes specific to this test (FakeNotificationGroupDao/FakeNotificationUrlDao live in
+// NotificationTestFakes.kt, shared with NotificationGroupResolverTest) ──
 
 private class FakeNotificationHistoryDao : NotificationHistoryDao {
     private val rows = mutableMapOf<String, NotificationHistoryEntity>()
@@ -153,6 +102,61 @@ class NotificationsTest {
             assertFailsWith<NotificationsException> {
                 notifications.groups.update("missing", name = "x")
             }
+        }
+
+    @Test
+    fun `groups add com linkedServerGroupId persiste o vinculo`() =
+        runTest {
+            val created =
+                notifications.groups.add(
+                    NewNotificationGroup(name = "Home", providerId = "ntfy", topic = "chapters", linkedServerGroupId = "server-1"),
+                )
+
+            assertEquals("server-1", notifications.groups.get(created.id)?.linkedServerGroupId)
+        }
+
+    @Test
+    fun `groups add sem linkedServerGroupId fica nulo`() =
+        runTest {
+            val created = notifications.groups.add(NewNotificationGroup(name = "Home", providerId = "ntfy", topic = "chapters"))
+
+            assertNull(notifications.groups.get(created.id)?.linkedServerGroupId)
+        }
+
+    @Test
+    fun `groups update com linkedServerGroupId atualiza o vinculo`() =
+        runTest {
+            val created = notifications.groups.add(NewNotificationGroup(name = "Home", providerId = "ntfy", topic = "chapters"))
+
+            val updated = notifications.groups.update(created.id, linkedServerGroupId = "server-2")
+
+            assertEquals("server-2", updated.linkedServerGroupId)
+        }
+
+    @Test
+    fun `groups update sem tocar linkedServerGroupId preserva o valor existente`() =
+        runTest {
+            val created =
+                notifications.groups.add(
+                    NewNotificationGroup(name = "Home", providerId = "ntfy", topic = "chapters", linkedServerGroupId = "server-1"),
+                )
+
+            val updated = notifications.groups.update(created.id, name = "New name")
+
+            assertEquals("server-1", updated.linkedServerGroupId)
+        }
+
+    @Test
+    fun `groups update com clearLinkedServerGroupId remove o vinculo`() =
+        runTest {
+            val created =
+                notifications.groups.add(
+                    NewNotificationGroup(name = "Home", providerId = "ntfy", topic = "chapters", linkedServerGroupId = "server-1"),
+                )
+
+            val updated = notifications.groups.update(created.id, clearLinkedServerGroupId = true)
+
+            assertNull(updated.linkedServerGroupId)
         }
 
     @Test
