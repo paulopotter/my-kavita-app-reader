@@ -69,6 +69,7 @@ private class RecordingNotificationPoster : NotificationPoster {
 class NotificationEventPipelineTest {
     private lateinit var mockServer: MockWebServer
     private lateinit var preferences: Preferences
+    private var channelEnabled = true
     private lateinit var poster: RecordingNotificationPoster
     private lateinit var pipeline: NotificationEventPipeline
 
@@ -117,7 +118,8 @@ class NotificationEventPipelineTest {
         server.setActiveGroup("g1")
 
         preferences = Preferences(FakePreferenceDaoForPipeline())
-        val resolver = NotificationResolver(server, FakeFollowedSeriesDaoForPipeline(), preferences)
+        channelEnabled = true
+        val resolver = NotificationResolver(server, FakeFollowedSeriesDaoForPipeline(), preferences, NotificationChannelState { channelEnabled })
         poster = RecordingNotificationPoster()
         return NotificationEventPipeline(resolver, poster)
     }
@@ -126,7 +128,6 @@ class NotificationEventPipelineTest {
     fun `evento resolvido e permitido chega ao poster exatamente uma vez`() =
         runTest {
             pipeline = buildPipeline()
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeAll", "true", domain = "notifications")
 
             pipeline.handle(
@@ -141,7 +142,6 @@ class NotificationEventPipelineTest {
     fun `evento nao resolvido nunca chega ao poster`() =
         runTest {
             pipeline = buildPipeline(serials = emptyList())
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeAll", "true", domain = "notifications")
 
             pipeline.handle(
@@ -155,7 +155,7 @@ class NotificationEventPipelineTest {
     fun `evento resolvido mas filtrado por shouldNotify nunca chega ao poster`() =
         runTest {
             pipeline = buildPipeline()
-            preferences.put("enabled", "false", domain = "notifications")
+            channelEnabled = false
 
             pipeline.handle(
                 RawNotificationEvent(seriesId = "42", seriesName = "One Piece", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L),
@@ -168,7 +168,6 @@ class NotificationEventPipelineTest {
     fun `multiplos eventos cada um chega ao poster exatamente uma vez, na ordem`() =
         runTest {
             pipeline = buildPipeline()
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeAll", "true", domain = "notifications")
 
             pipeline.handle(RawNotificationEvent(seriesId = "1", seriesName = "A", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L))

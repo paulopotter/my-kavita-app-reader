@@ -1,44 +1,17 @@
 package com.mymangareader.notifications
 
-import com.mymangareader.core.database.PreferenceDao
-import com.mymangareader.core.database.PreferenceEntity
-import com.mymangareader.preferences.Preferences
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-private class FakeGatePreferenceDao : PreferenceDao {
-    private val rows = mutableMapOf<String, PreferenceEntity>()
-
-    override suspend fun getByKey(
-        key: String,
-        variant: String,
-    ): PreferenceEntity? = rows["$key:$variant"]
-
-    override suspend fun upsert(entity: PreferenceEntity) {
-        rows["${entity.key}:${entity.variant}"] = entity
-    }
-
-    override suspend fun deleteByKey(
-        key: String,
-        variant: String,
-    ) {
-        rows.remove("$key:$variant")
-    }
-
-    override suspend fun deleteByDomain(domain: String) {
-        rows.values.filter { it.domain == domain }.forEach { rows.remove("${it.key}:${it.variant}") }
-    }
-}
-
 class NotificationConnectionGateTest {
     private lateinit var groupDao: FakeNotificationGroupDao
     private lateinit var urlDao: FakeNotificationUrlDao
     private lateinit var historyDao: FakeNotificationHistoryDaoForGate
-    private lateinit var preferences: Preferences
     private lateinit var notifications: Notifications
+    private var channelEnabled = false
     private lateinit var gate: NotificationConnectionGate
 
     @Before
@@ -47,8 +20,8 @@ class NotificationConnectionGateTest {
         urlDao = FakeNotificationUrlDao()
         historyDao = FakeNotificationHistoryDaoForGate()
         notifications = Notifications(groupDao, urlDao, historyDao)
-        preferences = Preferences(FakeGatePreferenceDao())
-        gate = NotificationConnectionGate(notifications, preferences)
+        channelEnabled = false
+        gate = NotificationConnectionGate(notifications, NotificationChannelState { channelEnabled })
     }
 
     private suspend fun addGroupWithUrl() {
@@ -61,13 +34,13 @@ class NotificationConnectionGateTest {
     }
 
     @Test
-    fun `shouldConnect e false quando nao ha url e o toggle esta desligado`() =
+    fun `shouldConnect e false quando nao ha url e o canal esta desabilitado`() =
         runTest {
             assertFalse(gate.shouldConnect())
         }
 
     @Test
-    fun `shouldConnect e false quando ha url mas o toggle esta desligado`() =
+    fun `shouldConnect e false quando ha url mas o canal esta desabilitado`() =
         runTest {
             addGroupWithUrl()
 
@@ -75,19 +48,19 @@ class NotificationConnectionGateTest {
         }
 
     @Test
-    fun `shouldConnect e false quando o toggle esta ligado mas nao ha nenhuma url`() =
+    fun `shouldConnect e false quando o canal esta habilitado mas nao ha nenhuma url`() =
         runTest {
             addGroupWithoutUrl()
-            preferences.put("enabled", "true", domain = "notifications")
+            channelEnabled = true
 
             assertFalse(gate.shouldConnect())
         }
 
     @Test
-    fun `shouldConnect e true quando ha url e o toggle esta ligado`() =
+    fun `shouldConnect e true quando ha url e o canal esta habilitado`() =
         runTest {
             addGroupWithUrl()
-            preferences.put("enabled", "true", domain = "notifications")
+            channelEnabled = true
 
             assertTrue(gate.shouldConnect())
         }

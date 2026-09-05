@@ -7,11 +7,6 @@ import com.mymangareader.server.Server
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val PREFERENCES_DOMAIN = "notifications"
-private const val KEY_ENABLED = "enabled"
-private const val KEY_SCOPE_ALL = "scopeAll"
-private const val KEY_SCOPE_FOLLOWED_ONLY = "scopeFollowedOnly"
-
 /**
  * One series-level event already resolved to a local `seriesId` — [RawNotificationEvent] before
  * this only carries `seriesId?`/`seriesName`, either of which might not exist locally yet.
@@ -38,6 +33,7 @@ class NotificationResolver
         private val server: Server,
         private val followedSeriesDao: FollowedSeriesDao,
         private val preferences: Preferences,
+        private val channelState: NotificationChannelState,
     ) {
         // [seriesId] present → resolved directly, no network/listing lookup needed. Absent →
         // exact [seriesName] match against the series listing Server already exposes (same data
@@ -64,15 +60,17 @@ class NotificationResolver
             )
         }
 
-        // false unless enabled is true. Otherwise true if scopeAll is true, or (the series is in
+        // false unless the Android notification channel is enabled (Task 007 — the channel's own
+        // state is the one source of truth for "enabled", never a :preferences flag that could
+        // drift out of sync with it). Otherwise true if scopeAll is true, or (the series is in
         // Following AND scopeFollowedOnly is true) — see README decision 6. scopeAll/
-        // scopeFollowedOnly are UI-level mutually exclusive (Task 007 enforces that in the config
+        // scopeFollowedOnly are UI-level mutually exclusive (Task 008 enforces that in the config
         // screen), but this function never assumes that invariant: both true is evaluated as
         // written below, which simply behaves as "notify all".
         suspend fun shouldNotify(resolved: ResolvedSeriesEvent): Boolean {
-            if (!readFlag(KEY_ENABLED)) return false
-            if (readFlag(KEY_SCOPE_ALL)) return true
-            if (!readFlag(KEY_SCOPE_FOLLOWED_ONLY)) return false
+            if (!channelState.isEnabled()) return false
+            if (readFlag(NotificationPreferenceKeys.SCOPE_ALL)) return true
+            if (!readFlag(NotificationPreferenceKeys.SCOPE_FOLLOWED_ONLY)) return false
             return followedSeriesDao.isFollowed(resolved.seriesId)
         }
 

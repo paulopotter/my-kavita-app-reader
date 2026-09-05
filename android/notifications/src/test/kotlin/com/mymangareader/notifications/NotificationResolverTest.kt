@@ -78,6 +78,7 @@ class NotificationResolverTest {
     private lateinit var mockServer: MockWebServer
     private lateinit var followedSeriesDao: FakeFollowedSeriesDao
     private lateinit var preferences: Preferences
+    private var channelEnabled = true
     private lateinit var resolver: NotificationResolver
 
     private suspend fun activateGroup(
@@ -107,7 +108,8 @@ class NotificationResolverTest {
         activateGroup(server, groupDao, urlDao)
         followedSeriesDao = FakeFollowedSeriesDao()
         preferences = Preferences(FakePreferenceDao())
-        return NotificationResolver(server, followedSeriesDao, preferences)
+        channelEnabled = true
+        return NotificationResolver(server, followedSeriesDao, preferences, NotificationChannelState { channelEnabled })
     }
 
     @Before
@@ -183,31 +185,29 @@ class NotificationResolverTest {
     private fun resolvedEvent(seriesId: String = "1") = ResolvedSeriesEvent(seriesId = seriesId, seriesName = "One Piece", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L)
 
     @Test
-    fun `shouldNotify e false quando enabled e false, mesmo com scopeAll true`() =
+    fun `shouldNotify e false quando o canal esta desabilitado, mesmo com scopeAll true`() =
         runTest {
             resolver = buildResolver()
-            preferences.put("enabled", "false", domain = "notifications")
+            channelEnabled = false
             preferences.put("scopeAll", "true", domain = "notifications")
 
             assertFalse(resolver.shouldNotify(resolvedEvent()))
         }
 
     @Test
-    fun `shouldNotify e true quando enabled e scopeAll true, independente de Following`() =
+    fun `shouldNotify e true quando o canal esta habilitado e scopeAll true, independente de Following`() =
         runTest {
             resolver = buildResolver()
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeAll", "true", domain = "notifications")
 
             assertTrue(resolver.shouldNotify(resolvedEvent()))
         }
 
     @Test
-    fun `shouldNotify e true quando enabled e scopeFollowedOnly true e a serie esta seguida`() =
+    fun `shouldNotify e true quando o canal esta habilitado e scopeFollowedOnly true e a serie esta seguida`() =
         runTest {
             resolver = buildResolver()
             followedSeriesDao.follow(FollowedSeriesEntity(seriesId = "1", followedAtMs = 0))
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeFollowedOnly", "true", domain = "notifications")
 
             assertTrue(resolver.shouldNotify(resolvedEvent(seriesId = "1")))
@@ -217,17 +217,15 @@ class NotificationResolverTest {
     fun `shouldNotify e false quando scopeFollowedOnly true mas a serie nao esta seguida`() =
         runTest {
             resolver = buildResolver()
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeFollowedOnly", "true", domain = "notifications")
 
             assertFalse(resolver.shouldNotify(resolvedEvent(seriesId = "1")))
         }
 
     @Test
-    fun `shouldNotify e false quando enabled true mas nenhum scope esta ligado`() =
+    fun `shouldNotify e false quando o canal esta habilitado mas nenhum scope esta ligado`() =
         runTest {
             resolver = buildResolver()
-            preferences.put("enabled", "true", domain = "notifications")
 
             assertFalse(resolver.shouldNotify(resolvedEvent()))
         }
@@ -236,7 +234,6 @@ class NotificationResolverTest {
     fun `shouldNotify e true quando os dois scopes estao true, tratado como notificar tudo`() =
         runTest {
             resolver = buildResolver()
-            preferences.put("enabled", "true", domain = "notifications")
             preferences.put("scopeAll", "true", domain = "notifications")
             preferences.put("scopeFollowedOnly", "true", domain = "notifications")
 
