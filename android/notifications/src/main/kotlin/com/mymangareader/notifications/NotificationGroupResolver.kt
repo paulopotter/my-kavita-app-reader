@@ -14,11 +14,6 @@ class NotificationGroupResolverException(
     message: String,
 ) : Exception(message)
 
-// ntfy's own documented liveness endpoint — used as every candidate's healthCheckPath so
-// UrlSelector (built for a bare "GET <url><healthCheckPath>" check) works unmodified for this
-// provider too, same as it already does for :server/:external-metadata-server.
-private const val NTFY_HEALTH_CHECK_PATH = "/v1/health"
-
 private const val DEFAULT_TIMEOUT_MS = 8_000
 
 /**
@@ -47,6 +42,33 @@ class NotificationGroupResolver
         private val server: Server,
     ) {
         suspend fun resolveActiveUrl(): NotificationUrl {
+            val (groupId, groupUrls, winningUrl) = resolveWinningUrl()
+            val group =
+                notificationGroupDao.getById(groupId)
+                    ?: throw NotificationGroupResolverException("Notification group not found: $groupId")
+            val timeoutMs = groupUrls.firstOrNull { it.url.trimEnd('/') == winningUrl }?.timeoutMs ?: DEFAULT_TIMEOUT_MS
+            return NotificationUrl(url = winningUrl, topic = group.topic, timeoutMs = timeoutMs)
+        }
+
+        // Same resolution as [resolveActiveUrl], but returns the winning URL's own id/groupId (for
+        // the RN config screen to mark "this is the URL currently in use" — the plugin-facing
+        // NotificationUrl above has no id, since a plugin never persists anything itself) instead
+        // of throwing when nothing resolves.
+        suspend fun resolveActiveGroupUrlId(): Pair<String, String>? =
+            runCatching { resolveWinningUrl() }
+                .getOrNull()
+                ?.let { (groupId, groupUrls, winningUrl) ->
+                    val urlId = groupUrls.firstOrNull { it.url.trimEnd('/') == winningUrl }?.id ?: return null
+                    groupId to urlId
+                }
+
+        private data class WinningUrl(
+            val groupId: String,
+            val groupUrls: List<NotificationUrlEntity>,
+            val winningUrl: String,
+        )
+
+        private suspend fun resolveWinningUrl(): WinningUrl {
             val allGroups = notificationGroupDao.getAll()
 
             val kavitaServerGroupId = server.getActiveGroupId()
@@ -56,7 +78,7 @@ class NotificationGroupResolver
                 val linkedUrls = notificationUrlDao.getByGroupId(linkedGroupId)
                 val winner = urlSelector.getActiveUrl(linkedUrls.map { it.toUrlCandidate() })
                 winner.getOrNull()?.let { winningUrl ->
-                    return toNotificationUrl(linkedGroupId, linkedUrls, winningUrl)
+                    return WinningUrl(linkedGroupId, linkedUrls, winningUrl)
                 }
             }
 
@@ -68,19 +90,7 @@ class NotificationGroupResolver
                     throw NotificationGroupResolverException("No healthy notification group could be resolved")
                 }
             val winningGroupId = urlsByGroup.entries.first { (_, urls) -> urls.any { it.url.trimEnd('/') == winningUrl } }.key
-            return toNotificationUrl(winningGroupId, urlsByGroup.getValue(winningGroupId), winningUrl)
-        }
-
-        private suspend fun toNotificationUrl(
-            groupId: String,
-            groupUrls: List<NotificationUrlEntity>,
-            winningUrl: String,
-        ): NotificationUrl {
-            val group =
-                notificationGroupDao.getById(groupId)
-                    ?: throw NotificationGroupResolverException("Notification group not found: $groupId")
-            val timeoutMs = groupUrls.firstOrNull { it.url.trimEnd('/') == winningUrl }?.timeoutMs ?: DEFAULT_TIMEOUT_MS
-            return NotificationUrl(url = winningUrl, topic = group.topic, timeoutMs = timeoutMs)
+            return WinningUrl(winningGroupId, urlsByGroup.getValue(winningGroupId), winningUrl)
         }
     }
 

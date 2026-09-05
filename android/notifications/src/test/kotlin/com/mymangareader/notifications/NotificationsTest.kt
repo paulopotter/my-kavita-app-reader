@@ -26,7 +26,7 @@ class NotificationsTest {
         groupDao = FakeNotificationGroupDao()
         urlDao = FakeNotificationUrlDao()
         historyDao = FakeNotificationHistoryDao()
-        notifications = Notifications(groupDao, urlDao, historyDao)
+        notifications = Notifications(groupDao, urlDao, historyDao, FakeUrlSelector())
     }
 
     // ── groups ──

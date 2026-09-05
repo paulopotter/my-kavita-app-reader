@@ -23,7 +23,7 @@ class NotificationRetentionPurgeTest {
         groupDao = FakeNotificationGroupDao()
         urlDao = FakeNotificationUrlDao()
         historyDao = FakeNotificationHistoryDao()
-        notifications = Notifications(groupDao, urlDao, historyDao)
+        notifications = Notifications(groupDao, urlDao, historyDao, FakeUrlSelector())
         preferences = Preferences(FakePreferenceDao())
         purge = NotificationRetentionPurge(notifications, preferences)
     }

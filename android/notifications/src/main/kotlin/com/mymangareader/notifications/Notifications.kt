@@ -6,6 +6,9 @@ import com.mymangareader.core.database.NotificationHistoryDao
 import com.mymangareader.core.database.NotificationHistoryEntity
 import com.mymangareader.core.database.NotificationUrlDao
 import com.mymangareader.core.database.NotificationUrlEntity
+import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
+import com.mymangareader.tools.network.UrlSelector
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -56,6 +59,7 @@ data class NotificationUrlInfo(
     val url: String,
     val timeoutMs: Int,
     val priority: Int,
+    val linkedServerUrlId: String?,
 )
 
 // A group's own identity plus its full list of URLs embedded — same shape/reasoning as
@@ -81,6 +85,7 @@ data class NewNotificationUrl(
     val url: String,
     val timeoutMs: Int,
     val priority: Int,
+    val linkedServerUrlId: String? = null,
 )
 
 data class NotificationHistoryItem(
@@ -118,6 +123,7 @@ class Notifications
         private val notificationGroupDao: NotificationGroupDao,
         private val notificationUrlDao: NotificationUrlDao,
         private val notificationHistoryDao: NotificationHistoryDao,
+        private val urlSelector: UrlSelector,
     ) {
         val groups: Groups =
             object : Groups {
@@ -239,9 +245,18 @@ class Notifications
                 url: String? = null,
                 timeoutMs: Int? = null,
                 priority: Int? = null,
+                linkedServerUrlId: String? = null,
             ): NotificationUrlInfo
 
             suspend fun removeUrl(urlId: String)
+
+            // Point check on a typed-in URL — does not persist or change which URL is active.
+            // Mirrors Server.group.urls.testUrl/ExternalMetadataServer's own; timeoutMs defaults
+            // to the same 5s the config screen uses for new URLs.
+            suspend fun testUrl(
+                url: String,
+                timeoutMs: Int = 5000,
+            ): UrlProbeResult
         }
 
         interface History {
@@ -291,6 +306,7 @@ class Notifications
                         url = url.url,
                         timeoutMs = url.timeoutMs,
                         priority = url.priority,
+                        linkedServerUrlId = url.linkedServerUrlId,
                     )
                 notificationUrlDao.upsert(entity)
                 return entity.toInfo()
@@ -301,6 +317,7 @@ class Notifications
                 url: String?,
                 timeoutMs: Int?,
                 priority: Int?,
+                linkedServerUrlId: String?,
             ): NotificationUrlInfo {
                 val existing =
                     notificationUrlDao.getById(urlId)?.takeIf { it.groupId == groupId }
@@ -313,6 +330,7 @@ class Notifications
                         url = url ?: existing.url,
                         timeoutMs = timeoutMs ?: existing.timeoutMs,
                         priority = priority ?: existing.priority,
+                        linkedServerUrlId = linkedServerUrlId ?: existing.linkedServerUrlId,
                     )
                 notificationUrlDao.upsert(updated)
                 return updated.toInfo()
@@ -323,6 +341,24 @@ class Notifications
                     notificationUrlDao.getById(urlId)?.takeIf { it.groupId == groupId }
                         ?: throw NotificationsException("Notification url not found: $urlId in group $groupId")
                 notificationUrlDao.deleteById(existing.id)
+            }
+
+            override suspend fun testUrl(
+                url: String,
+                timeoutMs: Int,
+            ): UrlProbeResult {
+                notificationGroupDao.getById(groupId) ?: throw NotificationsException("Notification group not found: $groupId")
+                requireNotBlank("url", url)
+                requirePositive("timeoutMs", timeoutMs)
+                return urlSelector.probe(
+                    UrlCandidate(
+                        id = "probe",
+                        url = url,
+                        timeoutMs = timeoutMs,
+                        priority = 0,
+                        healthCheckPath = NTFY_HEALTH_CHECK_PATH,
+                    ),
+                )
             }
         }
     }
@@ -343,6 +379,7 @@ private fun NotificationUrlEntity.toInfo() =
         url = url,
         timeoutMs = timeoutMs,
         priority = priority,
+        linkedServerUrlId = linkedServerUrlId,
     )
 
 private fun NotificationHistoryEntity.toItem() =

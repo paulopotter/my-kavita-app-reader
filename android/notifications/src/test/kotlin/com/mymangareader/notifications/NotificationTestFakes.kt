@@ -8,6 +8,9 @@ import com.mymangareader.core.database.NotificationUrlDao
 import com.mymangareader.core.database.NotificationUrlEntity
 import com.mymangareader.core.database.PreferenceDao
 import com.mymangareader.core.database.PreferenceEntity
+import com.mymangareader.tools.network.UrlCandidate
+import com.mymangareader.tools.network.UrlProbeResult
+import com.mymangareader.tools.network.UrlSelector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -116,4 +119,19 @@ class FakePreferenceDao : PreferenceDao {
     override suspend fun deleteByDomain(domain: String) {
         rows.values.filter { it.domain == domain }.forEach { rows.remove("${it.key}:${it.variant}") }
     }
+}
+
+// A minimal, never-really-called-in-most-tests UrlSelector — Notifications only reaches it via
+// group(id).testUrl(), which most tests here don't exercise; this exists purely so Notifications'
+// constructor is satisfiable everywhere.
+class FakeUrlSelector : UrlSelector {
+    var probeResult: (UrlCandidate) -> UrlProbeResult = { c -> UrlProbeResult(c.url.trimEnd('/'), ok = true, status = 200, elapsedMs = 1) }
+
+    override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> = candidates.firstOrNull()?.let { Result.success(it.url) } ?: Result.failure(Exception("no candidates"))
+
+    override suspend fun invalidateAndReselect(candidates: List<UrlCandidate>): Result<String> = getActiveUrl(candidates)
+
+    override fun getLastKnownUrl(): String? = null
+
+    override suspend fun probe(candidate: UrlCandidate): UrlProbeResult = probeResult(candidate)
 }

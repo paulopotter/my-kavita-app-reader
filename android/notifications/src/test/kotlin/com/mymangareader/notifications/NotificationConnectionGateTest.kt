@@ -19,7 +19,7 @@ class NotificationConnectionGateTest {
         groupDao = FakeNotificationGroupDao()
         urlDao = FakeNotificationUrlDao()
         historyDao = FakeNotificationHistoryDaoForGate()
-        notifications = Notifications(groupDao, urlDao, historyDao)
+        notifications = Notifications(groupDao, urlDao, historyDao, FakeUrlSelector())
         channelEnabled = false
         gate = NotificationConnectionGate(notifications, NotificationChannelState { channelEnabled })
     }
