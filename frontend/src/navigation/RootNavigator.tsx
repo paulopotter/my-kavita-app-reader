@@ -38,7 +38,10 @@ export function RootNavigator({ initialRoute = Routes.SPLASH, onSetupComplete }:
         name={Routes.SERIES_DETAIL}
         component={SerieScreen}
         options={{
-          // Deep links: mykavita://series/:seriesId and mymangas://...
+          // Deep links resolve via linking.config.ts (App.tsx's NavigationContainer `linking`
+          // prop) — deeplink://series/:seriesId. The public mymangareader:// scheme (and any
+          // configured http(s) host) is rewritten to this internal scheme by MainActivity
+          // (DeepLinkNormalizer.kt) before RN ever sees it. Not configured here.
         }}
         getId={({ params }) => (params as any)?.seriesId}
       />

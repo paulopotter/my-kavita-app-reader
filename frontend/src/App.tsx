@@ -9,6 +9,7 @@ import { ImmersiveProvider, useImmersive } from './shared/context/immersive';
 import { registerSeriesDigestIndexListener } from './shared/managers/store';
 import { RootNavigator } from './navigation/RootNavigator';
 import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
+import { linking } from './navigation/linking.config';
 
 
 export default function App() {
@@ -95,7 +96,7 @@ function AppContent() {
       <StatusBar backgroundColor="#1A1A2E" barStyle="light-content" translucent={false} />
       <View style={[styles.root, { paddingTop: statusBarHeight }]}>
         <StartupProvider>
-          <NavigationContainer ref={navRef} onStateChange={onNavigationStateChange}>
+          <NavigationContainer ref={navRef} linking={linking} onStateChange={onNavigationStateChange}>
             <RootNavigator
               onSetupComplete={() => {
                 navRef.current?.reset({ index: 0, routes: [{ name: Routes.HUB }] });
