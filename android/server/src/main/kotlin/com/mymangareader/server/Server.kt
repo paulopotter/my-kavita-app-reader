@@ -552,7 +552,7 @@ class Server
         // Used directly by WRITE methods (no data to envelope); READ methods use
         // withUrlRetryEnveloped below instead.
         private suspend fun <T> withUrlRetry(action: suspend (ServerPlugin) -> T): T {
-            val groupId = activeGroupId ?: throw ServerException("No active server group set — call setActiveGroup(id) first")
+            val groupId = activeGroupId ?: ensureActiveGroup()
             return try {
                 action(getActiveContent())
             } catch (e: ServerAuthException) {
@@ -561,6 +561,23 @@ class Server
             } catch (e: IOException) {
                 action(getActiveContent(forceUrlReselect = true, groupId = groupId))
             }
+        }
+
+        // No group was ever activated this process (most commonly: the app booted while the
+        // server was unreachable, so the boot's own setActiveGroup attempt never ran/succeeded —
+        // see the splash boot graph). Rather than making every caller remember to re-activate
+        // before its first content call, any content call self-heals here: single-active-group
+        // rule (same one the splash boot and the config screen already assume), so there is
+        // exactly one candidate to try. No group configured → the existing "No active server
+        // group set" ServerException. A configured group that still fails to activate (server
+        // still unreachable, bad credentials) → setActiveGroup's own exception propagates as-is,
+        // which is more accurate than the generic message above for that case.
+        private suspend fun ensureActiveGroup(): String {
+            val groupId =
+                serverGroupDao.getAll().firstOrNull()?.id
+                    ?: throw ServerException("No active server group set — call setActiveGroup(id) first")
+            setActiveGroup(groupId)
+            return groupId
         }
 
         // Same retry behavior as withUrlRetry, but for READ methods: wraps the result in a

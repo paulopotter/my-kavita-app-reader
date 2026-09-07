@@ -191,6 +191,7 @@ private class FakeUrlSelector(
 private class FakePlugin(
     val authJson: String,
     var failSerialsListWith: Throwable? = null,
+    var failAuthenticateWith: Throwable? = null,
 ) : ServerPlugin {
     override val id = "fake"
     override val displayName = "Fake"
@@ -202,6 +203,10 @@ private class FakePlugin(
     override val auth =
         object : ServerPlugin.Auth {
             override suspend fun authenticate() {
+                failAuthenticateWith?.let {
+                    failAuthenticateWith = null
+                    throw it
+                }
                 authenticateCalled = true
                 authenticateCallCount++
                 tokenAfterAuth = "token-${authJson.hashCode()}"
@@ -1082,6 +1087,59 @@ class ServerTest {
             assertFailsWith<IOException> { retryServer.serials.list() }
             // exactly one retry attempt: the original call plus one reselect-and-retry, no more
             assertEquals(1, urlSelector.invalidateAndReselectCalls)
+        }
+
+    // ── no active group yet (ensureActiveGroup self-heal) ────────────────────
+
+    @Test
+    fun `a content call with no active group self-activates the single configured group`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val healServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+            val group = healServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            healServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            // setActiveGroup deliberately never called — this reproduces the app booting while the
+            // server was unreachable (splash's own setActiveGroup attempt never ran/succeeded).
+
+            val serials = healServer.serials.list()
+
+            assertEquals(listOf("1"), serials.data.serials.map { it.id })
+            assertEquals(group.id, healServer.getActiveGroupId())
+        }
+
+    @Test
+    fun `a content call with no active group and no configured group propagates the existing error`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val healServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+
+            val e = assertFailsWith<ServerException> { healServer.serials.list() }
+            assertEquals("No active server group set — call setActiveGroup(id) first", e.message)
+        }
+
+    @Test
+    fun `a content call with no active group and an unreachable server propagates setActiveGroup's own failure`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val healServer =
+                Server(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin -> plugin.failAuthenticateWith = IOException("connection refused") },
+                            ),
+                    ),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                )
+            healServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health")).let {
+                healServer.group(it.id).addUrl(NewServerUrl(baseUrl, 5000, 0))
+            }
+
+            assertFailsWith<IOException> { healServer.serials.list() }
+            assertEquals(null, healServer.getActiveGroupId())
         }
 
     // ── group.validateUrls ───────────────────────────────────────────────────
