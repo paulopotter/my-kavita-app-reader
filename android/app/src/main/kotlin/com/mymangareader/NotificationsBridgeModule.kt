@@ -91,6 +91,21 @@ class NotificationsBridgeModule(
     }
 
     @ReactMethod
+    fun updateGroup(
+        groupId: String,
+        name: String?,
+        topic: String?,
+        linkedServerGroupId: String?,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.groups.update(groupId, name, topic, linkedServerGroupId) }
+                .onSuccess { reevaluateConnection() }
+                .resolveOrReject(promise, "UPDATE_GROUP_ERROR") { it.toWritableMap() }
+        }
+    }
+
+    @ReactMethod
     fun removeGroup(
         groupId: String,
         promise: Promise,
