@@ -1,8 +1,11 @@
 package com.mymangareader.notifications
 
+import android.util.Log
 import com.mymangareader.notifications.plugins.RawNotificationEvent
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "NotificationEventPipeline"
 
 /**
  * The one place a raw plugin event turns into (or doesn't turn into) a posted notification —
@@ -19,9 +22,19 @@ class NotificationEventPipeline
         private val poster: NotificationPoster,
     ) {
         suspend fun handle(event: RawNotificationEvent) {
-            val resolved = resolver.resolve(event) ?: return
+            Log.i(TAG, "handle() — event received: seriesId=${event.seriesId} slug=${event.slug} seriesName='${event.seriesName}'")
+
+            val resolved = resolver.resolve(event)
+            if (resolved == null) {
+                Log.w(TAG, "handle() — event discarded: could not resolve to a local series")
+                return
+            }
+
             if (resolver.shouldNotify(resolved)) {
+                Log.i(TAG, "handle() — posting notification for seriesId=${resolved.seriesId}")
                 poster.post(resolved)
+            } else {
+                Log.i(TAG, "handle() — event resolved but not posted (out of notification scope): seriesId=${resolved.seriesId}")
             }
         }
     }

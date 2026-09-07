@@ -23,6 +23,14 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // Diagnostic logging (android.util.Log) was added across this module's pipeline; without this,
+    // every unmocked Log.d/i/w/e call throws in a plain JVM unit test (no real Android runtime).
+    // Returning defaults (0) instead of throwing lets tests keep running under plain JUnit — no
+    // need to pull in Robolectric just for logging calls.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

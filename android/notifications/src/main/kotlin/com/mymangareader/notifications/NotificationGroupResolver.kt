@@ -1,5 +1,6 @@
 package com.mymangareader.notifications
 
+import android.util.Log
 import com.mymangareader.core.database.NotificationGroupDao
 import com.mymangareader.core.database.NotificationUrlDao
 import com.mymangareader.core.database.NotificationUrlEntity
@@ -15,6 +16,7 @@ class NotificationGroupResolverException(
 ) : Exception(message)
 
 private const val DEFAULT_TIMEOUT_MS = 8_000
+private const val TAG = "NotificationGroupResolver"
 
 /**
  * Resolves which [com.mymangareader.core.database.NotificationGroupEntity] (and, within it, which
@@ -78,8 +80,10 @@ class NotificationGroupResolver
                 val linkedUrls = notificationUrlDao.getByGroupId(linkedGroupId)
                 val winner = urlSelector.getActiveUrl(linkedUrls.map { it.toUrlCandidate() })
                 winner.getOrNull()?.let { winningUrl ->
+                    Log.i(TAG, "resolveWinningUrl() — using linked group=$linkedGroupId, winning url=$winningUrl")
                     return WinningUrl(linkedGroupId, linkedUrls, winningUrl)
                 }
+                Log.w(TAG, "resolveWinningUrl() — linked group=$linkedGroupId has no reachable URL, falling back to unlinked pool")
             }
 
             val unlinkedGroups = allGroups.filter { it.linkedServerGroupId == null }
@@ -87,9 +91,11 @@ class NotificationGroupResolver
             val poolCandidates = urlsByGroup.values.flatten().map { it.toUrlCandidate() }
             val winningUrl =
                 urlSelector.getActiveUrl(poolCandidates).getOrElse {
+                    Log.e(TAG, "resolveWinningUrl() — no healthy notification group could be resolved (${poolCandidates.size} candidate url(s) tried)", it)
                     throw NotificationGroupResolverException("No healthy notification group could be resolved")
                 }
             val winningGroupId = urlsByGroup.entries.first { (_, urls) -> urls.any { it.url.trimEnd('/') == winningUrl } }.key
+            Log.i(TAG, "resolveWinningUrl() — using unlinked group=$winningGroupId, winning url=$winningUrl")
             return WinningUrl(winningGroupId, urlsByGroup.getValue(winningGroupId), winningUrl)
         }
     }

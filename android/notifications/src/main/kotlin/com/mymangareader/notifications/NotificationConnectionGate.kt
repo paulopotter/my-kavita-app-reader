@@ -1,7 +1,10 @@
 package com.mymangareader.notifications
 
+import android.util.Log
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "NotificationConnectionGate"
 
 /**
  * Decides whether the notification foreground service should be connected right now — the two
@@ -23,7 +26,12 @@ class NotificationConnectionGate
         private val channelState: NotificationChannelState,
     ) {
         suspend fun shouldConnect(): Boolean {
-            if (!channelState.isEnabled()) return false
-            return notifications.groups.list().any { notifications.group(it.id).getUrls().isNotEmpty() }
+            if (!channelState.isEnabled()) {
+                Log.i(TAG, "shouldConnect() — false: notification channel is disabled")
+                return false
+            }
+            val hasConfiguredGroup = notifications.groups.list().any { notifications.group(it.id).getUrls().isNotEmpty() }
+            Log.i(TAG, "shouldConnect() — $hasConfiguredGroup: channel enabled, group with URLs configured=$hasConfiguredGroup")
+            return hasConfiguredGroup
         }
     }

@@ -1,5 +1,6 @@
 package com.mymangareader.notifications.plugins.ntfy
 
+import android.util.Log
 import com.mymangareader.notifications.plugins.ConnectionState
 import com.mymangareader.notifications.plugins.NotificationPlugin
 import com.mymangareader.notifications.plugins.NotificationPluginRegistration
@@ -30,6 +31,7 @@ private val json = Json { ignoreUnknownKeys = true }
 
 private const val INITIAL_BACKOFF_MS = 1_000L
 private const val MAX_BACKOFF_MS = 30_000L
+private const val TAG = "NtfyPlugin"
 
 /**
  * Real ntfy WebSocket client — the only file (besides [NtfyPayload]) allowed to know ntfy's wire
@@ -72,13 +74,16 @@ class NtfyPlugin : NotificationPlugin {
     override val connectionState: StateFlow<ConnectionState> = _connectionState
 
     override suspend fun connect(url: NotificationUrl): Result<Unit> {
+        Log.d(TAG, "connect() — topic=${url.topic} url=${url.url}")
         intentionalClose = false
         currentUrl = url
         reconnectAttempts = 0
         return runCatching { openSocket(url) }
+            .onFailure { Log.e(TAG, "connect() failed to open socket — topic=${url.topic}", it) }
     }
 
     override suspend fun disconnect() {
+        Log.d(TAG, "disconnect() — intentional close, topic=${currentUrl?.topic}")
         intentionalClose = true
         // cancel(), not close() — an intentional stop should tear the connection down right away
         // rather than wait for the server's own close handshake, which the caller (about to stop
@@ -92,6 +97,7 @@ class NtfyPlugin : NotificationPlugin {
     private fun openSocket(url: NotificationUrl) {
         _connectionState.value = ConnectionState.CONNECTING
         val wsUrl = buildWebSocketUrl(url)
+        Log.d(TAG, "openSocket() — connecting to $wsUrl")
         val request = Request.Builder().url(wsUrl).build()
         socket = client.newWebSocket(request, Listener())
     }
@@ -101,6 +107,7 @@ class NtfyPlugin : NotificationPlugin {
         val url = currentUrl ?: return
         val delayMs = min(INITIAL_BACKOFF_MS * 2.0.pow(reconnectAttempts).toLong(), MAX_BACKOFF_MS)
         reconnectAttempts++
+        Log.d(TAG, "scheduleReconnect() — attempt=$reconnectAttempts delayMs=$delayMs topic=${url.topic}")
         scope.launch {
             delay(delayMs)
             if (!intentionalClose) openSocket(url)
@@ -112,6 +119,7 @@ class NtfyPlugin : NotificationPlugin {
             webSocket: WebSocket,
             response: Response,
         ) {
+            Log.i(TAG, "onOpen() — connected, topic=${currentUrl?.topic}")
             reconnectAttempts = 0
             _connectionState.value = ConnectionState.CONNECTED
         }
@@ -120,6 +128,7 @@ class NtfyPlugin : NotificationPlugin {
             webSocket: WebSocket,
             text: String,
         ) {
+            Log.d(TAG, "onMessage() — frame received (${text.length} chars): $text")
             scope.launch { handleFrame(text) }
         }
 
@@ -128,6 +137,7 @@ class NtfyPlugin : NotificationPlugin {
             t: Throwable,
             response: Response?,
         ) {
+            Log.w(TAG, "onFailure() — connection failed, topic=${currentUrl?.topic}", t)
             _connectionState.value = ConnectionState.DISCONNECTED
             scheduleReconnect()
         }
@@ -137,16 +147,37 @@ class NtfyPlugin : NotificationPlugin {
             code: Int,
             reason: String,
         ) {
+            Log.d(TAG, "onClosed() — code=$code reason=$reason intentional=$intentionalClose")
             _connectionState.value = ConnectionState.DISCONNECTED
             if (!intentionalClose) scheduleReconnect()
         }
     }
 
     private suspend fun handleFrame(text: String) {
-        val envelope = runCatching { json.decodeFromString<NtfyEnvelope>(text) }.getOrNull() ?: return
-        if (envelope.event != "message" || envelope.message.isBlank()) return
+        val envelope = runCatching { json.decodeFromString<NtfyEnvelope>(text) }.getOrNull()
+        if (envelope == null) {
+            Log.w(TAG, "handleFrame() — could not decode ntfy envelope, discarding frame")
+            return
+        }
+        if (envelope.event != "message" || envelope.message.isBlank()) {
+            Log.d(TAG, "handleFrame() — ignoring non-message frame (event=${envelope.event})")
+            return
+        }
 
-        decodeNtfyEvents(json, envelope.message).forEach { _events.emit(it.toRawNotificationEvent()) }
+        val decoded = decodeNtfyEvents(json, envelope.message)
+        if (decoded.isEmpty()) {
+            Log.w(TAG, "handleFrame() — message frame decoded to 0 events, payload may be malformed: ${envelope.message}")
+            return
+        }
+        Log.i(TAG, "handleFrame() — decoded ${decoded.size} event(s) from message frame")
+        decoded.forEach {
+            Log.d(
+                TAG,
+                "handleFrame() — event: seriesId=${it.seriesId} slug=${it.slug} seriesName=${it.seriesName} " +
+                    "chapterIds=${it.chapterIds} chapterNumbers=${it.chapterNumbers}",
+            )
+            _events.emit(it.toRawNotificationEvent())
+        }
     }
 
     companion object Info : NotificationPluginRegistration {

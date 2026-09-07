@@ -1,5 +1,6 @@
 package com.mymangareader.notifications
 
+import android.util.Log
 import com.mymangareader.core.database.BffMatchDao
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.notifications.plugins.RawNotificationEvent
@@ -7,6 +8,8 @@ import com.mymangareader.preferences.Preferences
 import com.mymangareader.server.Server
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "NotificationResolver"
 
 /**
  * One series-level event already resolved to a local `seriesId` — [RawNotificationEvent] before
@@ -55,19 +58,35 @@ class NotificationResolver
         //     match → resolved; zero or more than one → discarded (null), never guessed.
         // Neither aid resolves → discarded (null).
         suspend fun resolve(event: RawNotificationEvent): ResolvedSeriesEvent? {
-            val seriesId =
-                event.seriesId
-                    ?: resolveBySlug(event.slug)
-                    ?: resolveBySeriesName(event.seriesName)
-                    ?: return null
-            return ResolvedSeriesEvent(
-                seriesId = seriesId,
-                seriesName = event.seriesName,
-                chapterIds = event.chapterIds,
-                chapterNumbers = event.chapterNumbers,
-                detectedAtMs = event.detectedAtMs,
-            )
+            Log.d(TAG, "resolve() — seriesId=${event.seriesId} slug=${event.slug} seriesName=${event.seriesName}")
+
+            if (event.seriesId != null) {
+                Log.i(TAG, "resolve() — using seriesId=${event.seriesId} as-is (sent by the publisher)")
+                return event.toResolved(event.seriesId)
+            }
+
+            resolveBySlug(event.slug)?.let { seriesId ->
+                Log.i(TAG, "resolve() — resolved via slug '${event.slug}' -> seriesId=$seriesId")
+                return event.toResolved(seriesId)
+            }
+
+            resolveBySeriesName(event.seriesName)?.let { seriesId ->
+                Log.i(TAG, "resolve() — resolved via seriesName '${event.seriesName}' -> seriesId=$seriesId")
+                return event.toResolved(seriesId)
+            }
+
+            Log.w(TAG, "resolve() — could not resolve event (no seriesId, no slug match, no unique seriesName match) — discarding: seriesName='${event.seriesName}' slug=${event.slug}")
+            return null
         }
+
+        private fun RawNotificationEvent.toResolved(seriesId: String) =
+            ResolvedSeriesEvent(
+                seriesId = seriesId,
+                seriesName = seriesName,
+                chapterIds = chapterIds,
+                chapterNumbers = chapterNumbers,
+                detectedAtMs = detectedAtMs,
+            )
 
         private suspend fun resolveBySlug(slug: String?): String? {
             if (slug.isNullOrBlank()) return null
@@ -76,6 +95,9 @@ class NotificationResolver
 
         private suspend fun resolveBySeriesName(seriesName: String): String? {
             val matches = server.serials.list().data.serials.filter { it.name == seriesName }
+            if (matches.size > 1) {
+                Log.w(TAG, "resolveBySeriesName() — ${matches.size} series match '$seriesName', ambiguous, discarding")
+            }
             return matches.singleOrNull()?.id
         }
 
@@ -87,10 +109,25 @@ class NotificationResolver
         // screen), but this function never assumes that invariant: both true is evaluated as
         // written below, which simply behaves as "notify all".
         suspend fun shouldNotify(resolved: ResolvedSeriesEvent): Boolean {
-            if (!channelState.isEnabled()) return false
-            if (readFlag(NotificationPreferenceKeys.SCOPE_ALL)) return true
-            if (!readFlag(NotificationPreferenceKeys.SCOPE_FOLLOWED_ONLY)) return false
-            return followedSeriesDao.isFollowed(resolved.seriesId)
+            if (!channelState.isEnabled()) {
+                Log.i(TAG, "shouldNotify() — IGNORED seriesId=${resolved.seriesId}: channel disabled")
+                return false
+            }
+            if (readFlag(NotificationPreferenceKeys.SCOPE_ALL)) {
+                Log.i(TAG, "shouldNotify() — NOTIFY seriesId=${resolved.seriesId}: scopeAll enabled")
+                return true
+            }
+            if (!readFlag(NotificationPreferenceKeys.SCOPE_FOLLOWED_ONLY)) {
+                Log.i(TAG, "shouldNotify() — IGNORED seriesId=${resolved.seriesId}: no scope enabled (scopeAll and scopeFollowedOnly both off)")
+                return false
+            }
+            val followed = followedSeriesDao.isFollowed(resolved.seriesId)
+            Log.i(
+                TAG,
+                "shouldNotify() — ${if (followed) "NOTIFY" else "IGNORED"} seriesId=${resolved.seriesId}: " +
+                    "scopeFollowedOnly enabled, followed=$followed",
+            )
+            return followed
         }
 
         private suspend fun readFlag(key: String): Boolean = preferences.get(key)?.value == "true"

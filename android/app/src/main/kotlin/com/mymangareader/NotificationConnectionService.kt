@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.mymangareader.notifications.NotificationConnectionGate
@@ -37,6 +38,7 @@ enum class NotificationServiceStatus {
 }
 
 private const val NOTIFICATION_ID_CONNECTED = 1001
+private const val TAG = "NotificationConnService"
 
 /**
  * Foreground service that owns the notification plugin's WebSocket lifecycle — wires the plugin
@@ -76,6 +78,7 @@ class NotificationConnectionService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
+        Log.i(TAG, "onStartCommand() — starting foreground service")
         startForegroundWithConnectedNotification()
         updateStatus(NotificationServiceStatus.CONNECTING)
         scope.launch { connectAndObserve() }
@@ -83,6 +86,7 @@ class NotificationConnectionService : Service() {
     }
 
     override fun onDestroy() {
+        Log.i(TAG, "onDestroy() — stopping foreground service")
         scope.launch { activePlugin?.disconnect() }
         scope.cancel()
         updateStatus(NotificationServiceStatus.STOPPED)
@@ -91,18 +95,38 @@ class NotificationConnectionService : Service() {
 
     private suspend fun connectAndObserve() {
         if (!connectionGate.shouldConnect()) {
+            Log.w(TAG, "connectAndObserve() — gate refused connection (channel disabled or no group configured), stopping self")
+            updateStatus(NotificationServiceStatus.STOPPED)
             stopSelf()
             return
         }
-        val group = notifications.groups.list().firstOrNull() ?: return
-        val plugin = pluginRegistrations[group.providerId]?.factory?.invoke() ?: return
+        val group = notifications.groups.list().firstOrNull()
+        if (group == null) {
+            Log.w(TAG, "connectAndObserve() — no notification group found, aborting")
+            updateStatus(NotificationServiceStatus.STOPPED)
+            return
+        }
+        val plugin = pluginRegistrations[group.providerId]?.factory?.invoke()
+        if (plugin == null) {
+            Log.e(TAG, "connectAndObserve() — no plugin registered for providerId=${group.providerId}, aborting")
+            updateStatus(NotificationServiceStatus.STOPPED)
+            return
+        }
         activePlugin = plugin
 
-        val url = groupResolver.resolveActiveUrl()
+        val url =
+            runCatching { groupResolver.resolveActiveUrl() }
+                .onFailure { Log.e(TAG, "connectAndObserve() — could not resolve an active URL for group=${group.id}", it) }
+                .getOrElse {
+                    updateStatus(NotificationServiceStatus.DISCONNECTED)
+                    return
+                }
+        Log.i(TAG, "connectAndObserve() — group=${group.id} (${group.name}) providerId=${group.providerId} url=${url.url} topic=${url.topic}")
         plugin.connect(url)
 
         scope.launch {
             plugin.connectionState.collect { state ->
+                Log.d(TAG, "connectionState changed -> $state")
                 updateStatus(
                     when (state) {
                         ConnectionState.CONNECTING -> NotificationServiceStatus.CONNECTING
@@ -118,6 +142,7 @@ class NotificationConnectionService : Service() {
     }
 
     private fun updateStatus(status: NotificationServiceStatus) {
+        Log.i(TAG, "status -> $status")
         _status.value = status
         NotificationsBridgeModule.notifyConnectionStatusChanged(status)
     }
