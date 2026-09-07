@@ -14,21 +14,28 @@ export interface SelectProps {
   options: SelectOption[];
   placeholder?: string;
   onChange: (id: string | undefined) => void;
+  // True when there's nothing to actually choose (e.g. a single-option server picker under the
+  // app's single-server rule) — the trigger stops opening the sheet and drops the caret, but
+  // still shows the current label, same as a real selection made for the user.
+  disabled?: boolean;
 }
 
 // `placeholder` is always passed by the caller (a translated string); the default is only a
 // last-resort fallback.
-export function Select({ value, options, placeholder = '—', onChange }: SelectProps) {
+export function Select({ value, options, placeholder = '—', onChange, disabled = false }: SelectProps) {
   const [open, setOpen] = useState(false);
   const current = options.find(o => o.id === value);
 
   return (
     <>
-      <TouchableOpacity style={styles.trigger} onPress={() => setOpen(true)}>
+      <TouchableOpacity
+        style={[styles.trigger, disabled && styles.triggerDisabled]}
+        onPress={() => !disabled && setOpen(true)}
+        disabled={disabled}>
         <Text style={[styles.triggerTxt, !current && styles.triggerPlaceholder]} numberOfLines={1}>
           {current?.label ?? placeholder}
         </Text>
-        <Text style={styles.caret}>▾</Text>
+        {!disabled && <Text style={styles.caret}>▾</Text>}
       </TouchableOpacity>
 
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>

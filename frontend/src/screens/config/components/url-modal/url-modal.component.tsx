@@ -133,6 +133,10 @@ export function UrlModal({
                 value={serverGroupId}
                 placeholder={t.urlModalPickServer}
                 options={link.servers.map(sg => ({ id: sg.id, label: sg.name }))}
+                // Single-server rule (see architecture.md): with only one server there's nothing
+                // to actually choose — it's already selected above, this just stops it from
+                // looking like a real dropdown.
+                disabled={link.servers.length <= 1}
                 onChange={id => {
                   setServerGroupId(id);
                   setServerUrlId(undefined);

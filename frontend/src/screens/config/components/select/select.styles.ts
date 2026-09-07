@@ -15,6 +15,7 @@ export const styles = StyleSheet.create({
   },
   triggerTxt: { color: colors.textOnDark, fontSize: 13, flex: 1 },
   triggerPlaceholder: { color: '#4A5568' },
+  triggerDisabled: { opacity: 0.6 },
   caret: { color: colors.muted, fontSize: 12, marginLeft: 8 },
 
   scrim: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
