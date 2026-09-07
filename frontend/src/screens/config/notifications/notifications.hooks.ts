@@ -130,6 +130,7 @@ export interface UseNotificationGroupsResult {
   group: NotificationGroupInfo | null;
   canAddGroup: boolean;
   addGroup: (name: string, topic: string, linkedServerGroupId: string | undefined) => Promise<string | null>;
+  editGroup: (name: string, topic: string, linkedServerGroupId: string | undefined) => Promise<string | null>;
   removeGroup: (groupId: string) => Promise<void>;
 
   urls: NotificationUrlInfo[];
@@ -137,6 +138,10 @@ export interface UseNotificationGroupsResult {
   canAddUrl: boolean;
   canRemoveUrl: boolean; // false when only one URL remains
   nextPriority: number;
+  // urlId -> the server URL it's linked to (its address), for the "↳ …" sub-line under the row.
+  // Absent when a notification URL isn't associated with any server URL. Mirrors
+  // useMetadataServer's own linkedUrlLabel.
+  linkedUrlLabel: (urlId: string) => string | undefined;
   addUrl: (url: string, priority: number, linkedServerUrlId: string | undefined) => Promise<string | null>;
   updateUrl: (urlId: string, url: string, priority: number, linkedServerUrlId: string | undefined) => Promise<string | null>;
   removeUrl: (urlId: string) => Promise<void>;
@@ -159,12 +164,25 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
   const [urls, setUrls] = useState<NotificationUrlInfo[]>([]);
   const [activeUrlId, setActiveUrlId] = useState<string | null>(null);
   const [linkedServerGroups, setLinkedServerGroups] = useState<ServerGroupInfo[]>([]);
+  // serverUrlId -> its address, so a notification URL's link can be shown as text (the "↳ …"
+  // sub-line under its row) — mirrors useMetadataServer's own serverUrlAddrById.
+  const [serverUrlAddrById, setServerUrlAddrById] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
       const [groups, serverGroups] = await Promise.all([NotificationsService.groups.list(), ServersService.groups.list()]);
       setLinkedServerGroups(serverGroups);
+
+      const serverUrlLists = await Promise.all(
+        serverGroups.map(sg => ServerService.urls.list({ groupId: sg.id }).catch(() => [])),
+      );
+      const addrById: Record<string, string> = {};
+      serverUrlLists.flat().forEach(u => {
+        addrById[u.id] = u.url;
+      });
+      setServerUrlAddrById(addrById);
+
       const g = groups[0] ?? null; // single-group rule — this screen only ever shows groups[0]
       setGroup(g);
 
@@ -205,6 +223,27 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
     [reload, t],
   );
 
+  const editGroup = useCallback(
+    async (name: string, topic: string, linkedServerGroupId: string | undefined): Promise<string | null> => {
+      if (!group) {return t.notificationsErrorNoGroup;}
+      if (!name.trim()) {return t.notificationsErrorGroupNameRequired;}
+      if (!topic.trim()) {return t.notificationsErrorTopicRequired;}
+      try {
+        await NotificationsService.groups.update({
+          groupId: group.id,
+          name: name.trim(),
+          topic: topic.trim(),
+          linkedServerGroupId,
+        });
+        await reload();
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : String(e);
+      }
+    },
+    [group, reload, t],
+  );
+
   const removeGroup = useCallback(
     async (groupId: string) => {
       await NotificationsService.groups.remove({ groupId });
@@ -216,6 +255,14 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
   const canAddUrl = urls.length < MAX_URLS_PER_GROUP;
   const canRemoveUrl = urls.length > 1;
   const nextPriority = urls.length === 0 ? 0 : Math.max(...urls.map(u => u.priority)) + 1;
+
+  const linkedUrlLabel = useCallback(
+    (urlId: string): string | undefined => {
+      const linkedId = urls.find(u => u.id === urlId)?.linkedServerUrlId;
+      return linkedId ? serverUrlAddrById[linkedId] : undefined;
+    },
+    [urls, serverUrlAddrById],
+  );
 
   const addUrl = useCallback(
     async (url: string, priority: number, linkedServerUrlId: string | undefined): Promise<string | null> => {
@@ -284,12 +331,14 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
     group,
     canAddGroup,
     addGroup,
+    editGroup,
     removeGroup,
     urls,
     activeUrlId,
     canAddUrl,
     canRemoveUrl,
     nextPriority,
+    linkedUrlLabel,
     addUrl,
     updateUrl,
     removeUrl,

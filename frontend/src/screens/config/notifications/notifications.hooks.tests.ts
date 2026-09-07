@@ -19,6 +19,7 @@ const mockRetentionGet = jest.fn();
 const mockRetentionSet = jest.fn();
 const mockGroupsList = jest.fn();
 const mockGroupsAdd = jest.fn();
+const mockGroupsUpdate = jest.fn();
 const mockGroupsRemove = jest.fn();
 const mockGetActiveUrl = jest.fn();
 const mockUrlsList = jest.fn();
@@ -50,6 +51,7 @@ jest.mock('../../../shared/services/notifications', () => ({
     groups: {
       list: (...a: unknown[]) => mockGroupsList(...a),
       add: (...a: unknown[]) => mockGroupsAdd(...a),
+      update: (...a: unknown[]) => mockGroupsUpdate(...a),
       remove: (...a: unknown[]) => mockGroupsRemove(...a),
       getActiveUrl: (...a: unknown[]) => mockGetActiveUrl(...a),
       urls: {
@@ -338,6 +340,62 @@ describe('useNotificationGroups', () => {
     expect(err).toBe('add failed');
   });
 
+  it('editGroup rejects when there is no group without calling the service', async () => {
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let err: string | null = null;
+    await act(async () => {
+      err = await result.current.editGroup('Home', 'chapters', undefined);
+    });
+    expect(err).toBeTruthy();
+    expect(mockGroupsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('editGroup rejects a blank name/topic without calling the service', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let err: string | null = null;
+    await act(async () => {
+      err = await result.current.editGroup('', 'chapters', undefined);
+    });
+    expect(err).toBeTruthy();
+    expect(mockGroupsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('editGroup updates forwarding linkedServerGroupId and reloads', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockGroupsUpdate.mockResolvedValue(group({ name: 'New name' }));
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let err: string | null = null;
+    await act(async () => {
+      err = await result.current.editGroup('New name', 'chapters', 'server-2');
+    });
+
+    expect(err).toBeNull();
+    expect(mockGroupsUpdate).toHaveBeenCalledWith({
+      groupId: 'g1',
+      name: 'New name',
+      topic: 'chapters',
+      linkedServerGroupId: 'server-2',
+    });
+  });
+
+  it('editGroup surfaces a rejected update as an error string', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockGroupsUpdate.mockRejectedValue(new Error('update failed'));
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let err: string | null = null;
+    await act(async () => {
+      err = await result.current.editGroup('Home', 'chapters', undefined);
+    });
+    expect(err).toBe('update failed');
+  });
+
   it('removeGroup removes and reloads', async () => {
     mockGroupsList.mockResolvedValue([group()]);
     const { result } = renderHook(() => useNotificationGroups());
@@ -491,6 +549,28 @@ describe('useNotificationGroups', () => {
 
     expect(probe.ok).toBe(false);
     expect(mockUrlsTest).not.toHaveBeenCalled();
+  });
+
+  it('linkedUrlLabel resolves a linked url to its server address', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsList.mockResolvedValue([url({ linkedServerUrlId: 'su1' })]);
+    mockServersList.mockResolvedValue([{ id: 'sg1', name: 'Home Server', providerId: 'kavita', credentialsJson: '{}', healthCheckPath: '/health' }]);
+    mockServerUrlsList.mockResolvedValue([{ id: 'su1', groupId: 'sg1', url: 'http://192.168.1.10:5000', timeoutMs: 5000, priority: 0 }]);
+
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.linkedUrlLabel('u1')).toBe('http://192.168.1.10:5000');
+  });
+
+  it('linkedUrlLabel is undefined for an unlinked url', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsList.mockResolvedValue([url()]);
+
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.linkedUrlLabel('u1')).toBeUndefined();
   });
 
   it('urlsOfServerGroup forwards to ServerService.urls.list', async () => {

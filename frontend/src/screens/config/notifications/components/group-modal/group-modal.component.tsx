@@ -5,25 +5,40 @@ import type { Strings } from '../../../../../shared/i18n';
 import { Select } from '../../../components/select';
 import { styles } from './group-modal.styles';
 
-// Add a notification group (a :notifications group, ntfy provider only for now — no provider
-// picker like config/server has, since there's only the one). Edit is not offered: a group's
-// name/topic changes would require re-subscribing the connection, out of this task's scope — only
-// add/remove are exposed (removing and re-adding covers the rename case). `servers` is the Kavita
+// Add / edit a notification group (a :notifications group, ntfy provider only for now — no
+// provider picker like config/server has, since there's only the one). `servers` is the Kavita
 // server list (today just one, per the single-server rule) — picking one sets
 // linkedServerGroupId, same "link to a Kavita server group" concept ExternalMetadataGroupInfo
-// already has.
+// already has. With a single server the picker is pre-selected and disabled, same as UrlModal's
+// own server picker.
 export interface GroupModalProps {
   t: Strings;
+  mode: 'add' | 'edit';
+  initialName?: string;
+  initialTopic?: string;
+  initialLinkedServerGroupId?: string;
   servers?: ServerGroupInfo[];
   submitError?: string | null;
   onSubmit: (name: string, topic: string, linkedServerGroupId: string | undefined) => void;
   onClose: () => void;
 }
 
-export function GroupModal({ t, servers = [], submitError, onSubmit, onClose }: GroupModalProps) {
-  const [name, setName] = useState('');
-  const [topic, setTopic] = useState('');
-  const [linkedServerGroupId, setLinkedServerGroupId] = useState<string | undefined>(undefined);
+export function GroupModal({
+  t,
+  mode,
+  initialName = '',
+  initialTopic = '',
+  initialLinkedServerGroupId,
+  servers = [],
+  submitError,
+  onSubmit,
+  onClose,
+}: GroupModalProps) {
+  const [name, setName] = useState(initialName);
+  const [topic, setTopic] = useState(initialTopic);
+  const [linkedServerGroupId, setLinkedServerGroupId] = useState<string | undefined>(
+    initialLinkedServerGroupId ?? servers[0]?.id,
+  );
 
   const canSave = name.trim().length > 0 && topic.trim().length > 0;
 
@@ -32,7 +47,9 @@ export function GroupModal({ t, servers = [], submitError, onSubmit, onClose }: 
       <View style={styles.scrim}>
         <View style={styles.card}>
           <View style={styles.header}>
-            <Text style={styles.title}>{t.notificationsGroupModalNewTitle}</Text>
+            <Text style={styles.title}>
+              {mode === 'add' ? t.notificationsGroupModalNewTitle : t.notificationsGroupModalEditTitle}
+            </Text>
             <Text onPress={onClose} style={styles.close} suppressHighlighting>
               ✕
             </Text>
@@ -68,6 +85,7 @@ export function GroupModal({ t, servers = [], submitError, onSubmit, onClose }: 
                 value={linkedServerGroupId}
                 placeholder={t.urlModalPickServer}
                 options={servers.map(s => ({ id: s.id, label: s.name }))}
+                disabled={servers.length <= 1}
                 onChange={setLinkedServerGroupId}
               />
             </>

@@ -42,6 +42,19 @@ export const NotificationsService = {
     }): Promise<NotificationGroupInfo> {
       return NotificationsBridge.addGroup({ name, providerId, topic, linkedServerGroupId });
     },
+    update({
+      groupId,
+      name,
+      topic,
+      linkedServerGroupId,
+    }: {
+      groupId: string;
+      name?: string;
+      topic?: string;
+      linkedServerGroupId?: string;
+    }): Promise<NotificationGroupInfo> {
+      return NotificationsBridge.updateGroup({ groupId, name, topic, linkedServerGroupId });
+    },
     remove({ groupId }: { groupId: string }): Promise<void> {
       return NotificationsBridge.removeGroup({ groupId });
     },

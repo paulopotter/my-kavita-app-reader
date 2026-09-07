@@ -16,9 +16,16 @@ export const styles = StyleSheet.create({
   statusPillOff: { backgroundColor: colors.mutedDim },
   statusPillTxt: { color: colors.textOnDark, fontSize: 12, fontWeight: '700' },
 
-  retentionRow: { paddingVertical: 16 },
-  retentionLabel: { color: colors.textOnDark, fontSize: 15, marginBottom: 10 },
-  retentionStepper: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  // Same row shape as the toggles above (label left, control right) — the stepper sits where the
+  // Switch would, value centered between its two buttons.
+  retentionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+  },
+  retentionLabel: { color: colors.textOnDark, fontSize: 15, marginRight: 12 },
+  retentionStepper: { flexDirection: 'row', alignItems: 'center' },
   stepperBtn: {
     width: 32,
     height: 32,
@@ -29,7 +36,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperBtnTxt: { color: colors.accent, fontSize: 18, fontWeight: '700' },
-  retentionValue: { color: colors.textOnDark, fontSize: 15, minWidth: 80, textAlign: 'center' },
+  retentionValue: { color: colors.textOnDark, fontSize: 15, minWidth: 64, textAlign: 'center' },
 
   addDashedBtn: {
     marginTop: 6,

@@ -47,12 +47,14 @@ function groupsHook(over: Partial<Record<string, unknown>> = {}) {
     group: null,
     canAddGroup: true,
     addGroup: jest.fn().mockResolvedValue(null),
+    editGroup: jest.fn().mockResolvedValue(null),
     removeGroup: jest.fn(),
     urls: [],
     activeUrlId: null,
     canAddUrl: true,
     canRemoveUrl: false,
     nextPriority: 0,
+    linkedUrlLabel: jest.fn(() => undefined),
     addUrl: jest.fn().mockResolvedValue(null),
     updateUrl: jest.fn().mockResolvedValue(null),
     removeUrl: jest.fn(),
@@ -97,6 +99,16 @@ describe('NotificationsScreen', () => {
     expect(getByText(t.notificationsChannelStateOff)).toBeTruthy();
     expect(queryByText(t.notificationsScopeAll)).toBeNull();
     expect(queryByText(t.notificationsGroupsTitle)).toBeNull();
+  });
+
+  it('shows neither pill state nor toggles while the channel/prefs/groups are still loading', () => {
+    mockUseNotificationChannel.mockReturnValue(channelHook({ enabled: null }));
+    mockUseNotificationPrefs.mockReturnValue(prefsHook({ loading: true }));
+    mockUseNotificationGroups.mockReturnValue(groupsHook({ loading: true }));
+    const { queryByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(queryByText(t.notificationsChannelStateOn)).toBeNull();
+    expect(queryByText(t.notificationsChannelStateOff)).toBeNull();
+    expect(queryByText(t.notificationsScopeAll)).toBeNull();
   });
 
   it('toggling "all series" via the row (not just the Switch) calls setScopeAll', () => {
@@ -188,6 +200,29 @@ describe('NotificationsScreen', () => {
     expect(getByText(t.notificationsGroupModalNewTitle)).toBeTruthy();
     fireEvent.press(getByText('✕'));
     expect(queryByText(t.notificationsGroupModalNewTitle)).toBeNull();
+  });
+
+  it('opens the edit-group modal pre-filled, and submits via editGroup', async () => {
+    const editGroup = jest.fn().mockResolvedValue(null);
+    mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, editGroup }));
+    const { getByText, getByDisplayValue } = render(<NotificationsScreen onBack={jest.fn()} />);
+
+    fireEvent.press(getByText('⋯'));
+    fireEvent.press(getByText(t.serverListEdit));
+    expect(getByText(t.notificationsGroupModalEditTitle)).toBeTruthy();
+    expect(getByDisplayValue('Home')).toBeTruthy();
+    expect(getByDisplayValue('chapters')).toBeTruthy();
+
+    fireEvent.press(getByText(t.serverFormSave));
+    expect(editGroup).toHaveBeenCalledWith('Home', 'chapters', undefined);
+  });
+
+  it("shows a URL's linked-server sub-line via linkedUrlLabel", () => {
+    mockUseNotificationGroups.mockReturnValue(
+      groupsHook({ group: homeGroup, urls: [homeUrl], linkedUrlLabel: jest.fn(() => 'http://192.168.1.10:5000') }),
+    );
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(getByText('↳ http://192.168.1.10:5000')).toBeTruthy();
   });
 
   it('removing the group via its context menu calls removeGroup', () => {

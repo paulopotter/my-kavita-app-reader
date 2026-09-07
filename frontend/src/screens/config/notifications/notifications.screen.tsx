@@ -47,6 +47,9 @@ function ToggleRow({
   );
 }
 
+type GroupModalState = { mode: 'add' } | { mode: 'edit'; name: string; topic: string; linkedServerGroupId?: string };
+type UrlModalState = { mode: 'add' } | { mode: 'edit'; urlId: string; url: string; priority: number; linkedServerUrlId?: string };
+
 export function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const t = useStrings();
   const channel = useNotificationChannel();
@@ -54,20 +57,21 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const groups = useNotificationGroups();
 
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [groupModal, setGroupModal] = useState<GroupModalState | null>(null);
   const [groupModalError, setGroupModalError] = useState<string | null>(null);
 
-  const [urlModal, setUrlModal] = useState<{ mode: 'add' } | { mode: 'edit'; urlId: string; url: string; priority: number; linkedServerUrlId?: string } | null>(
-    null,
-  );
+  const [urlModal, setUrlModal] = useState<UrlModalState | null>(null);
   const [urlModalError, setUrlModalError] = useState<string | null>(null);
   const [urlMenu, setUrlMenu] = useState<{ urlId: string; canRemove: boolean } | null>(null);
 
   const submitGroupModal = async (name: string, topic: string, linkedServerGroupId: string | undefined) => {
-    const err = await groups.addGroup(name, topic, linkedServerGroupId);
+    const err =
+      groupModal?.mode === 'add'
+        ? await groups.addGroup(name, topic, linkedServerGroupId)
+        : await groups.editGroup(name, topic, linkedServerGroupId);
     if (err) {setGroupModalError(err);}
     else {
-      setGroupModalOpen(false);
+      setGroupModal(null);
       setGroupModalError(null);
     }
   };
@@ -84,6 +88,11 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  // Nothing renders below the channel row until every real value has loaded — otherwise every
+  // toggle would flash its default (off) state and visibly animate to the real one a moment
+  // later. Same rule ReaderPrefsScreen already follows for its own toggles.
+  const ready = channel.enabled != null && !prefs.loading && !groups.loading;
+
   return (
     <View style={chrome.root}>
       <View style={chrome.subHeader}>
@@ -99,15 +108,17 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
             screen for that channel (see README Decision 10). The pill shows the current state. */}
         <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={channel.openSettings}>
           <Text style={styles.label}>{t.notificationsChannelRowLabel}</Text>
-          <View style={[styles.statusPill, channel.enabled ? styles.statusPillOn : styles.statusPillOff]}>
-            <Text style={styles.statusPillTxt}>
-              {channel.enabled ? t.notificationsChannelStateOn : t.notificationsChannelStateOff}
-            </Text>
-          </View>
+          {channel.enabled != null && (
+            <View style={[styles.statusPill, channel.enabled ? styles.statusPillOn : styles.statusPillOff]}>
+              <Text style={styles.statusPillTxt}>
+                {channel.enabled ? t.notificationsChannelStateOn : t.notificationsChannelStateOff}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
         <View style={chrome.divider} />
 
-        {channel.enabled && (
+        {ready && channel.enabled && (
           <>
             <ToggleRow
               label={t.notificationsScopeAll}
@@ -166,6 +177,7 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                   setUrlModalError(null);
                   setUrlModal({ mode: 'add' });
                 }}
+                urlSubline={groups.linkedUrlLabel}
                 strings={{ urls: t.serverUrlsLabel, addUrl: t.serverAddUrl }}
               />
             )}
@@ -175,7 +187,7 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                 style={styles.addDashedBtn}
                 onPress={() => {
                   setGroupModalError(null);
-                  setGroupModalOpen(true);
+                  setGroupModal({ mode: 'add' });
                 }}>
                 <Text style={styles.addDashedTxt}>{t.notificationsAddGroup}</Text>
               </TouchableOpacity>
@@ -183,10 +195,27 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
           </>
         )}
 
-        {/* ── group context menu (delete only — no rename, see GroupModal's own doc) ── */}
+        {/* ── group context menu (edit + delete) ── */}
         <Modal transparent visible={groupMenuOpen} onRequestClose={() => setGroupMenuOpen(false)}>
           <TouchableOpacity style={styles.menuOverlay} onPress={() => setGroupMenuOpen(false)} activeOpacity={1}>
             <View style={styles.menuBox}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setGroupMenuOpen(false);
+                  if (groups.group) {
+                    setGroupModalError(null);
+                    setGroupModal({
+                      mode: 'edit',
+                      name: groups.group.name,
+                      topic: groups.group.topic,
+                      linkedServerGroupId: groups.group.linkedServerGroupId,
+                    });
+                  }
+                }}>
+                <Text style={styles.menuItemTxt}>{t.serverListEdit}</Text>
+              </TouchableOpacity>
+              <View style={styles.menuDivider} />
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -239,14 +268,18 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
           </TouchableOpacity>
         </Modal>
 
-        {groupModalOpen && (
+        {groupModal && (
           <GroupModal
             t={t}
+            mode={groupModal.mode}
+            initialName={groupModal.mode === 'edit' ? groupModal.name : undefined}
+            initialTopic={groupModal.mode === 'edit' ? groupModal.topic : undefined}
+            initialLinkedServerGroupId={groupModal.mode === 'edit' ? groupModal.linkedServerGroupId : undefined}
             servers={groups.linkedServerGroups}
             submitError={groupModalError}
             onSubmit={submitGroupModal}
             onClose={() => {
-              setGroupModalOpen(false);
+              setGroupModal(null);
               setGroupModalError(null);
             }}
           />
