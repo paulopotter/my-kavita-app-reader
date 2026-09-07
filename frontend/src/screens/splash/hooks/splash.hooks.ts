@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { OtaEmitter, OtaModule, OtaPolicyMode } from '../../../native';
 import { StartupBridge } from '../../../shared/bridge';
 import {
@@ -65,15 +66,23 @@ export async function runSplashBoot(opts: {
   }
   onProgress(P.serverOk);
 
-  // setActiveGroup authenticates internally when the group has no session yet. A failure here is
-  // an auth failure — try one forced re-authentication before giving up to setup.
+  // setActiveGroup authenticates internally when the group has no session yet. A failure here
+  // could be either the credentials being genuinely wrong (Setup is where that's fixed) or the
+  // server simply being unreachable right now (network down, host offline, timeout) — in which
+  // case there is nothing to fix in Setup and the app should proceed to the Hub, where the
+  // Library's own error state (with Retry) takes over. See activateAndAuth's own doc for how the
+  // two are told apart.
   const groupId = groups[0].id;
   onStep('signing in');
-  const authed = await activateAndAuth(groupId);
-  if (!authed) {
+  const authResult = await activateAndAuth(groupId);
+  if (authResult === 'invalid_credentials') {
     return { destination: { kind: 'setup' } };
   }
-  onProgress(P.authOk);
+  // 'authed' or 'unreachable' both proceed — an unreachable server has a configured group; there
+  // is no "fix" Setup could offer that a Retry on the Hub can't.
+  if (authResult === 'authed') {
+    onProgress(P.authOk);
+  }
 
   // The server's active URL is now resolved. If a metadata server exists, resolve it too against
   // that URL — cascade, per the user's design. Best-effort, non-blocking: a missing metadata
@@ -124,18 +133,43 @@ function resolveMetadataServer(): Promise<void> {
   })();
 }
 
-async function activateAndAuth(groupId: string): Promise<boolean> {
+// A Kavita 401/403 — Server.kt's KavitaAuth throws exactly these two messages for a non-200
+// authenticate response ("Invalid API key (401)" / "Authentication failed: HTTP <status>"). Only
+// this narrow shape counts as "the credentials are actually wrong" — everything else (timeout,
+// host unreachable, DNS failure, the ntfy-style "Could not resolve a healthy URL" from the
+// pre-auth health check) is treated as "the server is temporarily unreachable", never as a
+// credentials problem to send the user to Setup for.
+const INVALID_CREDENTIALS_PATTERN = /invalid api key|authentication failed: http/i;
+
+function isInvalidCredentialsError(e: unknown): boolean {
+  const message = e instanceof Error ? e.message : String(e);
+  return INVALID_CREDENTIALS_PATTERN.test(message);
+}
+
+type AuthResult = 'authed' | 'invalid_credentials' | 'unreachable';
+
+// Without a network connection there is no way to know whether the stored credentials are valid
+// — a request never reaches Kavita to say so. So "no network" always resolves as 'unreachable',
+// regardless of what the bridge call's error message happens to say.
+async function activateAndAuth(groupId: string): Promise<AuthResult> {
+  const netState = await NetInfo.fetch().catch(() => null);
+  if (netState?.isConnected === false) {
+    return 'unreachable';
+  }
+
   try {
     await ServerService.group.active.set({ groupId });
-    return true;
+    return 'authed';
   } catch {
-    // Session likely stale/expired — force a fresh login, then re-activate.
+    // The first failure alone doesn't say much — a 401 here is exactly what an expired session
+    // looks like too. Always try one forced re-authentication before deciding anything; only the
+    // FINAL failure's message is inspected to tell "credentials are wrong" from "unreachable".
     try {
       await ServerService.auth.reauthenticate({ groupId });
       await ServerService.group.active.set({ groupId });
-      return true;
-    } catch {
-      return false;
+      return 'authed';
+    } catch (e2) {
+      return isInvalidCredentialsError(e2) ? 'invalid_credentials' : 'unreachable';
     }
   }
 }

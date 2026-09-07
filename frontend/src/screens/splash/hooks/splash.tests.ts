@@ -36,6 +36,12 @@ jest.mock('../../library/hooks/library.hooks', () => ({
   seedLibrary: jest.fn(),
 }));
 
+const mockNetInfoFetch = jest.fn();
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: { fetch: (...a: unknown[]) => mockNetInfoFetch(...a) },
+}));
+
 import { StartupBridge } from '../../../shared/bridge/startup';
 import { OtaModule } from '../../../native/OtaModule';
 import { ServersService, ServerService } from '../../../shared/services/servers';
@@ -66,6 +72,7 @@ beforeEach(() => {
   getOtaState.mockResolvedValue({ phase: 'idle', progress: -1, policy: null });
   acknowledgePolicy.mockResolvedValue(undefined);
   listGroups.mockResolvedValue([{ id: 'g1', name: 'S1' }]);
+  mockNetInfoFetch.mockResolvedValue({ isConnected: true });
   setActiveGroup.mockResolvedValue(undefined);
   reauthenticate.mockResolvedValue(undefined);
   assemble.mockResolvedValue({ entries: [], lastUpdatedEpochMs: null });
@@ -126,12 +133,26 @@ describe('runSplashBoot', () => {
     expect(r.destination).toEqual({ kind: 'home' });
   });
 
-  it('setActiveGroup fails and reauth also fails → setup, no warm-up', async () => {
-    setActiveGroup.mockRejectedValue(new Error('401'));
-    reauthenticate.mockRejectedValue(new Error('bad key'));
+  it('setActiveGroup and reauth both fail with an actual invalid-credentials error → setup, no warm-up', async () => {
+    setActiveGroup.mockRejectedValue(new Error('Invalid API key (401)'));
+    reauthenticate.mockRejectedValue(new Error('Authentication failed: HTTP 403'));
     const r = await runSplashBoot(noopSteps);
     expect(r.destination).toEqual({ kind: 'setup' });
     expect(assemble).not.toHaveBeenCalled();
+  });
+
+  it('setActiveGroup and reauth both fail with a network/unknown error → home (server unreachable, not a credentials problem)', async () => {
+    setActiveGroup.mockRejectedValue(new Error('Request timed out after 8000ms: http://kavita.local'));
+    reauthenticate.mockRejectedValue(new Error('Unable to resolve host'));
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'home' });
+  });
+
+  it('no network connection at all → home without even attempting setActiveGroup (can\'t tell credentials apart from offline)', async () => {
+    mockNetInfoFetch.mockResolvedValue({ isConnected: false });
+    const r = await runSplashBoot(noopSteps);
+    expect(setActiveGroup).not.toHaveBeenCalled();
+    expect(r.destination).toEqual({ kind: 'home' });
   });
 
   it('a warm-up failure does not change the destination', async () => {
