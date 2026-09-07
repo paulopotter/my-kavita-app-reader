@@ -27,12 +27,27 @@ const mockUrlsAdd = jest.fn();
 const mockUrlsUpdate = jest.fn();
 const mockUrlsRemove = jest.fn();
 const mockUrlsTest = jest.fn();
+const mockConnectionGetStatus = jest.fn();
+const mockGroupTestConnection = jest.fn();
+
+const serviceStatusEventListeners: Array<(status: string) => void> = [];
+const mockAddListener = jest.fn((_event: string, cb: (status: string) => void) => {
+  serviceStatusEventListeners.push(cb);
+  return { remove: jest.fn() };
+});
+
+jest.mock('../../../shared/bridge', () => ({
+  NotificationsEventEmitter: { addListener: (event: string, cb: (status: string) => void) => mockAddListener(event, cb) },
+}));
 
 jest.mock('../../../shared/services/notifications', () => ({
   NotificationsService: {
     channel: {
       isEnabled: (...a: unknown[]) => mockChannelIsEnabled(...a),
       openSettings: (...a: unknown[]) => mockChannelOpenSettings(...a),
+    },
+    connection: {
+      getStatus: (...a: unknown[]) => mockConnectionGetStatus(...a),
     },
     scope: {
       getAll: (...a: unknown[]) => mockScopeGetAll(...a),
@@ -54,6 +69,7 @@ jest.mock('../../../shared/services/notifications', () => ({
       update: (...a: unknown[]) => mockGroupsUpdate(...a),
       remove: (...a: unknown[]) => mockGroupsRemove(...a),
       getActiveUrl: (...a: unknown[]) => mockGetActiveUrl(...a),
+      testConnection: (...a: unknown[]) => mockGroupTestConnection(...a),
       urls: {
         list: (...a: unknown[]) => mockUrlsList(...a),
         add: (...a: unknown[]) => mockUrlsAdd(...a),
@@ -72,7 +88,7 @@ jest.mock('../../../shared/services/servers', () => ({
   ServerService: { urls: { list: (...a: unknown[]) => mockServerUrlsList(...a) } },
 }));
 
-import { useNotificationChannel, useNotificationGroups, useNotificationPrefs } from './notifications.hooks';
+import { useNotificationChannel, useNotificationGroups, useNotificationPrefs, useNotificationServiceStatus } from './notifications.hooks';
 
 const group = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 'g1',
@@ -95,11 +111,13 @@ const appStateListeners: Array<(state: string) => void> = [];
 beforeEach(() => {
   jest.clearAllMocks();
   appStateListeners.length = 0;
+  serviceStatusEventListeners.length = 0;
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, cb) => {
     appStateListeners.push(cb as (state: string) => void);
     return { remove: jest.fn() } as never;
   });
   mockChannelIsEnabled.mockResolvedValue(true);
+  mockConnectionGetStatus.mockResolvedValue('stopped');
   mockChannelOpenSettings.mockResolvedValue(undefined);
   mockScopeGetAll.mockResolvedValue(false);
   mockScopeSetAll.mockResolvedValue(undefined);
@@ -149,6 +167,34 @@ describe('useNotificationChannel', () => {
       result.current.openSettings();
     });
     expect(mockChannelOpenSettings).toHaveBeenCalledWith();
+  });
+});
+
+// ── useNotificationServiceStatus ─────────────────────────────────────────────
+
+describe('useNotificationServiceStatus', () => {
+  it('reads the status once on mount', async () => {
+    mockConnectionGetStatus.mockResolvedValue('connected');
+    const { result } = renderHook(() => useNotificationServiceStatus());
+    await waitFor(() => expect(result.current.status).toBe('connected'));
+  });
+
+  it('updates live when connectionStatusChanged fires, without polling', async () => {
+    mockConnectionGetStatus.mockResolvedValue('connecting');
+    const { result } = renderHook(() => useNotificationServiceStatus());
+    await waitFor(() => expect(result.current.status).toBe('connecting'));
+
+    act(() => {
+      serviceStatusEventListeners.forEach(cb => cb('connected'));
+    });
+    expect(result.current.status).toBe('connected');
+  });
+
+  it('sets status to null when the initial read rejects', async () => {
+    mockConnectionGetStatus.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useNotificationServiceStatus());
+    await waitFor(() => expect(mockConnectionGetStatus).toHaveBeenCalled());
+    expect(result.current.status).toBeNull();
   });
 });
 
@@ -582,5 +628,54 @@ describe('useNotificationGroups', () => {
 
     expect(mockServerUrlsList).toHaveBeenCalledWith({ groupId: 'sg1' });
     expect(urls).toEqual([{ id: 'su1', groupId: 'sg1', url: 'http://host', timeoutMs: 5000, priority: 0 }]);
+  });
+
+  // ── testConnection ──
+
+  it('testConnection sets connStatus ok, connMessage and activeUrlId on success', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsList.mockResolvedValue([url(), url({ id: 'u2', url: 'https://backup.ntfy.sh', priority: 1 })]);
+    mockGroupTestConnection.mockResolvedValue({ id: 'u2', groupId: 'g1', url: 'https://backup.ntfy.sh', timeoutMs: 5000, priority: 1 });
+
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.connStatus).toBe('idle');
+
+    await act(async () => {
+      await result.current.testConnection();
+    });
+
+    expect(mockGroupTestConnection).toHaveBeenCalledWith({ groupId: 'g1' });
+    expect(result.current.connStatus).toBe('ok');
+    expect(result.current.connMessage).toBe('https://backup.ntfy.sh');
+    expect(result.current.activeUrlId).toBe('u2');
+  });
+
+  it('testConnection sets connStatus error and connMessage on failure', async () => {
+    mockGroupsList.mockResolvedValue([group()]);
+    mockUrlsList.mockResolvedValue([url()]);
+    mockGroupTestConnection.mockRejectedValue(new Error('unreachable'));
+
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.testConnection();
+    });
+
+    expect(result.current.connStatus).toBe('error');
+    expect(result.current.connMessage).toBe('unreachable');
+  });
+
+  it('testConnection is a no-op when there is no group', async () => {
+    const { result } = renderHook(() => useNotificationGroups());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.testConnection();
+    });
+
+    expect(mockGroupTestConnection).not.toHaveBeenCalled();
+    expect(result.current.connStatus).toBe('idle');
   });
 });

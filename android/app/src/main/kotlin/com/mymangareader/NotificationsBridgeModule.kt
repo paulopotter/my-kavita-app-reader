@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 
 private const val EVENT_NEW_NOTIFICATION_RECEIVED = "newNotificationReceived"
 private const val EVENT_UNREAD_COUNT_CHANGED = "unreadCountChanged"
+private const val EVENT_CONNECTION_STATUS_CHANGED = "connectionStatusChanged"
 
 /**
  * RN bridge for `:notifications` — groups/URL CRUD, the channel-backed enabled state, scope/
@@ -187,6 +188,26 @@ class NotificationsBridgeModule(
         scope.launch {
             runCatching { groupResolver.resolveActiveGroupUrlId() }
                 .resolveOrReject(promise, "GET_ACTIVE_GROUP_URL_ERROR") { it?.toActiveGroupUrlWritableMap() }
+        }
+    }
+
+    // Point-in-time read of the foreground service's own connection status — the same value the
+    // "connectionStatusChanged" event carries whenever it changes, for a caller that just wants
+    // the current value on mount without waiting for the next change.
+    @ReactMethod
+    fun getConnectionStatus(promise: Promise) {
+        runCatching { NotificationConnectionService.status.value }
+            .resolveOrReject(promise, "GET_CONNECTION_STATUS_ERROR") { it.name.lowercase() }
+    }
+
+    @ReactMethod
+    fun testGroupConnection(
+        groupId: String,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.group(groupId).validateUrls() }
+                .resolveOrReject(promise, "TEST_GROUP_CONNECTION_ERROR") { it.toWritableMap() }
         }
     }
 
@@ -367,6 +388,14 @@ class NotificationsBridgeModule(
         fun notifyUnreadCountChanged(count: Int) {
             val context = instance?.reactApplicationContext ?: return
             context.emitEvent(EVENT_UNREAD_COUNT_CHANGED, count.toDouble())
+        }
+
+        // Called by NotificationConnectionService itself whenever its status changes, so the
+        // config screen updates live (see README's "no polling" convention for native-origin
+        // events) instead of needing a manual refresh to notice a dropped connection.
+        fun notifyConnectionStatusChanged(status: NotificationServiceStatus) {
+            val context = instance?.reactApplicationContext ?: return
+            context.emitEvent(EVENT_CONNECTION_STATUS_CHANGED, status.name.lowercase())
         }
     }
 }

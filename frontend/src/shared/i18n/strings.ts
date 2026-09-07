@@ -256,6 +256,11 @@ export interface Strings {
   notificationsErrorGroupNameRequired: string;
   notificationsErrorTopicRequired: string;
   notificationsErrorUrlInvalid: string;
+  // The foreground service's own live status — see useNotificationServiceStatus's own doc.
+  notificationsServiceStatusStopped: string;
+  notificationsServiceStatusConnecting: string;
+  notificationsServiceStatusConnected: string;
+  notificationsServiceStatusDisconnected: string;
 
   // ── Notifications history screen (Plan 008 Task 009) ─────────────────────
   notificationsHistoryTitle: string;
@@ -498,6 +503,10 @@ const ptBR: Strings = {
   notificationsErrorGroupNameRequired: 'Nome obrigatório',
   notificationsErrorTopicRequired: 'Tópico obrigatório',
   notificationsErrorUrlInvalid: 'URL inválida (use http:// ou https://)',
+  notificationsServiceStatusStopped: 'Parado',
+  notificationsServiceStatusConnecting: 'Conectando…',
+  notificationsServiceStatusConnected: 'Conectado',
+  notificationsServiceStatusDisconnected: 'Desconectado',
 
   notificationsHistoryTitle: 'Notificações',
   notificationsHistoryEmpty: 'Nenhuma notificação ainda',
@@ -739,6 +748,10 @@ const en: Strings = {
   notificationsErrorGroupNameRequired: 'Name is required',
   notificationsErrorTopicRequired: 'Topic is required',
   notificationsErrorUrlInvalid: 'Invalid URL (use http:// or https://)',
+  notificationsServiceStatusStopped: 'Stopped',
+  notificationsServiceStatusConnecting: 'Connecting…',
+  notificationsServiceStatusConnected: 'Connected',
+  notificationsServiceStatusDisconnected: 'Disconnected',
 
   notificationsHistoryTitle: 'Notifications',
   notificationsHistoryEmpty: 'No notifications yet',

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../../shared/theme';
 import { useStrings } from '../../../shared/i18n';
+import type { Strings } from '../../../shared/i18n';
+import type { NotificationServiceStatus } from '../../../shared/bridge';
 import { GroupCard, UrlModal } from '../components';
 import { styles as chrome } from '../config.styles';
 import { GroupModal } from './components/group-modal';
@@ -9,6 +11,7 @@ import {
   useNotificationChannel,
   useNotificationGroups,
   useNotificationPrefs,
+  useNotificationServiceStatus,
   MAX_URLS_PER_GROUP,
   RETENTION_MAX_DAYS,
   RETENTION_MIN_DAYS,
@@ -47,6 +50,23 @@ function ToggleRow({
   );
 }
 
+// Foreground service status → label/pill-style pair — mirrors the channel row's own
+// statusPillOn/statusPillOff idiom, with 'connecting' getting a neutral third look since it's
+// neither clearly ok nor clearly a problem.
+function serviceStatusLabel(t: Strings, status: NotificationServiceStatus): string {
+  switch (status) {
+    case 'connected':
+      return t.notificationsServiceStatusConnected;
+    case 'connecting':
+      return t.notificationsServiceStatusConnecting;
+    case 'disconnected':
+      return t.notificationsServiceStatusDisconnected;
+    case 'stopped':
+    default:
+      return t.notificationsServiceStatusStopped;
+  }
+}
+
 type GroupModalState = { mode: 'add' } | { mode: 'edit'; name: string; topic: string; linkedServerGroupId?: string };
 type UrlModalState = { mode: 'add' } | { mode: 'edit'; urlId: string; url: string; priority: number; linkedServerUrlId?: string };
 
@@ -55,6 +75,7 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const channel = useNotificationChannel();
   const prefs = useNotificationPrefs();
   const groups = useNotificationGroups();
+  const serviceStatus = useNotificationServiceStatus();
 
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const [groupModal, setGroupModal] = useState<GroupModalState | null>(null);
@@ -161,7 +182,18 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
               </View>
             </View>
 
-            <Text style={chrome.section}>{t.notificationsGroupsTitle}</Text>
+            <View style={styles.sectionRow}>
+              <Text style={chrome.section}>{t.notificationsGroupsTitle}</Text>
+              {groups.group && serviceStatus.status != null && (
+                <View
+                  style={[
+                    styles.statusPill,
+                    serviceStatus.status === 'connected' ? styles.statusPillOn : styles.statusPillOff,
+                  ]}>
+                  <Text style={styles.statusPillTxt}>{serviceStatusLabel(t, serviceStatus.status)}</Text>
+                </View>
+              )}
+            </View>
 
             {groups.group && (
               <GroupCard
@@ -178,7 +210,17 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                   setUrlModal({ mode: 'add' });
                 }}
                 urlSubline={groups.linkedUrlLabel}
-                strings={{ urls: t.serverUrlsLabel, addUrl: t.serverAddUrl }}
+                connTesting={groups.connStatus === 'testing'}
+                connMessage={groups.connMessage}
+                connStatus={groups.connStatus}
+                onTestConnection={groups.testConnection}
+                strings={{
+                  urls: t.serverUrlsLabel,
+                  addUrl: t.serverAddUrl,
+                  testConnection: t.setupTestConnection,
+                  testing: t.setupTesting,
+                  connectionOk: t.setupConnectionOk,
+                }}
               />
             )}
 

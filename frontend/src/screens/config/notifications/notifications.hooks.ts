@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
-import type { NotificationGroupInfo, NotificationUrlInfo, ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../shared/bridge';
+import type {
+  NotificationGroupInfo,
+  NotificationServiceStatus,
+  NotificationUrlInfo,
+  ServerGroupInfo,
+  ServerUrlInfo,
+  UrlProbeResult,
+} from '../../../shared/bridge';
+import { NotificationsEventEmitter } from '../../../shared/bridge';
 import { useStrings } from '../../../shared/i18n';
 import type { Strings } from '../../../shared/i18n';
 import { NotificationsService } from '../../../shared/services/notifications';
 import { ServerService, ServersService } from '../../../shared/services/servers';
+import type { ConnStatus } from './notifications.types';
 
 const DEFAULT_URL_TIMEOUT_MS = 5000;
 export const MAX_URLS_PER_GROUP = 2;
@@ -42,6 +51,28 @@ export function useNotificationChannel(): UseNotificationChannelResult {
   }, []);
 
   return { enabled, openSettings };
+}
+
+// The foreground service's own live connection status — read once on mount, then kept live via
+// "connectionStatusChanged" (native-origin, fired by NotificationConnectionService itself, see
+// its own doc), never polled. Mirrors useNotificationChannel's "re-read on foreground" idea, but
+// this one updates itself in real time instead of only reacting to AppState.
+export interface UseNotificationServiceStatusResult {
+  status: NotificationServiceStatus | null; // null until the first read resolves
+}
+
+export function useNotificationServiceStatus(): UseNotificationServiceStatusResult {
+  const [status, setStatus] = useState<NotificationServiceStatus | null>(null);
+
+  useEffect(() => {
+    NotificationsService.connection.getStatus().then(setStatus).catch(() => setStatus(null));
+    const sub = NotificationsEventEmitter.addListener('connectionStatusChanged', (next: NotificationServiceStatus) => {
+      setStatus(next);
+    });
+    return () => sub.remove();
+  }, []);
+
+  return { status };
 }
 
 // The 4 preference-backed toggles/setting below the channel row: scope (scopeAll one-directionally
@@ -147,6 +178,13 @@ export interface UseNotificationGroupsResult {
   removeUrl: (urlId: string) => Promise<void>;
   testUrl: (url: string) => Promise<UrlProbeResult>;
 
+  // Group-level connection test — same idiom as useServer/useMetadataServer's own testConnection:
+  // probes every configured URL and reports the one that answered (which also becomes the active
+  // URL). connMessage carries the winning URL on success, or a friendly error message on failure.
+  connStatus: ConnStatus;
+  connMessage: string;
+  testConnection: () => Promise<void>;
+
   // For the "link this URL to a server URL" picker in the URL modal, and the group modal's own
   // "link to a server" picker.
   linkedServerGroups: ServerGroupInfo[];
@@ -163,6 +201,8 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
   const [group, setGroup] = useState<NotificationGroupInfo | null>(null);
   const [urls, setUrls] = useState<NotificationUrlInfo[]>([]);
   const [activeUrlId, setActiveUrlId] = useState<string | null>(null);
+  const [connStatus, setConnStatus] = useState<ConnStatus>('idle');
+  const [connMessage, setConnMessage] = useState('');
   const [linkedServerGroups, setLinkedServerGroups] = useState<ServerGroupInfo[]>([]);
   // serverUrlId -> its address, so a notification URL's link can be shown as text (the "↳ …"
   // sub-line under its row) — mirrors useMetadataServer's own serverUrlAddrById.
@@ -326,6 +366,24 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
     [],
   );
 
+  // Group-level connection test — same idiom as useServer/useMetadataServer's own testConnection:
+  // probes every configured URL and reports the one that answered (which also becomes the active
+  // URL, same as NotificationsService.groups.urls.validate would on the Kotlin side).
+  const testConnection = useCallback(async () => {
+    if (!group) {return;}
+    setConnStatus('testing');
+    setConnMessage('');
+    try {
+      const winner = await NotificationsService.groups.testConnection({ groupId: group.id });
+      setConnStatus('ok');
+      setConnMessage(winner.url);
+      setActiveUrlId(winner.id);
+    } catch (e) {
+      setConnStatus('error');
+      setConnMessage(e instanceof Error ? e.message : String(e));
+    }
+  }, [group]);
+
   return {
     loading,
     group,
@@ -343,6 +401,9 @@ export function useNotificationGroups(): UseNotificationGroupsResult {
     updateUrl,
     removeUrl,
     testUrl,
+    connStatus,
+    connMessage,
+    testConnection,
     linkedServerGroups,
     urlsOfServerGroup,
     reload,

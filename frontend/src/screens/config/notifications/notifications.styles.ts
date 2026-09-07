@@ -11,6 +11,8 @@ export const styles = StyleSheet.create({
   },
   rowDisabled: { opacity: 0.45 },
   label: { flex: 1, color: colors.textOnDark, fontSize: 15, marginRight: 12 },
+  // The "Grupos" section title + the foreground service's live status pill, on the same line.
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statusPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
   statusPillOn: { backgroundColor: colors.positive },
   statusPillOff: { backgroundColor: colors.mutedDim },

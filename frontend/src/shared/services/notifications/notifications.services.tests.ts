@@ -4,8 +4,10 @@ jest.mock('../../bridge/notifications', () => ({
   NotificationsBridge: {
     isChannelEnabled: jest.fn(),
     openChannelSettings: jest.fn(),
+    getConnectionStatus: jest.fn(),
     listGroups: jest.fn(),
     addGroup: jest.fn(),
+    updateGroup: jest.fn(),
     removeGroup: jest.fn(),
     listGroupUrls: jest.fn(),
     addGroupUrl: jest.fn(),
@@ -13,6 +15,7 @@ jest.mock('../../bridge/notifications', () => ({
     removeGroupUrl: jest.fn(),
     testGroupUrl: jest.fn(),
     getActiveGroupUrl: jest.fn(),
+    testGroupConnection: jest.fn(),
     getScopeAll: jest.fn(),
     setScopeAll: jest.fn(),
     getScopeFollowedOnly: jest.fn(),
@@ -49,6 +52,15 @@ describe('NotificationsService.channel', () => {
   });
 });
 
+describe('NotificationsService.connection', () => {
+  it('getStatus forwards to NotificationsBridge.getConnectionStatus', async () => {
+    (NotificationsBridge.getConnectionStatus as jest.Mock).mockResolvedValue('connected');
+    const result = await NotificationsService.connection.getStatus();
+    expect(NotificationsBridge.getConnectionStatus).toHaveBeenCalledWith();
+    expect(result).toBe('connected');
+  });
+});
+
 describe('NotificationsService.groups', () => {
   it('list forwards to NotificationsBridge.listGroups', async () => {
     const groups = [{ id: 'g1', name: 'Home', providerId: 'ntfy', topic: 'chapters' }];
@@ -76,9 +88,35 @@ describe('NotificationsService.groups', () => {
     expect(result).toBe(group);
   });
 
+  it('update forwards groupId/name/topic/linkedServerGroupId to NotificationsBridge.updateGroup', async () => {
+    const group = { id: 'g1', name: 'Home', providerId: 'ntfy', topic: 'chapters' };
+    (NotificationsBridge.updateGroup as jest.Mock).mockResolvedValue(group);
+    const result = await NotificationsService.groups.update({
+      groupId: 'g1',
+      name: 'Home',
+      topic: 'chapters',
+      linkedServerGroupId: 'sg1',
+    });
+    expect(NotificationsBridge.updateGroup).toHaveBeenCalledWith({
+      groupId: 'g1',
+      name: 'Home',
+      topic: 'chapters',
+      linkedServerGroupId: 'sg1',
+    });
+    expect(result).toBe(group);
+  });
+
   it('remove forwards groupId to NotificationsBridge.removeGroup', async () => {
     await NotificationsService.groups.remove({ groupId: 'g1' });
     expect(NotificationsBridge.removeGroup).toHaveBeenCalledWith({ groupId: 'g1' });
+  });
+
+  it('testConnection forwards groupId to NotificationsBridge.testGroupConnection', async () => {
+    const winner = { id: 'u1', groupId: 'g1', url: 'https://lan.local', timeoutMs: 5000, priority: 0 };
+    (NotificationsBridge.testGroupConnection as jest.Mock).mockResolvedValue(winner);
+    const result = await NotificationsService.groups.testConnection({ groupId: 'g1' });
+    expect(NotificationsBridge.testGroupConnection).toHaveBeenCalledWith({ groupId: 'g1' });
+    expect(result).toBe(winner);
   });
 
   it('urls.list forwards groupId to NotificationsBridge.listGroupUrls', async () => {

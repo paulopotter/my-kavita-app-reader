@@ -3,6 +3,7 @@ import {
   type NotificationActiveGroupUrl,
   type NotificationGroupInfo,
   type NotificationHistoryItem,
+  type NotificationServiceStatus,
   type NotificationUrlInfo,
   type UrlProbeResult,
 } from '../../bridge';
@@ -23,6 +24,15 @@ export const NotificationsService = {
     },
     openSettings(): Promise<void> {
       return NotificationsBridge.openChannelSettings();
+    },
+  },
+  // The foreground service's own live status (stopped/connecting/connected/disconnected) — not
+  // the same thing as the channel being enabled: the channel gates whether the service is allowed
+  // to run at all, this is whether it's actually up and talking to the notification server right
+  // now.
+  connection: {
+    getStatus(): Promise<NotificationServiceStatus> {
+      return NotificationsBridge.getConnectionStatus();
     },
   },
   groups: {
@@ -62,6 +72,11 @@ export const NotificationsService = {
     // resolved) — used to mark the active row, same as ServerService.urls.getActive's role.
     getActiveUrl(): Promise<NotificationActiveGroupUrl | null> {
       return NotificationsBridge.getActiveGroupUrl();
+    },
+    // Group-level connection test — tests every configured URL and reports the one that answered
+    // (which also becomes the active URL). Mirrors ServerService.group.testConnection's role.
+    testConnection({ groupId }: { groupId: string }): Promise<NotificationUrlInfo> {
+      return NotificationsBridge.testGroupConnection({ groupId });
     },
     urls: {
       list({ groupId }: { groupId: string }): Promise<NotificationUrlInfo[]> {

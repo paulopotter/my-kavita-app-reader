@@ -8,3 +8,7 @@ export interface NotificationUrlForm {
   url: string;
   priority: number;
 }
+
+// The group-level "test connection" button's own transient state — mirrors config/server's
+// ConnStatus (server.types.ts).
+export type ConnStatus = 'idle' | 'testing' | 'ok' | 'error';

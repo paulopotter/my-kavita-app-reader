@@ -12,6 +12,7 @@ import com.mymangareader.notifications.NotificationConnectionGate
 import com.mymangareader.notifications.NotificationEventPipeline
 import com.mymangareader.notifications.NotificationGroupResolver
 import com.mymangareader.notifications.Notifications
+import com.mymangareader.notifications.plugins.ConnectionState
 import com.mymangareader.notifications.plugins.NotificationPlugin
 import com.mymangareader.notifications.plugins.NotificationPluginRegistration
 import dagger.hilt.android.AndroidEntryPoint
@@ -19,8 +20,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+// Whether the service itself is running (not just the underlying plugin's WebSocket state) — a
+// stopped service is DISCONNECTED regardless of what its last-known plugin state was, since
+// nothing here re-reads a destroyed plugin instance.
+enum class NotificationServiceStatus {
+    STOPPED,
+    CONNECTING,
+    CONNECTED,
+    DISCONNECTED,
+}
 
 private const val NOTIFICATION_ID_CONNECTED = 1001
 
@@ -63,6 +77,7 @@ class NotificationConnectionService : Service() {
         startId: Int,
     ): Int {
         startForegroundWithConnectedNotification()
+        updateStatus(NotificationServiceStatus.CONNECTING)
         scope.launch { connectAndObserve() }
         return START_STICKY
     }
@@ -70,6 +85,7 @@ class NotificationConnectionService : Service() {
     override fun onDestroy() {
         scope.launch { activePlugin?.disconnect() }
         scope.cancel()
+        updateStatus(NotificationServiceStatus.STOPPED)
         super.onDestroy()
     }
 
@@ -86,8 +102,24 @@ class NotificationConnectionService : Service() {
         plugin.connect(url)
 
         scope.launch {
+            plugin.connectionState.collect { state ->
+                updateStatus(
+                    when (state) {
+                        ConnectionState.CONNECTING -> NotificationServiceStatus.CONNECTING
+                        ConnectionState.CONNECTED -> NotificationServiceStatus.CONNECTED
+                        ConnectionState.DISCONNECTED -> NotificationServiceStatus.DISCONNECTED
+                    },
+                )
+            }
+        }
+        scope.launch {
             plugin.events.collect { rawEvent -> eventPipeline.handle(rawEvent) }
         }
+    }
+
+    private fun updateStatus(status: NotificationServiceStatus) {
+        _status.value = status
+        NotificationsBridgeModule.notifyConnectionStatusChanged(status)
     }
 
     private fun startForegroundWithConnectedNotification() {
@@ -110,6 +142,13 @@ class NotificationConnectionService : Service() {
             .build()
 
     companion object {
+        // Same-process, no IPC: read by NotificationsBridgeModule.getConnectionStatus() for a
+        // point-in-time read, and mirrored into a native-origin RN event (see updateStatus above)
+        // for the config screen to update live without polling. STOPPED is the correct initial
+        // value — nothing has ever started this service in this process yet.
+        private val _status = MutableStateFlow(NotificationServiceStatus.STOPPED)
+        val status: StateFlow<NotificationServiceStatus> = _status.asStateFlow()
+
         fun start(context: Context) {
             context.startService(Intent(context, NotificationConnectionService::class.java))
         }

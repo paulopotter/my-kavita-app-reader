@@ -8,10 +8,12 @@ jest.mock('../../../shared/i18n/i18n.hooks', () => ({
 const mockUseNotificationChannel = jest.fn();
 const mockUseNotificationPrefs = jest.fn();
 const mockUseNotificationGroups = jest.fn();
+const mockUseNotificationServiceStatus = jest.fn();
 jest.mock('./notifications.hooks', () => ({
   useNotificationChannel: (...a: unknown[]) => mockUseNotificationChannel(...a),
   useNotificationPrefs: (...a: unknown[]) => mockUseNotificationPrefs(...a),
   useNotificationGroups: (...a: unknown[]) => mockUseNotificationGroups(...a),
+  useNotificationServiceStatus: (...a: unknown[]) => mockUseNotificationServiceStatus(...a),
   MAX_URLS_PER_GROUP: 2,
   RETENTION_MIN_DAYS: 1,
   RETENTION_MAX_DAYS: 15,
@@ -59,11 +61,18 @@ function groupsHook(over: Partial<Record<string, unknown>> = {}) {
     updateUrl: jest.fn().mockResolvedValue(null),
     removeUrl: jest.fn(),
     testUrl: jest.fn().mockResolvedValue({ url: '', ok: true, status: 200, elapsedMs: 1 }),
+    connStatus: 'idle',
+    connMessage: '',
+    testConnection: jest.fn(),
     linkedServerGroups: [],
     urlsOfServerGroup: jest.fn().mockResolvedValue([]),
     reload: jest.fn(),
     ...over,
   };
+}
+
+function serviceStatusHook(over: Partial<Record<string, unknown>> = {}) {
+  return { status: 'connected', ...over };
 }
 
 const homeGroup = { id: 'g1', name: 'Home', providerId: 'ntfy', topic: 'chapters' };
@@ -74,6 +83,7 @@ beforeEach(() => {
   mockUseNotificationChannel.mockReturnValue(channelHook());
   mockUseNotificationPrefs.mockReturnValue(prefsHook());
   mockUseNotificationGroups.mockReturnValue(groupsHook());
+  mockUseNotificationServiceStatus.mockReturnValue(serviceStatusHook());
 });
 
 describe('NotificationsScreen', () => {
@@ -158,6 +168,52 @@ describe('NotificationsScreen', () => {
     const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
     expect(getByText('Home')).toBeTruthy();
     expect(getByText('https://ntfy.sh')).toBeTruthy();
+  });
+
+  it('shows the "Connected" pill when the foreground service is connected', () => {
+    mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl] }));
+    mockUseNotificationServiceStatus.mockReturnValue(serviceStatusHook({ status: 'connected' }));
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(getByText(t.notificationsServiceStatusConnected)).toBeTruthy();
+  });
+
+  it('shows the "Stopped" pill when the foreground service is not running', () => {
+    mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl] }));
+    mockUseNotificationServiceStatus.mockReturnValue(serviceStatusHook({ status: 'stopped' }));
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(getByText(t.notificationsServiceStatusStopped)).toBeTruthy();
+  });
+
+  it('hides the status pill until the first read resolves', () => {
+    mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl] }));
+    mockUseNotificationServiceStatus.mockReturnValue(serviceStatusHook({ status: null }));
+    const { queryByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(queryByText(t.notificationsServiceStatusStopped)).toBeNull();
+    expect(queryByText(t.notificationsServiceStatusConnected)).toBeNull();
+  });
+
+  it('calls testConnection when the group card\'s test-connection button is pressed', () => {
+    const testConnection = jest.fn();
+    mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl], testConnection }));
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    fireEvent.press(getByText(t.setupTestConnection));
+    expect(testConnection).toHaveBeenCalled();
+  });
+
+  it('shows the success message once testConnection resolves ok', () => {
+    mockUseNotificationGroups.mockReturnValue(
+      groupsHook({ group: homeGroup, urls: [homeUrl], connStatus: 'ok', connMessage: 'https://ntfy.sh' }),
+    );
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(getByText(`✓ ${t.setupConnectionOk}: https://ntfy.sh`)).toBeTruthy();
+  });
+
+  it('shows the error message when testConnection fails', () => {
+    mockUseNotificationGroups.mockReturnValue(
+      groupsHook({ group: homeGroup, urls: [homeUrl], connStatus: 'error', connMessage: 'boom' }),
+    );
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    expect(getByText('✗ boom')).toBeTruthy();
   });
 
   it('hides the add-group button once a group exists (single-group rule)', () => {

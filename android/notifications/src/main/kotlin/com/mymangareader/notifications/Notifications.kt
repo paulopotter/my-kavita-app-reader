@@ -257,6 +257,13 @@ class Notifications
                 url: String,
                 timeoutMs: Int = 5000,
             ): UrlProbeResult
+
+            // Tests every configured URL for this group, highest priority (lowest number) first,
+            // and returns the one that actually answered its health check — always a fresh check,
+            // ignoring UrlSelector's 15-minute cache, since "test my notification server" means
+            // "check right now," not "trust what was last resolved." Mirrors
+            // Server.group.urls.validateUrls's own. Throws if none responded.
+            suspend fun validateUrls(): NotificationUrlInfo
         }
 
         interface History {
@@ -359,6 +366,25 @@ class Notifications
                         healthCheckPath = NTFY_HEALTH_CHECK_PATH,
                     ),
                 )
+            }
+
+            override suspend fun validateUrls(): NotificationUrlInfo {
+                notificationGroupDao.getById(groupId) ?: throw NotificationsException("Notification group not found: $groupId")
+                val candidates =
+                    notificationUrlDao.getByGroupId(groupId).map {
+                        UrlCandidate(
+                            id = it.id,
+                            url = it.url,
+                            timeoutMs = it.timeoutMs,
+                            priority = it.priority,
+                            healthCheckPath = NTFY_HEALTH_CHECK_PATH,
+                        )
+                    }
+                val winningUrl =
+                    urlSelector.invalidateAndReselect(candidates).getOrElse {
+                        throw NotificationsException("Could not resolve a healthy URL for group $groupId: ${it.message}")
+                    }
+                return notificationUrlDao.getByGroupId(groupId).first { it.url.trimEnd('/') == winningUrl }.toInfo()
             }
         }
     }

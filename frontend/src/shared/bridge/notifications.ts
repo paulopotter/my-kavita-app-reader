@@ -44,6 +44,13 @@ export interface UnreadCountChangedEvent {
   count: number;
 }
 
+// The foreground service's own connection status — 'stopped' when it isn't running at all (never
+// started, or explicitly stopped because the config no longer needs it); the other three mirror
+// the underlying plugin's own connectionState once the service has started. Carried both by
+// getConnectionStatus() (a point-in-time read) and the "connectionStatusChanged" event (fired
+// live by the service itself, no polling needed).
+export type NotificationServiceStatus = 'stopped' | 'connecting' | 'connected' | 'disconnected';
+
 // Every method here takes a single named-argument object (never positional params), same
 // convention as PreferencesBridge/CacheBridge — the underlying Kotlin @ReactMethods stay
 // positional.
@@ -76,6 +83,8 @@ interface NotificationsBridgeModuleInterface {
   removeGroupUrl(params: { groupId: string; urlId: string }): Promise<void>;
   testGroupUrl(params: { groupId: string; url: string }): Promise<UrlProbeResult>;
   getActiveGroupUrl(): Promise<NotificationActiveGroupUrl | null>;
+  getConnectionStatus(): Promise<NotificationServiceStatus>;
+  testGroupConnection(params: { groupId: string }): Promise<NotificationUrlInfo>;
 
   // scope/grouping/retention preferences
   getScopeAll(): Promise<boolean>;
@@ -128,6 +137,8 @@ const native: {
   removeGroupUrl(groupId: string, urlId: string): Promise<void>;
   testGroupUrl(groupId: string, url: string): Promise<UrlProbeResult>;
   getActiveGroupUrl(): Promise<NotificationActiveGroupUrl | null>;
+  getConnectionStatus(): Promise<NotificationServiceStatus>;
+  testGroupConnection(groupId: string): Promise<NotificationUrlInfo>;
   getScopeAll(): Promise<boolean>;
   setScopeAll(enabled: boolean): Promise<void>;
   getScopeFollowedOnly(): Promise<boolean>;
@@ -159,6 +170,8 @@ export const NotificationsBridge: NotificationsBridgeModuleInterface = {
   removeGroupUrl: ({ groupId, urlId }) => native.removeGroupUrl(groupId, urlId),
   testGroupUrl: ({ groupId, url }) => native.testGroupUrl(groupId, url),
   getActiveGroupUrl: () => native.getActiveGroupUrl(),
+  getConnectionStatus: () => native.getConnectionStatus(),
+  testGroupConnection: ({ groupId }) => native.testGroupConnection(groupId),
 
   getScopeAll: () => native.getScopeAll(),
   setScopeAll: ({ enabled }) => native.setScopeAll(enabled),
