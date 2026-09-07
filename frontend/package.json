@@ -1,6 +1,6 @@
 {
   "name": "mymangareader",
-  "version": "1.0.0-rc3",
+  "version": "1.0.0-rc7",
   "private": true,
   "scripts": {
     "start": "react-native start",
@@ -100,7 +100,7 @@
         "statements": 92,
         "lines": 91,
         "functions": 81,
-        "branches": 91
+        "branches": 91.2
       }
     }
   }
