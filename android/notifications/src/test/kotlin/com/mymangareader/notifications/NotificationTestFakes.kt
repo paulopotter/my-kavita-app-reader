@@ -1,5 +1,7 @@
 package com.mymangareader.notifications
 
+import com.mymangareader.core.database.BffMatchDao
+import com.mymangareader.core.database.BffMatchEntity
 import com.mymangareader.core.database.NotificationGroupDao
 import com.mymangareader.core.database.NotificationGroupEntity
 import com.mymangareader.core.database.NotificationHistoryDao
@@ -118,6 +120,25 @@ class FakePreferenceDao : PreferenceDao {
 
     override suspend fun deleteByDomain(domain: String) {
         rows.values.filter { it.domain == domain }.forEach { rows.remove("${it.key}:${it.variant}") }
+    }
+}
+
+// FakeBffMatchDao — used by NotificationResolverTest to cover slug-based fallback resolution;
+// most other tests never insert a row, so resolveBySlug simply finds nothing, same as before
+// BffMatchDao existed.
+class FakeBffMatchDao : BffMatchDao {
+    private val rows = mutableMapOf<String, BffMatchEntity>()
+
+    override suspend fun getAll(): List<BffMatchEntity> = rows.values.toList()
+
+    override suspend fun getBySeriesId(seriesId: String): BffMatchEntity? = rows[seriesId]
+
+    override suspend fun insertAll(matches: List<BffMatchEntity>) {
+        matches.forEach { rows[it.seriesId] = it }
+    }
+
+    override suspend fun deleteAll() {
+        rows.clear()
     }
 }
 

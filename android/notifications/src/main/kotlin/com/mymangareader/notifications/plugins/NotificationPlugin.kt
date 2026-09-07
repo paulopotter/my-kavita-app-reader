@@ -21,11 +21,13 @@ data class NotificationUrl(
 /**
  * One decoded event, already stripped of any provider-specific envelope — the payload contract's
  * shape (see this plan's README), not the raw wire frame. `seriesId` absent means the caller
- * (`NotificationResolver`, Task 003) must fall back to an exact `seriesName` match.
+ * (`NotificationResolver`, Task 003) must fall back to `slug` (an external-matching identifier,
+ * see the resolver's own doc) or, failing that, an exact `seriesName` match.
  */
 data class RawNotificationEvent(
     val seriesId: String?,
     val seriesName: String,
+    val slug: String? = null,
     val chapterIds: List<String>?,
     val chapterNumbers: List<String>?,
     val detectedAtMs: Long,

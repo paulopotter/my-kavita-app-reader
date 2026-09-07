@@ -119,7 +119,7 @@ class NotificationEventPipelineTest {
 
         preferences = Preferences(FakePreferenceDaoForPipeline())
         channelEnabled = true
-        val resolver = NotificationResolver(server, FakeFollowedSeriesDaoForPipeline(), preferences, NotificationChannelState { channelEnabled })
+        val resolver = NotificationResolver(server, FakeFollowedSeriesDaoForPipeline(), FakeBffMatchDao(), preferences, NotificationChannelState { channelEnabled })
         poster = RecordingNotificationPoster()
         return NotificationEventPipeline(resolver, poster)
     }

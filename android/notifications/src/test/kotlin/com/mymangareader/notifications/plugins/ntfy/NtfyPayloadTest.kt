@@ -60,6 +60,24 @@ class NtfyPayloadTest {
     }
 
     @Test
+    fun `mapeia NtfyEventDto com slug presente`() {
+        val dto = NtfyEventDto(seriesName = "One Piece", slug = "one-piece", detectedAtMs = 1_000L)
+
+        val event = dto.toRawNotificationEvent()
+
+        assertEquals("one-piece", event.slug)
+    }
+
+    @Test
+    fun `mapeia NtfyEventDto sem slug`() {
+        val dto = NtfyEventDto(seriesName = "One Piece", detectedAtMs = 1_000L)
+
+        val event = dto.toRawNotificationEvent()
+
+        assertNull(event.slug)
+    }
+
+    @Test
     fun `mapeia NtfyEventDto com apenas chapterNumbers presente`() {
         val dto = NtfyEventDto(seriesName = "One Piece", chapterNumbers = listOf("1120"), detectedAtMs = 1_000L)
 
@@ -86,5 +104,60 @@ class NtfyPayloadTest {
         val events = json.decodeFromString<List<NtfyEventDto>>("[]")
 
         assertEquals(emptyList<NtfyEventDto>(), events)
+    }
+
+    // ── decodeNtfyEvents — detecção estrutural do contrato (array puro vs. envelope legado) ──
+
+    @Test
+    fun `decodeNtfyEvents aceita o contrato documentado, um array puro`() {
+        val message = """[{"seriesName":"A","detectedAtMs":1},{"seriesId":"2","seriesName":"B","detectedAtMs":2}]"""
+
+        val events = decodeNtfyEvents(json, message)
+
+        assertEquals(2, events.size)
+        assertEquals("A", events[0].seriesName)
+        assertEquals("2", events[1].seriesId)
+    }
+
+    @Test
+    fun `decodeNtfyEvents aceita o contrato legado, um objeto com a chave events`() {
+        val message = """{"events":[{"seriesName":"A","detectedAtMs":1},{"seriesId":"2","seriesName":"B","detectedAtMs":2}]}"""
+
+        val events = decodeNtfyEvents(json, message)
+
+        assertEquals(2, events.size)
+        assertEquals("A", events[0].seriesName)
+        assertEquals("2", events[1].seriesId)
+    }
+
+    @Test
+    fun `decodeNtfyEvents propaga slug em ambos os contratos`() {
+        val arrayMessage = """[{"seriesName":"A","slug":"a-slug","detectedAtMs":1}]"""
+        val envelopeMessage = """{"events":[{"seriesName":"A","slug":"a-slug","detectedAtMs":1}]}"""
+
+        assertEquals("a-slug", decodeNtfyEvents(json, arrayMessage).single().slug)
+        assertEquals("a-slug", decodeNtfyEvents(json, envelopeMessage).single().slug)
+    }
+
+    @Test
+    fun `decodeNtfyEvents retorna lista vazia para um objeto sem a chave events`() {
+        val message = """{"seriesName":"A","detectedAtMs":1}"""
+
+        val events = decodeNtfyEvents(json, message)
+
+        assertEquals(emptyList<NtfyEventDto>(), events)
+    }
+
+    @Test
+    fun `decodeNtfyEvents retorna lista vazia para json invalido`() {
+        val events = decodeNtfyEvents(json, "not even json")
+
+        assertEquals(emptyList<NtfyEventDto>(), events)
+    }
+
+    @Test
+    fun `decodeNtfyEvents retorna lista vazia para um numero ou string solta`() {
+        assertEquals(emptyList<NtfyEventDto>(), decodeNtfyEvents(json, "42"))
+        assertEquals(emptyList<NtfyEventDto>(), decodeNtfyEvents(json, "\"oops\""))
     }
 }

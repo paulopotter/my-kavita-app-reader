@@ -93,6 +93,36 @@ class NtfyPluginTest {
         }
 
     @Test
+    fun `um frame message no formato legado com wrapper events emite os eventos`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().withWebSocketUpgrade(
+                    object : WebSocketListener() {
+                        override fun onOpen(
+                            webSocket: WebSocket,
+                            response: okhttp3.Response,
+                        ) {
+                            val message =
+                                """{"events":[{"seriesName":"A","detectedAtMs":1},{"seriesId":"2","seriesName":"B","detectedAtMs":2}]}"""
+                                    .replace("\"", "\\\"")
+                            webSocket.send(
+                                """{"event":"message","topic":"my-topic","message":"$message"}""",
+                            )
+                        }
+                    },
+                ),
+            )
+            val plugin = NtfyPlugin()
+            plugin.connect(testUrl())
+
+            val first = withTimeout(5_000) { plugin.events.first() }
+
+            assertEquals("A", first.seriesName)
+
+            plugin.disconnect()
+        }
+
+    @Test
     fun `um frame open sem message nao emite nenhum evento`() =
         runBlocking {
             server.enqueue(

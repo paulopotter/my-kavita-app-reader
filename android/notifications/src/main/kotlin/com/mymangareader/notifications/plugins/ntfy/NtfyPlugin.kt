@@ -146,8 +146,7 @@ class NtfyPlugin : NotificationPlugin {
         val envelope = runCatching { json.decodeFromString<NtfyEnvelope>(text) }.getOrNull() ?: return
         if (envelope.event != "message" || envelope.message.isBlank()) return
 
-        val dtos = runCatching { json.decodeFromString<List<NtfyEventDto>>(envelope.message) }.getOrNull() ?: return
-        dtos.forEach { _events.emit(it.toRawNotificationEvent()) }
+        decodeNtfyEvents(json, envelope.message).forEach { _events.emit(it.toRawNotificationEvent()) }
     }
 
     companion object Info : NotificationPluginRegistration {

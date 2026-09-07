@@ -1,6 +1,7 @@
 package com.mymangareader.notifications
 
 import com.mymangareader.cache.Cache
+import com.mymangareader.core.database.BffMatchEntity
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.FollowedSeriesEntity
 import com.mymangareader.core.database.ServerGroupEntity
@@ -53,6 +54,7 @@ private class FakeFollowedSeriesDao : FollowedSeriesDao {
 class NotificationResolverTest {
     private lateinit var mockServer: MockWebServer
     private lateinit var followedSeriesDao: FakeFollowedSeriesDao
+    private lateinit var bffMatchDao: FakeBffMatchDao
     private lateinit var preferences: Preferences
     private var channelEnabled = true
     private lateinit var resolver: NotificationResolver
@@ -83,9 +85,10 @@ class NotificationResolverTest {
             )
         activateGroup(server, groupDao, urlDao)
         followedSeriesDao = FakeFollowedSeriesDao()
+        bffMatchDao = FakeBffMatchDao()
         preferences = Preferences(FakePreferenceDao())
         channelEnabled = true
-        return NotificationResolver(server, followedSeriesDao, preferences, NotificationChannelState { channelEnabled })
+        return NotificationResolver(server, followedSeriesDao, bffMatchDao, preferences, NotificationChannelState { channelEnabled })
     }
 
     @Before
@@ -154,6 +157,74 @@ class NotificationResolverTest {
                 )
 
             assertNull(resolved)
+        }
+
+    @Test
+    fun `resolve com seriesId ausente mas slug com match usa o seriesId do BffMatchDao, sem consultar seriesName`() =
+        runTest {
+            resolver = buildResolver(serials = emptyList())
+            bffMatchDao.insertAll(
+                listOf(
+                    BffMatchEntity(
+                        seriesId = "7",
+                        slug = "one-piece",
+                        status = "matched",
+                        downloadedChapters = null,
+                        totalChapters = null,
+                        latestChapterLabel = null,
+                        hasErrors = false,
+                        updatedAtLocalMs = 0L,
+                    ),
+                ),
+            )
+
+            val resolved =
+                resolver.resolve(
+                    RawNotificationEvent(seriesId = null, seriesName = "Anything", slug = "one-piece", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L),
+                )
+
+            assertEquals("7", resolved?.seriesId)
+        }
+
+    @Test
+    fun `resolve com slug sem match no BffMatchDao cai para a busca por seriesName`() =
+        runTest {
+            resolver = buildResolver(serials = listOf(fakeSerial("1", "One Piece")))
+            mockServer.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+
+            val resolved =
+                resolver.resolve(
+                    RawNotificationEvent(seriesId = null, seriesName = "One Piece", slug = "unknown-slug", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L),
+                )
+
+            assertEquals("1", resolved?.seriesId)
+        }
+
+    @Test
+    fun `resolve com seriesId presente ignora slug, mesmo que o slug tenha match diferente`() =
+        runTest {
+            resolver = buildResolver(serials = emptyList())
+            bffMatchDao.insertAll(
+                listOf(
+                    BffMatchEntity(
+                        seriesId = "7",
+                        slug = "one-piece",
+                        status = "matched",
+                        downloadedChapters = null,
+                        totalChapters = null,
+                        latestChapterLabel = null,
+                        hasErrors = false,
+                        updatedAtLocalMs = 0L,
+                    ),
+                ),
+            )
+
+            val resolved =
+                resolver.resolve(
+                    RawNotificationEvent(seriesId = "42", seriesName = "Anything", slug = "one-piece", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L),
+                )
+
+            assertEquals("42", resolved?.seriesId)
         }
 
     // ── shouldNotify ──

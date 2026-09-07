@@ -1,5 +1,6 @@
 package com.mymangareader.notifications
 
+import com.mymangareader.core.database.BffMatchDao
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.notifications.plugins.RawNotificationEvent
 import com.mymangareader.preferences.Preferences
@@ -32,25 +33,33 @@ class NotificationResolver
     constructor(
         private val server: Server,
         private val followedSeriesDao: FollowedSeriesDao,
+        private val bffMatchDao: BffMatchDao,
         private val preferences: Preferences,
         private val channelState: NotificationChannelState,
     ) {
-        // [seriesId] present → resolved directly, no network/listing lookup needed. Absent →
-        // exact [seriesName] match against the series listing Server already exposes (same data
-        // SerialsService.list reaches on the RN side) — never re-fetched/re-derived by this
-        // resolver itself, per the "ask the domain, don't recompute it" rule. Exactly one match →
-        // resolved; zero or more than one → discarded (null), never guessed.
+        // [seriesId] present → resolved directly, no network/listing lookup, no local-existence
+        // check — the server's own id is the base value a publisher is expected to send when it
+        // knows it (e.g. it already resolved the series against the same server this app talks
+        // to), and this resolver trusts it as-is, same as before slug support existed.
+        //
+        // [seriesId] absent → two AIDS are tried, in order, never as a substitute for seriesId,
+        // only to help find it when it wasn't sent:
+        //  1. [RawNotificationEvent.slug] against BffMatchDao's own slug column — this is the
+        //     external-matching identifier a legacy publisher already knows (see
+        //     PAYLOAD_CONTRACT's own "slug → seriesId via matching" step); only ever consulted,
+        //     never required — most publishers never send it, and a series with no BFF match yet
+        //     simply has no row to find here.
+        //  2. Exact [seriesName] match against the series listing Server already exposes (same
+        //     data SerialsService.list reaches on the RN side) — never re-fetched/re-derived by
+        //     this resolver itself, per the "ask the domain, don't recompute it" rule. Exactly one
+        //     match → resolved; zero or more than one → discarded (null), never guessed.
+        // Neither aid resolves → discarded (null).
         suspend fun resolve(event: RawNotificationEvent): ResolvedSeriesEvent? {
             val seriesId =
-                event.seriesId ?: run {
-                    val matches =
-                        server.serials
-                            .list()
-                            .data.serials
-                            .filter { it.name == event.seriesName }
-                    if (matches.size != 1) return null
-                    matches.first().id
-                }
+                event.seriesId
+                    ?: resolveBySlug(event.slug)
+                    ?: resolveBySeriesName(event.seriesName)
+                    ?: return null
             return ResolvedSeriesEvent(
                 seriesId = seriesId,
                 seriesName = event.seriesName,
@@ -58,6 +67,16 @@ class NotificationResolver
                 chapterNumbers = event.chapterNumbers,
                 detectedAtMs = event.detectedAtMs,
             )
+        }
+
+        private suspend fun resolveBySlug(slug: String?): String? {
+            if (slug.isNullOrBlank()) return null
+            return bffMatchDao.getAll().firstOrNull { it.slug == slug }?.seriesId
+        }
+
+        private suspend fun resolveBySeriesName(seriesName: String): String? {
+            val matches = server.serials.list().data.serials.filter { it.name == seriesName }
+            return matches.singleOrNull()?.id
         }
 
         // false unless the Android notification channel is enabled (Task 007 — the channel's own
