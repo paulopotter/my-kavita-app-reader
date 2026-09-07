@@ -185,6 +185,16 @@ class MainApplication :
         applicationScope.launch {
             notificationRetentionPurge.purge()
         }
+        // NotificationsBridgeModule only re-evaluates start/stop as a side effect of an RN-side
+        // config write (add/edit/remove group or URL, toggle the channel) — nothing else ever
+        // (re)starts the foreground service. Without this, a device that already had a group/URL
+        // configured from a previous session never reconnects on a fresh app launch: the service
+        // simply never runs until the user touches notification config again.
+        applicationScope.launch {
+            if (notificationConnectionGate.shouldConnect()) {
+                NotificationConnectionService.start(this@MainApplication)
+            }
+        }
     }
 
     // Runs the OTA bundle download for a resolved DownloadPending, mirroring progress to the RN
