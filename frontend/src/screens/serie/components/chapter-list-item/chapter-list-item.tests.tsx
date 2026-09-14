@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import type { SerieChapter } from '../../../../shared';
+import { chapterEvents, type SerieChapter } from '../../../../shared';
 import { ChapterListItem } from './chapter-list-item.component';
 
 // Dumb component: it renders the `title` string it's handed and wires the callbacks. The label
@@ -18,7 +18,8 @@ function makeChapter(overrides: Partial<SerieChapter> = {}): SerieChapter {
     pages: { list: [] },
     resolvedAtEpochMs: 0,
     server: {} as SerieChapter['server'],
-    action: { method: 'navigate', route: 'reader/:seriesId/:chapterId', params: {} },
+    action: { navigate: { to: { route: 'reader/:seriesId/:chapterId', params: {} } } },
+    events: chapterEvents({ seriesId: '10', chapterId: '1' }),
     ...overrides,
   };
 }

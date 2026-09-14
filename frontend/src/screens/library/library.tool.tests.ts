@@ -1,6 +1,6 @@
 import { LibraryTool, normalizePublicationStatus } from './library.tool';
 import type { ExternalMetadataMatch } from '../../shared/bridge/external';
-import type { Serie } from '../../shared/tools/series';
+import { serieEvents, type Serie } from '../../shared/tools/series';
 import type { SeriesDigestIndexEntry } from '../../shared/managers/store';
 import type { Strings } from '../../shared/i18n/strings';
 import type { ServerActiveInfo } from '../../shared/bridge/digest';
@@ -19,6 +19,7 @@ function serie(over: Partial<Serie> = {}): Serie {
     pages: { read: 0, total: 100 },
     resolvedAtEpochMs: 1,
     server,
+    events: serieEvents({ seriesId: 's1' }),
     ...over,
   };
 }

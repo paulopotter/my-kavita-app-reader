@@ -1,4 +1,7 @@
 import { ChapterTool, type SerieChapter } from '../chapters';
+import { EventBus, EventsManager } from '../../managers/events';
+import type { ContentEvent } from '../../managers/events';
+import { NotificationEvents } from '../../services/notifications';
 import { FollowedSeriesBridge } from '../../bridge';
 import type { ChapterDigestSuccess, ImageDescriptor, SerialDigestSuccess, SerialResumePoint, ServerActiveInfo } from '../../bridge';
 
@@ -39,6 +42,28 @@ export interface Serie {
   };
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
+  events: SerieEventsContract; // not present on SerialDigestSuccess — added by this normalizer
+}
+
+// What can happen to a serie, as the serie domain itself declares it. Armed on every normalized
+// serie; only whoever actually opens one calls `exec` (see EventsManager's own doc).
+export interface SerieEventsContract {
+  opened: ContentEvent;
+}
+
+// Exported for the same reason chapterEvents is: anything holding a serie's id (a test fixture,
+// a future caller that doesn't go through normalize) can build the same contract.
+export function serieEvents({ seriesId }: { seriesId: string }): SerieEventsContract {
+  const events = EventsManager.build({ domain: 'serie', content: { seriesId } });
+  return {
+    // Opening the serie is what "consumes" a notification that identified no chapter (a new
+    // serie, or an event whose publisher carried no chapter detail) — see
+    // NotificationEvents.contentConsumed's own doc. Chapter-specific rows are never touched by
+    // this: those wait for their own chapter to be opened.
+    ...events.opened({
+      after: () => EventBus.emit(NotificationEvents.contentConsumed, { content: { seriesId } }),
+    }),
+  };
 }
 
 export const SerieTool = {
@@ -89,6 +114,7 @@ export const SerieTool = {
       metadata: digest.metadata,
       resolvedAtEpochMs: digest.resolvedAtEpochMs,
       server: digest.server,
+      events: serieEvents({ seriesId: digest.id }),
     };
   },
 

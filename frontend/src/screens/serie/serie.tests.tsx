@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { getStrings } from '../../shared/i18n/strings';
-import type { Serie, SerieChapter } from '../../shared';
+import { NavigationTool } from '../../shared/tools/navigation';
+import { chapterEvents, serieEvents, type ActionContract, type Serie, type SerieChapter } from '../../shared';
 
 const t = getStrings('pt-BR');
 
@@ -39,7 +40,14 @@ const mockInvertSelection = jest.fn();
 const mockExitSelectionMode = jest.fn();
 const mockMarkSelectedRead = jest.fn();
 const mockMarkSelectedUnread = jest.fn();
-const mockRealize = jest.fn();
+// realize(action) — the real thing decides navigate/goBack/reset via NavigationTool.go against
+// this same mocked `navigation`, so these tests exercise the actual rule, not a stubbed decision.
+const mockRealize = jest.fn((action: ActionContract) => {
+  const target = action.navigate.to ?? action.navigate.back;
+  return () => {
+    if (target) {NavigationTool.go({ goBack: mockGoBack, canGoBack: mockCanGoBack, navigate: mockNavigate, reset: mockReset }, target);}
+  };
+});
 const mockHideScrollTop = jest.fn();
 
 function makeChapter(overrides: Partial<SerieChapter> = {}): SerieChapter {
@@ -53,7 +61,8 @@ function makeChapter(overrides: Partial<SerieChapter> = {}): SerieChapter {
     pages: { list: [] },
     resolvedAtEpochMs: 0,
     server: {} as SerieChapter['server'],
-    action: { method: 'navigate', route: 'reader/:seriesId/:chapterId', params: { seriesId: 's1', chapterId: 'c1' } },
+    action: { navigate: { to: { route: 'reader/:seriesId/:chapterId', params: { seriesId: 's1', chapterId: 'c1' } } } },
+    events: chapterEvents({ seriesId: 's1', chapterId: 'c1' }),
     ...overrides,
   };
 }
@@ -66,6 +75,7 @@ function makeSerie(overrides: Partial<Serie> = {}): Serie {
     chapters: [],
     resolvedAtEpochMs: 0,
     server: {} as Serie['server'],
+    events: serieEvents({ seriesId: 's1' }),
     ...overrides,
   };
 }
@@ -98,6 +108,7 @@ beforeEach(() => {
     selectionMode: false,
     selectedIds: new Set<string>(),
     realize: mockRealize,
+    backAction: { navigate: { back: { route: 'library', canUseGoBack: true, canResetStack: true } } } as ActionContract,
     refresh: mockRefresh,
     toggleFollow: mockToggleFollow,
     toggleSortOrder: mockToggleSortOrder,

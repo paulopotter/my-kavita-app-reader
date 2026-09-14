@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import type { Serie } from '../../../../shared';
+import { serieEvents, type Serie } from '../../../../shared';
 import { Header } from './header.component';
 
 // Dumb component: renders cover/name/description/chips and the `actionLabel` string it's handed,
@@ -15,6 +15,7 @@ function makeSerie(overrides: Partial<Serie> = {}): Serie {
     chapters: [],
     resolvedAtEpochMs: 0,
     server: {} as Serie['server'],
+    events: serieEvents({ seriesId: '10' }),
     ...overrides,
   };
 }

@@ -1,7 +1,9 @@
 import { createNavigateAction, type ActionContract } from '../actions';
 import { Routes } from '../../../navigation/routes';
 import { ChapterService } from '../../services/chapters';
-import { EventBus, createEvent } from '../../managers/events';
+import { EventBus, EventsManager, createEvent } from '../../managers/events';
+import type { ContentEvent } from '../../managers/events';
+import { NotificationEvents } from '../../services/notifications';
 import { PreferencesManager } from '../../managers/preferences';
 import type { Strings } from '../../i18n';
 import type { ChapterDigestSuccess, ChapterReadStatus, ImageDescriptor, ServerActiveInfo } from '../../bridge';
@@ -152,6 +154,36 @@ export interface SerieChapter {
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
   action: ActionContract; // not present on ChapterDigestSuccess — added by this normalizer
+  events: ChapterEventsContract; // likewise — see chapterEvents below
+}
+
+// What can happen to a chapter, as the chapter domain itself declares it. `opened` is armed on
+// every normalized chapter (the normalizer can't know why it was called); only whoever actually
+// opens one calls `exec`.
+export interface ChapterEventsContract {
+  opened: ContentEvent;
+}
+
+// The chapter domain's own event declaration, exposed so BOTH callers can reach it: normalize()
+// (for a chapter that came from a digest) and the reader (which keeps its own screen-local
+// projection — reader.model.ts, per architecture.md § "No Transform layer" — and so holds only
+// the ids, never a SerieChapter). One definition, so the two can't drift.
+export function chapterEvents({
+  seriesId,
+  chapterId,
+}: {
+  seriesId: string;
+  chapterId: string;
+}): ChapterEventsContract {
+  const events = EventsManager.build({ domain: 'chapter', content: { seriesId, chapterId } });
+  return {
+    // Opening a chapter is also what "consumes" any notification announcing it — chained here
+    // rather than in the reader, so every way of opening a chapter reports it the same way.
+    ...events.opened({
+      after: () =>
+        EventBus.emit(NotificationEvents.contentConsumed, { content: { seriesId, chapterId } }),
+    }),
+  };
 }
 
 // Two channels, on purpose, one not replacing the other:
@@ -195,6 +227,7 @@ export const ChapterTool = {
       resolvedAtEpochMs: chapter.resolvedAtEpochMs,
       server: chapter.server,
       action: createNavigateAction({ route: Routes.READER, params: { seriesId, chapterId: chapter.id } }),
+      events: chapterEvents({ seriesId, chapterId: chapter.id }),
     };
   },
 
