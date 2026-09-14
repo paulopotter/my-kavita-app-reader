@@ -170,6 +170,18 @@ jobs:
               'url': 'https://github.com/$REPO/releases/download/$TAG/bundle.js',
               'bundleHash': '$BUNDLE_HASH',
               'minKotlinVersion': '$MIN_KOTLIN',
+              # The native version THIS release ships — the counterpart to lastRNVersion, and the
+              # opposite of minKotlinVersion above (a floor that blocks). An app can compare it
+              # against its own to tell that a newer APK exists.
+              #
+              # It answers something lastAppVersion can't: that one advances on every release,
+              # including JS-only ones the OTA already applied by itself, so it can't tell "there's
+              # something for you to install" from "nothing left to do". Kotlin only ever changes
+              # by installing an APK — effort the user has to spend, unlike a bundle.
+              #
+              # Nothing reads it yet; it's published so an in-app "new version available" notice
+              # has the data when it's built.
+              'lastKotlinVersion': '$KOTLIN_VER',
               'lastAppVersion': '$TAG',
               'policies': json.loads('''$POLICIES'''),
           }

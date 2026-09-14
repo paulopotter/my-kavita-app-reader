@@ -140,6 +140,29 @@ than a fixed sentinel: that field is what the comparison reads. The other sentin
 are deliberate and stay (`minKotlinVersion: 0.0.0` so the technical check never blocks, a policy
 `minVersion` of `9999.99.99` so the policy always fires).
 
+### Manifest fields
+
+| field | means | read by |
+|---|---|---|
+| `lastRNVersion` | the published bundle's version | decides whether to download it |
+| `url` / `bundleHash` | where the bundle is, and its sha256 | download + integrity check |
+| `bundleBuildTimeMs` | when the bundle was built | discards an OTA bundle older than the packaged one (after a `make redeploy`) |
+| `lastAppVersion` | the release tag (`YYYY.MM.DD.HHMM`) | the fallback's "is this newer than what's installed?" guard |
+| `minKotlinVersion` | oldest native version the bundle runs on | **blocks** anything below it |
+| `lastKotlinVersion` | native version this release ships | nothing yet — see below |
+| `policies` | required / recommended levels | blocks or advises |
+
+`lastKotlinVersion` exists because of an asymmetry: a new **bundle** arrives on its own (OTA
+downloads it, no user effort), while new **native** code only arrives by installing an APK — which
+the user has to do by hand. Comparing it against the running install is how the app can tell there
+is an APK worth installing.
+
+`lastAppVersion` can't answer that: it advances on every release, including JS-only ones the OTA
+already applied, so it can't separate "there's something for you to do" from "nothing left to do".
+
+Nothing reads `lastKotlinVersion` yet — it's published so an in-app notice has the data when that
+gets built.
+
 ### What makes an update mandatory
 
 Two manifest fields can stop the app, and only one of them is a decision about releases:

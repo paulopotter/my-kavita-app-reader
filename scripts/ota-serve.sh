@@ -158,6 +158,7 @@ cat > "$SERVE_DIR/latest.json" <<JSON
   "url": "http://localhost:$PORT/bundle.js",
   "bundleHash": "$HASH",
   "minKotlinVersion": "0.0.0",
+  "lastKotlinVersion": "$KOTLIN_VERSION",
   "lastAppVersion": "$(date -u +%Y.%m.%d.%H%M)",
   "policies": $POLICIES_JSON,
   "bundleBuildTimeMs": $BUNDLE_BUILD_TIME_MS

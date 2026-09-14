@@ -54,6 +54,7 @@ cat > "$SERVE_DIR/latest.json" <<JSON
   "url": "http://localhost:$PORT/bundle.js",
   "bundleHash": "$HASH",
   "minKotlinVersion": "0.1.0",
+  "lastKotlinVersion": "$(grep 'versionName\s*=' android/app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/' || echo "0.0.0")",
   "lastAppVersion": "$(date -u +%Y.%m.%d.%H%M)",
   "policies": null,
   "bundleBuildTimeMs": $(date +%s000)
