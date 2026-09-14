@@ -13,6 +13,7 @@ import com.facebook.react.bridge.UiThreadUtil
 import com.mymangareader.core.database.AuthConfigEntity
 import com.mymangareader.core.database.BffServerConfigEntity
 import com.mymangareader.core.database.ServerConfigEntity
+import com.mymangareader.tools.locale.AppLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,23 +54,15 @@ class ConfigRepository
         // separate "language" preference in the app's own storage. This returns the effective
         // language tag: the per-app override the user set (in the app or under Settings > App
         // languages), or, when none is set, the device's own locale. Always one of the app's
-        // supported tags ("pt-BR" / "en"), so JS can use it directly.
+        // supported tags ("pt-BR" / "en"), so JS can use it directly. Delegates to AppLocale
+        // (`:tools`) — the same resolution a native-only code path (e.g. NotificationDisplay,
+        // `android/app/`) uses to build user-facing text outside of RN's JS-driven UI.
         @ReactMethod
         fun getAppLocale(promise: Promise) {
-            runCatching {
-                val override =
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        appContext.getSystemService(LocaleManager::class.java)?.applicationLocales
-                    } else {
-                        null
-                    }
-                val tag =
-                    when {
-                        override != null && !override.isEmpty -> override[0].toLanguageTag()
-                        else -> Locale.getDefault().toLanguageTag()
-                    }
-                promise.resolve(if (tag.startsWith("pt", ignoreCase = true)) "pt-BR" else "en")
-            }.onFailure { promise.resolve("en") }
+            runCatching { AppLocale.resolveTag(appContext) }.fold(
+                onSuccess = { promise.resolve(it) },
+                onFailure = { promise.resolve("en") },
+            )
         }
 
         // Sets the OS per-app language. This is the ONLY thing an in-app language switch does — no
