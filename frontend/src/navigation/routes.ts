@@ -36,10 +36,15 @@ export function readerRoute(seriesId: string, chapterId: string, origin: NavOrig
   return `reader/${seriesId}/${chapterId}?origin=${origin}`;
 }
 
-export function originRouteFor(origin: NavOrigin): string {
+// Absent origin (never navigated with one — e.g. Serie opened straight from a deep link/
+// notification, with no "I came from Library/Following/Search" to honor) falls back to the Hub
+// itself, never assuming Library — a guess would be wrong as often as it's right, and Home is
+// always a safe, correct destination.
+export function originRouteFor(origin?: NavOrigin): RouteName {
   switch (origin) {
     case 'FOLLOWING': return Routes.FOLLOWING;
     case 'SEARCH': return Routes.SEARCH;
-    default: return Routes.LIBRARY;
+    case 'LIBRARY': return Routes.LIBRARY;
+    default: return Routes.HUB;
   }
 }

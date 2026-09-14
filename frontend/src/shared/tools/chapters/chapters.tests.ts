@@ -151,9 +151,7 @@ describe('ChapterTool.normalize', () => {
     const chapter = makeChapter({ id: 'c1' });
     const result = ChapterTool.normalize({ chapter, seriesId: 's1' });
     expect(result.action).toEqual({
-      method: 'navigate',
-      route: 'reader/:seriesId/:chapterId',
-      params: { seriesId: 's1', chapterId: 'c1' },
+      navigate: { to: { route: 'reader/:seriesId/:chapterId', params: { seriesId: 's1', chapterId: 'c1' } } },
     });
   });
 });

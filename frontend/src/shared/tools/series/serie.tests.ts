@@ -118,9 +118,7 @@ describe('SerieTool.normalize', () => {
     expect(serie.chapters).toHaveLength(1);
     expect(serie.chapters[0].id).toBe('c1');
     expect(serie.chapters[0].action).toEqual({
-      method: 'navigate',
-      route: 'reader/:seriesId/:chapterId',
-      params: { seriesId: 's1', chapterId: 'c1' },
+      navigate: { to: { route: 'reader/:seriesId/:chapterId', params: { seriesId: 's1', chapterId: 'c1' } } },
     });
   });
 
