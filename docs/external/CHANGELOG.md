@@ -10,6 +10,27 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.09.14.1202](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1202)] - 2026-09-14
+
+O app agora verifica as releases oficiais automaticamente quando o endereço configurado falha ou está desatualizado, garantindo que versões recentes cheguem aos aparelhos de desenvolvimento. / The app now automatically checks official releases when the configured address fails or lacks updates, ensuring recent versions reach development devices.
+
+
+### **Backend** - `1.2.0`
+
+**[pt-BR]**
+- O app agora busca atualizações nas releases oficiais caso o servidor configurado falhe ou não traga novidades, permitindo que builds de teste recebam versões novas desde que sejam mais recentes que a instalada.
+
+**[en]**
+- The app now fetches updates from official releases if the configured server fails or returns nothing, allowing test builds to receive new versions as long as they are newer than the currently installed one.
+
+### **Frontend** - `1.1.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
+
 ## [[2026.09.14.1114](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1114)] - 2026-09-14
 
 Agora o aplicativo avisa sobre novos capítulos em tempo real, abre links externos direto no mangá correto e consome muito menos memória. / Now the app notifies you about new chapters in real-time, opens external links directly to the right manga, and consumes much less memory.

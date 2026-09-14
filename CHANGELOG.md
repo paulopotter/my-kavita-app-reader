@@ -10,9 +10,26 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.09.14.1202](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1202)] - 2026-09-14
 
-- feat: quando o endereço de atualização configurado não responde, ou responde que não há novidade, o app passa a consultar as releases oficiais — antes um aparelho com build de desenvolvimento nunca recebia uma versão publicada. A release só é aceita se for mais recente que a instalada, então nunca substitui um build recém-enviado nem o que está em teste.
+O app agora verifica as releases oficiais automaticamente quando o endereço configurado falha ou está desatualizado, garantindo que versões recentes cheguem aos aparelhos de desenvolvimento. / The app now automatically checks official releases when the configured address fails or lacks updates, ensuring recent versions reach development devices.
+
+
+### **Backend** - `1.2.0`
+
+**[pt-BR]**
+- O app agora busca atualizações nas releases oficiais caso o servidor configurado falhe ou não traga novidades, permitindo que builds de teste recebam versões novas desde que sejam mais recentes que a instalada.
+
+**[en]**
+- The app now fetches updates from official releases if the configured server fails or returns nothing, allowing test builds to receive new versions as long as they are newer than the currently installed one.
+
+### **Frontend** - `1.1.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
 
 ## [[2026.09.14.1114](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1114)] - 2026-09-14
 
