@@ -78,3 +78,8 @@ android/app/src/main/res/drawable-*/node_modules_*
 *.log
 *.tmp
 *.bak
+
+# Heap dumps do Gradle — a JVM grava um destes (centenas de MB) ao estourar o heap, porque
+# gradle.properties liga -XX:+HeapDumpOnOutOfMemoryError. Contêm a memória inteira do build,
+# incluindo o que veio de local.properties, então nunca podem entrar num commit.
+*.hprof
