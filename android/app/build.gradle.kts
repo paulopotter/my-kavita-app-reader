@@ -315,6 +315,13 @@ tasks.matching { it.name.startsWith("pre") && it.name.endsWith("Build") }.config
     dependsOn(generateDeepLinkHosts)
 }
 
+// A outra metade do par: o preBuild acima escreve os hosts pessoais no manifest, e sem isto eles
+// ficam lá depois que o build termina — prontos pra entrar num commit por descuido (já aconteceu).
+// O APK já foi empacotado quando o assemble termina, então limpar aqui não afeta o artefato.
+tasks.matching { it.name.startsWith("assemble") }.configureEach {
+    finalizedBy(clearDeepLinkHosts)
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":tools"))
