@@ -101,7 +101,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount
-        versionName = "1.0.0-rc9"
+        versionName = "1.0.0-rc15"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("long", "COLLAPSE_WINDOW_MS", "${collapseWindowMs}L")
@@ -167,15 +167,6 @@ fun stripScheme(hostEntry: String): String =
         .removePrefix("https://")
         .removeSuffix("/")
 
-// Android App Links verification (the assetlinks.json handshake) only ever runs over https, and
-// only when every <data> element in the SAME <intent-filter> the verification looks at carries
-// android:autoVerify — so http and https can never share one filter here: http gets its own
-// filter without autoVerify (works for plain http hosts/IPs, e.g. a local dev server, but never
-// auto-verifies — Android doesn't verify App Links for bare IPs at all), https gets its own
-// filter WITH autoVerify (only takes effect once https://<host>/.well-known/assetlinks.json
-// exists and matches the app's signing cert — see .claude/docs/quickstart.md for how to publish
-// it; until then this filter still matches the link, just without the "opens with no prompt"
-// guarantee autoVerify is meant to buy).
 // The paths a link can arrive on. These are the CONTENT SERVER's own web URLs (what the user
 // actually taps in a browser/Telegram), never this app's internal route names — Kavita serves a
 // series both with and without the library segment, and a chapter under /manga/. Translating any
@@ -188,6 +179,15 @@ private val DEEP_LINK_PATH_PATTERNS =
         "/library/.*/series/.*/manga/.*",
     )
 
+// Android App Links verification (the assetlinks.json handshake) only ever runs over https, and
+// only when every <data> element in the SAME <intent-filter> the verification looks at carries
+// android:autoVerify — so http and https can never share one filter here: http gets its own
+// filter without autoVerify (works for plain http hosts/IPs, e.g. a local dev server, but never
+// auto-verifies — Android doesn't verify App Links for bare IPs at all), https gets its own
+// filter WITH autoVerify (only takes effect once https://<host>/.well-known/assetlinks.json
+// exists and matches the app's signing cert — see .claude/docs/quickstart.md for how to publish
+// it; until then this filter still matches the link, just without the "opens with no prompt"
+// guarantee autoVerify is meant to buy).
 fun buildDeepLinkSchemeFilter(
     scheme: String,
     autoVerify: Boolean,
