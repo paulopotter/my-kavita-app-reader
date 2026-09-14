@@ -16,11 +16,15 @@ import com.mymangareader.notifications.Notifications
 import com.mymangareader.notifications.plugins.ConnectionState
 import com.mymangareader.notifications.plugins.NotificationPlugin
 import com.mymangareader.notifications.plugins.NotificationPluginRegistration
+import com.mymangareader.notifications.plugins.NotificationUrl
+import com.mymangareader.tools.locale.AppLocale
+import com.mymangareader.tools.network.NetworkAvailability
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +58,9 @@ private const val TAG = "NotificationConnService"
  * Never duplicates resolution/display/protocol logic — every step delegates to the task that
  * already owns it. On a dropped connection, the plugin's own internal backoff (Task 002) handles
  * reconnection; this service only stays alive and keeps observing the same plugin instance — it
- * never re-implements reconnection itself.
+ * never re-implements reconnection itself. The one thing this service DOES own is retrying URL
+ * resolution before a socket ever opens — see [resolveUrlWithRetry]'s own doc — since no candidate
+ * being healthy yet is a different failure mode than a socket that connected once and dropped.
  */
 @AndroidEntryPoint
 class NotificationConnectionService : Service() {
@@ -67,6 +73,8 @@ class NotificationConnectionService : Service() {
     @Inject lateinit var notifications: Notifications
 
     @Inject lateinit var connectionGate: NotificationConnectionGate
+
+    @Inject lateinit var networkAvailability: NetworkAvailability
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var activePlugin: NotificationPlugin? = null
@@ -114,13 +122,7 @@ class NotificationConnectionService : Service() {
         }
         activePlugin = plugin
 
-        val url =
-            runCatching { groupResolver.resolveActiveUrl() }
-                .onFailure { Log.e(TAG, "connectAndObserve() — could not resolve an active URL for group=${group.id}", it) }
-                .getOrElse {
-                    updateStatus(NotificationServiceStatus.DISCONNECTED)
-                    return
-                }
+        val url = resolveUrlWithRetry(group.id) ?: return // gate turned this off mid-retry — already STOPPED
         Log.i(TAG, "connectAndObserve() — group=${group.id} (${group.name}) providerId=${group.providerId} url=${url.url} topic=${url.topic}")
         plugin.connect(url)
 
@@ -141,6 +143,43 @@ class NotificationConnectionService : Service() {
         }
     }
 
+    // Keeps retrying, with an exponential backoff capped at an hour (notificationResolveRetryDelayMs),
+    // until either a healthy URL resolves or connectionGate says to stop (the user turned
+    // notifications off, or removed the group, while this loop was waiting). Once a URL DOES
+    // resolve and plugin.connect() runs, any FURTHER drop is NtfyPlugin's own much shorter reconnect
+    // backoff (capped at 30s) — this loop only ever covers the step before a socket ever opens.
+    //
+    // Never retries while there's no network at all (airplane mode, no SIM/Wi-Fi) — a health check
+    // against an unreachable network is doomed anyway, so skipping it straight to the next delayed
+    // attempt avoids hammering a call that can't succeed. Still governed by the SAME backoff clock:
+    // "no network" doesn't reset or fast-track the schedule, it just skips this attempt's probe.
+    private suspend fun resolveUrlWithRetry(groupId: String): NotificationUrl? {
+        var attempt = 0
+        while (true) {
+            if (!connectionGate.shouldConnect()) {
+                Log.w(TAG, "resolveUrlWithRetry() — gate refused connection while retrying, stopping self")
+                updateStatus(NotificationServiceStatus.STOPPED)
+                return null
+            }
+
+            if (!networkAvailability.isConnected()) {
+                Log.w(TAG, "resolveUrlWithRetry() — no network available, skipping this attempt (still counts toward backoff)")
+            } else {
+                val resolved =
+                    runCatching { groupResolver.resolveActiveUrl() }
+                        .onFailure { Log.e(TAG, "resolveUrlWithRetry() — could not resolve an active URL for group=$groupId (attempt=$attempt)", it) }
+                        .getOrNull()
+                if (resolved != null) return resolved
+            }
+
+            updateStatus(NotificationServiceStatus.DISCONNECTED)
+            val delayMs = notificationResolveRetryDelayMs(attempt)
+            Log.i(TAG, "resolveUrlWithRetry() — retrying in ${delayMs}ms (attempt=$attempt)")
+            delay(delayMs)
+            attempt++
+        }
+    }
+
     private fun updateStatus(status: NotificationServiceStatus) {
         Log.i(TAG, "status -> $status")
         _status.value = status
@@ -157,10 +196,12 @@ class NotificationConnectionService : Service() {
         )
     }
 
+    // AppLocale.contextFor(this), not this.getString(...) directly — the app's own per-app
+    // language, never the OS system locale (same reasoning as NotificationDisplay's own doc).
     private fun buildConnectedNotification(): Notification =
         NotificationCompat
             .Builder(this, CHANNEL_CONNECTION)
-            .setContentTitle(getString(R.string.notification_connection_connected))
+            .setContentTitle(AppLocale.contextFor(this).getString(R.string.notification_connection_connected))
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
