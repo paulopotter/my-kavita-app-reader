@@ -140,6 +140,24 @@ than a fixed sentinel: that field is what the comparison reads. The other sentin
 are deliberate and stay (`minKotlinVersion: 0.0.0` so the technical check never blocks, a policy
 `minVersion` of `9999.99.99` so the policy always fires).
 
+### What makes an update mandatory
+
+Two manifest fields can stop the app, and only one of them is a decision about releases:
+
+| field | means | set by |
+|---|---|---|
+| `policies` | "this update is required / recommended" | you, via `policy-pending.json` |
+| `minKotlinVersion` | "this bundle needs at least this much native code" | a hand-edited constant in `release.yml` |
+
+`minKotlinVersion` used to be filled with the release's own `versionName`. Those are different
+things: the result was that every release declared "you must be on exactly this version", blocking
+anyone who hadn't installed it yet — with `policy-pending.json` empty and nobody asking for it.
+
+It is now a constant (`MIN_KOTLIN` in the release workflow), raised by hand only when a bundle
+genuinely stops working on older native code. Wanting people on a newer build is what the policy
+levels are for; a hard block is only correct when an OTA bundle physically cannot run on what's
+installed, since no bundle can update native code.
+
 ---
 
 ## Sessions and completions

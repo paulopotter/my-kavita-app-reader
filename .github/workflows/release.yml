@@ -86,8 +86,19 @@ jobs:
           BUNDLE_HASH="${{ steps.bundle_hash.outputs.hash }}"
           REPO="${{ github.repository }}"
 
+          # The oldest native version any current bundle still runs on — what ships as the
+          # manifest's minKotlinVersion.
+          #
+          # The app BLOCKS any install below this, so it is a deliberate declaration, edited here
+          # by hand when a bundle genuinely stops working on older Kotlin. It used to be filled
+          # with the release's own versionName, which is a different thing entirely: that made
+          # every release mandatory for anyone who hadn't installed it yet, with no policy asking
+          # for it. Making an update mandatory is policy-pending.json's job, and only its job.
+          MIN_KOTLIN="1.0.0"
+
           # Download existing latest.json to preserve policies array
           EXISTING_POLICIES='{"required":[],"highly_recommended":[],"recommended":[]}'
+          PREVIOUS_MIN_KOTLIN="n/a"
           LATEST_URL="https://github.com/${REPO}/releases/latest/download/latest.json"
           if curl -fsSL "$LATEST_URL" -o existing_latest.json 2>/dev/null; then
             EXISTING_POLICIES=$(python3 -c "
@@ -96,7 +107,14 @@ jobs:
           p = d.get('policies', {'required': [], 'highly_recommended': [], 'recommended': []})
           print(json.dumps(p))
           ")
+            # Kept only for the log line below — MIN_KOTLIN above is what actually ships.
+            PREVIOUS_MIN_KOTLIN=$(python3 -c "
+          import json
+          print(json.load(open('existing_latest.json')).get('minKotlinVersion') or 'n/a')
+          ")
           fi
+
+          echo "minKotlinVersion: $MIN_KOTLIN (release anterior declarava: $PREVIOUS_MIN_KOTLIN)"
 
           # Process policy-pending.json:
           # If non-empty, build a new policy entry and append it to the correct level.
@@ -151,7 +169,7 @@ jobs:
               'lastRNVersion': '$RN_VER',
               'url': 'https://github.com/$REPO/releases/download/$TAG/bundle.js',
               'bundleHash': '$BUNDLE_HASH',
-              'minKotlinVersion': '$KOTLIN_VER',
+              'minKotlinVersion': '$MIN_KOTLIN',
               'lastAppVersion': '$TAG',
               'policies': json.loads('''$POLICIES'''),
           }
