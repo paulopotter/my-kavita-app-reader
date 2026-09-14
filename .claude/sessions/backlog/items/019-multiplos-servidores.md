@@ -59,6 +59,16 @@ mutable slot), e a splash simplesmente pega `groups[0]`.
   Library, Reader, splash (`activateFirstServerGroup`), Config (Task 035).
 - Persistência de `activeGroupId` — decidir junto (item 1 já resolve isso
   sozinho e é útil mesmo sem multi-server).
+- `DeepLinkNormalizer.normalizeDeepLinkUri` (`android/app/`, Plan 008 Task 004)
+  descarta host **e porta** da URI original ao montar `deeplink://<path>` —
+  hoje é seguro (o Android já filtrou por `android:host`+`android:port` antes
+  de entregar o Intent, então um host não configurado nunca chega ao app), mas
+  o app não sabe mais **qual** host:porta configurado originou aquele link. Se
+  este item avançar para múltiplos servidores/grupos ativos ao mesmo tempo,
+  cada um pode estar em seu próprio host:porta (ex.: `ip:1` vs `ip:2`) — nesse
+  caso a normalização precisa preservar host:porta na URI interna (não só o
+  path) para o app saber a qual servidor/grupo aquele deep link pertence,
+  antes de decidir pra qual tela navegar.
 
 ## Dependencies
 - Task 035 (Config → `:server`) — a Config nova vai encostar nisso ao
