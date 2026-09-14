@@ -23,7 +23,12 @@ react {
     // hermesCommand omitted — RN plugin auto-detects the correct binary for the current OS
 }
 
-// OTA manifest URL — priority: local.properties > CI env var > default GitHub
+// The project's own published releases — where a build with no OTA_MANIFEST_URL of its own looks,
+// and the fallback any build can fall back TO (see the two flags below). Hardcoded on purpose: it
+// is the one address that must never depend on local configuration being present.
+val officialOtaManifestUrl = "https://github.com/paulopotter/my-kavita-app-reader/releases/latest/download/latest.json"
+
+// OTA manifest URL — priority: local.properties > CI env var > the official releases URL
 val localProps =
     Properties().apply {
         val f = rootProject.file("local.properties")
@@ -32,7 +37,29 @@ val localProps =
 val otaManifestUrl: String =
     localProps.getProperty("OTA_MANIFEST_URL")
         ?: System.getenv("OTA_MANIFEST_URL")
-        ?: "https://github.com/paulopotter/my-kavita-app-reader/releases/latest/download/latest.json"
+        ?: officialOtaManifestUrl
+
+// A dev build points OTA_MANIFEST_URL at a local server (scripts/ota-serve.sh, reachable through
+// `adb reverse`), which is only up while that script runs. These two flags decide whether the
+// official releases URL is consulted as a fallback when the configured one doesn't deliver — so a
+// device left on a dev build still picks up a real release instead of silently never updating.
+// Both default to true: the useful behaviour is the default, and a build that wants total
+// isolation from production opts out explicitly.
+//
+// ON_ERROR covers "couldn't reach/parse it at all"; ON_NO_UPDATE covers "it answered, and said
+// there's nothing new". They're separate because they mean different things — see OtaManager.
+// Uma chave presente porém VAZIA (`OTA_FALLBACK_ON_ERROR=` no .env, que vira uma linha vazia em
+// local.properties) conta como não configurada — senão "".toBoolean() = false desligaria o
+// fallback justamente para quem não escolheu nada.
+fun otaFlag(key: String): Boolean =
+    (
+        localProps.getProperty(key)?.takeIf { it.isNotBlank() }
+            ?: System.getenv(key)?.takeIf { it.isNotBlank() }
+            ?: "true"
+    ).toBoolean()
+
+val otaFallbackOnError: Boolean = otaFlag("OTA_FALLBACK_ON_ERROR")
+val otaFallbackOnNoUpdate: Boolean = otaFlag("OTA_FALLBACK_ON_NO_UPDATE")
 
 // How close together (ms) two notification-history rows for the same serial need to have arrived
 // to be visually collapsed into one entry when collapseSerialChaptersNotification is on (RN,
@@ -104,6 +131,9 @@ android {
         versionName = "1.1.0"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
+        buildConfigField("String", "OTA_OFFICIAL_MANIFEST_URL", "\"$officialOtaManifestUrl\"")
+        buildConfigField("boolean", "OTA_FALLBACK_ON_ERROR", "$otaFallbackOnError")
+        buildConfigField("boolean", "OTA_FALLBACK_ON_NO_UPDATE", "$otaFallbackOnNoUpdate")
         buildConfigField("long", "COLLAPSE_WINDOW_MS", "${collapseWindowMs}L")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
         buildConfigField("String", "RN_VERSION", "\"$rnVersion\"")

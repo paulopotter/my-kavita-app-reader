@@ -21,3 +21,7 @@ annotation class CurrentAppVersion
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class OtaFilesDir
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class OtaFallback

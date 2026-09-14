@@ -18,6 +18,23 @@ fun meetsMinAppVersion(
         parseDatetimeTag(actual) >= parseDatetimeTag(minimum)
     }.getOrDefault(false)
 
+// Is `candidate` a strictly newer app datetime tag (YYYY.MM.DD.HHMM) than `installed`?
+//
+// This is what keeps a fallback from ever moving the app BACKWARDS: production may answer a
+// request that a local dev manifest couldn't, but its bundle is only taken when it's actually
+// newer than what's already running. Equal tags are not newer — a re-check of the same release
+// must not re-download it.
+//
+// Returns false when either tag can't be parsed, which is the safe answer: an unreadable version
+// is not evidence that anything is newer, so nothing gets replaced.
+fun isNewerAppVersion(
+    candidate: String,
+    installed: String,
+): Boolean =
+    runCatching {
+        parseDatetimeTag(candidate) > parseDatetimeTag(installed)
+    }.getOrDefault(false)
+
 private fun compareSemver(
     actual: String,
     minimum: String,

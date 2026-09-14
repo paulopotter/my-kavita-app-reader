@@ -145,6 +145,12 @@ esac
 
 # ── Write latest.json ─────────────────────────────────────────────────────────
 
+# lastAppVersion é a data/hora REAL deste serve (UTC), não um sentinel: é ela que o app compara
+# para decidir se um manifesto do fallback oficial é mais novo que o que já está rodando
+# (OtaManager.isNewerThanInstalled). Um valor antigo fixo faria a release oficial sempre parecer
+# mais nova e passar por cima do bundle local que se está testando.
+# minKotlinVersion segue "0.0.0" e o minVersion das policies segue "9999.99.99" — esses sim são
+# sentinels de propósito, para o check técnico nunca bloquear e a policy sempre disparar.
 echo "→ Gerando latest.json..."
 cat > "$SERVE_DIR/latest.json" <<JSON
 {
@@ -152,7 +158,7 @@ cat > "$SERVE_DIR/latest.json" <<JSON
   "url": "http://localhost:$PORT/bundle.js",
   "bundleHash": "$HASH",
   "minKotlinVersion": "0.0.0",
-  "lastAppVersion": "2000.01.01.0000",
+  "lastAppVersion": "$(date -u +%Y.%m.%d.%H%M)",
   "policies": $POLICIES_JSON,
   "bundleBuildTimeMs": $BUNDLE_BUILD_TIME_MS
 }

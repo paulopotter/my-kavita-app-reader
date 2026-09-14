@@ -3,6 +3,8 @@ package com.mymangareader
 import com.mymangareader.tools.ota.CurrentAppVersion
 import com.mymangareader.tools.ota.EmbeddedBundleBuildTimeMs
 import com.mymangareader.tools.ota.KotlinVersionName
+import com.mymangareader.tools.ota.OtaFallback
+import com.mymangareader.tools.ota.OtaFallbackConfig
 import com.mymangareader.tools.ota.OtaManifestUrl
 import dagger.Module
 import dagger.Provides
@@ -17,6 +19,16 @@ object OtaBindingsModule {
     @Singleton
     @OtaManifestUrl
     fun provideOtaManifestUrl(): String = BuildConfig.OTA_MANIFEST_URL
+
+    @Provides
+    @Singleton
+    @OtaFallback
+    fun provideOtaFallbackConfig(): OtaFallbackConfig =
+        OtaFallbackConfig(
+            officialManifestUrl = BuildConfig.OTA_OFFICIAL_MANIFEST_URL,
+            onError = BuildConfig.OTA_FALLBACK_ON_ERROR,
+            onNoUpdate = BuildConfig.OTA_FALLBACK_ON_NO_UPDATE,
+        )
 
     @Provides
     @Singleton

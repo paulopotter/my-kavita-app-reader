@@ -60,4 +60,27 @@ class VersionCheckTest {
         assertFalse(meetsMinAppVersion("not-a-date", "2026.08.10.1415"))
         assertFalse(meetsMinAppVersion("2026.08.10", "2026.08.10.1415"))
     }
+
+    // ── isNewerAppVersion — o guarda do fallback (ver OtaFallbackConfig) ──────
+
+    @Test fun `a newer tag is newer`() {
+        assertTrue(isNewerAppVersion("2026.09.14.1200", "2026.09.14.1159"))
+        assertTrue(isNewerAppVersion("2026.10.01.0000", "2026.09.30.2359"))
+    }
+
+    @Test fun `an older tag is not newer`() {
+        assertFalse(isNewerAppVersion("2026.01.01.0000", "2026.09.14.1200"))
+    }
+
+    // Estritamente maior: reconsultar a mesma release não pode baixá-la de novo.
+    @Test fun `the same tag is not newer`() {
+        assertFalse(isNewerAppVersion("2026.09.14.1200", "2026.09.14.1200"))
+    }
+
+    // Versão ilegível não é prova de que há algo mais novo — nada é substituído.
+    @Test fun `a malformed tag is never newer`() {
+        assertFalse(isNewerAppVersion("not-a-date", "2026.09.14.1200"))
+        assertFalse(isNewerAppVersion("2026.09.14.1200", "not-a-date"))
+        assertFalse(isNewerAppVersion("", ""))
+    }
 }

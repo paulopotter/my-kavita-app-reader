@@ -26,6 +26,7 @@ class OtaManager
         private val store: OtaStore,
         private val client: OkHttpClient,
         @OtaManifestUrl private val manifestUrl: String,
+        @OtaFallback private val fallback: OtaFallbackConfig,
         @KotlinVersionName private val kotlinVersion: String,
         @CurrentAppVersion private val appVersion: String,
         @EmbeddedBundleBuildTimeMs private val embeddedBundleBuildTimeMs: Long,
@@ -96,50 +97,97 @@ class OtaManager
         // splash right away) and fires download() on applicationScope for the DownloadPending case —
         // so the boot is never held on the download. checkAndDownload() below keeps the old "do both,
         // return one OtaCheckResult" shape for any caller that still wants it.
+        // Asks the configured manifest first; falls back to the project's own releases when that
+        // one doesn't deliver and the corresponding flag allows it (see OtaFallbackConfig).
+        //
+        // Nothing here can move the install backwards or break what's running: the fallback's
+        // manifest is only accepted when it's genuinely newer than what's installed, and any
+        // failure — unreachable, unparseable, a fallback that turns out to be older — ends as
+        // NothingToDo/Failed, which both leave the current bundle untouched.
         suspend fun check(): OtaDecision =
             withContext(Dispatchers.IO) {
                 runCatching {
                     Log.d(TAG, "Checking OTA manifest: $manifestUrl")
-                    val manifest =
-                        fetchManifest()
-                            ?: return@withContext OtaDecision.Failed(IllegalStateException("Failed to fetch manifest"))
+                    val decision =
+                        fetchManifest(manifestUrl)
+                            ?.let { evaluate(it) }
+                            ?: run {
+                                Log.w(TAG, "Could not fetch/parse manifest: $manifestUrl")
+                                null
+                            }
 
-                    // Evaluate policies:
-                    //   required          → block app, no download
-                    //   highly_recommended → show popup, no download, app opens
-                    //   recommended       → show popup, download proceeds
-                    val policyResult = evaluatePolicies(manifest.policies)
-                    if (policyResult?.mode == "required") {
-                        Log.w(TAG, "Policy required — blocking")
-                        return@withContext OtaDecision.Blocked(policyResult.releaseNotesUrl)
+                    when {
+                        // Blocked/DownloadPending are final: the configured manifest had something
+                        // real to say, so there is nothing to fall back FROM.
+                        decision is OtaDecision.Blocked || decision is OtaDecision.DownloadPending -> decision
+                        decision == null && fallback.onError -> fallbackDecision("configured manifest failed") ?: unreachable()
+                        decision == null -> unreachable()
+                        fallback.onNoUpdate -> fallbackDecision("configured manifest had no update") ?: decision
+                        else -> decision
                     }
-
-                    // Technical compatibility check (also blocking)
-                    if (!meetsMinKotlinVersion(kotlinVersion, manifest.minKotlinVersion)) {
-                        Log.w(TAG, "Kotlin $kotlinVersion < required ${manifest.minKotlinVersion}")
-                        return@withContext OtaDecision.Blocked(RELEASE_PAGE_URL)
-                    }
-
-                    val advisory =
-                        policyResult
-                            ?.takeIf { it.mode == "highly_recommended" || it.mode == "recommended" }
-                            ?.let { PolicyAdvisory(it.mode, it.releaseNotesUrl) }
-
-                    // highly_recommended never downloads; only recommended proceeds to the bundle.
-                    if (policyResult?.mode == "highly_recommended") {
-                        Log.w(TAG, "Policy highly_recommended — skipping download")
-                        return@withContext OtaDecision.NothingToDo(advisory)
-                    }
-
-                    val state = store.readState()
-                    if (manifest.lastRNVersion == state.currentBundleVersion) {
-                        Log.d(TAG, "Bundle already up to date: ${manifest.lastRNVersion}")
-                        return@withContext OtaDecision.NothingToDo(advisory)
-                    }
-
-                    OtaDecision.DownloadPending(manifest, advisory)
                 }.getOrElse { OtaDecision.Failed(it) }
             }
+
+        private fun unreachable(): OtaDecision = OtaDecision.Failed(IllegalStateException("Failed to fetch manifest"))
+
+        // The official releases manifest, accepted only when it actually moves the app forward.
+        // Returns null when it shouldn't be used — unreachable, older than (or equal to) what's
+        // installed, or with nothing to download — leaving the caller's own decision standing.
+        private fun fallbackDecision(reason: String): OtaDecision? {
+            if (fallback.officialManifestUrl == manifestUrl) return null // already asked it
+            Log.i(TAG, "$reason — trying official manifest: ${fallback.officialManifestUrl}")
+
+            val manifest = fetchManifest(fallback.officialManifestUrl) ?: return null
+            if (!isNewerThanInstalled(manifest)) {
+                Log.d(TAG, "Official manifest ${manifest.lastAppVersion} is not newer than installed $appVersion — ignoring")
+                return null
+            }
+            return evaluate(manifest).takeIf { it is OtaDecision.Blocked || it is OtaDecision.DownloadPending }
+        }
+
+        // Guards against the fallback overwriting something newer — a freshly deployed local build
+        // (`make redeploy`), or a bundle already downloaded from this same release. Compares the
+        // manifest's own app datetime tag against the running install's.
+        private fun isNewerThanInstalled(manifest: OtaManifest): Boolean = isNewerAppVersion(manifest.lastAppVersion, appVersion)
+
+        // One manifest, evaluated on its own: policies, technical compatibility, and whether its
+        // bundle differs from what's installed. Knows nothing about where it came from.
+        private fun evaluate(manifest: OtaManifest): OtaDecision {
+            // Evaluate policies:
+            //   required          → block app, no download
+            //   highly_recommended → show popup, no download, app opens
+            //   recommended       → show popup, download proceeds
+            val policyResult = evaluatePolicies(manifest.policies)
+            if (policyResult?.mode == "required") {
+                Log.w(TAG, "Policy required — blocking")
+                return OtaDecision.Blocked(policyResult.releaseNotesUrl)
+            }
+
+            // Technical compatibility check (also blocking)
+            if (!meetsMinKotlinVersion(kotlinVersion, manifest.minKotlinVersion)) {
+                Log.w(TAG, "Kotlin $kotlinVersion < required ${manifest.minKotlinVersion}")
+                return OtaDecision.Blocked(RELEASE_PAGE_URL)
+            }
+
+            val advisory =
+                policyResult
+                    ?.takeIf { it.mode == "highly_recommended" || it.mode == "recommended" }
+                    ?.let { PolicyAdvisory(it.mode, it.releaseNotesUrl) }
+
+            // highly_recommended never downloads; only recommended proceeds to the bundle.
+            if (policyResult?.mode == "highly_recommended") {
+                Log.w(TAG, "Policy highly_recommended — skipping download")
+                return OtaDecision.NothingToDo(advisory)
+            }
+
+            val state = store.readState()
+            if (manifest.lastRNVersion == state.currentBundleVersion) {
+                Log.d(TAG, "Bundle already up to date: ${manifest.lastRNVersion}")
+                return OtaDecision.NothingToDo(advisory)
+            }
+
+            return OtaDecision.DownloadPending(manifest, advisory)
+        }
 
         // Downloads + validates + rotates the bundle for a manifest check() already resolved to
         // DownloadPending. Publishes progress through downloadProgress the whole time. Safe to call on
@@ -176,12 +224,12 @@ class OtaManager
 
         // ── Private helpers ────────────────────────────────────────────────────────
 
-        private fun fetchManifest(): OtaManifest? =
+        private fun fetchManifest(url: String): OtaManifest? =
             runCatching {
                 val request =
                     Request
                         .Builder()
-                        .url(manifestUrl)
+                        .url(url)
                         .get()
                         .build()
                 client.newCall(request).execute().use { response ->

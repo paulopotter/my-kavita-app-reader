@@ -116,6 +116,30 @@ normalizer. A bare IP never verifies either, by design on Android's side.
 The JS bundle has its own version, independent of the APK version.
 Both are bumped and tracked separately by `versionar-build`.
 
+### Manifest fallback
+
+`OTA_MANIFEST_URL` normally points at a local dev server (`make ota-*`, served over `adb reverse`)
+— which only exists while that script runs. So a device carrying a dev build would otherwise never
+see a real release: every check fails, silently, forever.
+
+Two flags decide whether the project's own releases URL is consulted when the configured manifest
+doesn't deliver. Both default to true (including when the key is present but empty):
+
+| flag | fires when |
+|---|---|
+| `OTA_FALLBACK_ON_ERROR` | the configured manifest couldn't be reached or parsed |
+| `OTA_FALLBACK_ON_NO_UPDATE` | it answered, and said there's nothing new — tried after the one above |
+
+**The fallback can only ever move forward.** A release is accepted only when its `lastAppVersion`
+is strictly newer than the running install's, so it never overwrites a freshly deployed local
+build or a bundle being tested. Anything failing mid-way (either manifest down, an unparseable
+version) leaves the working bundle exactly as it was.
+
+This is why `scripts/ota-serve.sh` stamps the **real** UTC datetime into `lastAppVersion` rather
+than a fixed sentinel: that field is what the comparison reads. The other sentinels in that script
+are deliberate and stay (`minKotlinVersion: 0.0.0` so the technical check never blocks, a policy
+`minVersion` of `9999.99.99` so the policy always fires).
+
 ---
 
 ## Sessions and completions

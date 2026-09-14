@@ -36,6 +36,13 @@ class OtaManagerDiscardStaleBundleTest {
             store = store,
             client = OkHttpClient(),
             manifestUrl = "https://example.com/latest.json",
+            // Irrelevante aqui: discardStaleBundleIfNeeded nunca busca manifesto nenhum.
+            fallback =
+                OtaFallbackConfig(
+                    officialManifestUrl = "https://example.com/latest.json",
+                    onError = false,
+                    onNoUpdate = false,
+                ),
             kotlinVersion = "1.0.0",
             appVersion = "2026.01.01.0000",
             embeddedBundleBuildTimeMs = embeddedBundleBuildTimeMs,
