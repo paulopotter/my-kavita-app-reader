@@ -22,12 +22,16 @@ export interface NotificationUrlInfo {
   linkedServerUrlId?: string;
 }
 
+// One row per CHAPTER, always — a publisher event carrying N chapters together is exploded into
+// N of these before it ever reaches Room (NotificationResolver's own explode step, Kotlin-side —
+// see NotificationHistoryEntity's own doc). Never more than one chapter per row; a row with
+// neither field only happens when the publisher's own event carried no chapter detail at all.
 export interface NotificationHistoryItem {
   id: string;
   seriesId: string;
   seriesName: string;
-  chapterIds?: string[];
-  chapterNumbers?: string[];
+  chapterId?: string;
+  chapterNumber?: string;
   detectedAtMs: number;
   read: boolean;
   createdAtLocalMs: number;
@@ -95,10 +99,23 @@ interface NotificationsBridgeModuleInterface {
   setGroupAcrossSeries(params: { enabled: boolean }): Promise<void>;
   getRetentionDays(): Promise<number | null>;
   setRetentionDays(params: { days: number }): Promise<void>;
+  // Presentation-only, this screen's own history list — never touches storage (every row is
+  // always kept separately, see NotificationHistoryItem's own doc) nor the system tray. When
+  // true, rows for the same series within getCollapseWindowMs() of each other are visually
+  // collapsed into one entry.
+  getCollapseSerialChaptersNotification(): Promise<boolean>;
+  setCollapseSerialChaptersNotification(params: { enabled: boolean }): Promise<void>;
+  // Build-time only (COLLAPSE_WINDOW_MS, android/app/build.gradle.kts) — no setter, not a user
+  // preference.
+  getCollapseWindowMs(): Promise<number>;
 
   // history
   listHistory(): Promise<NotificationHistoryItem[]>;
   markHistoryRead(params: { id: string }): Promise<void>;
+  // Marking by what was consumed, not by row id — the caller reacts to a chapter/serial being
+  // opened and never knows which row announced it. Correlation happens in SQL, Kotlin-side.
+  markHistoryReadByChapter(params: { seriesId: string; chapterId: string }): Promise<void>;
+  markHistorySerialRead(params: { seriesId: string }): Promise<void>;
   markAllHistoryRead(): Promise<void>;
   deleteHistoryItem(params: { id: string }): Promise<void>;
   unreadCount(): Promise<number>;
@@ -147,8 +164,13 @@ const native: {
   setGroupAcrossSeries(enabled: boolean): Promise<void>;
   getRetentionDays(): Promise<number | null>;
   setRetentionDays(days: number): Promise<void>;
+  getCollapseSerialChaptersNotification(): Promise<boolean>;
+  setCollapseSerialChaptersNotification(enabled: boolean): Promise<void>;
+  getCollapseWindowMs(): Promise<number>;
   listHistory(): Promise<NotificationHistoryItem[]>;
   markHistoryRead(id: string): Promise<void>;
+  markHistoryReadByChapter(seriesId: string, chapterId: string): Promise<void>;
+  markHistorySerialRead(seriesId: string): Promise<void>;
   markAllHistoryRead(): Promise<void>;
   deleteHistoryItem(id: string): Promise<void>;
   unreadCount(): Promise<number>;
@@ -181,9 +203,14 @@ export const NotificationsBridge: NotificationsBridgeModuleInterface = {
   setGroupAcrossSeries: ({ enabled }) => native.setGroupAcrossSeries(enabled),
   getRetentionDays: () => native.getRetentionDays(),
   setRetentionDays: ({ days }) => native.setRetentionDays(days),
+  getCollapseSerialChaptersNotification: () => native.getCollapseSerialChaptersNotification(),
+  setCollapseSerialChaptersNotification: ({ enabled }) => native.setCollapseSerialChaptersNotification(enabled),
+  getCollapseWindowMs: () => native.getCollapseWindowMs(),
 
   listHistory: () => native.listHistory(),
   markHistoryRead: ({ id }) => native.markHistoryRead(id),
+  markHistoryReadByChapter: ({ seriesId, chapterId }) => native.markHistoryReadByChapter(seriesId, chapterId),
+  markHistorySerialRead: ({ seriesId }) => native.markHistorySerialRead(seriesId),
   markAllHistoryRead: () => native.markAllHistoryRead(),
   deleteHistoryItem: ({ id }) => native.deleteHistoryItem(id),
   unreadCount: () => native.unreadCount(),

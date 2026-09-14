@@ -154,12 +154,33 @@ export const NotificationsService = {
       return NotificationsBridge.setRetentionDays({ days });
     },
   },
+  // Presentation-only, the in-app history list — never touches storage/the system tray (every
+  // row is always kept separately). collapseWindowMs is build-time only, no setter.
+  collapseSerialChaptersNotification: {
+    get(): Promise<boolean> {
+      return NotificationsBridge.getCollapseSerialChaptersNotification();
+    },
+    set({ enabled }: { enabled: boolean }): Promise<void> {
+      return NotificationsBridge.setCollapseSerialChaptersNotification({ enabled });
+    },
+  },
+  collapseWindowMs: {
+    get(): Promise<number> {
+      return NotificationsBridge.getCollapseWindowMs();
+    },
+  },
   history: {
     list(): Promise<NotificationHistoryItem[]> {
       return NotificationsBridge.listHistory();
     },
     markRead({ id }: { id: string }): Promise<void> {
       return NotificationsBridge.markHistoryRead({ id });
+    },
+    markReadByChapter({ seriesId, chapterId }: { seriesId: string; chapterId: string }): Promise<void> {
+      return NotificationsBridge.markHistoryReadByChapter({ seriesId, chapterId });
+    },
+    markSerialRead({ seriesId }: { seriesId: string }): Promise<void> {
+      return NotificationsBridge.markHistorySerialRead({ seriesId });
     },
     markAllRead(): Promise<void> {
       return NotificationsBridge.markAllHistoryRead();

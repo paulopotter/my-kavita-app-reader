@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppState, PixelRatio } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
-import { ChapterEvents, ChapterTool } from '../../../shared/tools/chapters';
+import { ChapterEvents, ChapterTool, chapterEvents } from '../../../shared/tools/chapters';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { useImmersive } from '../../../shared/context/immersive';
 import { ReadingProgressManager } from '../../../shared/managers/store';
+import { createBackAction } from '../../../shared/tools/actions';
+import { Routes } from '../../../navigation/routes';
 import type {
   FocusMoveTrigger,
   OrderedChapter,
@@ -50,6 +52,21 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   const [state, dispatch] = useReducer(
     reducer,
     seriesNameHint ? { ...initialState, seriesName: seriesNameHint } : initialState,
+  );
+
+  // This screen's own "where do I fall back to" — real history (an in-app screen the user
+  // actually came from, i.e. the Serie screen a normal navigate() into the Reader already
+  // stacked) always wins first (canUseGoBack); this is only reached when there isn't any at all.
+  // canResetStack: true — a deep link resolved directly by React Navigation's own `linking` prop
+  // (linking.config.ts) always leaves *something* underneath (at minimum the Splash's own
+  // initialRouteName), never real user history; canGoBack() would report true there and goBack()
+  // would land back on that leftover screen instead of anywhere useful. Resetting the whole stack
+  // to just the series screen guarantees no such leftover ever survives — and the series screen's
+  // own backAction (useSerie) is exactly the same kind of safety net one level up, so a chain of
+  // "no real history anywhere" always ends up at the Hub, never stuck in a loop.
+  const backAction = useMemo(
+    () => createBackAction({ route: Routes.SERIES_DETAIL, params: { seriesId }, canResetStack: true }),
+    [seriesId],
   );
 
   const { setImmersive } = useImmersive();
@@ -290,6 +307,21 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
             initialChapterFraction,
             scrollTo: { chapterId: curr.id, page: initial.page },
           });
+
+          // The chapter is now genuinely open (digest resolved, window built) — announce it on
+          // the chapter domain's own event. Fired here rather than on mount so it also covers
+          // moving between chapters inside the reader (arrows/jump), and never fires for an open
+          // that failed. Whoever cares reacts on their own (notifications marks its matching
+          // history row read); this hook doesn't know who listens.
+          //
+          // Guarded: announcing is a side errand of opening, never a condition for it. Without
+          // this, a throwing listener would fall into the .catch() below and blank out a reader
+          // that had already loaded fine.
+          try {
+            chapterEvents({ seriesId, chapterId: curr.id }).opened.exec();
+          } catch {
+            // ignored on purpose — see above
+          }
           // placeholder prefetch is handled by the [state.window] effect
         })
         .catch((e: unknown) => {
@@ -675,6 +707,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   return {
     ...state,
     readingMode,
+    backAction,
     order: orderRef.current,
     hasPrevChapter,
     hasNextChapter,

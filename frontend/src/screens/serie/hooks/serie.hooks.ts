@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { ChapterTool, ChaptersTool, SerialService, SerieTool, useAction } from '../../../shared';
+import { ChapterTool, ChaptersTool, SerialService, SerieTool, createBackAction, useAction } from '../../../shared';
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
 import { useStrings } from '../../../shared/i18n';
+import { originRouteFor } from '../../../navigation/routes';
 import type { NavOrigin } from '../../../navigation/routes';
 import type { ChapterSortMode } from '../serie.types';
 
@@ -59,11 +60,13 @@ function sortChapters(chapters: SerieChapter[], mode: ChapterSortMode, fixedThre
 // uses async/await — every asynchronous method here is a plain function returning a .then()/
 // .catch() chain, so whoever calls it (this hook internally, or the screen) decides whether it
 // needs to wait on the result at all.
-export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOrigin }) {
+export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavOrigin }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serie, setSerie] = useState<Serie | null>(null);
+  // Whether this visit already announced `serie/opened` — see the load() call site.
+  const announcedOpenRef = useRef(false);
   const [isFollowed, setIsFollowed] = useState(false);
   const [sortMode, setSortMode] = useState<ChapterSortMode>(DEFAULT_SORT_PREFS.mode);
   const [sortFixedThreshold, setSortFixedThreshold] = useState<number | undefined>(DEFAULT_SORT_PREFS.fixedThreshold);
@@ -73,6 +76,14 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { realize } = useAction({ origin });
   const t = useStrings();
+
+  // This screen's own "where do I fall back to" — real history (an in-app screen the user
+  // actually came from) always wins first (canUseGoBack); this is only reached when there isn't
+  // any. originRouteFor already resolves an absent/unrecognized origin to the Hub, never guessing
+  // Library — see its own doc. canResetStack: true — same as the old inline logic this replaced
+  // (navigation.reset), landing on the fallback as a fresh root rather than stacking on top of
+  // whatever (if anything) was left behind.
+  const backAction = useMemo(() => createBackAction({ route: originRouteFor(origin), canResetStack: true }), [origin]);
 
   // SerialService.get (full=false) already returns SerialDigest cache-first (the decision lives
   // entirely in Kotlin's digest builders — see architecture.md's Cache Guideline) — a plain mount/
@@ -104,6 +115,16 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
         })
         .then(normalized => {
           setSerie(normalized);
+          // The serie is open — announced on the serie domain's own event, once per visit.
+          // Neither on a pull-to-refresh (the user is already here, not arriving) nor on every
+          // load: useFocusEffect re-runs this on every focus, including coming back from the
+          // reader, and "opened" firing then would be a lie. Whoever listens decides what it
+          // means (notifications marks the serie's chapter-less rows read); this screen doesn't
+          // know who that is.
+          if (!isRefresh && !announcedOpenRef.current) {
+            announcedOpenRef.current = true;
+            normalized.events.opened.exec();
+          }
           return SerieTool.isFollowed(seriesId);
         })
         .then(followed => {
@@ -386,6 +407,7 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin: NavOr
     selectionMode,
     selectedIds,
     realize,
+    backAction,
     refresh,
     markRead,
     markUnread,

@@ -19,6 +19,10 @@ jest.mock('../../../shared/services/serials', () => ({
 const mockMarkRead = jest.fn();
 const mockMarkUnread = jest.fn();
 let readStatusChangedHandler: ((p: unknown) => void) | null = null;
+const mockChapterOpenedExec = jest.fn();
+const mockChapterEvents = jest.fn((_args: { seriesId: string; chapterId: string }) => ({
+  opened: { exec: mockChapterOpenedExec, key: { name: 'chapter/opened' } },
+}));
 jest.mock('../../../shared/tools/chapters', () => ({
   ChapterTool: {
     format: { title: (c: { title: string }) => c.title },
@@ -28,6 +32,7 @@ jest.mock('../../../shared/tools/chapters', () => ({
     },
   },
   ChapterEvents: { readStatusChanged: { name: 'chapterReadStatusChanged' } },
+  chapterEvents: (args: { seriesId: string; chapterId: string }) => mockChapterEvents(args),
 }));
 
 jest.mock('../../../shared/managers/events', () => ({
@@ -167,6 +172,17 @@ describe('useReader V2 — open', () => {
   });
 });
 
+describe('useReader V2 — backAction', () => {
+  it('always falls back to its own series screen, with canUseGoBack so real history (an in-app screen the user came from) still wins first', async () => {
+    mockGetFull.mockResolvedValue(chapterDigest('c3', 3, { prev: 'c2', next: 'c4' }));
+    const { result } = renderHook(() => useReader('s1', 'c3'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    expect(result.current.backAction).toEqual({
+      navigate: { back: { route: 'series/:seriesId', params: { seriesId: 's1' }, canUseGoBack: true, canResetStack: true } },
+    });
+  });
+});
+
 describe('useReader V2 — chapter navigation', () => {
   it('the arrow RELOADS the next chapter (fresh window centered on it) — "location.replace"', async () => {
     mockGetFull.mockImplementation(({ chapterId }: { chapterId: string }) =>
@@ -188,6 +204,28 @@ describe('useReader V2 — chapter navigation', () => {
       expect(result.current.window!.entries[result.current.window!.focusedIndex].chapter.id).toBe('c4'),
     );
     expect(result.current.currentVisiblePage).toBe(0); // starts at the top
+  });
+
+  it('announces chapter/opened for the chapter that was actually opened', async () => {
+    mockGetFull.mockResolvedValue(chapterDigest('c1', 1));
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+
+    expect(mockChapterEvents).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c1' });
+    expect(mockChapterOpenedExec).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the reader usable when a listener of chapter/opened throws', async () => {
+    mockChapterOpenedExec.mockImplementationOnce(() => {
+      throw new Error('listener exploded');
+    });
+    mockGetFull.mockResolvedValue(chapterDigest('c1', 1));
+
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+
+    // Announcing is a side errand of opening — the window still loads and no error surfaces.
+    await waitFor(() => expect(result.current.window).not.toBeNull());
+    expect(result.current.error).toBeNull();
   });
 
   it('the arrow at the true series end is a no-op (no reload)', async () => {

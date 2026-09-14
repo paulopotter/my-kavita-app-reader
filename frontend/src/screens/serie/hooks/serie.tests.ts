@@ -36,6 +36,8 @@ jest.mock('../../../shared', () => ({
     },
   },
   useAction: () => ({ realize: jest.fn() }),
+  // real impl — pure; useSerie builds its own backAction through it
+  createBackAction: jest.requireActual('../../../shared/tools/actions/action.tool').createBackAction,
 }));
 
 import { useSerie } from './serie.hooks';
@@ -65,6 +67,9 @@ const serie = {
     { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'UNREAD' },
     { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'UNREAD' },
   ],
+  // Every normalized serie carries this (SerieTool.normalize) — useSerie fires `opened` on a
+  // real load, so a mock standing in for a normalized serie has to carry it too.
+  events: { opened: { exec: jest.fn(), key: { name: 'serie/opened' } } },
 };
 
 describe('useSerie', () => {
@@ -155,6 +160,25 @@ describe('useSerie', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockIsFollowed).toHaveBeenCalledWith('s1');
     expect(result.current.isFollowed).toBe(true);
+  });
+
+  it('announces serie/opened once on the load that opens the screen', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(serie.events.opened.exec).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not announce serie/opened again on a pull-to-refresh', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    // O usuário já estava aqui — refresh não é uma abertura.
+    expect(serie.events.opened.exec).toHaveBeenCalledTimes(1);
   });
 
   it('sets error and stops loading when the digest fails', async () => {

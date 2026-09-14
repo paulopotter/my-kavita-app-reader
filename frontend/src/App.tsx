@@ -7,6 +7,7 @@ import { ConfigRepository, StartupBridge } from './shared/bridge';
 import { StartupProvider } from './shared/context/startup';
 import { ImmersiveProvider, useImmersive } from './shared/context/immersive';
 import { registerSeriesDigestIndexListener } from './shared/managers/store';
+import { registerNotificationHistoryListener } from './shared/services/notifications';
 import { RootNavigator } from './navigation/RootNavigator';
 import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
 import { linking } from './navigation/linking.config';
@@ -40,6 +41,7 @@ function AppContent() {
     // App-wide listeners that must run whether or not their consuming screen ever mounts. Kept
     // as an explicit boot call, not an import side effect. Idempotent.
     registerSeriesDigestIndexListener();
+    registerNotificationHistoryListener();
 
     async function boot() {
       const lang = await ConfigRepository.getAppLocale().catch(() => 'en');
