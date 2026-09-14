@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
+import { useAction } from '../../shared/tools/actions';
 import { ChapterTool } from '../../shared/tools/chapters';
 import {
   ReaderOfflineBanner,
@@ -27,13 +28,13 @@ type RouteParams = {
 // webtoon adapter turns the mode-agnostic window into native ChapterBlocks.
 export function ReaderScreen() {
   const route = useRoute<RouteProp<RouteParams, 'Reader'>>();
-  const navigation = useNavigation();
   const { seriesId, chapterId, seriesName } = route.params ?? {};
   const t = useStrings();
 
   const reader = useReader(seriesId, chapterId, seriesName);
+  const { realize } = useAction();
 
-  const handleBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleBack = useCallback(() => realize(reader.backAction)(), [realize, reader.backAction]);
 
   useEffect(() => {
     return () => {

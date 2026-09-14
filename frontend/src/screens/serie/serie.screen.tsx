@@ -13,7 +13,7 @@ import {
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, Settings } from 'lucide-react-native';
-import { Routes, originRouteFor } from '../../navigation/routes';
+import { Routes } from '../../navigation/routes';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
 import { FollowStar } from '../../shared/components/follow-star';
@@ -39,7 +39,7 @@ type RouteParams = {
 export function SerieScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<RouteParams, 'Serie'>>();
-  const { seriesId, origin = 'LIBRARY' } = route.params ?? {};
+  const { seriesId, origin } = route.params ?? {};
   const t = useStrings();
 
   const [sortConfigVisible, setSortConfigVisible] = useState(false);
@@ -67,6 +67,8 @@ export function SerieScreen() {
     hasSeriesSortOverride,
     selectionMode,
     selectedIds,
+    realize,
+    backAction,
     refresh,
     toggleFollow,
     toggleSortOrder,
@@ -90,12 +92,7 @@ export function SerieScreen() {
       exitSelectionMode();
       return;
     }
-    const targetRoute = originRouteFor(origin);
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.reset({ index: 0, routes: [{ name: targetRoute }] });
-    }
+    realize(backAction)();
   }
 
   useFocusEffect(

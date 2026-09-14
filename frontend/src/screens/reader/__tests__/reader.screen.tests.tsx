@@ -10,6 +10,10 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: { seriesId: 's1', chapterId: 'c1', origin: 'LIBRARY' } }),
 }));
 
+const mockRealize = jest.fn(() => jest.fn());
+
+jest.mock('../../../shared/tools/actions', () => ({ useAction: () => ({ realize: mockRealize }) }));
+
 const mockOnScreenExit = jest.fn().mockResolvedValue(undefined);
 const mockToggleOverlay = jest.fn();
 const mockScrollToPage = jest.fn();
@@ -47,6 +51,7 @@ function entry(over: Partial<ReaderChapter> = {}, status: LoadedChapterEntry['st
 beforeEach(() => {
   jest.clearAllMocks();
   mockReaderState = {
+    backAction: { navigate: { back: { route: 'series/:seriesId', params: { seriesId: 's1' }, canUseGoBack: true } } },
     loading: true,
     error: null,
     window: null,
@@ -187,5 +192,16 @@ describe('ReaderScreen V2 — placeholder focus', () => {
     const { UNSAFE_queryAllByType } = render(<ReaderScreen />);
     const { ActivityIndicator } = require('react-native');
     expect(UNSAFE_queryAllByType(ActivityIndicator).length).toBe(0);
+  });
+});
+
+describe('ReaderScreen V2 — back button', () => {
+  it('realizes the hook\'s own backAction (its series, real history or not) instead of a plain goBack', () => {
+    withWindow([entry()], 0);
+    mockReaderState.overlayVisible = true; // the top bar (with the back button) is only visible when the overlay is
+    const { UNSAFE_getAllByType } = render(<ReaderScreen />);
+    const { TouchableOpacity } = require('react-native');
+    fireEvent.press(UNSAFE_getAllByType(TouchableOpacity)[0]);
+    expect(mockRealize).toHaveBeenCalledWith(mockReaderState.backAction);
   });
 });
