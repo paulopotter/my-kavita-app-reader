@@ -34,6 +34,17 @@ val otaManifestUrl: String =
         ?: System.getenv("OTA_MANIFEST_URL")
         ?: "https://github.com/paulopotter/my-kavita-app-reader/releases/latest/download/latest.json"
 
+// How close together (ms) two notification-history rows for the same serial need to have arrived
+// to be visually collapsed into one entry when collapseSerialChaptersNotification is on (RN,
+// config/notifications) — priority: local.properties > CI env var > default (15 minutes). Never
+// affects storage (NotificationHistoryEntity always keeps every row separate) — presentation only.
+val collapseWindowMs: Long =
+    (
+        localProps.getProperty("COLLAPSE_WINDOW_MS")
+            ?: System.getenv("COLLAPSE_WINDOW_MS")
+            ?: "900000"
+    ).toLong()
+
 // RN version read from frontend/package.json at build time
 val rnVersion: String =
     runCatching {
@@ -93,6 +104,7 @@ android {
         versionName = "1.0.0-rc9"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
+        buildConfigField("long", "COLLAPSE_WINDOW_MS", "${collapseWindowMs}L")
         buildConfigField("String", "KOTLIN_VERSION_NAME", "\"$versionName\"")
         buildConfigField("String", "RN_VERSION", "\"$rnVersion\"")
         buildConfigField("String", "APP_BUILD_DATETIME", "\"$appBuildDatetime\"")

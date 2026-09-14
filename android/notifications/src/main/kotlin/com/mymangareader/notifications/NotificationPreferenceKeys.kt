@@ -10,4 +10,10 @@ object NotificationPreferenceKeys {
     const val SCOPE_FOLLOWED_ONLY = "scopeFollowedOnly"
     const val GROUP_ACROSS_SERIES = "groupAcrossSeries"
     const val RETENTION_DAYS = "retentionDays"
+    // Presentation-only, RN-side (config/notifications) — never read by :notifications/:app.
+    // When true, the in-app history list visually collapses rows for the same serial that arrived
+    // within COLLAPSE_WINDOW_MS of each other into one entry; the underlying rows are always
+    // stored separately either way (see NotificationHistoryEntity's own doc). Default false —
+    // every row shows individually unless the user opts in.
+    const val COLLAPSE_SERIAL_CHAPTERS_NOTIFICATION = "collapseSerialChaptersNotification"
 }
