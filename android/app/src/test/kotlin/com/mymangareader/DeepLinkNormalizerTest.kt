@@ -28,6 +28,36 @@ class DeepLinkNormalizerTest {
     }
 
     @Test
+    fun `traduz a url de serie do servidor, com o prefixo de biblioteca`() {
+        assertEquals("deeplink://series/42", normalizeDeepLinkUri("https://myhost.example/library/1/series/42"))
+    }
+
+    @Test
+    fun `traduz a url de capitulo do servidor para a rota do leitor`() {
+        assertEquals("deeplink://reader/42/99", normalizeDeepLinkUri("https://myhost.example/series/42/manga/99"))
+    }
+
+    @Test
+    fun `traduz a url de capitulo do servidor com o prefixo de biblioteca`() {
+        assertEquals("deeplink://reader/42/99", normalizeDeepLinkUri("https://myhost.example/library/1/series/42/manga/99"))
+    }
+
+    @Test
+    fun `ignora a query string ao traduzir`() {
+        assertEquals("deeplink://series/42", normalizeDeepLinkUri("https://myhost.example/series/42?page=2"))
+    }
+
+    @Test
+    fun `traduz mesmo com porta no host`() {
+        assertEquals("deeplink://series/42", normalizeDeepLinkUri("http://192.168.0.1:5150/library/3/series/42"))
+    }
+
+    @Test
+    fun `retorna null para um caminho do servidor que nao leva a nenhuma tela`() {
+        assertNull(normalizeDeepLinkUri("https://myhost.example/settings/admin"))
+    }
+
+    @Test
     fun `retorna null para custom scheme sem path`() {
         assertNull(normalizeDeepLinkUri("mymangareader://"))
     }

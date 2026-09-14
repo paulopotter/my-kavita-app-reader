@@ -176,6 +176,18 @@ fun stripScheme(hostEntry: String): String =
 // exists and matches the app's signing cert — see .claude/docs/quickstart.md for how to publish
 // it; until then this filter still matches the link, just without the "opens with no prompt"
 // guarantee autoVerify is meant to buy).
+// The paths a link can arrive on. These are the CONTENT SERVER's own web URLs (what the user
+// actually taps in a browser/Telegram), never this app's internal route names — Kavita serves a
+// series both with and without the library segment, and a chapter under /manga/. Translating any
+// of these into an internal route is DeepLinkNormalizer's job (`android/app/`), Kotlin-side only.
+private val DEEP_LINK_PATH_PATTERNS =
+    listOf(
+        "/series/.*",
+        "/series/.*/manga/.*",
+        "/library/.*/series/.*",
+        "/library/.*/series/.*/manga/.*",
+    )
+
 fun buildDeepLinkSchemeFilter(
     scheme: String,
     autoVerify: Boolean,
@@ -186,20 +198,15 @@ fun buildDeepLinkSchemeFilter(
         val hostEntry = stripScheme(rawHostEntry)
         val host = hostEntry.substringBefore(':')
         val port = hostEntry.substringAfter(':', missingDelimiterValue = "").ifEmpty { null }
-        dataElements.append("            <data\n")
-        dataElements.append("                android:scheme=\"$scheme\"\n")
-        dataElements.append("                android:host=\"$host\"\n")
-        if (port != null) {
-            dataElements.append("                android:port=\"$port\"\n")
+        for (pathPattern in DEEP_LINK_PATH_PATTERNS) {
+            dataElements.append("            <data\n")
+            dataElements.append("                android:scheme=\"$scheme\"\n")
+            dataElements.append("                android:host=\"$host\"\n")
+            if (port != null) {
+                dataElements.append("                android:port=\"$port\"\n")
+            }
+            dataElements.append("                android:pathPattern=\"$pathPattern\" />\n")
         }
-        dataElements.append("                android:pathPattern=\"/series/.*\" />\n")
-        dataElements.append("            <data\n")
-        dataElements.append("                android:scheme=\"$scheme\"\n")
-        dataElements.append("                android:host=\"$host\"\n")
-        if (port != null) {
-            dataElements.append("                android:port=\"$port\"\n")
-        }
-        dataElements.append("                android:pathPattern=\"/reader/.*/.*\" />\n")
     }
 
     val autoVerifyAttr = if (autoVerify) " android:autoVerify=\"true\"" else ""

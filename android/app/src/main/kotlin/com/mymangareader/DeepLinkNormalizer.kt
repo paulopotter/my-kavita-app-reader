@@ -64,7 +64,38 @@ fun normalizeDeepLinkUri(rawUri: String): String? {
     val path = if (isHttp) afterScheme.substringAfter('/', missingDelimiterValue = "") else afterScheme
 
     if (path.isBlank()) return null
-    return "$DEEPLINK_SCHEME$path"
+    val route = internalRouteFor(path) ?: return null
+    return "$DEEPLINK_SCHEME$route"
+}
+
+// Translates whatever path a link arrived on into this app's own internal route. The content
+// server's web URLs and the app's routes are NOT the same vocabulary — Kavita serves a series at
+// /series/{id} or /library/{libraryId}/series/{id}, and a chapter under /manga/{id}, while RN
+// navigates to series/{id} and reader/{seriesId}/{chapterId}.
+//
+// Kept entirely on this side: linking.config.ts only ever knows the internal scheme, so a new
+// entry point (another server's URL shape, another custom scheme) is a Kotlin-only change.
+//
+// The custom mymangareader:// scheme already speaks internal routes (NotificationDisplay builds
+// it that way), so those fall through unchanged — matching nothing below and being returned
+// as-is is the correct outcome for them.
+private fun internalRouteFor(path: String): String? {
+    val segments = path.trim('/').substringBefore('?').split('/').filter { it.isNotEmpty() }
+    if (segments.isEmpty()) return null
+
+    // /library/{libraryId}/... is just a prefix Kavita adds; the library id means nothing to this
+    // app, which addresses a series by its own id alone.
+    val meaningful = if (segments.size >= 2 && segments[0] == "library") segments.drop(2) else segments
+
+    return when {
+        // Already an internal route (custom scheme, or a notification's own PendingIntent).
+        meaningful.size == 2 && meaningful[0] == "series" -> "series/${meaningful[1]}"
+        meaningful.size == 3 && meaningful[0] == "reader" -> "reader/${meaningful[1]}/${meaningful[2]}"
+        // The content server's own chapter URL: /series/{seriesId}/manga/{chapterId}.
+        meaningful.size == 4 && meaningful[0] == "series" && meaningful[2] == "manga" ->
+            "reader/${meaningful[1]}/${meaningful[3]}"
+        else -> null
+    }
 }
 
 // The workaround for a deep link host we don't control (the Kavita server's own domain — see
