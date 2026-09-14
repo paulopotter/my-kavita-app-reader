@@ -61,11 +61,8 @@ fun NotificationHistoryItem.toWritableMap(): WritableMap =
         putString("id", id)
         putString("seriesId", seriesId)
         putString("seriesName", seriesName)
-        putArray("chapterIds", chapterIds?.let { ids -> Arguments.createArray().also { arr -> ids.forEach { arr.pushString(it) } } })
-        putArray(
-            "chapterNumbers",
-            chapterNumbers?.let { numbers -> Arguments.createArray().also { arr -> numbers.forEach { arr.pushString(it) } } },
-        )
+        chapterId?.let { putString("chapterId", it) } ?: putNull("chapterId")
+        chapterNumber?.let { putString("chapterNumber", it) } ?: putNull("chapterNumber")
         putDouble("detectedAtMs", detectedAtMs.toDouble())
         putBoolean("read", read)
         putDouble("createdAtLocalMs", createdAtLocalMs.toDouble())

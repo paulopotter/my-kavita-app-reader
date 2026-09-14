@@ -11,21 +11,18 @@ import org.robolectric.RobolectricTestRunner
 class NotificationDisplayTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
-    // ── notificationId / notificationHistoryId ──
+    // ── notificationId ── derived from the history row's own fresh id (a UUID per batch), never
+    // from the serial's id — see NotificationDisplay's own doc on why multiple pending
+    // notifications for the same serial can now coexist in the tray.
 
     @Test
-    fun `notificationId e estavel para a mesma seriesId`() {
-        assertEquals(NotificationDisplay.notificationId("1"), NotificationDisplay.notificationId("1"))
+    fun `notificationId e estavel para o mesmo historyId`() {
+        assertEquals(NotificationDisplay.notificationId("h1"), NotificationDisplay.notificationId("h1"))
     }
 
     @Test
-    fun `notificationId difere entre seriesId diferentes`() {
-        assertNotEquals(NotificationDisplay.notificationId("1"), NotificationDisplay.notificationId("2"))
-    }
-
-    @Test
-    fun `notificationHistoryId deriva do mesmo hash de notificationId`() {
-        assertEquals(NotificationDisplay.notificationId("1").toString(), NotificationDisplay.notificationHistoryId("1"))
+    fun `notificationId difere entre historyId diferentes`() {
+        assertNotEquals(NotificationDisplay.notificationId("h1"), NotificationDisplay.notificationId("h2"))
     }
 
     // ── buildBody — os 3 casos do README ──
