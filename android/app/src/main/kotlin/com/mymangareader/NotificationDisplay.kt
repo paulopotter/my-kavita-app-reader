@@ -70,8 +70,9 @@ class NotificationDisplay
             // (the tray always reflects the batch as received, never split per chapter), but N
             // separate rows in storage. The first row's id is what the tray notification itself
             // gets derived from/tap-linked to — an arbitrary but stable choice among the batch's
-            // own rows, never meaningful on its own (markReadOnOpen-equivalent concerns are a
-            // separate, not-yet-built piece — see this task's own scope note).
+            // own rows, never meaningful on its own. Marking a row read is nobody's business here:
+            // each one is marked when its own content is actually consumed, wherever that happens
+            // (NotificationEvents.contentConsumed, RN side).
             val historyIds = resolved.explodeToHistoryItems().map { notifications.history.insert(it) }
             val historyId = historyIds.first()
             NotificationsBridgeModule.notifyUnreadCountChanged(notifications.history.countUnread())
