@@ -4,6 +4,7 @@
 
 | Plan | Description |
 |------|-------------|
+| [024 — Storage Footprint & Resource Hygiene](active/024-storage-footprint/README.md) | 5 tasks — pending. Novo módulo `:storage` (Layer 2) para medir e recuperar espaço: medição real por fonte (páginas Coil / cache Room / resto) antes de escolher números, teto de cache configurável pelo usuário substituindo o `READER_DISK_CACHE_MAX_BYTES` fixo de 500 MB, purga do `:cache` (que já existe e nunca é chamada) ligada na splash, e tela `config/storage/` com uso por fonte + limpeza manual. Sem job periódico, sem `WorkManager`, sem telemetria |
 | [008 — Notifications & Deep Links](active/008-notifications/README.md) | 9 tasks — pending. `:notifications` module (foreground service + persistent ntfy WebSocket), series resolution/filter by Following, per-series native notifications, config sub-screen, in-app history with configurable retention, plus a new deep link mechanism (`mymangareader://` scheme + optional configurable App Link hosts) the notification tap depends on |
 
 ## Concluídos
