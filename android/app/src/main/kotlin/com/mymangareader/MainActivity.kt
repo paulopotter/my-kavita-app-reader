@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import androidx.appcompat.app.AlertDialog
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -21,6 +22,12 @@ import kotlinx.coroutines.launch
 
 private const val PREFS_NAME = "app_lifecycle"
 private const val KEY_LAST_STOPPED_AT_MS = "last_stopped_at_ms"
+private const val KEY_CONSUMED_DEEPLINK_TAP_IDS = "consumed_deeplink_tap_ids"
+// Small cap on the persisted set — a tap id is only ever needed once (to reject a stale re-delivery
+// of the same Intent), so nothing is lost by not keeping history forever. Prevents this from
+// growing unbounded across a long-lived install.
+private const val MAX_REMEMBERED_TAP_IDS = 20
+private const val TAG = "MainActivity"
 
 // The native system splash is held until BOTH the OTA gate has resolved AND the RN splash has
 // mounted (StartupModule.markUiReady), or this many ms elapse — whichever comes first. The
@@ -41,24 +48,97 @@ class MainActivity : ReactActivity() {
 
     override fun createReactActivityDelegate(): ReactActivityDelegate = DefaultReactActivityDelegate(this, mainComponentName, false)
 
-    // RN's own Linking module reads the deep link URI straight off getIntent() (see
-    // IntentModule.getInitialURL) — both for a cold start and, after onNewIntent below calls
-    // setIntent(), for a link received while already open. Rewriting the Intent's data here means
-    // React Navigation (`linking.config.ts`) only ever sees the internal `deeplink://` scheme,
-    // regardless of whether the real entry point was the static `mymangareader://` scheme or one
-    // of the configured http(s) App Link hosts (Plan 008 Task 004) — RN never needs to know hosts
-    // exist at all. Android already validated the incoming URI against a registered intent-filter
-    // before this Activity was ever started, so this never re-validates a host, only extracts path.
-    override fun getIntent(): Intent {
-        val original = super.getIntent()
-        val rawUri = original?.data?.toString() ?: return original
-        val normalized = normalizeDeepLinkUri(rawUri) ?: return original
-        return Intent(original).apply { data = Uri.parse(normalized) }
-    }
+    // RN's own Linking module does NOT read the URI off getIntent() the way the doc used to
+    // assume — confirmed by decompiling react-android 0.75.4: ReactActivity.onNewIntent(intent)
+    // → ReactActivityDelegate → ReactDelegate → ReactInstanceManager.onNewIntent(intent) all pass
+    // the raw `intent` PARAMETER straight through, and ReactInstanceManager reads
+    // `intent.getData()` off that same parameter to call
+    // DeviceEventManagerModule.emitNewIntentReceived(uri) — the event React Navigation's `linking`
+    // prop listens for. getIntent() overriding this Activity's own accessor never enters that path
+    // at all for a warm link (already-running app, notification tapped) — only IntentModule
+    // .getInitialURL() (a cold start) actually calls getIntent(). So the URI must be normalized
+    // into the Intent BEFORE it's handed to super.onNewIntent()/setIntent(), not after.
+    //
+    // [resolveDeepLinkIntent] is the one place that normalizes a URI (`normalizeDeepLinkUri`) and
+    // consumes a notification tap id at most once (`consumeDeepLinkTapId`, DeepLinkNormalizer.kt)
+    // — called from both getIntent() (cold start) and onNewIntent() (already-running app), so
+    // neither path can drift from the other again.
+    //
+    // A notification's PendingIntent carries EXTRA_DEEPLINK_TAP_ID (NotificationDisplay), a fresh
+    // id per tap. The OS can hand the same Intent back on a later, unrelated launch — reopening
+    // from the launcher icon, or from the recents list — even after the process was killed, since
+    // the Intent that originally started the Activity is what the OS replays (there is no second
+    // "real" tap in that case). The persisted SharedPreferences set (not just in-memory) is what
+    // rejects that replay. An Intent with no tap id (any non-notification launch) is never
+    // touched here.
+    override fun getIntent(): Intent = resolveDeepLinkIntent(super.getIntent(), source = "getIntent")
 
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
+        val resolved = resolveDeepLinkIntent(intent, source = "onNewIntent")
+        super.onNewIntent(resolved)
+        setIntent(resolved)
+    }
+
+    // Idempotent per Intent identity — repeated calls for the exact same Intent instance (which
+    // getIntent() legitimately receives many times over the Activity's life) return the cached
+    // result instead of re-consulting (and re-rejecting against) the persisted consumed-set.
+    private var lastSeenIntent: Intent? = null
+    private var lastResolvedIntent: Intent? = null
+
+    private fun resolveDeepLinkIntent(
+        original: Intent,
+        source: String,
+    ): Intent {
+        if (original === lastSeenIntent) {
+            return lastResolvedIntent ?: original
+        }
+        lastSeenIntent = original
+        lastResolvedIntent = null
+
+        // ACTION_SEND (the "Share" sheet workaround — see AndroidManifest.xml's own doc on it)
+        // carries the URL as free-form EXTRA_TEXT, never as Intent.data the way a tapped
+        // ACTION_VIEW link does — everything below this treats both the same from here on.
+        val rawUri =
+            if (original.action == Intent.ACTION_SEND) {
+                extractSharedUrl(original.getStringExtra(Intent.EXTRA_TEXT))
+            } else {
+                original.data?.toString()
+            } ?: return original
+        val tapId = original.getStringExtra(EXTRA_DEEPLINK_TAP_ID)
+
+        if (tapId != null && !rememberDeepLinkTap(tapId)) {
+            Log.w(TAG, "$source() — tapId=$tapId already consumed (stale Intent replay, e.g. reopened from icon/recents) — deep link not honored")
+            return original
+        }
+
+        val normalized = normalizeDeepLinkUri(rawUri) ?: return original
+        Log.i(TAG, "$source() — rawUri=$rawUri tapId=$tapId -> normalized=$normalized")
+        // ACTION_SEND itself is rewritten to ACTION_VIEW here — everything downstream (RN's
+        // Linking module, ReactInstanceManager.onNewIntent, see this function's own doc) only
+        // ever recognizes ACTION_VIEW; a resolved Intent still carrying ACTION_SEND would have
+        // its `data` read correctly by the code above but never reach React Navigation.
+        val resolved =
+            Intent(original).apply {
+                action = Intent.ACTION_VIEW
+                data = Uri.parse(normalized)
+            }
+        lastResolvedIntent = resolved
+        return resolved
+    }
+
+    // Returns true the first time this tap id is seen; false (with the tap rejected) on every
+    // subsequent call for the same id. The actual set/cap arithmetic is consumeDeepLinkTapId
+    // (DeepLinkNormalizer.kt) — pure and unit-testable on its own; this just wires it to
+    // SharedPreferences, since "kill the process, reopen from the icon" (the case being guarded
+    // against) must survive across process restarts, not just in-memory state.
+    private fun rememberDeepLinkTap(tapId: String): Boolean {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // getStringSet's contract requires never mutating the returned Set — consumeDeepLinkTapId
+        // only ever reads it and returns a fresh Set, never touches this one in place.
+        val alreadyConsumed = prefs.getStringSet(KEY_CONSUMED_DEEPLINK_TAP_IDS, emptySet()) ?: emptySet()
+        val result = consumeDeepLinkTapId(tapId, alreadyConsumed, MAX_REMEMBERED_TAP_IDS)
+        prefs.edit().putStringSet(KEY_CONSUMED_DEEPLINK_TAP_IDS, result.consumed).apply()
+        return result.wasFirstSeen
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -151,5 +231,9 @@ class MainActivity : ReactActivity() {
             .edit()
             .putLong(KEY_LAST_STOPPED_AT_MS, System.currentTimeMillis())
             .apply()
+    }
+
+    companion object {
+        const val EXTRA_DEEPLINK_TAP_ID = "deeplink_tap_id"
     }
 }

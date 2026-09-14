@@ -155,37 +155,67 @@ fun readDeepLinkHostsFromLocalProperties(localPropertiesFile: File): List<String
         .filter { it.isNotEmpty() }
 }
 
-fun buildDeepLinkHostsBlock(hosts: List<String>): String {
-    if (hosts.isEmpty()) return ""
+// Strips a leading "http://"/"https://" (and a trailing "/") a host entry might still carry —
+// env-to-local-properties.sh already does this on its own side, but local.properties can also be
+// hand-edited directly, so this stays defensive here too rather than trusting that script ran.
+// android:host/android:port manifest attributes never carry a scheme; without this, "https://
+// host.com" makes substringBefore(':') below read "https" as the host and "//host.com" as the
+// "port", which crashes the manifest parser at install time (not even at build time).
+fun stripScheme(hostEntry: String): String =
+    hostEntry
+        .removePrefix("http://")
+        .removePrefix("https://")
+        .removeSuffix("/")
 
+// Android App Links verification (the assetlinks.json handshake) only ever runs over https, and
+// only when every <data> element in the SAME <intent-filter> the verification looks at carries
+// android:autoVerify — so http and https can never share one filter here: http gets its own
+// filter without autoVerify (works for plain http hosts/IPs, e.g. a local dev server, but never
+// auto-verifies — Android doesn't verify App Links for bare IPs at all), https gets its own
+// filter WITH autoVerify (only takes effect once https://<host>/.well-known/assetlinks.json
+// exists and matches the app's signing cert — see .claude/docs/quickstart.md for how to publish
+// it; until then this filter still matches the link, just without the "opens with no prompt"
+// guarantee autoVerify is meant to buy).
+fun buildDeepLinkSchemeFilter(
+    scheme: String,
+    autoVerify: Boolean,
+    hosts: List<String>,
+): String {
     val dataElements = StringBuilder()
-    for (hostEntry in hosts) {
+    for (rawHostEntry in hosts) {
+        val hostEntry = stripScheme(rawHostEntry)
         val host = hostEntry.substringBefore(':')
         val port = hostEntry.substringAfter(':', missingDelimiterValue = "").ifEmpty { null }
-        for (scheme in listOf("http", "https")) {
-            dataElements.append("            <data\n")
-            dataElements.append("                android:scheme=\"$scheme\"\n")
-            dataElements.append("                android:host=\"$host\"\n")
-            if (port != null) {
-                dataElements.append("                android:port=\"$port\"\n")
-            }
-            dataElements.append("                android:pathPattern=\"/series/.*\" />\n")
-            dataElements.append("            <data\n")
-            dataElements.append("                android:scheme=\"$scheme\"\n")
-            dataElements.append("                android:host=\"$host\"\n")
-            if (port != null) {
-                dataElements.append("                android:port=\"$port\"\n")
-            }
-            dataElements.append("                android:pathPattern=\"/reader/.*/.*\" />\n")
+        dataElements.append("            <data\n")
+        dataElements.append("                android:scheme=\"$scheme\"\n")
+        dataElements.append("                android:host=\"$host\"\n")
+        if (port != null) {
+            dataElements.append("                android:port=\"$port\"\n")
         }
+        dataElements.append("                android:pathPattern=\"/series/.*\" />\n")
+        dataElements.append("            <data\n")
+        dataElements.append("                android:scheme=\"$scheme\"\n")
+        dataElements.append("                android:host=\"$host\"\n")
+        if (port != null) {
+            dataElements.append("                android:port=\"$port\"\n")
+        }
+        dataElements.append("                android:pathPattern=\"/reader/.*/.*\" />\n")
     }
 
-    return "        <intent-filter>\n" +
+    val autoVerifyAttr = if (autoVerify) " android:autoVerify=\"true\"" else ""
+    return "        <intent-filter$autoVerifyAttr>\n" +
         "            <action android:name=\"android.intent.action.VIEW\" />\n" +
         "            <category android:name=\"android.intent.category.DEFAULT\" />\n" +
         "            <category android:name=\"android.intent.category.BROWSABLE\" />\n" +
         dataElements.toString() +
         "        </intent-filter>\n"
+}
+
+fun buildDeepLinkHostsBlock(hosts: List<String>): String {
+    if (hosts.isEmpty()) return ""
+
+    return buildDeepLinkSchemeFilter("http", autoVerify = false, hosts) +
+        buildDeepLinkSchemeFilter("https", autoVerify = true, hosts)
 }
 
 fun writeDeepLinkHostsBlock(

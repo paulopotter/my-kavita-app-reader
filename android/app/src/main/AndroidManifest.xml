@@ -51,6 +51,21 @@
             untouched. `clearDeepLinkHosts` restores it to empty after producing an APK.
             -->
         <!-- GENERATED_DEEP_LINK_HOSTS_END -->
+
+            <!--
+            Shows up on the browser/other apps' "Share" sheet — needed because the deep link
+            host is the Kavita server's own domain (not ours to control), so there's no
+            .well-known/assetlinks.json we can ever publish there and android:autoVerify above
+            can never actually verify it. Without this, the http(s) filter above still matches
+            ACTION_VIEW (tapping an existing link still offers/opens the app), but the OS never
+            offers the app for a URL just typed/pasted into the browser. Sharing the URL
+            manually works around that gap.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <service

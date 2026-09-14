@@ -1,5 +1,39 @@
 package com.mymangareader
 
+import java.util.UUID
+
+// One unique id per notification tap — distinct from NotificationDisplay's notificationId(seriesId)
+// (which stays the same across a series' notifications so a new batch replaces rather than stacks).
+// MainActivity carries this in the Intent's extras and consumes it exactly once (see its own
+// getIntent() doc) so re-opening the app later — from the launcher icon, or the recents list, both
+// of which can hand back the very same Intent that originally launched the Activity — never
+// re-triggers the same deep link a second time.
+object DeepLinkTapId {
+    fun next(): String = UUID.randomUUID().toString()
+}
+
+// The result of trying to consume a notification tap id exactly once (see MainActivity.getIntent()'s
+// own doc) — pure set arithmetic, no SharedPreferences here, so it's testable on its own.
+// [consumed] is what MainActivity should persist back, regardless of [wasFirstSeen]: even a repeat
+// id updates the cap window the same way a fresh one would.
+data class DeepLinkTapConsumption(
+    val wasFirstSeen: Boolean,
+    val consumed: Set<String>,
+)
+
+// A tap id is only ever needed once — reject a repeat, and cap how many are remembered so the
+// persisted set never grows unbounded across a long-lived install.
+fun consumeDeepLinkTapId(
+    tapId: String,
+    alreadyConsumed: Set<String>,
+    maxRemembered: Int,
+): DeepLinkTapConsumption {
+    if (tapId in alreadyConsumed) return DeepLinkTapConsumption(wasFirstSeen = false, consumed = alreadyConsumed)
+    val updated = alreadyConsumed + tapId
+    val capped = if (updated.size > maxRemembered) updated.toList().takeLast(maxRemembered).toSet() else updated
+    return DeepLinkTapConsumption(wasFirstSeen = true, consumed = capped)
+}
+
 // Every real entry point (the static mymangareader:// scheme, and any configured http(s) App
 // Link host — see generateDeepLinkHosts in build.gradle.kts) already got validated by Android
 // itself before this ever runs: the OS only hands MainActivity an Intent whose URI matched one
@@ -32,3 +66,14 @@ fun normalizeDeepLinkUri(rawUri: String): String? {
     if (path.isBlank()) return null
     return "$DEEPLINK_SCHEME$path"
 }
+
+// The workaround for a deep link host we don't control (the Kavita server's own domain — see
+// AndroidManifest.xml's ACTION_SEND intent-filter's own doc): the share sheet hands MainActivity
+// free-form EXTRA_TEXT, e.g. "Check this series: https://host/series/123" or just the bare URL —
+// never a URI already in Intent.data the way a tapped link is. Pulls the first http(s) URL out of
+// that text so it can go through the exact same normalizeDeepLinkUri() path a real ACTION_VIEW
+// link would. Returns null when the shared text carries no http(s) URL at all (sharing a photo
+// caption, plain text with no link, etc.) — MainActivity leaves a SEND Intent with no URL alone.
+private val HTTP_URL_REGEX = Regex("""https?://\S+""")
+
+fun extractSharedUrl(sharedText: String?): String? = sharedText?.let { HTTP_URL_REGEX.find(it)?.value }

@@ -32,10 +32,13 @@ else
   exit 1
 fi
 
-# DEEPLINK_HOSTS is a comma-separated list in .env (e.g. "host1.com,host2.com:8080") but the
-# Gradle side (generateDeepLinkHosts, android/app/build.gradle.kts) expects it expanded into
-# numbered keys — deeplink.host1, deeplink.host2, ... Anything beyond MAX_DEEPLINK_HOSTS is
-# dropped with a warning rather than silently truncated.
+# DEEPLINK_HOSTS is a comma-separated list in .env — a bare host, optionally with a port
+# (e.g. "host1.com,host2.com:8080"), OR a full http(s):// URL (e.g. "https://host1.com") since
+# that's what a user copies from a browser address bar most naturally. The Gradle side
+# (generateDeepLinkHosts, android/app/build.gradle.kts) only ever wants host[:port] — an
+# android:host/android:port manifest attribute never carries a scheme — so any leading
+# "http://"/"https://" is stripped here, before it ever reaches local.properties, not after.
+# Anything beyond MAX_DEEPLINK_HOSTS is dropped with a warning rather than silently truncated.
 DEEPLINK_HOSTS_RAW="$(printf '%s\n' "$ENV_CONTENT" | grep '^DEEPLINK_HOSTS=' | cut -d= -f2- | tr -d '[:space:]' || true)"
 DEEPLINK_LINES=""
 if [ -n "$DEEPLINK_HOSTS_RAW" ]; then
@@ -46,6 +49,9 @@ if [ -n "$DEEPLINK_HOSTS_RAW" ]; then
   index=1
   for host in "${HOSTS[@]}"; do
     [ "$index" -gt "$MAX_DEEPLINK_HOSTS" ] && break
+    host="${host#http://}"
+    host="${host#https://}"
+    host="${host%/}" # a trailing "/" (e.g. from "https://host.com/") is never part of a host either
     [ -z "$host" ] && continue
     DEEPLINK_LINES="${DEEPLINK_LINES}deeplink.host${index}=${host}
 "
