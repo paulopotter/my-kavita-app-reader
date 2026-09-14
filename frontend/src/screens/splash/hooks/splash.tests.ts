@@ -77,6 +77,7 @@ beforeEach(() => {
   reauthenticate.mockResolvedValue(undefined);
   assemble.mockResolvedValue({ entries: [], lastUpdatedEpochMs: null });
   seed.mockReturnValue(undefined);
+  jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(null);
 });
 
 // ── runSplashBoot (pure) ─────────────────────────────────────────────────────
@@ -162,6 +163,46 @@ describe('runSplashBoot', () => {
     expect(seed).not.toHaveBeenCalled();
   });
 
+  // ── deep link (a notification tap's consumed-once URI, see MainActivity.getIntent()'s own doc) ──
+
+  it('a pending deeplink://series/:id redirects there instead of home, after the normal boot still succeeds', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue('deeplink://series/42');
+    const r = await runSplashBoot(noopSteps);
+    expect(setActiveGroup).toHaveBeenCalledWith({ groupId: 'g1' }); // the deep link never skips auth
+    expect(r.destination).toEqual({ kind: 'serial', seriesId: '42' });
+  });
+
+  it('a pending deeplink://reader/:seriesId/:chapterId redirects there instead of home', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue('deeplink://reader/42/101');
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'reader', seriesId: '42', chapterId: '101' });
+  });
+
+  it('a deep link never overrides setup — invalid credentials still wins', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue('deeplink://series/42');
+    setActiveGroup.mockRejectedValue(new Error('Invalid API key (401)'));
+    reauthenticate.mockRejectedValue(new Error('Authentication failed: HTTP 403'));
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'setup' });
+  });
+
+  it('no pending deep link (normal reopen) → home as before', async () => {
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'home' });
+  });
+
+  it('an unparseable/unrelated initial URL is ignored → home', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue('deeplink://something/unexpected');
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'home' });
+  });
+
+  it('getInitialURL rejecting is treated the same as no deep link → home', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockRejectedValue(new Error('native error'));
+    const r = await runSplashBoot(noopSteps);
+    expect(r.destination).toEqual({ kind: 'home' });
+  });
+
   it('drives progress forward through the steps', async () => {
     const seen: number[] = [];
     await runSplashBoot({ onStep: () => {}, onProgress: v => seen.push(v) });
@@ -192,6 +233,21 @@ describe('useSplash — mount', () => {
   it('progress ends at 1 on a healthy boot', async () => {
     const { result } = renderHook(() => useSplash());
     await waitFor(() => expect(result.current.progress).toBe(1));
+  });
+
+  // A pending deep link (series/reader) still lands the splash's own navigate on the hub —
+  // React Navigation's own `linking` prop (linking.config.ts) resolves the actual URL into
+  // Serie/Reader on its own, independently of this boot graph. See navActionFor's own doc.
+  it('a pending series deep link still resolves navigate to the hub', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue('deeplink://series/42');
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.navigate).toEqual({ index: 0, routes: [{ name: 'hub' }] }));
+  });
+
+  it('a pending reader deep link still resolves navigate to the hub', async () => {
+    jest.spyOn(Linking, 'getInitialURL').mockResolvedValue('deeplink://reader/42/101');
+    const { result } = renderHook(() => useSplash());
+    await waitFor(() => expect(result.current.navigate).toEqual({ index: 0, routes: [{ name: 'hub' }] }));
   });
 });
 

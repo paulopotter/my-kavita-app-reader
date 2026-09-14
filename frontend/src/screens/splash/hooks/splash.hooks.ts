@@ -41,6 +41,27 @@ const P = {
 // the warm-up keeps running and still seeds.
 const WARMUP_BUDGET_MS = 2000;
 
+// Parses the internal deeplink:// URI (see linking.config.ts's own doc — MainActivity has already
+// rewritten every real entry point to this one scheme by the time RN ever sees it) into a
+// SplashDestination. Pure/testable on its own: never called for a URI that isn't this scheme
+// (Linking.getInitialURL() only ever returns what MainActivity.getIntent() handed it, so a
+// mismatched scheme here would mean a bug upstream, not a real case to handle silently).
+// Returns null for anything that doesn't match series/:id or reader/:seriesId/:chapterId — the
+// caller falls back to the normal 'home'/'setup' boot in that case.
+function parseDeepLinkDestination(uri: string | null): SplashDestination | null {
+  if (!uri || !uri.startsWith('deeplink://')) { return null; }
+  const path = uri.slice('deeplink://'.length);
+  const segments = path.split('/').filter(Boolean);
+
+  if (segments[0] === 'series' && segments[1]) {
+    return { kind: 'serial', seriesId: segments[1] };
+  }
+  if (segments[0] === 'reader' && segments[1] && segments[2]) {
+    return { kind: 'reader', seriesId: segments[1], chapterId: segments[2] };
+  }
+  return null;
+}
+
 // ── boot graph ───────────────────────────────────────────────────────────────
 // Pure async orchestration — no React. Same "sits next to the hook, not in a separate file"
 // arrangement as the library's assembleLibrary. Tested with a plain `await` (see splash.tests).
@@ -56,6 +77,15 @@ export async function runSplashBoot(opts: {
   onProgress: (value: number) => void;
 }): Promise<{ destination: SplashDestination }> {
   const { onStep, onProgress } = opts;
+
+  // Read once, up front — Linking.getInitialURL() surfaces exactly what MainActivity.getIntent()
+  // decided to hand over this boot (see its own doc: a notification tap's URI is consumed at most
+  // once there, so re-opening the app later never sees it again). Held for the rest of this boot
+  // rather than re-read, since a second read isn't guaranteed to return the same thing.
+  const initialUrl = await Linking.getInitialURL().catch(() => null);
+  const deepLink = parseDeepLinkDestination(initialUrl);
+  // eslint-disable-next-line no-console
+  console.log('[splash] deep link check — initialUrl:', initialUrl, 'parsed:', deepLink);
 
   onStep('checking server');
   onProgress(P.start);
@@ -97,7 +127,12 @@ export async function runSplashBoot(opts: {
   ]);
 
   onProgress(P.done);
-  return { destination: { kind: 'home' } };
+  // A resolved deep link only ever redirects once the normal boot would otherwise land on 'home'
+  // — same session/auth prerequisites either way, so a deep link never skips them.
+  const destination = deepLink ?? ({ kind: 'home' } as const);
+  // eslint-disable-next-line no-console
+  console.log('[splash] boot finished — destination:', destination);
+  return { destination };
 }
 
 // Runs the light Library assembly (list + BFF batch match; no per-series digests) and seeds the
@@ -183,8 +218,11 @@ function navActionFor(destination: SplashDestination): SplashNavAction {
       return { index: 0, routes: [{ name: Routes.SETUP }] };
     case 'home':
       return { index: 0, routes: [{ name: Routes.HUB }] };
-    // Deep-link targets: land on the hub for now (no series/reader stacking yet). When deep
-    // links are wired, add the extra route(s)/params here — the screen doesn't change.
+    // Deep-link targets: land on the hub for now. React Navigation's own `linking` prop
+    // (linking.config.ts) already resolves the real URL into Serie/Reader on its own — whichever
+    // of the two actually reaches the URL first, both are safe: Serie/Reader each carry their own
+    // `actions.navigate.back` fallback (useSerie/useReader, shared/tools/actions), so neither one
+    // depends on the stack this splash boot builds.
     case 'serial':
       return { index: 0, routes: [{ name: Routes.HUB }] };
     case 'reader':

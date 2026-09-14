@@ -9,7 +9,11 @@ import { Routes } from './routes';
 const INTERNAL_SCHEME = 'deeplink://';
 
 // React Navigation resolves a matched URL into a screen itself (getInitialURL for a cold start,
-// its own listener for a warm one) — nothing here wires that listening mechanism by hand.
+// its own listener for a warm one) — nothing here wires that listening mechanism by hand. A
+// resolved path landing as the ONLY route in the stack (no Hub/Serie underneath) is fine: Reader/
+// Serie each carry their own `actions.navigate.back` fallback (useReader/useSerie, shared/tools/
+// actions) — they never depend on the stack being any particular shape to know where to go back
+// to. See NavigationTool's own doc.
 export const linking: LinkingOptions<Record<string, object | undefined>> = {
   prefixes: [INTERNAL_SCHEME],
   config: {

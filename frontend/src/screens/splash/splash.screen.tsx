@@ -20,6 +20,8 @@ export function SplashScreen() {
 
   useEffect(() => {
     if (navigate) {
+      // eslint-disable-next-line no-console
+      console.log('[splash] navigation.reset ->', JSON.stringify(navigate));
       navigation.reset(navigate);
     }
   }, [navigate, navigation]);
