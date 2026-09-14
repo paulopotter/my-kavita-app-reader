@@ -52,7 +52,11 @@
     "minimatch": "^9.0.7",
     "fast-xml-parser": "^5.7.0",
     "image-size": "1.2.1",
-    "decode-uri-component": "^0.5.0"
+    "decode-uri-component": "^0.5.0",
+    "js-yaml": "^4.3.2",
+    "**/cosmiconfig/js-yaml": "^3.15.2",
+    "**/@istanbuljs/load-nyc-config/js-yaml": "^3.15.2",
+    "joi": "^17.13.8"
   },
   "jest": {
     "preset": "react-native",
