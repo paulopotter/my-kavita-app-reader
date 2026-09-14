@@ -88,6 +88,18 @@ describe('NotificationsBridge', () => {
     expect(native.setRetentionDays).toHaveBeenCalledWith(30);
   });
 
+  it('getCollapseSerialChaptersNotification takes no arguments and setCollapseSerialChaptersNotification unwraps enabled', async () => {
+    await NotificationsBridge.getCollapseSerialChaptersNotification();
+    expect(native.getCollapseSerialChaptersNotification).toHaveBeenCalledWith();
+    await NotificationsBridge.setCollapseSerialChaptersNotification({ enabled: true });
+    expect(native.setCollapseSerialChaptersNotification).toHaveBeenCalledWith(true);
+  });
+
+  it('getCollapseWindowMs takes no arguments', async () => {
+    await NotificationsBridge.getCollapseWindowMs();
+    expect(native.getCollapseWindowMs).toHaveBeenCalledWith();
+  });
+
   it('listHistory takes no arguments', async () => {
     await NotificationsBridge.listHistory();
     expect(native.listHistory).toHaveBeenCalledWith();

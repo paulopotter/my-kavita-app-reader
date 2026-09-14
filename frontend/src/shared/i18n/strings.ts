@@ -238,6 +238,7 @@ export interface Strings {
   notificationsScopeAll: string;
   notificationsScopeFollowedOnly: string;
   notificationsGroupAcrossSeries: string;
+  notificationsCollapseSerialChaptersNotification: string;
   notificationsRetentionLabel: string;
   notificationsRetentionDaysSuffix: string;
   notificationsGroupsTitle: string;
@@ -485,6 +486,7 @@ const ptBR: Strings = {
   notificationsScopeAll: 'Notificar sobre todas as séries',
   notificationsScopeFollowedOnly: 'Notificar apenas séries seguidas',
   notificationsGroupAcrossSeries: 'Agrupar notificações de várias séries',
+  notificationsCollapseSerialChaptersNotification: 'Agrupar capítulos próximos da mesma série no histórico',
   notificationsRetentionLabel: 'Manter histórico por',
   notificationsRetentionDaysSuffix: 'dias',
   notificationsGroupsTitle: 'Servidores de notificação',
@@ -730,6 +732,7 @@ const en: Strings = {
   notificationsScopeAll: 'Notify for all series',
   notificationsScopeFollowedOnly: 'Notify for followed series only',
   notificationsGroupAcrossSeries: 'Group notifications across series',
+  notificationsCollapseSerialChaptersNotification: 'Collapse nearby chapters of the same serial in history',
   notificationsRetentionLabel: 'Keep history for',
   notificationsRetentionDaysSuffix: 'days',
   notificationsGroupsTitle: 'Notification servers',

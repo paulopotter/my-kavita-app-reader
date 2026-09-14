@@ -21,8 +21,12 @@ export function NotificationsScreen() {
 
   const openItem = useCallback(
     async (row: NotificationHistoryRow) => {
-      if (!row.read) {await markRead(row.id);}
-      navigation.navigate(Routes.SERIES_DETAIL, { seriesId: row.seriesId, origin: 'LIBRARY' });
+      if (!row.read) {await markRead(row.ids);}
+      if (row.chapterId) {
+        navigation.navigate(Routes.READER, { seriesId: row.seriesId, chapterId: row.chapterId, origin: 'LIBRARY', seriesName: row.seriesName });
+      } else {
+        navigation.navigate(Routes.SERIES_DETAIL, { seriesId: row.seriesId, origin: 'LIBRARY' });
+      }
     },
     [markRead, navigation],
   );
@@ -54,7 +58,7 @@ export function NotificationsScreen() {
             timestampLabel={DateTool.format.to.relative(item.detectedAtMs, t)}
             read={item.read}
             onPress={() => openItem(item)}
-            onDelete={() => deleteItem(item.id)}
+            onDelete={() => deleteItem(item.ids)}
             deleteLabel={t.notificationsHistoryDelete}
           />
         )}

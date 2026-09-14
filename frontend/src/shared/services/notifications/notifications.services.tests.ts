@@ -24,6 +24,9 @@ jest.mock('../../bridge/notifications', () => ({
     setGroupAcrossSeries: jest.fn(),
     getRetentionDays: jest.fn(),
     setRetentionDays: jest.fn(),
+    getCollapseSerialChaptersNotification: jest.fn(),
+    setCollapseSerialChaptersNotification: jest.fn(),
+    getCollapseWindowMs: jest.fn(),
     listHistory: jest.fn(),
     markHistoryRead: jest.fn(),
     markAllHistoryRead: jest.fn(),
@@ -239,6 +242,29 @@ describe('NotificationsService.retentionDays', () => {
   it('set forwards days to NotificationsBridge.setRetentionDays', async () => {
     await NotificationsService.retentionDays.set({ days: 30 });
     expect(NotificationsBridge.setRetentionDays).toHaveBeenCalledWith({ days: 30 });
+  });
+});
+
+describe('NotificationsService.collapseSerialChaptersNotification', () => {
+  it('get forwards to NotificationsBridge.getCollapseSerialChaptersNotification', async () => {
+    (NotificationsBridge.getCollapseSerialChaptersNotification as jest.Mock).mockResolvedValue(true);
+    const result = await NotificationsService.collapseSerialChaptersNotification.get();
+    expect(NotificationsBridge.getCollapseSerialChaptersNotification).toHaveBeenCalledWith();
+    expect(result).toBe(true);
+  });
+
+  it('set forwards enabled to NotificationsBridge.setCollapseSerialChaptersNotification', async () => {
+    await NotificationsService.collapseSerialChaptersNotification.set({ enabled: true });
+    expect(NotificationsBridge.setCollapseSerialChaptersNotification).toHaveBeenCalledWith({ enabled: true });
+  });
+});
+
+describe('NotificationsService.collapseWindowMs', () => {
+  it('get forwards to NotificationsBridge.getCollapseWindowMs', async () => {
+    (NotificationsBridge.getCollapseWindowMs as jest.Mock).mockResolvedValue(900000);
+    const result = await NotificationsService.collapseWindowMs.get();
+    expect(NotificationsBridge.getCollapseWindowMs).toHaveBeenCalledWith();
+    expect(result).toBe(900000);
   });
 });
 

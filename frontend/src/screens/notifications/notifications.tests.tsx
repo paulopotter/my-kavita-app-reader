@@ -35,6 +35,7 @@ function historyHook(over: Partial<Record<string, unknown>> = {}) {
 
 const row = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 'h1',
+  ids: ['h1'],
   seriesId: 's1',
   seriesName: 'One Piece',
   bodyText: 'Chapter 1050 available',
@@ -81,7 +82,7 @@ describe('NotificationsScreen', () => {
     const { getByText } = render(<NotificationsScreen />);
     fireEvent.press(getByText('One Piece'));
     await Promise.resolve();
-    expect(markRead).toHaveBeenCalledWith('h1');
+    expect(markRead).toHaveBeenCalledWith(['h1']);
     expect(mockNavigate).toHaveBeenCalledWith('series/:seriesId', { seriesId: 's1', origin: 'LIBRARY' });
   });
 
@@ -95,11 +96,21 @@ describe('NotificationsScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('series/:seriesId', { seriesId: 's1', origin: 'LIBRARY' });
   });
 
+  it('tapping a row with a single known chapter navigates straight into the reader, not the series', async () => {
+    mockUseNotificationHistory.mockReturnValue(historyHook({ rows: [row({ chapterId: 'c1' })] }));
+    const { getByText } = render(<NotificationsScreen />);
+    fireEvent.press(getByText('One Piece'));
+    await Promise.resolve();
+    expect(mockNavigate).toHaveBeenCalledWith('reader/:seriesId/:chapterId', {
+      seriesId: 's1', chapterId: 'c1', origin: 'LIBRARY', seriesName: 'One Piece',
+    });
+  });
+
   it('deleteItem is called when a row delete button is pressed', () => {
     const deleteItem = jest.fn().mockResolvedValue(undefined);
     mockUseNotificationHistory.mockReturnValue(historyHook({ rows: [row()], deleteItem }));
     const { getByText } = render(<NotificationsScreen />);
     fireEvent.press(getByText('✕'));
-    expect(deleteItem).toHaveBeenCalledWith('h1');
+    expect(deleteItem).toHaveBeenCalledWith(['h1']);
   });
 });
