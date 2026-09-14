@@ -10,25 +10,50 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.09.14.1114](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1114)] - 2026-09-14
 
-- feat: novo módulo `:notifications` — serviço em foreground com WebSocket persistente (plugin ntfy), resolução da série notificada, filtro pela lista Seguindo e notificação nativa por série.
-- feat: deep links — scheme `mymangareader://` e App Links para as URLs reais do servidor de conteúdo (série e capítulo, com e sem o prefixo de biblioteca), traduzidas para as rotas internas inteiramente do lado nativo.
-- feat: histórico de notificações passa a guardar um capítulo por linha, com estado de leitura e destino de toque próprios (migração do banco local).
-- feat: histórico marca a notificação como lida quando o conteúdo é consumido por qualquer caminho, não só pelo toque na notificação.
-- fix: o serviço de notificações insiste em reconectar enquanto estiverem ligadas, com espera crescente de 5s até uma hora, e pula a tentativa quando não há rede — antes desistia para sempre se nenhuma URL respondesse no primeiro contato.
-- fix: as notificações voltam a conectar ao abrir o app; antes o serviço só subia como efeito de uma alteração nos ajustes, e um device já configurado ficava sem receber nada.
-- fix: a sessão é reativada sozinha em qualquer chamada de conteúdo quando não há grupo ativo, em vez de falhar para sempre depois de um início com o servidor offline.
-- perf: teto explícito de cache de memória das páginas e descarte das que saem da janela de leitura — consumo de RAM observado caiu de ~660 MB para ~249 MB.
+Agora o aplicativo avisa sobre novos capítulos em tempo real, abre links externos direto no mangá correto e consome muito menos memória. / Now the app notifies you about new chapters in real-time, opens external links directly to the right manga, and consumes much less memory.
 
-### Frontend
 
-- feat: nova aba de histórico de notificações, com lido/não lido, contador e remoção.
-- feat: nova tela de configuração de notificações — grupos e URLs, indicador de conexão ao vivo, teste de conexão e retenção configurável.
-- feat: agrupamento visual opcional de capítulos próximos da mesma série no histórico, com janela de tempo configurável.
-- fix: abrir o app por um deep link leva direto ao destino, sem empilhar uma tela intermediária que fazia o "voltar" cair no lugar errado.
-- fix: servidor inacessível no início não manda mais para a tela de configuração inicial; só uma credencial comprovadamente inválida faz isso.
-- perf: marcar vários capítulos como lidos de uma vez não trava mais a interface.
+### **Backend** - `1.1.0`
+
+**[pt-BR]**
+- Serviço de notificações em segundo plano com conexão persistente, filtro pela sua lista de mangás seguidos e avisos nativos.
+- Suporte a links diretos para abrir séries e capítulos do servidor diretamente no aplicativo através de URLs compatíveis.
+- O histórico de notificações agora organiza um capítulo por linha com controle individual de leitura e destino ao tocar.
+- Notificações são marcadas automaticamente como lidas quando você consome o conteúdo por qualquer caminho no aplicativo.
+- Reconexão automática inteligente do serviço de notificações com tempo de espera progressivo e pausa quando sem internet.
+- O serviço de avisos volta a conectar ao iniciar o aplicativo, evitando que dispositivos já configurados ficassem mudos.
+- A sessão com o servidor se reconecta sozinha em chamadas de conteúdo caso tenha iniciado com a internet offline.
+- Limite rígido no uso de memória para páginas de mangá, reduzindo o consumo de RAM de cerca de 660 megabytes para 249 megabytes.
+
+**[en]**
+- Background notification service with a persistent connection, filtering based on your followed manga list, and native alerts.
+- Support for deep links to open server series and chapters directly inside the app using compatible URLs.
+- The notification history now organizes one chapter per line with individual read status and tap destinations.
+- Notifications are automatically marked as read whenever you consume the content through any path in the app.
+- Smart automatic reconnection for the notification service with progressive wait times and a pause when offline.
+- The alert service reconnects upon app launch, preventing already configured devices from remaining silent.
+- The server session reconnects automatically during content calls if it started up while offline.
+- Strict memory limits for manga pages, reducing RAM usage from around 660 megabytes down to 249 megabytes.
+
+### **Frontend** - `1.1.0`
+
+**[pt-BR]**
+- Nova aba dedicada ao histórico de notificações com controle de leitura, contadores e opção de exclusão.
+- Nova tela de configurações de notificações com gerenciar grupos, indicador de status ao vivo, teste e retenção ajustável.
+- Agrupamento visual opcional para capítulos recentes da mesma série no histórico com janela de tempo personalizada.
+- Abrir o aplicativo por links externos leva direto ao conteúdo desejado sem criar telas intermediárias confusas.
+- Servidor indisponível na inicialização não força mais a tela de configuração inicial, exigindo apenas credenciais inválidas.
+- Marcar vários capítulos como lidos simultaneamente não causa mais congelamentos na interface visual.
+
+**[en]**
+- New dedicated notification history tab featuring read tracking, counters, and a deletion option.
+- New notification settings screen with group management, live status indicator, connection testing, and adjustable retention.
+- Optional visual grouping for close chapters of the same series in history with a customizable time window.
+- Opening the app via external links leads straight to the desired content without creating confusing intermediate screens.
+- Server unavailability at startup no longer forces you into the initial setup screen, reserving that for invalid credentials.
+- Marking multiple chapters as read simultaneously no longer causes freezes in the visual interface.
 
 ## [[2026.09.04.2000](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.04.2000)] - 2026-09-04
 

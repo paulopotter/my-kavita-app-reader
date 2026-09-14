@@ -101,7 +101,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = gitCommitCount
-        versionName = "1.0.0-rc15"
+        versionName = "1.1.0"
 
         buildConfigField("String", "OTA_MANIFEST_URL", "\"$otaManifestUrl\"")
         buildConfigField("long", "COLLAPSE_WINDOW_MS", "${collapseWindowMs}L")

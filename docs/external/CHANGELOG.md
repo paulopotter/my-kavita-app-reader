@@ -10,6 +10,51 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.09.14.1114](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1114)] - 2026-09-14
+
+Agora o aplicativo avisa sobre novos capítulos em tempo real, abre links externos direto no mangá correto e consome muito menos memória. / Now the app notifies you about new chapters in real-time, opens external links directly to the right manga, and consumes much less memory.
+
+
+### **Backend** - `1.1.0`
+
+**[pt-BR]**
+- Serviço de notificações em segundo plano com conexão persistente, filtro pela sua lista de mangás seguidos e avisos nativos.
+- Suporte a links diretos para abrir séries e capítulos do servidor diretamente no aplicativo através de URLs compatíveis.
+- O histórico de notificações agora organiza um capítulo por linha com controle individual de leitura e destino ao tocar.
+- Notificações são marcadas automaticamente como lidas quando você consome o conteúdo por qualquer caminho no aplicativo.
+- Reconexão automática inteligente do serviço de notificações com tempo de espera progressivo e pausa quando sem internet.
+- O serviço de avisos volta a conectar ao iniciar o aplicativo, evitando que dispositivos já configurados ficassem mudos.
+- A sessão com o servidor se reconecta sozinha em chamadas de conteúdo caso tenha iniciado com a internet offline.
+- Limite rígido no uso de memória para páginas de mangá, reduzindo o consumo de RAM de cerca de 660 megabytes para 249 megabytes.
+
+**[en]**
+- Background notification service with a persistent connection, filtering based on your followed manga list, and native alerts.
+- Support for deep links to open server series and chapters directly inside the app using compatible URLs.
+- The notification history now organizes one chapter per line with individual read status and tap destinations.
+- Notifications are automatically marked as read whenever you consume the content through any path in the app.
+- Smart automatic reconnection for the notification service with progressive wait times and a pause when offline.
+- The alert service reconnects upon app launch, preventing already configured devices from remaining silent.
+- The server session reconnects automatically during content calls if it started up while offline.
+- Strict memory limits for manga pages, reducing RAM usage from around 660 megabytes down to 249 megabytes.
+
+### **Frontend** - `1.1.0`
+
+**[pt-BR]**
+- Nova aba dedicada ao histórico de notificações com controle de leitura, contadores e opção de exclusão.
+- Nova tela de configurações de notificações com gerenciar grupos, indicador de status ao vivo, teste e retenção ajustável.
+- Agrupamento visual opcional para capítulos recentes da mesma série no histórico com janela de tempo personalizada.
+- Abrir o aplicativo por links externos leva direto ao conteúdo desejado sem criar telas intermediárias confusas.
+- Servidor indisponível na inicialização não força mais a tela de configuração inicial, exigindo apenas credenciais inválidas.
+- Marcar vários capítulos como lidos simultaneamente não causa mais congelamentos na interface visual.
+
+**[en]**
+- New dedicated notification history tab featuring read tracking, counters, and a deletion option.
+- New notification settings screen with group management, live status indicator, connection testing, and adjustable retention.
+- Optional visual grouping for close chapters of the same series in history with a customizable time window.
+- Opening the app via external links leads straight to the desired content without creating confusing intermediate screens.
+- Server unavailability at startup no longer forces you into the initial setup screen, reserving that for invalid credentials.
+- Marking multiple chapters as read simultaneously no longer causes freezes in the visual interface.
+
 ## [[2026.09.04.2000](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.04.2000)] - 2026-09-04
 
 Reformulação ampla da arquitetura do app, trazendo uma nova tela de leitura, gestão de múltiplos servidores e diversas correções de sincronização e performance. / Broad rework of the app's architecture, bringing a new reading screen, multi-server management, and several sync and performance fixes.
