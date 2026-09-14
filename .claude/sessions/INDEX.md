@@ -5,12 +5,12 @@
 | Plan | Description |
 |------|-------------|
 | [024 — Storage Footprint & Resource Hygiene](active/024-storage-footprint/README.md) | 5 tasks — pending. Novo módulo `:storage` (Layer 2) para medir e recuperar espaço: medição real por fonte (páginas Coil / cache Room / resto) antes de escolher números, teto de cache configurável pelo usuário substituindo o `READER_DISK_CACHE_MAX_BYTES` fixo de 500 MB, purga do `:cache` (que já existe e nunca é chamada) ligada na splash, e tela `config/storage/` com uso por fonte + limpeza manual. Sem job periódico, sem `WorkManager`, sem telemetria |
-| [008 — Notifications & Deep Links](active/008-notifications/README.md) | 9 tasks — pending. `:notifications` module (foreground service + persistent ntfy WebSocket), series resolution/filter by Following, per-series native notifications, config sub-screen, in-app history with configurable retention, plus a new deep link mechanism (`mymangareader://` scheme + optional configurable App Link hosts) the notification tap depends on |
 
 ## Concluídos
 
 | Plan | Versão |
 |------|--------|
+| [008 — Notifications & Deep Links](../completions/archive/008%20-%20Notifications%20%26%20Deep%20Links/README.md) | todas as 9 tasks concluídas — módulo `:notifications` (foreground service + WebSocket ntfy persistente), resolução/filtro de séries por Seguindo, notificações nativas por série, sub-tela de configuração, histórico in-app com retenção configurável e deep links (scheme `mymangareader://` + App Links das URLs reais do servidor); inclui as correções pós-uso real (histórico granular por capítulo, agrupamento visual opcional, leitura por consumo de conteúdo, reconexão com backoff) |
 | [017 — Reestruturação de Domínio, Contratos e Salvaguardas](../completions/archive/017%20-%20Reestruturacao/README.md) | todas as 39 tasks concluídas — split da arquitetura Kotlin em módulos Gradle isolados (`:server`/`:content-digest`/`:cache`/`:preferences`/`:external-metadata-server`), leitura cache-first, camada de dados do RN reorganizada (Services + Tools de domínio, sem `transforms/`), reader-v2, splash como rota do RN, EventBus RN→RN, salvaguardas de processo (regra de contrato no CLAUDE.md, skill `checar-arquitetura`, `atualizar-changelog` com origin-tag) |
 | [007 — Reader Screen](../completions/archive/007%20-%20Reader%20Screen/README.md) | todas as 18 tasks concluídas — arquitetura real: `LazyColumn` nativo Kotlin/Compose + Server-Driven UI em vez de `FlashList`; ver também [doc de limpeza final](../completions/2026-08-19_007-reader-screen-limpeza-final.md) |
 | [006 — Series Detail Screen](../completions/archive/006%20-%20Series%20Detail%20Screen/README.md) | `0.6.0` — todas as 11 tasks concluídas |

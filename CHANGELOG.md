@@ -10,6 +10,26 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: novo módulo `:notifications` — serviço em foreground com WebSocket persistente (plugin ntfy), resolução da série notificada, filtro pela lista Seguindo e notificação nativa por série.
+- feat: deep links — scheme `mymangareader://` e App Links para as URLs reais do servidor de conteúdo (série e capítulo, com e sem o prefixo de biblioteca), traduzidas para as rotas internas inteiramente do lado nativo.
+- feat: histórico de notificações passa a guardar um capítulo por linha, com estado de leitura e destino de toque próprios (migração do banco local).
+- feat: histórico marca a notificação como lida quando o conteúdo é consumido por qualquer caminho, não só pelo toque na notificação.
+- fix: o serviço de notificações insiste em reconectar enquanto estiverem ligadas, com espera crescente de 5s até uma hora, e pula a tentativa quando não há rede — antes desistia para sempre se nenhuma URL respondesse no primeiro contato.
+- fix: as notificações voltam a conectar ao abrir o app; antes o serviço só subia como efeito de uma alteração nos ajustes, e um device já configurado ficava sem receber nada.
+- fix: a sessão é reativada sozinha em qualquer chamada de conteúdo quando não há grupo ativo, em vez de falhar para sempre depois de um início com o servidor offline.
+- perf: teto explícito de cache de memória das páginas e descarte das que saem da janela de leitura — consumo de RAM observado caiu de ~660 MB para ~249 MB.
+
+### Frontend
+
+- feat: nova aba de histórico de notificações, com lido/não lido, contador e remoção.
+- feat: nova tela de configuração de notificações — grupos e URLs, indicador de conexão ao vivo, teste de conexão e retenção configurável.
+- feat: agrupamento visual opcional de capítulos próximos da mesma série no histórico, com janela de tempo configurável.
+- fix: abrir o app por um deep link leva direto ao destino, sem empilhar uma tela intermediária que fazia o "voltar" cair no lugar errado.
+- fix: servidor inacessível no início não manda mais para a tela de configuração inicial; só uma credencial comprovadamente inválida faz isso.
+- perf: marcar vários capítulos como lidos de uma vez não trava mais a interface.
+
 ## [[2026.09.04.2000](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.04.2000)] - 2026-09-04
 
 Reformulação ampla da arquitetura do app, trazendo uma nova tela de leitura, gestão de múltiplos servidores e diversas correções de sincronização e performance. / Broad rework of the app's architecture, bringing a new reading screen, multi-server management, and several sync and performance fixes.
