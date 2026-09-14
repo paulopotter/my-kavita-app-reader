@@ -163,6 +163,13 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
             />
             <View style={chrome.divider} />
 
+            <ToggleRow
+              label={t.notificationsCollapseSerialChaptersNotification}
+              value={prefs.collapseSerialChaptersNotification}
+              onValueChange={prefs.setCollapseSerialChaptersNotification}
+            />
+            <View style={chrome.divider} />
+
             <View style={styles.retentionRow}>
               <Text style={styles.retentionLabel}>{t.notificationsRetentionLabel}</Text>
               <View style={styles.retentionStepper}>

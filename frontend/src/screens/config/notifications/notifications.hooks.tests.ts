@@ -17,6 +17,8 @@ const mockGroupAcrossSeriesGet = jest.fn();
 const mockGroupAcrossSeriesSet = jest.fn();
 const mockRetentionGet = jest.fn();
 const mockRetentionSet = jest.fn();
+const mockCollapseGet = jest.fn();
+const mockCollapseSet = jest.fn();
 const mockGroupsList = jest.fn();
 const mockGroupsAdd = jest.fn();
 const mockGroupsUpdate = jest.fn();
@@ -62,6 +64,10 @@ jest.mock('../../../shared/services/notifications', () => ({
     retentionDays: {
       get: (...a: unknown[]) => mockRetentionGet(...a),
       set: (...a: unknown[]) => mockRetentionSet(...a),
+    },
+    collapseSerialChaptersNotification: {
+      get: (...a: unknown[]) => mockCollapseGet(...a),
+      set: (...a: unknown[]) => mockCollapseSet(...a),
     },
     groups: {
       list: (...a: unknown[]) => mockGroupsList(...a),
@@ -127,6 +133,8 @@ beforeEach(() => {
   mockGroupAcrossSeriesSet.mockResolvedValue(undefined);
   mockRetentionGet.mockResolvedValue(7);
   mockRetentionSet.mockResolvedValue(undefined);
+  mockCollapseGet.mockResolvedValue(false);
+  mockCollapseSet.mockResolvedValue(undefined);
   mockGroupsList.mockResolvedValue([]);
   mockGetActiveUrl.mockResolvedValue(null);
   mockUrlsList.mockResolvedValue([]);
@@ -201,11 +209,12 @@ describe('useNotificationServiceStatus', () => {
 // ── useNotificationPrefs ─────────────────────────────────────────────────────
 
 describe('useNotificationPrefs', () => {
-  it('loads the 4 preference values, defaulting retentionDays to 7 when unset', async () => {
+  it('loads the preference values, defaulting retentionDays to 7 when unset', async () => {
     mockScopeGetAll.mockResolvedValue(true);
     mockScopeGetFollowedOnly.mockResolvedValue(false);
     mockGroupAcrossSeriesGet.mockResolvedValue(true);
     mockRetentionGet.mockResolvedValue(null);
+    mockCollapseGet.mockResolvedValue(true);
 
     const { result } = renderHook(() => useNotificationPrefs());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -214,6 +223,7 @@ describe('useNotificationPrefs', () => {
     expect(result.current.scopeFollowedOnly).toBe(false);
     expect(result.current.groupAcrossSeries).toBe(true);
     expect(result.current.retentionDays).toBe(7);
+    expect(result.current.collapseSerialChaptersNotification).toBe(true);
   });
 
   it('setScopeAll(true) turns scopeFollowedOnly off and persists both', async () => {
@@ -286,6 +296,18 @@ describe('useNotificationPrefs', () => {
     });
     expect(result.current.retentionDays).toBe(1);
     expect(mockRetentionSet).toHaveBeenCalledWith({ days: 1 });
+  });
+
+  it('setCollapseSerialChaptersNotification persists the value', async () => {
+    const { result } = renderHook(() => useNotificationPrefs());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.setCollapseSerialChaptersNotification(true);
+    });
+
+    expect(result.current.collapseSerialChaptersNotification).toBe(true);
+    expect(mockCollapseSet).toHaveBeenCalledWith({ enabled: true });
   });
 });
 

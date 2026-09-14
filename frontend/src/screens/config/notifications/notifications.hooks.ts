@@ -75,19 +75,24 @@ export function useNotificationServiceStatus(): UseNotificationServiceStatusResu
   return { status };
 }
 
-// The 4 preference-backed toggles/setting below the channel row: scope (scopeAll one-directionally
+// The preference-backed toggles/settings below the channel row: scope (scopeAll one-directionally
 // locks scopeFollowedOnly off — turning scopeFollowedOnly on never touches scopeAll, see README
-// Decision 6), cross-series grouping, retention days.
+// Decision 6), cross-series grouping, retention days, and the in-app history screen's own visual
+// collapse (collapseSerialChaptersNotification — presentation-only, see
+// screens/notifications/notifications.hooks.ts's own doc; never touches storage or the system
+// tray).
 export interface UseNotificationPrefsResult {
   loading: boolean;
   scopeAll: boolean;
   scopeFollowedOnly: boolean;
   groupAcrossSeries: boolean;
   retentionDays: number;
+  collapseSerialChaptersNotification: boolean;
   setScopeAll: (enabled: boolean) => void;
   setScopeFollowedOnly: (enabled: boolean) => void;
   setGroupAcrossSeries: (enabled: boolean) => void;
   setRetentionDays: (days: number) => void;
+  setCollapseSerialChaptersNotification: (enabled: boolean) => void;
 }
 
 export function useNotificationPrefs(): UseNotificationPrefsResult {
@@ -96,6 +101,7 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
   const [scopeFollowedOnly, setScopeFollowedOnlyState] = useState(false);
   const [groupAcrossSeries, setGroupAcrossSeriesState] = useState(false);
   const [retentionDays, setRetentionDaysState] = useState(RETENTION_DEFAULT_DAYS);
+  const [collapseSerialChaptersNotification, setCollapseSerialChaptersNotificationState] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -103,12 +109,14 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
       NotificationsService.scope.getFollowedOnly(),
       NotificationsService.groupAcrossSeries.get(),
       NotificationsService.retentionDays.get(),
+      NotificationsService.collapseSerialChaptersNotification.get(),
     ])
-      .then(([all, followedOnly, grouped, retention]) => {
+      .then(([all, followedOnly, grouped, retention, collapse]) => {
         setScopeAllState(all);
         setScopeFollowedOnlyState(followedOnly);
         setGroupAcrossSeriesState(grouped);
         setRetentionDaysState(retention ?? RETENTION_DEFAULT_DAYS);
+        setCollapseSerialChaptersNotificationState(collapse);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -139,16 +147,23 @@ export function useNotificationPrefs(): UseNotificationPrefsResult {
     NotificationsService.retentionDays.set({ days: clamped }).catch(() => {});
   }, []);
 
+  const setCollapseSerialChaptersNotification = useCallback((enabled: boolean) => {
+    setCollapseSerialChaptersNotificationState(enabled);
+    NotificationsService.collapseSerialChaptersNotification.set({ enabled }).catch(() => {});
+  }, []);
+
   return {
     loading,
     scopeAll,
     scopeFollowedOnly,
     groupAcrossSeries,
     retentionDays,
+    collapseSerialChaptersNotification,
     setScopeAll,
     setScopeFollowedOnly,
     setGroupAcrossSeries,
     setRetentionDays,
+    setCollapseSerialChaptersNotification,
   };
 }
 

@@ -35,10 +35,12 @@ function prefsHook(over: Partial<Record<string, unknown>> = {}) {
     scopeFollowedOnly: false,
     groupAcrossSeries: false,
     retentionDays: 7,
+    collapseSerialChaptersNotification: false,
     setScopeAll: jest.fn(),
     setScopeFollowedOnly: jest.fn(),
     setGroupAcrossSeries: jest.fn(),
     setRetentionDays: jest.fn(),
+    setCollapseSerialChaptersNotification: jest.fn(),
     ...over,
   };
 }
@@ -151,6 +153,14 @@ describe('NotificationsScreen', () => {
     const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
     fireEvent.press(getByText(t.notificationsGroupAcrossSeries));
     expect(setGroupAcrossSeries).toHaveBeenCalledWith(true);
+  });
+
+  it('toggling "collapse serial chapters" via the row calls setCollapseSerialChaptersNotification', () => {
+    const setCollapseSerialChaptersNotification = jest.fn();
+    mockUseNotificationPrefs.mockReturnValue(prefsHook({ setCollapseSerialChaptersNotification }));
+    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    fireEvent.press(getByText(t.notificationsCollapseSerialChaptersNotification));
+    expect(setCollapseSerialChaptersNotification).toHaveBeenCalledWith(true);
   });
 
   it('the retention stepper increments/decrements via setRetentionDays', () => {
