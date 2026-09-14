@@ -66,6 +66,51 @@ through unless it needs a Gradle-specific transformation (like `DEEPLINK_HOSTS`'
 
 ---
 
+## Deep links
+
+Two vocabularies meet here, and keeping them apart is the whole point:
+
+- **The content server's web URLs** — what the user actually taps in a browser, Telegram, etc.
+  Kavita serves a series with or without a library segment, and a chapter under `/manga/`, so all
+  four shapes are registered in the manifest:
+
+  | URL | opens |
+  |---|---|
+  | `/series/{seriesId}` | series screen |
+  | `/library/{libraryId}/series/{seriesId}` | series screen |
+  | `/series/{seriesId}/manga/{chapterId}` | reader |
+  | `/library/{libraryId}/series/{seriesId}/manga/{chapterId}` | reader |
+
+  The `libraryId` is Kavita's own grouping and means nothing to this app, which addresses a series
+  by its id alone — so it's dropped during translation.
+
+- **The app's internal routes** — `series/{id}` and `reader/{seriesId}/{chapterId}`, the names
+  React Navigation knows. Also what the custom `mymangareader://` scheme speaks (a notification's
+  own PendingIntent builds it that way).
+
+`DeepLinkNormalizer` (`android/app/`) translates the first into the second and hands RN a
+`deeplink://` URI. **That translation is Kotlin-only on purpose**: `linking.config.ts` only ever
+knows the internal scheme, so supporting another server's URL shape — or another custom scheme —
+never touches the RN side.
+
+Paths live in `DEEP_LINK_PATH_PATTERNS` (`android/app/build.gradle.kts`) for the manifest and in
+`internalRouteFor` (`DeepLinkNormalizer.kt`) for the translation — adding a shape means both.
+
+### Why `autoVerify` isn't enough here
+
+The generated block emits two intent-filters: http without `autoVerify`, https with it. They can
+never share one, since verification only runs over https and only when every `<data>` in that
+filter carries the attribute.
+
+Even so, verification cannot pass for a Kavita host: it requires
+`https://<host>/.well-known/assetlinks.json` naming this app's signing cert, and the domain
+belongs to the server, not to us. The practical effect is that Android offers the app in the
+"open with" chooser rather than opening it straight away. The `ACTION_SEND` filter
+(`AndroidManifest.xml`) is the way around it — sharing a URL from any app reaches the same
+normalizer. A bare IP never verifies either, by design on Android's side.
+
+---
+
 ## OTA bundle
 
 The JS bundle has its own version, independent of the APK version.

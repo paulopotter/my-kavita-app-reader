@@ -185,9 +185,9 @@ private val DEEP_LINK_PATH_PATTERNS =
 // filter without autoVerify (works for plain http hosts/IPs, e.g. a local dev server, but never
 // auto-verifies — Android doesn't verify App Links for bare IPs at all), https gets its own
 // filter WITH autoVerify (only takes effect once https://<host>/.well-known/assetlinks.json
-// exists and matches the app's signing cert — see .claude/docs/quickstart.md for how to publish
-// it; until then this filter still matches the link, just without the "opens with no prompt"
-// guarantee autoVerify is meant to buy).
+// exists and matches the app's signing cert, which a server-owned domain can't give us — see
+// .claude/docs/quickstart.md § "Deep links". The filter still matches the link either way, just
+// without the "opens with no prompt" guarantee autoVerify is meant to buy).
 fun buildDeepLinkSchemeFilter(
     scheme: String,
     autoVerify: Boolean,

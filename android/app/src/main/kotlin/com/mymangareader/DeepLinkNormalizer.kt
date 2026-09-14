@@ -68,7 +68,8 @@ fun normalizeDeepLinkUri(rawUri: String): String? {
     return "$DEEPLINK_SCHEME$route"
 }
 
-// Translates whatever path a link arrived on into this app's own internal route. The content
+// Translates whatever path a link arrived on into this app's own internal route — the full list
+// of supported shapes is in .claude/docs/quickstart.md § "Deep links". The content
 // server's web URLs and the app's routes are NOT the same vocabulary — Kavita serves a series at
 // /series/{id} or /library/{libraryId}/series/{id}, and a chapter under /manga/{id}, while RN
 // navigates to series/{id} and reader/{seriesId}/{chapterId}.
