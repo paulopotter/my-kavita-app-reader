@@ -32,13 +32,13 @@ class NotificationRetentionPurgeTest {
         id: String,
         createdAtLocalMs: Long,
     ) {
-        historyDao.insertOrReplace(
+        historyDao.insert(
             NotificationHistoryEntity(
                 id = id,
                 seriesId = "s1",
                 seriesName = "Series",
-                chapterIdsJson = null,
-                chapterNumbersJson = null,
+                chapterId = null,
+                chapterNumber = null,
                 detectedAtMs = createdAtLocalMs,
                 read = false,
                 createdAtLocalMs = createdAtLocalMs,
