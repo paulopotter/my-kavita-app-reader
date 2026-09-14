@@ -29,4 +29,8 @@ abstract class NetworkBindingsModule {
     @Binds
     @Singleton
     abstract fun bindUrlSelector(impl: ActiveUrlSelector): UrlSelector
+
+    @Binds
+    @Singleton
+    abstract fun bindNetworkAvailability(impl: AndroidNetworkAvailability): NetworkAvailability
 }
