@@ -70,7 +70,7 @@ class FakeNotificationUrlDao : NotificationUrlDao {
 class FakeNotificationHistoryDao : NotificationHistoryDao {
     private val rows = mutableMapOf<String, NotificationHistoryEntity>()
 
-    override suspend fun insertOrReplace(entity: NotificationHistoryEntity) {
+    override suspend fun insert(entity: NotificationHistoryEntity) {
         rows[entity.id] = entity
     }
 
@@ -82,6 +82,23 @@ class FakeNotificationHistoryDao : NotificationHistoryDao {
 
     override suspend fun markRead(id: String) {
         rows[id]?.let { rows[id] = it.copy(read = true) }
+    }
+
+    override suspend fun markReadByChapter(
+        seriesId: String,
+        chapterId: String,
+    ) {
+        rows
+            .filterValues { !it.read && it.seriesId == seriesId && it.chapterId == chapterId }
+            .keys
+            .forEach { id -> rows[id] = rows.getValue(id).copy(read = true) }
+    }
+
+    override suspend fun markSerialRead(seriesId: String) {
+        rows
+            .filterValues { !it.read && it.seriesId == seriesId && it.chapterId == null }
+            .keys
+            .forEach { id -> rows[id] = rows.getValue(id).copy(read = true) }
     }
 
     override suspend fun markAllRead() {

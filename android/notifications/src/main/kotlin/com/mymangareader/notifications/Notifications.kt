@@ -9,9 +9,6 @@ import com.mymangareader.core.database.NotificationUrlEntity
 import com.mymangareader.tools.network.UrlCandidate
 import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,10 +16,6 @@ import javax.inject.Singleton
 class NotificationsException(
     message: String,
 ) : Exception(message)
-
-// Same "list as JSON column" convention already used by series_detail_cache.genresJson/tagsJson
-// — a plain kotlinx.serialization Json instance, no custom (de)serialization helper.
-private val historyListFormat = Json { ignoreUnknownKeys = true }
 
 private fun requireNotBlank(
     fieldName: String,
@@ -92,21 +85,23 @@ data class NotificationHistoryItem(
     val id: String,
     val seriesId: String,
     val seriesName: String,
-    val chapterIds: List<String>?,
-    val chapterNumbers: List<String>?,
+    val chapterId: String?,
+    val chapterNumber: String?,
     val detectedAtMs: Long,
     val read: Boolean,
     val createdAtLocalMs: Long,
 )
 
-// [id] is the caller's already-computed deterministic dedup hash (Task 005's
-// NotificationDisplay owns that computation — Notifications never derives it itself).
+// One row per CHAPTER, always — see NotificationHistoryEntity's own doc. A caller with a batch of
+// N chapters is expected to already have exploded it into N of these (NotificationResolver's own
+// explode step — see its own doc); this type itself never carries more than one chapter. No [id]
+// here: History.insert mints a fresh one (UUID) for every call, since there's no notion of "reuse
+// this id to replace an existing row".
 data class NewNotificationHistoryItem(
-    val id: String,
     val seriesId: String,
     val seriesName: String,
-    val chapterIds: List<String>?,
-    val chapterNumbers: List<String>?,
+    val chapterId: String?,
+    val chapterNumber: String?,
     val detectedAtMs: Long,
 )
 
@@ -184,24 +179,33 @@ class Notifications
 
         val history: History =
             object : History {
-                override suspend fun insertOrReplace(item: NewNotificationHistoryItem) {
-                    notificationHistoryDao.insertOrReplace(
+                override suspend fun insert(item: NewNotificationHistoryItem): String {
+                    val id = UUID.randomUUID().toString()
+                    notificationHistoryDao.insert(
                         NotificationHistoryEntity(
-                            id = item.id,
+                            id = id,
                             seriesId = item.seriesId,
                             seriesName = item.seriesName,
-                            chapterIdsJson = item.chapterIds?.let { historyListFormat.encodeToString(ListSerializer(String.serializer()), it) },
-                            chapterNumbersJson = item.chapterNumbers?.let { historyListFormat.encodeToString(ListSerializer(String.serializer()), it) },
+                            chapterId = item.chapterId,
+                            chapterNumber = item.chapterNumber,
                             detectedAtMs = item.detectedAtMs,
                             read = false,
                             createdAtLocalMs = System.currentTimeMillis(),
                         ),
                     )
+                    return id
                 }
 
                 override suspend fun listAll(): List<NotificationHistoryItem> = notificationHistoryDao.listAll().map { it.toItem() }
 
                 override suspend fun markRead(id: String) = notificationHistoryDao.markRead(id)
+
+                override suspend fun markReadByChapter(
+                    seriesId: String,
+                    chapterId: String,
+                ) = notificationHistoryDao.markReadByChapter(seriesId, chapterId)
+
+                override suspend fun markSerialRead(seriesId: String) = notificationHistoryDao.markSerialRead(seriesId)
 
                 override suspend fun markAllRead() = notificationHistoryDao.markAllRead()
 
@@ -267,11 +271,23 @@ class Notifications
         }
 
         interface History {
-            suspend fun insertOrReplace(item: NewNotificationHistoryItem)
+            // Returns the freshly-minted id for the inserted row — the caller (NotificationDisplay)
+            // needs it to build the system notification's own PendingIntent/notification id.
+            suspend fun insert(item: NewNotificationHistoryItem): String
 
             suspend fun listAll(): List<NotificationHistoryItem>
 
             suspend fun markRead(id: String)
+
+            // Marks read by WHAT was consumed rather than by row id — the caller (RN, reacting to
+            // a chapter/serial actually being opened) never knows which row announced it. See
+            // NotificationHistoryDao's own doc for why each only touches its own kind of row.
+            suspend fun markReadByChapter(
+                seriesId: String,
+                chapterId: String,
+            )
+
+            suspend fun markSerialRead(seriesId: String)
 
             suspend fun markAllRead()
 
@@ -413,8 +429,8 @@ private fun NotificationHistoryEntity.toItem() =
         id = id,
         seriesId = seriesId,
         seriesName = seriesName,
-        chapterIds = chapterIdsJson?.let { historyListFormat.decodeFromString(ListSerializer(String.serializer()), it) },
-        chapterNumbers = chapterNumbersJson?.let { historyListFormat.decodeFromString(ListSerializer(String.serializer()), it) },
+        chapterId = chapterId,
+        chapterNumber = chapterNumber,
         detectedAtMs = detectedAtMs,
         read = read,
         createdAtLocalMs = createdAtLocalMs,

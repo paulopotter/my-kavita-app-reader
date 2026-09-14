@@ -69,7 +69,7 @@ class NotificationConnectionGateTest {
 // Minimal in-memory NotificationHistoryDao — this test never touches history, but Notifications'
 // constructor requires one.
 private class FakeNotificationHistoryDaoForGate : com.mymangareader.core.database.NotificationHistoryDao {
-    override suspend fun insertOrReplace(entity: com.mymangareader.core.database.NotificationHistoryEntity) = Unit
+    override suspend fun insert(entity: com.mymangareader.core.database.NotificationHistoryEntity) = Unit
 
     override fun observeAll(): kotlinx.coroutines.flow.Flow<List<com.mymangareader.core.database.NotificationHistoryEntity>> = kotlinx.coroutines.flow.MutableStateFlow(emptyList())
 
@@ -78,6 +78,13 @@ private class FakeNotificationHistoryDaoForGate : com.mymangareader.core.databas
     override suspend fun getById(id: String): com.mymangareader.core.database.NotificationHistoryEntity? = null
 
     override suspend fun markRead(id: String) = Unit
+
+    override suspend fun markReadByChapter(
+        seriesId: String,
+        chapterId: String,
+    ) = Unit
+
+    override suspend fun markSerialRead(seriesId: String) = Unit
 
     override suspend fun markAllRead() = Unit
 

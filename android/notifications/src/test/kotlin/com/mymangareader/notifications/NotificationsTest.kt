@@ -197,66 +197,76 @@ class NotificationsTest {
     // ── history ──
 
     @Test
-    fun `history insertOrReplace com o mesmo id substitui o item anterior`() =
+    fun `history insert nunca substitui, duas chamadas para o mesmo serial viram duas linhas`() =
         runTest {
-            notifications.history.insertOrReplace(
+            notifications.history.insert(
                 NewNotificationHistoryItem(
-                    id = "s1",
                     seriesId = "1",
                     seriesName = "One Piece",
-                    chapterIds = listOf("101"),
-                    chapterNumbers = listOf("1120"),
+                    chapterId = "101",
+                    chapterNumber = "1120",
                     detectedAtMs = 1_000L,
                 ),
             )
-            notifications.history.insertOrReplace(
+            notifications.history.insert(
                 NewNotificationHistoryItem(
-                    id = "s1",
                     seriesId = "1",
                     seriesName = "One Piece",
-                    chapterIds = listOf("102"),
-                    chapterNumbers = listOf("1121"),
+                    chapterId = "102",
+                    chapterNumber = "1121",
                     detectedAtMs = 2_000L,
                 ),
             )
 
             val all = notifications.history.listAll()
 
-            assertEquals(1, all.size)
-            assertEquals(listOf("102"), all.first().chapterIds)
+            assertEquals(2, all.size)
+            assertEquals(setOf("101", "102"), all.map { it.chapterId }.toSet())
         }
 
     @Test
-    fun `history insertOrReplace preserva null quando chapterIds e chapterNumbers estao ausentes`() =
+    fun `history insert preserva null quando chapterId e chapterNumber estao ausentes`() =
         runTest {
-            notifications.history.insertOrReplace(
+            notifications.history.insert(
                 NewNotificationHistoryItem(
-                    id = "s1",
                     seriesId = "1",
                     seriesName = "One Piece",
-                    chapterIds = null,
-                    chapterNumbers = null,
+                    chapterId = null,
+                    chapterNumber = null,
                     detectedAtMs = 1_000L,
                 ),
             )
 
             val item = notifications.history.listAll().first()
 
-            assertNull(item.chapterIds)
-            assertNull(item.chapterNumbers)
+            assertNull(item.chapterId)
+            assertNull(item.chapterNumber)
+        }
+
+    @Test
+    fun `history insert retorna um id novo a cada chamada`() =
+        runTest {
+            val id1 = notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = null, chapterNumber = null, detectedAtMs = 1_000L),
+            )
+            val id2 = notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = null, chapterNumber = null, detectedAtMs = 2_000L),
+            )
+
+            assertTrue(id1 != id2)
         }
 
     @Test
     fun `history markRead e markAllRead atualizam o campo read`() =
         runTest {
-            notifications.history.insertOrReplace(
-                NewNotificationHistoryItem(id = "s1", seriesId = "1", seriesName = "A", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L),
+            val id1 = notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = null, chapterNumber = null, detectedAtMs = 1_000L),
             )
-            notifications.history.insertOrReplace(
-                NewNotificationHistoryItem(id = "s2", seriesId = "2", seriesName = "B", chapterIds = null, chapterNumbers = null, detectedAtMs = 2_000L),
+            notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "2", seriesName = "B", chapterId = null, chapterNumber = null, detectedAtMs = 2_000L),
             )
 
-            notifications.history.markRead("s1")
+            notifications.history.markRead(id1)
 
             assertEquals(1, notifications.history.countUnread())
 
@@ -266,42 +276,73 @@ class NotificationsTest {
         }
 
     @Test
+    fun `history markReadByChapter marca so o capitulo consumido, deixando o resto do lote pendente`() =
+        runTest {
+            notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = "c1", chapterNumber = "10", detectedAtMs = 1_000L),
+            )
+            notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = "c2", chapterNumber = "11", detectedAtMs = 1_000L),
+            )
+
+            notifications.history.markReadByChapter(seriesId = "1", chapterId = "c1")
+
+            assertEquals(1, notifications.history.countUnread())
+        }
+
+    @Test
+    fun `history markSerialRead marca so as linhas sem capitulo do serial`() =
+        runTest {
+            notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = null, chapterNumber = null, detectedAtMs = 1_000L),
+            )
+            notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = "c1", chapterNumber = "10", detectedAtMs = 1_000L),
+            )
+
+            notifications.history.markSerialRead(seriesId = "1")
+
+            // A linha do capitulo continua pendente: abrir o serial nao diz que ele foi lido.
+            assertEquals(1, notifications.history.countUnread())
+        }
+
+    @Test
     fun `history delete remove apenas o item indicado`() =
         runTest {
-            notifications.history.insertOrReplace(
-                NewNotificationHistoryItem(id = "s1", seriesId = "1", seriesName = "A", chapterIds = null, chapterNumbers = null, detectedAtMs = 1_000L),
+            val id1 = notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = null, chapterNumber = null, detectedAtMs = 1_000L),
             )
-            notifications.history.insertOrReplace(
-                NewNotificationHistoryItem(id = "s2", seriesId = "2", seriesName = "B", chapterIds = null, chapterNumbers = null, detectedAtMs = 2_000L),
+            val id2 = notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "2", seriesName = "B", chapterId = null, chapterNumber = null, detectedAtMs = 2_000L),
             )
 
-            notifications.history.delete("s1")
+            notifications.history.delete(id1)
 
-            assertEquals(listOf("s2"), notifications.history.listAll().map { it.id })
+            assertEquals(listOf(id2), notifications.history.listAll().map { it.id })
         }
 
     @Test
     fun `history deleteOlderThan remove apenas itens estritamente mais antigos`() =
         runTest {
-            historyDao.insertOrReplace(
+            historyDao.insert(
                 NotificationHistoryEntity(
                     id = "old",
                     seriesId = "1",
                     seriesName = "A",
-                    chapterIdsJson = null,
-                    chapterNumbersJson = null,
+                    chapterId = null,
+                    chapterNumber = null,
                     detectedAtMs = 1_000L,
                     read = false,
                     createdAtLocalMs = 1_000L,
                 ),
             )
-            historyDao.insertOrReplace(
+            historyDao.insert(
                 NotificationHistoryEntity(
                     id = "fresh",
                     seriesId = "2",
                     seriesName = "B",
-                    chapterIdsJson = null,
-                    chapterNumbersJson = null,
+                    chapterId = null,
+                    chapterNumber = null,
                     detectedAtMs = 2_000L,
                     read = false,
                     createdAtLocalMs = 3_000L,

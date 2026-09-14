@@ -269,6 +269,33 @@ class NotificationsBridgeModule(
     }
 
     @ReactMethod
+    fun getCollapseSerialChaptersNotification(promise: Promise) {
+        scope.launch {
+            runCatching { readBooleanFlag(NotificationPreferenceKeys.COLLAPSE_SERIAL_CHAPTERS_NOTIFICATION) }
+                .resolveOrReject(promise, "GET_COLLAPSE_SERIAL_CHAPTERS_NOTIFICATION_ERROR")
+        }
+    }
+
+    @ReactMethod
+    fun setCollapseSerialChaptersNotification(
+        enabled: Boolean,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { writeBooleanFlag(NotificationPreferenceKeys.COLLAPSE_SERIAL_CHAPTERS_NOTIFICATION, enabled) }
+                .resolveOrReject(promise, "SET_COLLAPSE_SERIAL_CHAPTERS_NOTIFICATION_ERROR")
+        }
+    }
+
+    // Build-time only (COLLAPSE_WINDOW_MS, android/app/build.gradle.kts) — no setter, this is not
+    // a user preference. Wrapped in a Promise (not a plain getter) for symmetry with every other
+    // RN-facing read here, and so a future test double never needs to fake BuildConfig itself.
+    @ReactMethod
+    fun getCollapseWindowMs(promise: Promise) {
+        promise.resolve(BuildConfig.COLLAPSE_WINDOW_MS.toDouble())
+    }
+
+    @ReactMethod
     fun getRetentionDays(promise: Promise) {
         scope.launch {
             runCatching { preferences.get(NotificationPreferenceKeys.RETENTION_DAYS)?.value?.toIntOrNull() }
@@ -307,6 +334,33 @@ class NotificationsBridgeModule(
             runCatching { notifications.history.markRead(id) }
                 .onSuccess { emitUnreadCountChanged() }
                 .resolveOrReject(promise, "MARK_HISTORY_READ_ERROR")
+        }
+    }
+
+    // Marking by correlation — RN reacts to a chapter/serial being opened and knows only that,
+    // never which history row announced it (see Notifications.History's own doc).
+    @ReactMethod
+    fun markHistoryReadByChapter(
+        seriesId: String,
+        chapterId: String,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.history.markReadByChapter(seriesId, chapterId) }
+                .onSuccess { emitUnreadCountChanged() }
+                .resolveOrReject(promise, "MARK_HISTORY_READ_BY_CHAPTER_ERROR")
+        }
+    }
+
+    @ReactMethod
+    fun markHistorySerialRead(
+        seriesId: String,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.history.markSerialRead(seriesId) }
+                .onSuccess { emitUnreadCountChanged() }
+                .resolveOrReject(promise, "MARK_HISTORY_SERIAL_READ_ERROR")
         }
     }
 
