@@ -67,6 +67,11 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
   const [serie, setSerie] = useState<Serie | null>(null);
   // Whether this visit already announced `serie/opened` — see the load() call site.
   const announcedOpenRef = useRef(false);
+  // Chapter marks applied optimistically (via ChapterEvents.readStatusChanged, e.g. the Reader
+  // marking a chapter read while this screen sits underneath it) that the server hasn't
+  // confirmed yet. load() re-applies these on top of every fresh digest — see its own doc for
+  // why: a cache-first focus reload can otherwise race the mark and show stale data.
+  const pendingMarksRef = useRef<Map<string, SerieChapter['readStatus']>>(new Map());
   const [isFollowed, setIsFollowed] = useState(false);
   const [sortMode, setSortMode] = useState<ChapterSortMode>(DEFAULT_SORT_PREFS.mode);
   const [sortFixedThreshold, setSortFixedThreshold] = useState<number | undefined>(DEFAULT_SORT_PREFS.fixedThreshold);
@@ -114,7 +119,21 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
           return SerieTool.normalize({ digest });
         })
         .then(normalized => {
-          setSerie(normalized);
+          // Re-apply any not-yet-confirmed optimistic mark on top of this fresh digest — a
+          // cache-first fetch (this is full=false, always cache-first outside isRefresh) can
+          // legitimately still reflect the pre-mark state if it raced the server write (see
+          // pendingMarksRef's own doc). Without this, a focus reload right after marking a
+          // chapter read elsewhere would silently revert it back to stale data.
+          const withPendingMarks = pendingMarksRef.current.size === 0
+            ? normalized
+            : {
+                ...normalized,
+                chapters: normalized.chapters.map(c => {
+                  const pending = pendingMarksRef.current.get(c.id);
+                  return pending ? { ...c, readStatus: pending } : c;
+                }),
+              };
+          setSerie(withPendingMarks);
           // The serie is open — announced on the serie domain's own event, once per visit.
           // Neither on a pull-to-refresh (the user is already here, not arriving) nor on every
           // load: useFocusEffect re-runs this on every focus, including coming back from the
@@ -271,12 +290,23 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
   // applyMarkUpdate: same in-place readStatus swap the local mark.* calls go through.
   //
   // `phase` filter mirrors the Library's listener: 'optimistic' applies the change, 'reverted'
-  // applies the fallback status, 'confirmed' is a no-op (nothing visible changed since
-  // 'optimistic'). A mark that originated on THIS screen already ran applyMarkUpdate via its own
-  // `onUpdate` — reapplying the same readStatus by id is idempotent, no loop, no re-emit here.
+  // applies the fallback status, 'confirmed' clears the pending-mark override (the server now
+  // agrees, so a future cache-first load() no longer needs correcting for this chapter) but is
+  // otherwise a no-op (nothing visible changed since 'optimistic'). A mark that originated on
+  // THIS screen already ran applyMarkUpdate via its own `onUpdate` — reapplying the same
+  // readStatus by id is idempotent, no loop, no re-emit here.
+  //
+  // 'optimistic'/'reverted' also record the resulting status in pendingMarksRef — see its own
+  // doc: load() re-applies these on top of the next fresh digest, so a focus reload racing the
+  // server write (e.g. the Reader marks read, then this screen regains focus before the write
+  // lands) can't silently show the pre-mark status again.
   useEvent(ChapterEvents.readStatusChanged, ({ chapter, changed, phase }) => {
-    if (phase === 'confirmed') {return;}
     if (chapter.seriesId !== seriesId) {return;}
+    if (phase === 'confirmed') {
+      pendingMarksRef.current.delete(chapter.id);
+      return;
+    }
+    pendingMarksRef.current.set(chapter.id, changed.readStatus);
     applyMarkUpdate({ seriesId, chapterId: chapter.id, readStatus: changed.readStatus });
   });
 

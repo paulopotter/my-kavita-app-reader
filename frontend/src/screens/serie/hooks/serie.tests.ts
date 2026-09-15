@@ -344,6 +344,61 @@ describe('useSerie', () => {
       });
       expect(result.current.chapters.every(c => c.readStatus === 'UNREAD')).toBe(true);
     });
+
+    // Reproduces the device bug: the Reader marks a chapter read (optimistic, server write still
+    // in flight), the user navigates back to this screen, and its focus reload (useFocusEffect ->
+    // load()) races that write — the digest it gets back is still cache-first stale (pre-mark).
+    // Without re-applying the pending mark, that reload would silently revert the chapter (and
+    // the series' progress) back to unread.
+    it('a focus reload racing the server write does not revert an optimistic mark', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'c2', seriesId: 's1' },
+          changed: { readStatus: 'READ' },
+          phase: 'optimistic',
+        });
+      });
+      expect(result.current.chapters.find(c => c.id === 'c2')?.readStatus).toBe('READ');
+
+      // Stale digest — as if the Kotlin cache hadn't yet observed the write.
+      mockNormalize.mockReturnValueOnce(serie);
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(result.current.chapters.find(c => c.id === 'c2')?.readStatus).toBe('READ');
+    });
+
+    it('a confirmed mark clears the pending override — a later stale reload is not corrected anymore', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'c2', seriesId: 's1' },
+          changed: { readStatus: 'READ' },
+          phase: 'optimistic',
+        });
+      });
+      act(() => {
+        EventBus.emit(ChapterEvents.readStatusChanged, {
+          chapter: { id: 'c2', seriesId: 's1' },
+          changed: { readStatus: 'READ' },
+          phase: 'confirmed',
+        });
+      });
+
+      mockNormalize.mockReturnValueOnce(serie);
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      // The reload's own (stale) value wins now — the override was cleared on 'confirmed'.
+      expect(result.current.chapters.find(c => c.id === 'c2')?.readStatus).toBe('UNREAD');
+    });
   });
 });
 
