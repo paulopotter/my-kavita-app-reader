@@ -8,8 +8,7 @@ import { StartupProvider } from './shared/context/startup';
 import { ImmersiveProvider, useImmersive } from './shared/context/immersive';
 import { registerSeriesDigestIndexListener } from './shared/managers/store';
 import { registerNotificationHistoryListener } from './shared/services/notifications';
-import { RootNavigator } from './navigation/RootNavigator';
-import { Routes, BOTTOM_NAV_ROUTES } from './navigation/routes';
+import { RootNavigator, Routes, BOTTOM_NAV_ROUTES } from './navigation';
 import { linking } from './navigation/linking.config';
 
 
