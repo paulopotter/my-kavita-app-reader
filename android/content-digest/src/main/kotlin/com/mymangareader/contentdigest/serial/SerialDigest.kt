@@ -8,6 +8,7 @@ import com.mymangareader.contentdigest.chapter.ChapterDigest
 import com.mymangareader.contentdigest.chapter.ChapterFields
 import com.mymangareader.contentdigest.chapter.ChapterNeighborDigest
 import com.mymangareader.contentdigest.chapter.buildChapterDigest
+import com.mymangareader.contentdigest.chapter.patchChapterReadStatus
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
@@ -283,6 +284,53 @@ suspend fun buildSerialDigest(
             variant = "full:external",
         )
     return fresh.copy(cache = descriptor)
+}
+
+// Patches one chapter's readStatus in-place inside every cached variant of this series (full x
+// includeExternalMetadata — 4 combinations), and recomputes chapters.readCount from the patched
+// list, instead of invalidating and forcing a network re-fetch — same rationale as
+// patchChapterReadStatus (ChapterDigest.kt), which this calls first so a lone getChapterDigest
+// read (no Series in the loop) sees the same status.
+//
+// Deliberately partial: chapters.resumePoint is NOT recomputed here (it requires the same
+// prev/next-in-reading-order decision buildSerialDigest's assembly makes from the full server
+// response — out of scope for a local patch). A stale resumePoint self-heals on the next network
+// fetch (TTL expiry or force=true), same as before this patch existed.
+suspend fun patchSerialChapterReadStatus(
+    cache: Cache,
+    seriesId: String,
+    chapterId: String,
+    readStatus: ChapterFields.ReadStatus,
+) {
+    patchChapterReadStatus(cache, chapterId, readStatus)
+
+    for (full in listOf(true, false)) {
+        for (includeExternalMetadata in listOf(true, false)) {
+            val key = serialDigestCacheKey(seriesId, SerialDigestOptions(full = full, includeExternalMetadata = includeExternalMetadata))
+            val cached = cache.persistent.get(key, variant = SERIAL_CACHE_VARIANT) ?: continue
+            val digest = runCatching { serialDigestJson.decodeFromString<SerialDigest.Success>(cached.value) }.getOrNull() ?: continue
+            val chapters = digest.chapters ?: continue
+            var changed = false
+            val patchedList =
+                chapters.list.map { chapter ->
+                    if (chapter is ChapterDigest.Success && chapter.id == chapterId && chapter.readStatus != readStatus) {
+                        changed = true
+                        chapter.copy(readStatus = readStatus)
+                    } else {
+                        chapter
+                    }
+                }
+            if (!changed) continue
+            val patchedReadCount = patchedList.count { it is ChapterDigest.Success && it.readStatus == ChapterFields.ReadStatus.READ }
+            val patched = digest.copy(chapters = chapters.copy(list = patchedList, readCount = patchedReadCount))
+            cache.persistent.put(
+                key,
+                serialDigestJson.encodeToString(SerialDigest.Success.serializer(), patched),
+                SERIAL_CACHE_DOMAIN,
+                variant = SERIAL_CACHE_VARIANT,
+            )
+        }
+    }
 }
 
 // Assembly order (R11): serial.get() first — vital, its failure makes the whole result a

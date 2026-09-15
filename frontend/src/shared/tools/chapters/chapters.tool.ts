@@ -276,6 +276,10 @@ export const ChapterTool = {
         .then(() => {
           onUpdate?.(optimistic);
           emitReadStatusChanged(optimistic, 'confirmed', prevStatus);
+          // Keep the Kotlin digest cache from contradicting a write it already accepted — see
+          // patchCache's own doc. Fire-and-forget: a failure here just means the cache stays
+          // stale until its TTL expires, same as before this existed, never worth surfacing.
+          ChapterService.status.patchCache({ seriesId, chapterId, isRead: true }).catch(() => {});
         })
         .catch(() => {
           const reverted: ChapterMarkUpdate = { seriesId, chapterId, readStatus: prevStatus ?? 'UNREAD' };
@@ -307,6 +311,8 @@ export const ChapterTool = {
         .then(() => {
           onUpdate?.(optimistic);
           emitReadStatusChanged(optimistic, 'confirmed', prevStatus);
+          // See mark.read's own comment on patchCache — same rationale, opposite direction.
+          ChapterService.status.patchCache({ seriesId, chapterId, isRead: false }).catch(() => {});
         })
         .catch(() => {
           const reverted: ChapterMarkUpdate = { seriesId, chapterId, readStatus: prevStatus ?? 'READ' };

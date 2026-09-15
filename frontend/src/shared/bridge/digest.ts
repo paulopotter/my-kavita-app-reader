@@ -276,6 +276,11 @@ interface DigestBridgeModuleInterface {
   getChapterDigest(seriesId: string, chapterId: string, options: ChapterDigestOptions): Promise<ChapterDigest>;
   getSerialDigest(seriesId: string, options: SerialDigestOptions): Promise<SerialDigest>;
   getSerialsDigest(options: SerialsDigestOptions): Promise<SerialsDigest>;
+  // Patches readStatus into the chapter's and the series' own cached digests — no network call.
+  // Called right after a setChapterRead/setChaptersRead write confirms, so the cache stops
+  // contradicting a write the server already accepted (see DigestBridgeModule's own doc for
+  // exactly what's patched vs. left for the next real fetch).
+  patchChapterReadStatusCache(seriesId: string, chapterId: string, isRead: boolean): Promise<void>;
 }
 
 export const DigestBridge: DigestBridgeModuleInterface = NativeModules.DigestBridgeModule;

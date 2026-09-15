@@ -778,6 +778,43 @@ class ChapterDigestTest {
             assertTrue(forced.cache != null)
         }
 
+    @Test
+    fun `patchChapterReadStatus updates readStatus on a cached full=false entry without a network call`() =
+        runTest {
+            activateGroup()
+            val original = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
+            assertEquals(ChapterFields.ReadStatus.UNREAD, original.readStatus)
+
+            patchChapterReadStatus(cache, "c1", ChapterFields.ReadStatus.READ)
+
+            // No further mockServer responses enqueued — a network call here would fail the test.
+            val patched = buildChapterDigest(server, "s1", "c1", cache) as ChapterDigest.Success
+            assertEquals(ChapterFields.ReadStatus.READ, patched.readStatus)
+        }
+
+    @Test
+    fun `patchChapterReadStatus updates both full=true and full=false cached entries`() =
+        runTest {
+            activateGroup()
+            buildChapterDigest(server, "s1", "c1", cache, full = false)
+            buildChapterDigest(server, "s1", "c1", cache, full = true)
+
+            patchChapterReadStatus(cache, "c1", ChapterFields.ReadStatus.READ)
+
+            val light = buildChapterDigest(server, "s1", "c1", cache, full = false) as ChapterDigest.Success
+            val full = buildChapterDigest(server, "s1", "c1", cache, full = true) as ChapterDigest.Success
+            assertEquals(ChapterFields.ReadStatus.READ, light.readStatus)
+            assertEquals(ChapterFields.ReadStatus.READ, full.readStatus)
+        }
+
+    @Test
+    fun `patchChapterReadStatus is a no-op when nothing is cached yet`() =
+        runTest {
+            // No buildChapterDigest call first, no mockServer response enqueued — this must not
+            // attempt any fetch or throw.
+            patchChapterReadStatus(cache, "never-cached", ChapterFields.ReadStatus.READ)
+        }
+
     private fun baseChapter(
         id: String = "c1",
         title: String = "Chapter 1",

@@ -71,6 +71,21 @@ export const ChapterService = {
     }): Promise<void> {
       return ServerBridge.setChaptersRead(seriesId, isRead, chapterIds);
     },
+    // Patches the new readStatus into the chapter's and the series' own cached digests — no
+    // network call. Call this right after `set`/`setMany` confirms, so a cache-first read
+    // elsewhere (the Library's viewport enrichment, a focus reload) can't still show the
+    // pre-mark status until the digest's TTL expires.
+    patchCache({
+      seriesId,
+      chapterId,
+      isRead,
+    }: {
+      seriesId: string;
+      chapterId: string;
+      isRead: boolean;
+    }): Promise<void> {
+      return DigestBridge.patchChapterReadStatusCache(seriesId, chapterId, isRead);
+    },
   },
   read({ seriesId, chapterId }: { seriesId: string; chapterId: string }): Promise<void> {
     return ChapterService.status.set({ seriesId, chapterId, isRead: true });

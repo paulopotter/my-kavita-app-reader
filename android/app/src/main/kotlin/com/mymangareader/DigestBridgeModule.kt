@@ -6,12 +6,14 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.mymangareader.cache.Cache
+import com.mymangareader.contentdigest.chapter.ChapterFields
 import com.mymangareader.contentdigest.chapter.buildChapterDigest
 import com.mymangareader.contentdigest.page.ChapterSummary
 import com.mymangareader.contentdigest.page.buildPageDigest
 import com.mymangareader.contentdigest.serial.SerialDigestOptions
 import com.mymangareader.contentdigest.serial.buildSerialDigest
 import com.mymangareader.contentdigest.serial.buildSerialsDigest
+import com.mymangareader.contentdigest.serial.patchSerialChapterReadStatus
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
@@ -203,6 +205,26 @@ class DigestBridgeModule
 
                 runCatching { buildSerialsDigest(server, cache, force = force) }
                     .resolveOrReject(promise, "GET_SERIALS_DIGEST_ERROR") { it.toWritableMap() }
+            }
+        }
+
+        // Called right after a setChapterRead/setChaptersRead server write confirms — patches the
+        // new readStatus into the chapter's own cache entry and into the series' cached chapter
+        // list (see patchChapterReadStatus/patchSerialChapterReadStatus's own docs for exactly
+        // what's patched and what's deliberately left for the next real fetch). No network call:
+        // the caller already knows the status with certainty, so this just keeps the cache from
+        // contradicting a write that already round-tripped the server.
+        @ReactMethod
+        fun patchChapterReadStatusCache(
+            seriesId: String,
+            chapterId: String,
+            isRead: Boolean,
+            promise: Promise,
+        ) {
+            scope.launch {
+                val readStatus = if (isRead) ChapterFields.ReadStatus.READ else ChapterFields.ReadStatus.UNREAD
+                runCatching { patchSerialChapterReadStatus(cache, seriesId, chapterId, readStatus) }
+                    .resolveOrReject(promise, "PATCH_CHAPTER_READ_STATUS_ERROR")
             }
         }
     }

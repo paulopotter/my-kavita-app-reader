@@ -3,7 +3,7 @@ import { ChapterEvents, ChapterTool, ChaptersTool, type ChapterReadStatusChanged
 jest.mock('../../services/chapters', () => ({
   ChapterService: {
     get: jest.fn(),
-    status: { set: jest.fn(), setMany: jest.fn() },
+    status: { set: jest.fn(), setMany: jest.fn(), patchCache: jest.fn().mockResolvedValue(undefined) },
   },
 }));
 
@@ -24,6 +24,7 @@ import type { ChapterDigestSuccess, ServerActiveInfo } from '../../bridge/digest
 
 const mockGet = ChapterService.get as jest.Mock;
 const mockStatusSet = ChapterService.status.set as jest.Mock;
+const mockPatchCache = ChapterService.status.patchCache as jest.Mock;
 const mockStatusSetMany = ChapterService.status.setMany as jest.Mock;
 const mockPrefsGet = PreferencesManager.get as jest.Mock;
 const mockPrefsPut = PreferencesManager.put as jest.Mock;
@@ -432,6 +433,31 @@ describe('ChapterTool.mark.* — ChapterEvents.readStatusChanged emissions', () 
     });
   });
 
+  it('mark.read patches the Kotlin digest cache once the write confirms, keeping it from contradicting a cache-first read elsewhere', async () => {
+    mockStatusSet.mockResolvedValue(undefined);
+    ChapterTool.mark.read({ seriesId: 's1', chapterId: 'c1' });
+    await flushPromises();
+
+    expect(mockPatchCache).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c1', isRead: true });
+  });
+
+  it('mark.read does not patch the cache when the write fails (nothing to keep in sync with)', async () => {
+    mockStatusSet.mockRejectedValue(new Error('network down'));
+    ChapterTool.mark.read({ seriesId: 's1', chapterId: 'c1' });
+    await flushPromises();
+
+    expect(mockPatchCache).not.toHaveBeenCalled();
+  });
+
+  it('mark.read swallows a patchCache failure — it never reverts the mark that already succeeded', async () => {
+    mockStatusSet.mockResolvedValue(undefined);
+    mockPatchCache.mockRejectedValue(new Error('cache write failed'));
+    ChapterTool.mark.read({ seriesId: 's1', chapterId: 'c1' });
+    await flushPromises();
+
+    expect(received.map(p => p.phase)).toEqual(['optimistic', 'confirmed']);
+  });
+
   it('mark.unread emits optimistic then confirmed', async () => {
     mockStatusSet.mockResolvedValue(undefined);
     ChapterTool.mark.unread({ seriesId: 's1', chapterId: 'c1', prevStatus: 'READ' });
@@ -439,6 +465,14 @@ describe('ChapterTool.mark.* — ChapterEvents.readStatusChanged emissions', () 
 
     expect(received.map(p => p.phase)).toEqual(['optimistic', 'confirmed']);
     expect(received[0].changed).toEqual({ readStatus: 'UNREAD', prevStatus: 'READ' });
+  });
+
+  it('mark.unread patches the Kotlin digest cache once the write confirms', async () => {
+    mockStatusSet.mockResolvedValue(undefined);
+    ChapterTool.mark.unread({ seriesId: 's1', chapterId: 'c1' });
+    await flushPromises();
+
+    expect(mockPatchCache).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c1', isRead: false });
   });
 
   it('mark.unread emits reverted with prevStatus UNREAD on write failure', async () => {

@@ -591,6 +591,59 @@ class SerialDigestTest {
             assertEquals(1, digest.chapters?.readCount)
         }
 
+    // ── patchSerialChapterReadStatus ────────────────────────────────────────
+
+    @Test
+    fun `patchSerialChapterReadStatus updates the chapter's readStatus and recomputes readCount, without a network call`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 0), // UNREAD
+                        fakeChapter("ch2", decimalNumber = 2.0, pageCount = 10, pagesRead = 0), // UNREAD
+                    ),
+                )
+            val original = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            assertEquals(0, original.chapters?.readCount)
+
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.READ)
+
+            // No further mockServer responses enqueued — a network call here would fail the test.
+            val patched = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            val ch1 = patched.chapters?.list?.first { (it as ChapterDigest.Success).id == "ch1" } as ChapterDigest.Success
+            assertEquals(ChapterFields.ReadStatus.READ, ch1.readStatus)
+            assertEquals(1, patched.chapters?.readCount)
+        }
+
+    @Test
+    fun `patchSerialChapterReadStatus leaves other chapters untouched`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10, pagesRead = 0),
+                        fakeChapter("ch2", decimalNumber = 2.0, pageCount = 10, pagesRead = 0),
+                    ),
+                )
+            buildSerialDigest(server, "s1", cache)
+
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.READ)
+
+            val patched = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            val ch2 = patched.chapters?.list?.first { (it as ChapterDigest.Success).id == "ch2" } as ChapterDigest.Success
+            assertEquals(ChapterFields.ReadStatus.UNREAD, ch2.readStatus)
+        }
+
+    @Test
+    fun `patchSerialChapterReadStatus is a no-op when nothing is cached yet`() =
+        runTest {
+            // No buildSerialDigest call first, no mockServer response enqueued — this must not
+            // attempt any fetch or throw.
+            patchSerialChapterReadStatus(cache, "never-cached", "ch1", ChapterFields.ReadStatus.READ)
+        }
+
     // ── resumePoint cascade ───────────────────────────────────────────────
 
     @Test

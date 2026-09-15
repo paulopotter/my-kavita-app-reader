@@ -247,6 +247,37 @@ suspend fun buildChapterDigest(
     return toPersist.copy(cache = descriptor)
 }
 
+// Patches readStatus in-place on whichever cached variant(s) of this chapter exist (full=true
+// and/or full=false — marking read/unread isn't scoped to one), instead of invalidating and
+// forcing a network re-fetch: the app already knows the new status with certainty (the write that
+// triggered this already round-tripped the server), so re-deriving it from a fresh fetch would be
+// redundant. A cache miss for a variant is a no-op for that variant — nothing to patch, and the
+// next real build will write the correct status anyway.
+//
+// Deliberately partial (see this task's own scoping): only readStatus is patched here, not
+// pages.readCount/resumePoint — those require re-deriving from the full pages list, which this
+// function doesn't have. A caller that also needs the Series' aggregate readCount patched calls
+// patchSerialChapterReadStatus (SerialDigest.kt) separately.
+suspend fun patchChapterReadStatus(
+    cache: Cache,
+    chapterId: String,
+    readStatus: ChapterFields.ReadStatus,
+) {
+    for (full in listOf(true, false)) {
+        val key = chapterDigestCacheKey(chapterId, full)
+        val cached = cache.persistent.get(key, variant = "full") ?: continue
+        val digest = runCatching { chapterDigestJson.decodeFromString<ChapterDigest.Success>(cached.value) }.getOrNull() ?: continue
+        if (digest.readStatus == readStatus) continue
+        val patched = digest.copy(readStatus = readStatus)
+        cache.persistent.put(
+            key,
+            chapterDigestJson.encodeToString(ChapterDigest.Success.serializer(), patched),
+            CHAPTER_CACHE_DOMAIN,
+            variant = "full",
+        )
+    }
+}
+
 // Assembly order (R11): chapter.get() first (unless skipped — see isCompleteForChapterDigest
 // above) — vital when it does run, its failure makes the whole result a Failure. getProgress()
 // second — tolerated failure (caught, resumePoint stays null, doesn't escalate). server/
