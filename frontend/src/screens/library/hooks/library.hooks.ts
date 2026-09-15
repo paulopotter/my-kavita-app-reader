@@ -407,6 +407,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadInFlightRef = useRef(false);
   const loadRef = useRef<(force?: boolean) => void>(() => {});
+  const enrichSeriesRef = useRef<(seriesId: string, seriesName: string) => Promise<void>>(async () => {});
   // Stable id for THIS instance — lets the assembled-list listener below ignore its own emit.
   const instanceIdRef = useRef<string>('');
   if (instanceIdRef.current === '') {
@@ -505,8 +506,22 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
 
   // Chapter read/unread from another screen — optimistic in-place move, then one debounced
   // background reload to reconcile the aggregate.
+  //
+  // A card that never had its chapter digest enriched yet (still showing page-based progress,
+  // no readChapters/chapterCount — see LibraryEntry's doc) can't be adjusted in place:
+  // ADJUST_READ/withRecomputedProgress both no-op on it (nothing to increment). Left alone, it
+  // would keep showing the stale page-based fraction (e.g. "99%") until the next full reload
+  // happens to land after the server-side count caught up — which is exactly the "Following says
+  // 99%, opening the series shows 100%, going back finally corrects it" bug. So for that case,
+  // re-enrich this one series right away instead of waiting on the debounced reload: it fetches
+  // the real chapter digest and PATCH_ENTRYs the card out of page-based mode immediately.
   useEvent(ChapterEvents.readStatusChanged, ({ chapter, changed, phase }) => {
     if (phase === 'confirmed') {return;}
+    const entry = state.data.find(e => e.id === chapter.seriesId);
+    if (entry && (entry.readChapters == null || entry.chapterCount == null)) {
+      enrichSeriesRef.current(chapter.seriesId, entry.name);
+      return;
+    }
     const base = readCountDelta(changed.readStatus, changed.prevStatus);
     const delta = phase === 'reverted' ? -base : base;
     if (delta !== 0) {
@@ -646,6 +661,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
       dispatch({ type: 'PATCH_ENTRY', seriesId, patch });
     }
   }, []);
+  enrichSeriesRef.current = enrichSeries;
 
   // Called by the FlatList's onViewableItemsChanged. Takes the visible index range, expands it by
   // ENRICH_LOOKAHEAD downward, drops anything already enriched, and works through the rest
