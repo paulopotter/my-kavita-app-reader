@@ -26,7 +26,6 @@ export const styles = StyleSheet.create({
   sortBtn: { paddingHorizontal: 10, paddingVertical: 4 },
   sortBtnTxt: { color: '#E94560', fontSize: 13, fontWeight: '600' },
   viewToggleBtn: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  viewToggleIcon: { color: '#A0AEC0', fontSize: 18 },
 
   content: { flex: 1 },
   gridList: { padding: 6 },

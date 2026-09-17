@@ -52,26 +52,24 @@ export const SeriesCard = React.memo(function SeriesCard({
           <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%` }]} />
         </View>
         <View style={styles.progressLine}>
-          {chapterCountLabel ? <Text style={styles.progressText}>{chapterCountLabel}</Text> : <View />}
+          <Text style={styles.progressText}>{chapterCountLabel ?? ''}</Text>
           <Text style={styles.progressText}>{progressLabel}</Text>
         </View>
 
-        {(publicationLabel || errorsLabel) && (
-          <View style={styles.badges}>
-            {publicationLabel && (
-              <View style={[styles.badge, styles.badgePub]}>
-                <Text style={styles.badgeText}>{publicationLabel}</Text>
-              </View>
-            )}
-            {errorsLabel && (
-              <View style={[styles.badge, styles.badgeError]}>
-                <Text style={styles.badgeText}>{errorsLabel}</Text>
-              </View>
-            )}
-          </View>
-        )}
+        <View style={styles.badges}>
+          {publicationLabel && (
+            <View style={[styles.badge, styles.badgePub]}>
+              <Text style={styles.badgeText}>{publicationLabel}</Text>
+            </View>
+          )}
+          {errorsLabel && (
+            <View style={[styles.badge, styles.badgeError]}>
+              <Text style={styles.badgeText}>{errorsLabel}</Text>
+            </View>
+          )}
+        </View>
 
-        {downloadedLabel && <Text style={styles.chapters}>{downloadedLabel}</Text>}
+        <Text style={styles.chapters}>{downloadedLabel ?? ''}</Text>
       </View>
     </TouchableOpacity>
   );

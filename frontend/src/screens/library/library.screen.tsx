@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LayoutGrid, LayoutList } from 'lucide-react-native';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
 import { useStrings } from '../../shared/i18n';
 import type { Strings } from '../../shared/i18n';
@@ -160,7 +161,7 @@ export function LibraryScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.viewToggleBtn} onPress={toggleViewMode}>
-          <Text style={styles.viewToggleIcon}>{viewMode === 'GRID' ? '☰' : '⊞'}</Text>
+          {viewMode === 'GRID' ? <LayoutList size={18} color="#A0AEC0" /> : <LayoutGrid size={18} color="#A0AEC0" />}
         </TouchableOpacity>
       </View>
 

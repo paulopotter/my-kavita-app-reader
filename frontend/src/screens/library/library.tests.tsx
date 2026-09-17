@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { LayoutList } from 'lucide-react-native';
 import { getStrings } from '../../shared/i18n/strings';
 import type { LibraryEntry } from './library.types';
 
@@ -194,10 +195,11 @@ describe('LibraryScreen', () => {
     const e = entry();
     mockHookState.data = [e];
     mockHookState.paddedData = [e, null];
-    const { getByText } = render(<LibraryScreen />);
+    const { getByText, UNSAFE_getByType } = render(<LibraryScreen />);
     fireEvent.press(getByText(t.librarySortRecentlyUpdated));
     expect(mockToggleSortMode).toHaveBeenCalled();
-    fireEvent.press(getByText('☰'));
+    // GRID mode shows the LayoutList icon (tap it to switch to LIST) — see library.screen.tsx.
+    fireEvent.press(UNSAFE_getByType(LayoutList).parent);
     expect(mockToggleViewMode).toHaveBeenCalled();
   });
 

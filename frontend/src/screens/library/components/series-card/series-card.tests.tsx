@@ -48,6 +48,30 @@ describe('SeriesCard', () => {
     expect(getByText('12/40 caps.')).toBeTruthy();
   });
 
+  // Every card reserves the same layout regardless of which optional fields it has — an entry
+  // missing badges/downloadedLabel/chapterCountLabel must not render a shorter card than one
+  // that has them (previously conditional rendering removed these sections' whole box). Same
+  // Text count either way is the structural signal: the downloaded-label and chapter-count Texts
+  // are always present (empty string when the value is absent), never omitted from the tree.
+  it('renders the same number of Text nodes whether or not the optional fields are provided', () => {
+    const { Text } = require('react-native');
+    const bare = render(<SeriesCard {...props()} />);
+    const full = render(
+      <SeriesCard
+        {...props({
+          chapterCountLabel: '3/12 caps.',
+          publicationLabel: 'Ongoing',
+          errorsLabel: 'Errors',
+          downloadedLabel: '12/40 caps.',
+        })}
+      />,
+    );
+    // publicationLabel/errorsLabel badges DO add their own Text nodes (they're genuinely absent,
+    // not empty-string placeholders — see SeriesCardProps' own doc) — subtract those 2 to compare
+    // the always-present structural nodes.
+    expect(bare.UNSAFE_root.findAllByType(Text).length).toBe(full.UNSAFE_root.findAllByType(Text).length - 2);
+  });
+
   it('fires onPress with the id', () => {
     const onPress = jest.fn();
     const { getByText } = render(<SeriesCard {...props({ onPress })} />);

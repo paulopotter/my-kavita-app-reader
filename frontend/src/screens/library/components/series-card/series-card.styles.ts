@@ -32,9 +32,14 @@ export const styles = StyleSheet.create({
   info: {
     padding: 8,
   },
+  // lineHeight × 2 reserves the title's own space for 2 lines always — a 1-line title still
+  // takes up the same height as a 2-line one (numberOfLines={2} ellipsizes anything past that),
+  // so every card's progress bar/badges/etc. start at the same y regardless of title length.
   name: {
     color: '#FFFFFF',
     fontSize: 12,
+    lineHeight: 15,
+    height: 30,
     fontWeight: '600',
     marginBottom: 6,
   },
@@ -60,11 +65,15 @@ export const styles = StyleSheet.create({
     color: '#A0AEC0',
     fontSize: 10,
   },
+  // Fixed height (one badge row's worth) reserved whether or not this card actually has a badge
+  // to show — an entry with neither publicationLabel nor errorsLabel would otherwise render a
+  // shorter card than one that has them, which is what looked "off" side by side in the grid.
   badges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 4,
     marginBottom: 4,
+    height: 18,
   },
   badge: {
     paddingHorizontal: 6,
@@ -78,8 +87,11 @@ export const styles = StyleSheet.create({
   },
   badgePub: { backgroundColor: '#553C9A' },
   badgeError: { backgroundColor: '#C53030' },
+  // Fixed height reserved the same way as badges above — an entry with no BFF match (no
+  // downloadedLabel) still takes up this line's space.
   chapters: {
     color: '#A0AEC0',
     fontSize: 10,
+    height: 13,
   },
 });
