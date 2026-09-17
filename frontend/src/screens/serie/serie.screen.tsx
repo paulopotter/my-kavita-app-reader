@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Settings } from 'lucide-react-native';
+import { ArrowLeft, Check, Settings, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
 import { Routes } from '../../navigation/routes';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
 import { FollowStar } from '../../shared/components/follow-star';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
-import { ChapterListItem, ChapterSortFields, Header, SelectionBottomBar, sortModeLabel } from './components';
+import { SelectionBottomBar } from '../../shared/components/selection-bottom-bar';
+import { ChapterListItem, ChapterSortFields, Header, sortModeLabel } from './components';
 import { useSerie } from './hooks';
 import { styles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
@@ -220,11 +221,12 @@ export function SerieScreen() {
 
       {selectionMode && (
         <SelectionBottomBar
-          t={t}
-          onMarkRead={markSelectedRead}
-          onMarkUnread={markSelectedUnread}
-          onSelectAll={selectAll}
-          onInvertSelection={invertSelection}
+          actions={[
+            { key: 'select-all', icon: SquareCheckBig, label: t.seriesDetailSelectionSelectAll, onPress: selectAll },
+            { key: 'invert', icon: Shuffle, label: t.seriesDetailSelectionInvert, onPress: invertSelection },
+            { key: 'mark-read', icon: Check, label: t.seriesDetailSelectionMarkRead, onPress: markSelectedRead },
+            { key: 'mark-unread', icon: X, label: t.seriesDetailSelectionMarkUnread, onPress: markSelectedUnread },
+          ]}
         />
       )}
 
