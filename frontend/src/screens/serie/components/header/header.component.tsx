@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
+import type { NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 import type { Serie } from '../../../../shared';
+import type { Strings } from '../../../../shared/i18n';
 import { styles } from './header.styles';
 
 interface Props {
@@ -9,11 +11,28 @@ interface Props {
   // "start" vs. "continue ch. N" vs. "reread" itself.
   actionLabel: string;
   onActionPress: () => void;
+  t: Strings;
 }
 
+// A long description is clamped to this many lines by default — "read more" reveals the rest.
+// Purely presentational, so this stays a local useState in the dumb component (no domain logic,
+// no service call) rather than something useSerie needs to own.
+const DESCRIPTION_CLAMP_LINES = 6;
+
 // Dumb: renders the data it's given (cover, name, description, chips) and fires onActionPress.
-export function Header({ serie, actionLabel, onActionPress }: Props) {
+export function Header({ serie, actionLabel, onActionPress, t }: Props) {
   const tags = [...(serie.metadata?.genres ?? []), ...(serie.metadata?.tags ?? [])];
+  const [expanded, setExpanded] = useState(false);
+  // Whether the description actually overflows DESCRIPTION_CLAMP_LINES — only known once RN lays
+  // the unclamped text out once (onTextLayout below), so the "read more" toggle doesn't render
+  // (falsely) for a description that already fits.
+  const [overflowing, setOverflowing] = useState(false);
+
+  const handleDescriptionLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+    if (!expanded && e.nativeEvent.lines.length > DESCRIPTION_CLAMP_LINES) {
+      setOverflowing(true);
+    }
+  };
 
   return (
     <View style={styles.root}>
@@ -26,7 +45,31 @@ export function Header({ serie, actionLabel, onActionPress }: Props) {
         </View>
       </View>
 
-      {serie.metadata?.description ? <Text style={styles.summary}>{serie.metadata.description}</Text> : null}
+      {serie.metadata?.description ? (
+        <>
+          <Text
+            style={styles.summary}
+            numberOfLines={expanded ? undefined : DESCRIPTION_CLAMP_LINES}
+            onTextLayout={handleDescriptionLayout}
+          >
+            {serie.metadata.description}
+          </Text>
+          {/* Rendered from the start (opacity 0 until overflow is known), never conditionally
+              mounted — RN only learns the real line count from onTextLayout, after the first
+              paint, so mounting this late would shift the chips/action button below it down by
+              its own height right as the user opens the screen. */}
+          <TouchableOpacity
+            onPress={() => setExpanded(current => !current)}
+            hitSlop={8}
+            disabled={!overflowing}
+            style={!overflowing && styles.summaryToggleHidden}
+          >
+            <Text style={styles.summaryToggle}>
+              {expanded ? t.seriesDetailDescriptionReadLess : t.seriesDetailDescriptionReadMore}
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
 
       {tags.length > 0 && (
         <View style={styles.chips}>

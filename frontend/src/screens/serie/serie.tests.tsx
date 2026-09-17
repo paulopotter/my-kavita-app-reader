@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { ChevronUp } from 'lucide-react-native';
 import { getStrings } from '../../shared/i18n/strings';
 import { NavigationTool } from '../../shared/tools/navigation';
 import { chapterEvents, serieEvents, type ActionContract, type Serie, type SerieChapter } from '../../shared';
@@ -389,12 +390,19 @@ describe('SerieScreen', () => {
     mockSerieState.serie = makeSerie();
 
     const hidden = render(<SerieScreen />);
-    expect(hidden.queryByText('↑')).toBeNull();
+    expect(hidden.UNSAFE_queryByType(ChevronUp)).toBeNull();
     hidden.unmount();
 
     mockSerieState.showScrollTop = true;
-    const { getByText } = render(<SerieScreen />);
-    fireEvent.press(getByText('↑'));
+    const { UNSAFE_getByType } = render(<SerieScreen />);
+    const { TouchableOpacity } = require('react-native');
+    // ScrollToTopButton is the only place in this screen that renders ChevronUp — walk up to its
+    // enclosing TouchableOpacity, the button itself.
+    let node = UNSAFE_getByType(ChevronUp).parent;
+    while (node && node.type !== TouchableOpacity) {
+      node = node.parent;
+    }
+    fireEvent.press(node);
     expect(mockHideScrollTop).toHaveBeenCalledTimes(1);
   });
 });

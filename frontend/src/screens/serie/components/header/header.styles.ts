@@ -7,6 +7,8 @@ export const styles = StyleSheet.create({
   info: { flex: 1, marginLeft: 12, justifyContent: 'flex-start' },
   name: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   summary: { color: '#CBD5E0', fontSize: 13, marginTop: 12, lineHeight: 18 },
+  summaryToggle: { color: '#E94560', fontSize: 13, fontWeight: '600', marginTop: 4 },
+  summaryToggleHidden: { opacity: 0 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   chip: { backgroundColor: '#16213E', borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   chipText: { color: '#CBD5E0', fontSize: 11 },

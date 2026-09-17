@@ -1,17 +1,19 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { ChevronUp } from 'lucide-react-native';
 import { ScrollToTopButton } from './scroll-to-top-button.component';
 
 describe('ScrollToTopButton', () => {
-  it('renders the up arrow', () => {
-    const { getByText } = render(<ScrollToTopButton onPress={jest.fn()} />);
-    expect(getByText('↑')).toBeTruthy();
+  it('renders the chevron-up icon', () => {
+    const { UNSAFE_getByType } = render(<ScrollToTopButton onPress={jest.fn()} />);
+    expect(UNSAFE_getByType(ChevronUp)).toBeTruthy();
   });
 
   it('calls onPress when tapped', () => {
     const onPress = jest.fn();
-    const { getByText } = render(<ScrollToTopButton onPress={onPress} />);
-    fireEvent.press(getByText('↑'));
+    const { UNSAFE_getByType } = render(<ScrollToTopButton onPress={onPress} />);
+    const { TouchableOpacity } = require('react-native');
+    fireEvent.press(UNSAFE_getByType(TouchableOpacity));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 

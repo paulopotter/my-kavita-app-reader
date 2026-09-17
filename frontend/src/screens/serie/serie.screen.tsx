@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Check, Settings, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
+import { ArrowLeft, Check, Settings2, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
 import { Routes } from '../../navigation/routes';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
@@ -166,7 +166,7 @@ export function SerieScreen() {
           }}
           accessibilityRole="button"
           hitSlop={8}>
-          <Settings size={22} color={ICON_MUTED} />
+          <Settings2 size={22} color={ICON_MUTED} />
         </TouchableOpacity>
       </View>
 
@@ -186,7 +186,7 @@ export function SerieScreen() {
         scrollEventThrottle={100}
         ListHeaderComponent={
           <View onLayout={onHeaderLayout}>
-            {serie && <Header serie={serie} actionLabel={actionLabel} onActionPress={handleActionPress} />}
+            {serie && <Header serie={serie} actionLabel={actionLabel} onActionPress={handleActionPress} t={t} />}
             <View style={styles.sortBar}>
               <Text style={styles.chapterCount}>
                 {readCount}/{chapters.length}

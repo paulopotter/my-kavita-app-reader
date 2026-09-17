@@ -13,5 +13,4 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 4,
   },
-  icon: { color: colors.textOnDark, fontSize: 20, fontWeight: '700', lineHeight: 24 },
 });
