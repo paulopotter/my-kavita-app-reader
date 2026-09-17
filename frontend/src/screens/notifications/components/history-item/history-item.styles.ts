@@ -31,5 +31,4 @@ export const styles = StyleSheet.create({
   trailingActions: { flexDirection: 'row' },
   trailingActionsHidden: { opacity: 0 },
   iconBtn: { paddingHorizontal: 8, paddingVertical: 4, marginLeft: 4 },
-  deleteTxt: { color: '#718096', fontSize: 18 },
 });

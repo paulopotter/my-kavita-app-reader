@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
-import { CheckCircle2, Circle, Info } from 'lucide-react-native';
+import { CheckCircle2, Circle, Info, X } from 'lucide-react-native';
 import { styles } from './history-item.styles';
 
 // Dumb: an unread dot, series cover (when known), series name, body-equivalent summary, relative
@@ -71,7 +71,7 @@ export function HistoryItem({
           <Info size={18} color="#718096" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn} onPress={onDelete} hitSlop={8} accessibilityLabel={deleteLabel}>
-          <Text style={styles.deleteTxt}>✕</Text>
+          <X size={18} color="#718096" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

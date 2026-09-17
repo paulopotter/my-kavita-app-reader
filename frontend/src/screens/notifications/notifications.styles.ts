@@ -14,9 +14,13 @@ export const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#0F3460',
   },
-  totalCount: { color: '#718096', fontSize: 13, fontWeight: '600' },
+  // Same lineHeight as selectionCount below (both fontSize 13) — topBar and selectionTopBar
+  // share identical paddingVertical, so keeping every text inside them at the same lineHeight is
+  // what keeps the header's own total height from shifting by a couple px when entering/exiting
+  // selection mode.
+  totalCount: { color: '#718096', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   markAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  markAllTxt: { color: '#E94560', fontSize: 13, fontWeight: '600' },
+  markAllTxt: { color: '#E94560', fontSize: 13, lineHeight: 18, fontWeight: '600' },
   selectionTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -27,6 +31,6 @@ export const styles = StyleSheet.create({
     borderBottomColor: '#0F3460',
     backgroundColor: '#0F3460',
   },
-  selectionCount: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-  selectionCancelTxt: { color: '#E94560', fontSize: 13, fontWeight: '600' },
+  selectionCount: { color: '#FFFFFF', fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  selectionCancelTxt: { color: '#E94560', fontSize: 13, lineHeight: 18, fontWeight: '600' },
 });

@@ -141,6 +141,8 @@ export interface Strings {
   seriesDetailContinueReading: string;
   seriesDetailRereadFromStart: string;
   seriesDetailChaptersRead: string;
+  seriesDetailDescriptionReadMore: string;
+  seriesDetailDescriptionReadLess: string;
   seriesDetailChapterNumberLabel: string;
   seriesDetailChapterUntitled: string;
   seriesDetailSortAscending: string;
@@ -421,6 +423,8 @@ const ptBR: Strings = {
   seriesDetailContinueReading: 'Continuar lendo - {0}',
   seriesDetailRereadFromStart: 'Reler',
   seriesDetailChaptersRead: '{0}/{1} lidos',
+  seriesDetailDescriptionReadMore: 'Ler mais',
+  seriesDetailDescriptionReadLess: 'Ler menos',
   seriesDetailChapterNumberLabel: 'Capítulo {0}',
   seriesDetailChapterUntitled: 'Sem título',
   seriesDetailSortAscending: 'Crescente',
@@ -540,8 +544,8 @@ const ptBR: Strings = {
   notificationsHistoryBodyBatch: '{0} novos capítulos disponíveis',
   notificationsHistoryBodyNumbered: 'Capítulo {0} disponível',
   notificationsHistoryBodyUnnumbered: 'Novo capítulo disponível',
-  notificationsHistoryTotalCount: 'Notificações {0}/{1}',
-  notificationsHistoryTotalCountAllRead: 'Notificações {0}',
+  notificationsHistoryTotalCount: '{0}/{1} notificações',
+  notificationsHistoryTotalCountAllRead: '{0} notificações',
   notificationsHistoryInfo: 'Mais informações',
   notificationsHistorySelectionSelectAll: 'Selecionar tudo',
   notificationsHistorySelectionMarkRead: 'Marcar como lido',
@@ -684,6 +688,8 @@ const en: Strings = {
   seriesDetailContinueReading: 'Continue reading - {0}',
   seriesDetailRereadFromStart: 'Reread',
   seriesDetailChaptersRead: '{0}/{1} read',
+  seriesDetailDescriptionReadMore: 'Read more',
+  seriesDetailDescriptionReadLess: 'Read less',
   seriesDetailChapterNumberLabel: 'Chapter {0}',
   seriesDetailChapterUntitled: 'Untitled',
   seriesDetailSortAscending: 'Ascending',
@@ -803,8 +809,8 @@ const en: Strings = {
   notificationsHistoryBodyBatch: '{0} new chapters available',
   notificationsHistoryBodyNumbered: 'Chapter {0} available',
   notificationsHistoryBodyUnnumbered: 'New chapter available',
-  notificationsHistoryTotalCount: 'Notifications {0}/{1}',
-  notificationsHistoryTotalCountAllRead: 'Notifications {0}',
+  notificationsHistoryTotalCount: '{0}/{1} notifications',
+  notificationsHistoryTotalCountAllRead: '{0} notifications',
   notificationsHistoryInfo: 'More information',
   notificationsHistorySelectionSelectAll: 'Select all',
   notificationsHistorySelectionMarkRead: 'Mark as read',

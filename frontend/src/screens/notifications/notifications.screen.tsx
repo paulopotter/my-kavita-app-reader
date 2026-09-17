@@ -103,7 +103,7 @@ export function NotificationsScreen() {
       {selectionMode ? (
         <View style={styles.selectionTopBar}>
           <Text style={styles.selectionCount}>{selectedIds.size}</Text>
-          <TouchableOpacity onPress={exitSelectionMode}>
+          <TouchableOpacity style={styles.markAllBtn} onPress={exitSelectionMode}>
             <Text style={styles.selectionCancelTxt}>{t.notificationsHistoryDeleteConfirmCancel}</Text>
           </TouchableOpacity>
         </View>

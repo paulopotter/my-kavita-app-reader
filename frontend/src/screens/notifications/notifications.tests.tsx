@@ -201,8 +201,8 @@ describe('NotificationsScreen', () => {
   it('tapping a row delete button opens the confirm dialog instead of deleting immediately', () => {
     const deleteItem = jest.fn().mockResolvedValue(undefined);
     mockUseNotificationHistory.mockReturnValue(historyHook({ rows: [row()], totalCount: 1, deleteItem }));
-    const { getByText } = render(<NotificationsScreen />);
-    fireEvent.press(getByText('✕'));
+    const { getByLabelText, getByText } = render(<NotificationsScreen />);
+    fireEvent.press(getByLabelText(t.notificationsHistoryDelete));
     expect(deleteItem).not.toHaveBeenCalled();
     expect(getByText(t.notificationsHistoryDeleteConfirmTitleOne)).toBeTruthy();
   });
@@ -210,8 +210,8 @@ describe('NotificationsScreen', () => {
   it('confirming the single-row delete dialog calls deleteItem with that row\'s ids', () => {
     const deleteItem = jest.fn().mockResolvedValue(undefined);
     mockUseNotificationHistory.mockReturnValue(historyHook({ rows: [row()], totalCount: 1, deleteItem }));
-    const { getByText } = render(<NotificationsScreen />);
-    fireEvent.press(getByText('✕'));
+    const { getByLabelText, getByText } = render(<NotificationsScreen />);
+    fireEvent.press(getByLabelText(t.notificationsHistoryDelete));
     fireEvent.press(getByText(t.notificationsHistoryDeleteConfirmConfirm));
     expect(deleteItem).toHaveBeenCalledWith(['h1']);
   });
@@ -219,8 +219,8 @@ describe('NotificationsScreen', () => {
   it('cancelling the delete dialog never calls deleteItem', () => {
     const deleteItem = jest.fn().mockResolvedValue(undefined);
     mockUseNotificationHistory.mockReturnValue(historyHook({ rows: [row()], totalCount: 1, deleteItem }));
-    const { getByText, queryByText } = render(<NotificationsScreen />);
-    fireEvent.press(getByText('✕'));
+    const { getByLabelText, getByText, queryByText } = render(<NotificationsScreen />);
+    fireEvent.press(getByLabelText(t.notificationsHistoryDelete));
     fireEvent.press(getByText(t.notificationsHistoryDeleteConfirmCancel));
     expect(deleteItem).not.toHaveBeenCalled();
     expect(queryByText(t.notificationsHistoryDeleteConfirmTitleOne)).toBeNull();

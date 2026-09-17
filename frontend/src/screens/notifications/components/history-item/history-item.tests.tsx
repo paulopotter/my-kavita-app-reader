@@ -43,8 +43,8 @@ describe('HistoryItem', () => {
 
   it('calls onDelete when the delete button is tapped', () => {
     const onDelete = jest.fn();
-    const { getByText } = render(<HistoryItem {...props({ onDelete })} />);
-    fireEvent.press(getByText('✕'));
+    const { getByLabelText } = render(<HistoryItem {...props({ onDelete })} />);
+    fireEvent.press(getByLabelText('Delete'));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
@@ -63,9 +63,9 @@ describe('HistoryItem', () => {
   it('does not call onDelete/onInfo while in selection mode (their space is reserved, not clickable)', () => {
     const onDelete = jest.fn();
     const onInfo = jest.fn();
-    const { getByLabelText, getByText } = render(<HistoryItem {...props({ selectionMode: true, onDelete, onInfo })} />);
+    const { getByLabelText } = render(<HistoryItem {...props({ selectionMode: true, onDelete, onInfo })} />);
     fireEvent.press(getByLabelText('Info'));
-    fireEvent.press(getByText('✕'));
+    fireEvent.press(getByLabelText('Delete'));
     expect(onInfo).not.toHaveBeenCalled();
     expect(onDelete).not.toHaveBeenCalled();
   });
