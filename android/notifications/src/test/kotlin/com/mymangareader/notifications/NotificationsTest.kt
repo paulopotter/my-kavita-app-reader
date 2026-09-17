@@ -276,6 +276,20 @@ class NotificationsTest {
         }
 
     @Test
+    fun `history markUnread reverte markRead`() =
+        runTest {
+            val id1 = notifications.history.insert(
+                NewNotificationHistoryItem(seriesId = "1", seriesName = "A", chapterId = null, chapterNumber = null, detectedAtMs = 1_000L),
+            )
+            notifications.history.markRead(id1)
+            assertEquals(0, notifications.history.countUnread())
+
+            notifications.history.markUnread(id1)
+
+            assertEquals(1, notifications.history.countUnread())
+        }
+
+    @Test
     fun `history markReadByChapter marca so o capitulo consumido, deixando o resto do lote pendente`() =
         runTest {
             notifications.history.insert(

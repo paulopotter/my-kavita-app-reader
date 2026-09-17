@@ -112,6 +112,9 @@ interface NotificationsBridgeModuleInterface {
   // history
   listHistory(): Promise<NotificationHistoryItem[]>;
   markHistoryRead(params: { id: string }): Promise<void>;
+  // Reverses markHistoryRead — the history screen's own "mark as unread" action, never called by
+  // anything that "consumes" a notification (opening a chapter/serial).
+  markHistoryUnread(params: { id: string }): Promise<void>;
   // Marking by what was consumed, not by row id — the caller reacts to a chapter/serial being
   // opened and never knows which row announced it. Correlation happens in SQL, Kotlin-side.
   markHistoryReadByChapter(params: { seriesId: string; chapterId: string }): Promise<void>;
@@ -169,6 +172,7 @@ const native: {
   getCollapseWindowMs(): Promise<number>;
   listHistory(): Promise<NotificationHistoryItem[]>;
   markHistoryRead(id: string): Promise<void>;
+  markHistoryUnread(id: string): Promise<void>;
   markHistoryReadByChapter(seriesId: string, chapterId: string): Promise<void>;
   markHistorySerialRead(seriesId: string): Promise<void>;
   markAllHistoryRead(): Promise<void>;
@@ -209,6 +213,7 @@ export const NotificationsBridge: NotificationsBridgeModuleInterface = {
 
   listHistory: () => native.listHistory(),
   markHistoryRead: ({ id }) => native.markHistoryRead(id),
+  markHistoryUnread: ({ id }) => native.markHistoryUnread(id),
   markHistoryReadByChapter: ({ seriesId, chapterId }) => native.markHistoryReadByChapter(seriesId, chapterId),
   markHistorySerialRead: ({ seriesId }) => native.markHistorySerialRead(seriesId),
   markAllHistoryRead: () => native.markAllHistoryRead(),

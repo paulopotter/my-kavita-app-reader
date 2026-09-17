@@ -337,6 +337,18 @@ class NotificationsBridgeModule(
         }
     }
 
+    @ReactMethod
+    fun markHistoryUnread(
+        id: String,
+        promise: Promise,
+    ) {
+        scope.launch {
+            runCatching { notifications.history.markUnread(id) }
+                .onSuccess { emitUnreadCountChanged() }
+                .resolveOrReject(promise, "MARK_HISTORY_UNREAD_ERROR")
+        }
+    }
+
     // Marking by correlation — RN reacts to a chapter/serial being opened and knows only that,
     // never which history row announced it (see Notifications.History's own doc).
     @ReactMethod

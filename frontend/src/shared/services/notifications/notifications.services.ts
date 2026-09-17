@@ -176,6 +176,9 @@ export const NotificationsService = {
     markRead({ id }: { id: string }): Promise<void> {
       return NotificationsBridge.markHistoryRead({ id });
     },
+    markUnread({ id }: { id: string }): Promise<void> {
+      return NotificationsBridge.markHistoryUnread({ id });
+    },
     markReadByChapter({ seriesId, chapterId }: { seriesId: string; chapterId: string }): Promise<void> {
       return NotificationsBridge.markHistoryReadByChapter({ seriesId, chapterId });
     },

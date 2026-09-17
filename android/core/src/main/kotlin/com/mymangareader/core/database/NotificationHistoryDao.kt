@@ -24,6 +24,9 @@ interface NotificationHistoryDao {
     @Query("UPDATE notification_history SET read = 1 WHERE id = :id")
     suspend fun markRead(id: String)
 
+    @Query("UPDATE notification_history SET read = 0 WHERE id = :id")
+    suspend fun markUnread(id: String)
+
     // Correlation-based marking: the caller knows WHAT was consumed (a serial, a chapter), never
     // which row announced it — so the match happens here, in SQL, instead of listing every row
     // back to the caller just to filter it. Both only ever touch still-unread rows.

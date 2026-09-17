@@ -84,6 +84,10 @@ class FakeNotificationHistoryDao : NotificationHistoryDao {
         rows[id]?.let { rows[id] = it.copy(read = true) }
     }
 
+    override suspend fun markUnread(id: String) {
+        rows[id]?.let { rows[id] = it.copy(read = false) }
+    }
+
     override suspend fun markReadByChapter(
         seriesId: String,
         chapterId: String,

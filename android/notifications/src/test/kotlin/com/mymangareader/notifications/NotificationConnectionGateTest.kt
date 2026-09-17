@@ -79,6 +79,8 @@ private class FakeNotificationHistoryDaoForGate : com.mymangareader.core.databas
 
     override suspend fun markRead(id: String) = Unit
 
+    override suspend fun markUnread(id: String) = Unit
+
     override suspend fun markReadByChapter(
         seriesId: String,
         chapterId: String,

@@ -200,6 +200,8 @@ class Notifications
 
                 override suspend fun markRead(id: String) = notificationHistoryDao.markRead(id)
 
+                override suspend fun markUnread(id: String) = notificationHistoryDao.markUnread(id)
+
                 override suspend fun markReadByChapter(
                     seriesId: String,
                     chapterId: String,
@@ -278,6 +280,11 @@ class Notifications
             suspend fun listAll(): List<NotificationHistoryItem>
 
             suspend fun markRead(id: String)
+
+            // Reverses markRead — the in-app history screen's own "mark as unread" action. Never
+            // called by anything that "consumes" a notification (opening a chapter/serial); those
+            // paths only ever move read false -> true.
+            suspend fun markUnread(id: String)
 
             // Marks read by WHAT was consumed rather than by row id — the caller (RN, reacting to
             // a chapter/serial actually being opened) never knows which row announced it. See
