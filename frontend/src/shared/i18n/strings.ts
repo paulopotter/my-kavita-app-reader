@@ -271,6 +271,29 @@ export interface Strings {
   notificationsHistoryBodyBatch: string; // "{0}" = chapter count
   notificationsHistoryBodyNumbered: string; // "{0}" = chapter number
   notificationsHistoryBodyUnnumbered: string;
+  // Header count — "{0}" = unread, "{1}" = total. Shown only when there's at least one unread;
+  // when everything is read, notificationsHistoryTotalCountAllRead ("{0}" = total) is used
+  // instead, since "x/y" reading "12/12" would be redundant with "all of them."
+  notificationsHistoryTotalCount: string;
+  notificationsHistoryTotalCountAllRead: string;
+  notificationsHistoryInfo: string;
+  // Selection mode (long-press a row) — mirrors seriesDetailSelection* naming.
+  notificationsHistorySelectionSelectAll: string;
+  notificationsHistorySelectionMarkRead: string;
+  notificationsHistorySelectionMarkUnread: string;
+  notificationsHistorySelectionDelete: string;
+  // Delete confirmation dialog — shown for every delete (single or bulk).
+  notificationsHistoryDeleteConfirmTitleOne: string;
+  notificationsHistoryDeleteConfirmTitleMany: string; // "{0}" = count
+  notificationsHistoryDeleteConfirmCancel: string;
+  notificationsHistoryDeleteConfirmConfirm: string;
+  // Detail popup (tap the info icon on a row).
+  notificationsHistoryDetailTitle: string;
+  notificationsHistoryDetailChaptersTitle: string; // heading over the group's chapter list
+  notificationsHistoryDetailGoToSeries: string;
+  notificationsHistoryDetailMarkUnread: string;
+  notificationsHistoryDetailDelete: string;
+  notificationsHistoryDetailClose: string;
 }
 
 const ptBR: Strings = {
@@ -517,6 +540,23 @@ const ptBR: Strings = {
   notificationsHistoryBodyBatch: '{0} novos capítulos disponíveis',
   notificationsHistoryBodyNumbered: 'Capítulo {0} disponível',
   notificationsHistoryBodyUnnumbered: 'Novo capítulo disponível',
+  notificationsHistoryTotalCount: 'Notificações {0}/{1}',
+  notificationsHistoryTotalCountAllRead: 'Notificações {0}',
+  notificationsHistoryInfo: 'Mais informações',
+  notificationsHistorySelectionSelectAll: 'Selecionar tudo',
+  notificationsHistorySelectionMarkRead: 'Marcar como lido',
+  notificationsHistorySelectionMarkUnread: 'Marcar como não lido',
+  notificationsHistorySelectionDelete: 'Excluir',
+  notificationsHistoryDeleteConfirmTitleOne: 'Excluir esta notificação?',
+  notificationsHistoryDeleteConfirmTitleMany: 'Excluir {0} notificações?',
+  notificationsHistoryDeleteConfirmCancel: 'Cancelar',
+  notificationsHistoryDeleteConfirmConfirm: 'Excluir',
+  notificationsHistoryDetailTitle: 'Detalhes da notificação',
+  notificationsHistoryDetailChaptersTitle: 'Capítulos incluídos',
+  notificationsHistoryDetailGoToSeries: 'Ir para a série',
+  notificationsHistoryDetailMarkUnread: 'Marcar como não lido',
+  notificationsHistoryDetailDelete: 'Excluir',
+  notificationsHistoryDetailClose: 'Fechar',
 };
 
 const en: Strings = {
@@ -763,6 +803,23 @@ const en: Strings = {
   notificationsHistoryBodyBatch: '{0} new chapters available',
   notificationsHistoryBodyNumbered: 'Chapter {0} available',
   notificationsHistoryBodyUnnumbered: 'New chapter available',
+  notificationsHistoryTotalCount: 'Notifications {0}/{1}',
+  notificationsHistoryTotalCountAllRead: 'Notifications {0}',
+  notificationsHistoryInfo: 'More information',
+  notificationsHistorySelectionSelectAll: 'Select all',
+  notificationsHistorySelectionMarkRead: 'Mark as read',
+  notificationsHistorySelectionMarkUnread: 'Mark as unread',
+  notificationsHistorySelectionDelete: 'Delete',
+  notificationsHistoryDeleteConfirmTitleOne: 'Delete this notification?',
+  notificationsHistoryDeleteConfirmTitleMany: 'Delete {0} notifications?',
+  notificationsHistoryDeleteConfirmCancel: 'Cancel',
+  notificationsHistoryDeleteConfirmConfirm: 'Delete',
+  notificationsHistoryDetailTitle: 'Notification details',
+  notificationsHistoryDetailChaptersTitle: 'Included chapters',
+  notificationsHistoryDetailGoToSeries: 'Go to series',
+  notificationsHistoryDetailMarkUnread: 'Mark as unread',
+  notificationsHistoryDetailDelete: 'Delete',
+  notificationsHistoryDetailClose: 'Close',
 };
 
 export const allStrings: Record<Language, Strings> = { 'pt-BR': ptBR, en };

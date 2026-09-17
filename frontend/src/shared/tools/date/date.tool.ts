@@ -86,6 +86,14 @@ export const DateTool = {
         return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       },
 
+      // → "DD/MM/YYYY HH:MM" in the device's local zone — the exact-timestamp counterpart of
+      // relative() above, for a detail view where "há 2 h" isn't precise enough.
+      full(epochMs: number): string {
+        const d = new Date(epochMs);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      },
+
       // → "agora" / "há 5 min" / "há 2 h" / "há 3 d". `t` is injected (this tool is pure, no
       // language context). A future timestamp (clock skew) reads as "agora".
       relative(epochMs: number, t: Strings): string {
