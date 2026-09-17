@@ -1,7 +1,10 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { TouchableOpacity } from 'react-native';
+import { X } from 'lucide-react-native';
 import { getStrings } from '../../../../shared/i18n/strings';
 import type { ProviderInfo } from '../../../../shared/bridge/server';
+import { findPressableAncestor } from '../../../../shared/test-utils/find-pressable-ancestor';
 import { ServerModal, type ServerModalProps } from './modal.component';
 
 const t = getStrings('en');
@@ -72,11 +75,13 @@ describe('ServerModal', () => {
     expect(onSubmit).toHaveBeenCalledWith('M3', {}, 'http://m3');
   });
 
-  it('surfaces a submitError and calls onClose from the ✕ and from Cancel', () => {
+  it('surfaces a submitError and calls onClose from the close icon and from Cancel', () => {
     const onClose = jest.fn();
-    const { getByText } = render(<ServerModal {...props({ submitError: 'boom', onClose })} />);
-    expect(getByText('✗ boom')).toBeTruthy();
-    fireEvent.press(getByText('✕'));
+    const { getByText, UNSAFE_getAllByType } = render(<ServerModal {...props({ submitError: 'boom', onClose })} />);
+    expect(getByText('boom')).toBeTruthy();
+    // Two X icons render with a submitError present: the header's close button (first) and the
+    // error row's own icon (second, not pressable).
+    fireEvent.press(findPressableAncestor(UNSAFE_getAllByType(X)[0], TouchableOpacity) as never);
     fireEvent.press(getByText(t.serverFormCancel));
     expect(onClose).toHaveBeenCalledTimes(2);
   });

@@ -37,7 +37,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperBtnTxt: { color: colors.accent, fontSize: 18, fontWeight: '700' },
   retentionValue: { color: colors.textOnDark, fontSize: 15, minWidth: 64, textAlign: 'center' },
 
   addDashedBtn: {

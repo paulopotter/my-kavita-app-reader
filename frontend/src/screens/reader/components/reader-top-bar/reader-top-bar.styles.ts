@@ -21,7 +21,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  backArrow: { color: '#FFFFFF', fontSize: 32, lineHeight: 32 },
   titles: {
     flex: 1,
     justifyContent: 'space-between',

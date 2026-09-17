@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { X } from 'lucide-react-native';
 import type { ServerGroupInfo } from '../../../../../shared/bridge';
 import type { Strings } from '../../../../../shared/i18n';
+import { colors } from '../../../../../shared/theme';
 import { Select } from '../../../components/select';
 import { styles } from './group-modal.styles';
 
@@ -50,9 +52,9 @@ export function GroupModal({
             <Text style={styles.title}>
               {mode === 'add' ? t.notificationsGroupModalNewTitle : t.notificationsGroupModalEditTitle}
             </Text>
-            <Text onPress={onClose} style={styles.close} suppressHighlighting>
-              ✕
-            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <X size={18} color={colors.muted} />
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>{t.notificationsGroupModalNameLabel}</Text>
@@ -91,7 +93,12 @@ export function GroupModal({
             </>
           )}
 
-          {submitError ? <Text style={styles.errorTxt}>✗ {submitError}</Text> : null}
+          {submitError ? (
+            <View style={styles.submitErrorRow}>
+              <X size={12} color={colors.msgError} />
+              <Text style={styles.submitErrorTxt}>{submitError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>

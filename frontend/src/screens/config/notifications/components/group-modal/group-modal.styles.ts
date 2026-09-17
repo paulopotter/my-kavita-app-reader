@@ -7,11 +7,11 @@ export const styles = StyleSheet.create({
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   title: { fontSize: 16, fontWeight: '600', color: colors.textOnDark },
-  close: { color: colors.muted, fontSize: 18, paddingHorizontal: 4 },
 
   label: { fontSize: 12, color: colors.muted, marginBottom: 4, marginTop: 10 },
   input: { backgroundColor: colors.deep, color: colors.textOnDark, borderRadius: 8, padding: 11, fontSize: 13 },
-  errorTxt: { color: colors.msgError, fontSize: 11, marginTop: 6 },
+  submitErrorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  submitErrorTxt: { color: colors.msgError, fontSize: 11 },
 
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 18 },
   cancelBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 0.5, borderColor: colors.mutedDim },

@@ -1,6 +1,9 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { TouchableOpacity } from 'react-native';
+import { Check, MoreHorizontal, X } from 'lucide-react-native';
 import type { ProviderCredentialField } from '../../../../shared/bridge/server';
+import { findPressableAncestor } from '../../../../shared/test-utils/find-pressable-ancestor';
 import { GroupCard, type GroupCardProps } from './group-card.component';
 
 const CRED_FIELDS: ProviderCredentialField[] = [
@@ -65,11 +68,12 @@ describe('GroupCard', () => {
     const onUrlMenu = jest.fn();
     const onAddUrl = jest.fn();
     const onTestConnection = jest.fn();
-    const { getAllByText, getByText } = render(
+    const { getByText, UNSAFE_getAllByType } = render(
       <GroupCard {...props({ onGroupMenu, onUrlMenu, onAddUrl, onTestConnection })} />,
     );
-    fireEvent.press(getAllByText('⋯')[0]); // group menu
-    fireEvent.press(getAllByText('⋯')[1]); // url menu
+    const menuButtons = UNSAFE_getAllByType(MoreHorizontal).map(icon => findPressableAncestor(icon as never, TouchableOpacity));
+    fireEvent.press(menuButtons[0] as never); // group menu
+    fireEvent.press(menuButtons[1] as never); // url menu
     fireEvent.press(getByText('+ Add URL'));
     fireEvent.press(getByText('Test connection'));
     expect(onGroupMenu).toHaveBeenCalled();
@@ -84,15 +88,17 @@ describe('GroupCard', () => {
     expect(queryByText('Test connection')).toBeNull();
   });
 
-  it('renders nothing while connStatus is "testing", then the ✓ on ok and the ✗ on error', () => {
-    const { queryByText, rerender } = render(<GroupCard {...props({ connStatus: 'testing' })} />);
-    expect(queryByText(/✓/)).toBeNull();
-    expect(queryByText(/✗/)).toBeNull();
+  it('renders nothing while connStatus is "testing", then the check icon on ok and the X icon on error', () => {
+    const { queryByText, UNSAFE_queryByType, rerender } = render(<GroupCard {...props({ connStatus: 'testing' })} />);
+    expect(UNSAFE_queryByType(Check)).toBeNull();
+    expect(UNSAFE_queryByType(X)).toBeNull();
 
     rerender(<GroupCard {...props({ connStatus: 'ok', connMessage: 'http://winner' })} />);
-    expect(queryByText('✓ Connected: http://winner')).toBeTruthy();
+    expect(UNSAFE_queryByType(Check)).toBeTruthy();
+    expect(queryByText('Connected: http://winner')).toBeTruthy();
 
     rerender(<GroupCard {...props({ connStatus: 'error', connMessage: 'no url' })} />);
-    expect(queryByText('✗ no url')).toBeTruthy();
+    expect(UNSAFE_queryByType(X)).toBeTruthy();
+    expect(queryByText('no url')).toBeTruthy();
   });
 });

@@ -1,4 +1,7 @@
 import React from 'react';
+import { TouchableOpacity } from 'react-native';
+import { ChevronLeft, MoreHorizontal, X } from 'lucide-react-native';
+import { findPressableAncestor } from '../../../shared/test-utils/find-pressable-ancestor';
 import { act, fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('../../../shared/i18n/i18n.hooks', () => ({
@@ -66,6 +69,13 @@ const withGroup = (over: Partial<Record<string, unknown>> = {}) =>
     ...over,
   });
 
+// GroupCard/Row render a MoreHorizontal icon (not text) for each "…" menu button — this presses
+// the Nth one found in render order (0 = group header's own menu, 1+ = each URL row's menu).
+function pressMenuButton(root: ReturnType<typeof render>, index: number) {
+  const icons = root.UNSAFE_getAllByType(MoreHorizontal);
+  fireEvent.press(findPressableAncestor(icons[index] as never, TouchableOpacity) as never);
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockUseServer.mockReturnValue(baseHook());
@@ -74,15 +84,15 @@ beforeEach(() => {
 
 describe('ServerScreen — manage mode', () => {
   it('shows the back chevron + server section title from the provider name', () => {
-    const { getByText } = render(<ServerScreen onBack={jest.fn()} />);
-    expect(getByText('‹')).toBeTruthy();
+    const { getByText, UNSAFE_getByType } = render(<ServerScreen onBack={jest.fn()} />);
+    expect(UNSAFE_getByType(ChevronLeft)).toBeTruthy();
     expect(getByText(t.serverSectionTitle.replace('{0}', 'Kavita'))).toBeTruthy();
   });
 
   it('the back chevron calls onBack', () => {
     const onBack = jest.fn();
-    const { getByText } = render(<ServerScreen onBack={onBack} />);
-    fireEvent.press(getByText('‹'));
+    const { UNSAFE_getByType } = render(<ServerScreen onBack={onBack} />);
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
   });
 
@@ -121,19 +131,20 @@ describe('ServerScreen — manage mode', () => {
     expect(queryByText(t.serverAddServer)).toBeNull();
   });
 
-  it('the group ⋯ menu → Delete calls hook.removeServer', () => {
+  it('the group menu → Delete calls hook.removeServer', () => {
     const hook = withGroup();
     mockUseServer.mockReturnValue(hook);
-    const { getAllByText, getByText } = render(<ServerScreen onBack={jest.fn()} />);
-    fireEvent.press(getAllByText('⋯')[0]); // group menu
-    fireEvent.press(getByText(t.serverListDelete));
+    const screen = render(<ServerScreen onBack={jest.fn()} />);
+    pressMenuButton(screen, 0); // group menu
+    fireEvent.press(screen.getByText(t.serverListDelete));
     expect(hook.removeServer).toHaveBeenCalled();
   });
 
-  it('the URL ⋯ menu hides Delete when it is the only URL (canRemoveUrl=false)', () => {
+  it('the URL menu hides Delete when it is the only URL (canRemoveUrl=false)', () => {
     mockUseServer.mockReturnValue(withGroup({ canRemoveUrl: false }));
-    const { getAllByText, queryAllByText, getByText } = render(<ServerScreen onBack={jest.fn()} />);
-    fireEvent.press(getAllByText('⋯')[1]); // url menu
+    const screen = render(<ServerScreen onBack={jest.fn()} />);
+    const { queryAllByText, getByText } = screen;
+    pressMenuButton(screen, 1); // url menu
     expect(getByText(t.serverListEdit)).toBeTruthy();
     // only the group menu's Delete (still mounted, hidden) — the URL menu has none
     expect(queryAllByText(t.serverListDelete).length).toBeLessThanOrEqual(1);
@@ -152,12 +163,13 @@ describe('ServerScreen — manage mode', () => {
 });
 
 describe('ServerScreen — group / URL editing flows', () => {
-  it('group ⋯ → Edit opens the edit modal pre-filled and submit calls updateServer', async () => {
+  it('group menu → Edit opens the edit modal pre-filled and submit calls updateServer', async () => {
     const hook = withGroup();
     mockUseServer.mockReturnValue(hook);
-    const { getAllByText, getByText, getByDisplayValue, queryByText } = render(<ServerScreen onBack={jest.fn()} />);
+    const screen = render(<ServerScreen onBack={jest.fn()} />);
+    const { getByText, getByDisplayValue, queryByText } = screen;
 
-    fireEvent.press(getAllByText('⋯')[0]);
+    pressMenuButton(screen, 0);
     fireEvent.press(getByText(t.serverListEdit));
     expect(getByText(t.serverModalEditTitle)).toBeTruthy();
     // name pre-filled from the group
@@ -186,12 +198,13 @@ describe('ServerScreen — group / URL editing flows', () => {
     expect(queryByText(t.urlModalNewTitle)).toBeNull();
   });
 
-  it('URL ⋯ → Edit opens the URL modal pre-filled and submit calls updateUrl', async () => {
+  it('URL menu → Edit opens the URL modal pre-filled and submit calls updateUrl', async () => {
     const hook = withGroup({ canRemoveUrl: true });
     mockUseServer.mockReturnValue(hook);
-    const { getAllByText, getByText, getByDisplayValue } = render(<ServerScreen onBack={jest.fn()} />);
+    const screen = render(<ServerScreen onBack={jest.fn()} />);
+    const { getByText, getByDisplayValue } = screen;
 
-    fireEvent.press(getAllByText('⋯')[1]); // url menu
+    pressMenuButton(screen, 1); // url menu
     fireEvent.press(getByText(t.serverListEdit));
     expect(getByText(t.urlModalEditTitle)).toBeTruthy();
     expect(getByDisplayValue('http://host')).toBeTruthy();
@@ -200,7 +213,7 @@ describe('ServerScreen — group / URL editing flows', () => {
     expect(hook.updateUrl).toHaveBeenCalledWith('u1', 'http://host', 0, undefined);
   });
 
-  it('URL ⋯ → Delete calls removeUrl when more than one URL exists', () => {
+  it('URL menu → Delete calls removeUrl when more than one URL exists', () => {
     const hook = withGroup({
       canRemoveUrl: true,
       urls: [
@@ -209,9 +222,10 @@ describe('ServerScreen — group / URL editing flows', () => {
       ],
     });
     mockUseServer.mockReturnValue(hook);
-    const { getAllByText, getByText } = render(<ServerScreen onBack={jest.fn()} />);
+    const screen = render(<ServerScreen onBack={jest.fn()} />);
+    const { getByText } = screen;
 
-    fireEvent.press(getAllByText('⋯')[1]); // first URL's menu
+    pressMenuButton(screen, 1); // first URL's menu
     fireEvent.press(getByText(t.serverListDelete));
     expect(hook.removeUrl).toHaveBeenCalledWith('u1');
   });
@@ -227,24 +241,25 @@ describe('ServerScreen — group / URL editing flows', () => {
     fireEvent.changeText(getByPlaceholderText(t.urlModalUrlPlaceholder), 'http://h');
     fireEvent.press(getByText(t.serverFormSave));
 
-    expect(await findByText('✗ bad key')).toBeTruthy();
+    expect(await findByText('bad key')).toBeTruthy();
     expect(getByText(t.serverModalNewTitle)).toBeTruthy(); // still open
   });
 
-  it('the server modal ✕ closes it without calling any hook mutation', () => {
+  it('the server modal close icon closes it without calling any hook mutation', () => {
     mockUseServer.mockReturnValue(baseHook());
-    const { getByText, queryByText } = render(<ServerScreen onBack={jest.fn()} />);
+    const screen = render(<ServerScreen onBack={jest.fn()} />);
+    const { getByText, queryByText, UNSAFE_getByType } = screen;
     fireEvent.press(getByText(t.serverAddServer));
-    fireEvent.press(getByText('✕'));
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(X), TouchableOpacity) as never);
     expect(queryByText(t.serverModalNewTitle)).toBeNull();
   });
 
-  it('the URL modal ✕ closes it', () => {
+  it('the URL modal close icon closes it', () => {
     mockUseServer.mockReturnValue(withGroup({ canAddUrl: true }));
-    const { getByText, queryByText } = render(<ServerScreen onBack={jest.fn()} />);
+    const { getByText, queryByText, UNSAFE_getByType } = render(<ServerScreen onBack={jest.fn()} />);
     fireEvent.press(getByText(t.serverAddUrl));
     expect(getByText(t.urlModalNewTitle)).toBeTruthy();
-    fireEvent.press(getByText('✕'));
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(X), TouchableOpacity) as never);
     expect(queryByText(t.urlModalNewTitle)).toBeNull();
   });
 
@@ -279,8 +294,8 @@ describe('ServerScreen — setup mode', () => {
   it('uses the setup header (no back chevron) and shows the CTA once a server exists', () => {
     mockUseServer.mockReturnValue(withGroup());
     const onComplete = jest.fn();
-    const { getByText, queryByText } = render(<ServerScreen onComplete={onComplete} />);
-    expect(queryByText('‹')).toBeNull();
+    const { getByText, UNSAFE_queryByType } = render(<ServerScreen onComplete={onComplete} />);
+    expect(UNSAFE_queryByType(ChevronLeft)).toBeNull();
     expect(getByText(t.setupTitle)).toBeTruthy();
     fireEvent.press(getByText(t.setupGoToLibrary));
     expect(onComplete).toHaveBeenCalled();

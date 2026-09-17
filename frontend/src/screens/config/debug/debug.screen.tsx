@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { BackChevron } from '../components';
 import { styles as chrome } from '../config.styles';
 import { Section } from './components/section';
 import { useDebugIds } from './debug.hooks';
@@ -42,9 +43,7 @@ export function DebugScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={chrome.root}>
       <View style={chrome.subHeader}>
-        <Text onPress={onBack} style={chrome.backChevron} suppressHighlighting>
-          ‹
-        </Text>
+        <BackChevron onPress={onBack} />
         <Text style={chrome.subTitle}>Debug</Text>
       </View>
 

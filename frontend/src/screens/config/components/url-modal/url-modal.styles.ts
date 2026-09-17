@@ -9,12 +9,13 @@ export const styles = StyleSheet.create({
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   title: { fontSize: 16, fontWeight: '600', color: colors.textOnDark },
-  close: { color: colors.muted, fontSize: 18, paddingHorizontal: 4 },
 
   label: { fontSize: 12, color: colors.muted, marginBottom: 4, marginTop: 10 },
   input: { backgroundColor: colors.deep, color: colors.textOnDark, borderRadius: 8, padding: 11, fontSize: 13 },
   inputError: { borderWidth: 1, borderColor: colors.accent },
   errorTxt: { color: colors.msgError, fontSize: 11, marginTop: 6 },
+  submitErrorRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  submitErrorTxt: { color: colors.msgError, fontSize: 11 },
 
   assocToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   checkbox: {
@@ -27,7 +28,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  checkboxMark: { color: colors.textOnDark, fontSize: 12, fontWeight: '700' },
   assocLabel: { color: colors.textOnDark, fontSize: 13 },
 
   testRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },

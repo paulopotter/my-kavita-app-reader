@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
+import { ArrowLeft } from 'lucide-react-native';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
 import { useAction } from '../../shared/tools/actions';
@@ -68,7 +69,7 @@ export function ReaderScreen() {
             <Text style={styles.buttonText}>{t.readerRetry}</Text>
           </Pressable>
           <Pressable style={styles.buttonSecondary} onPress={handleBack}>
-            <Text style={styles.buttonText}>←</Text>
+            <ArrowLeft size={18} color="#FFFFFF" />
           </Pressable>
         </View>
       );

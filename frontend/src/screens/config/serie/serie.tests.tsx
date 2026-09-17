@@ -1,5 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
+import { TouchableOpacity } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
+import { findPressableAncestor } from '../../../shared/test-utils/find-pressable-ancestor';
 
 jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('en'),
@@ -61,9 +64,9 @@ describe('SerieSortScreen', () => {
 
   it('the back chevron calls onBack', async () => {
     const onBack = jest.fn();
-    const { getByText } = render(<SerieSortScreen onBack={onBack} />);
+    const { getByText, UNSAFE_getByType } = render(<SerieSortScreen onBack={onBack} />);
     await waitFor(() => expect(getByText(t.configChapterSortGroupTitle)).toBeTruthy());
-    fireEvent.press(getByText('‹'));
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
   });
 });

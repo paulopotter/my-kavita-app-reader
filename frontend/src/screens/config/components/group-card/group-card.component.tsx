@@ -1,10 +1,12 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { Check, MoreHorizontal, X } from 'lucide-react-native';
 import type { ProviderCredentialField } from '../../../../shared/bridge';
+import { colors } from '../../../../shared/theme';
 import { Row } from '../row';
 import { styles } from './group-card.styles';
 
-// One server section: the header (name + ⋯), the masked credential rows the provider declares,
+// One server section: the header (name + a "more" menu), the masked credential rows the provider declares,
 // and the URL list with its add / test buttons. Dumb — every action is a prop the screen wires
 // to the right hook (useServer or useMetadataServer).
 export interface GroupCardUrl {
@@ -71,7 +73,7 @@ export function GroupCard({
           </Text>
         </View>
         <TouchableOpacity onPress={onGroupMenu} hitSlop={8}>
-          <Text style={styles.dots}>⋯</Text>
+          <MoreHorizontal size={20} color={colors.muted} />
         </TouchableOpacity>
       </View>
 
@@ -121,9 +123,17 @@ export function GroupCard({
               </TouchableOpacity>
             </View>
             {connStatus === 'ok' && (
-              <Text style={styles.msgOk}>{`✓ ${strings.connectionOk}: ${connMessage}`}</Text>
+              <View style={styles.msgRow}>
+                <Check size={14} color={colors.msgOk} />
+                <Text style={styles.msgOk}>{`${strings.connectionOk}: ${connMessage}`}</Text>
+              </View>
             )}
-            {connStatus === 'error' && <Text style={styles.msgError}>{`✗ ${connMessage}`}</Text>}
+            {connStatus === 'error' && (
+              <View style={styles.msgRow}>
+                <X size={14} color={colors.msgError} />
+                <Text style={styles.msgError}>{connMessage}</Text>
+              </View>
+            )}
           </>
         )}
       </View>

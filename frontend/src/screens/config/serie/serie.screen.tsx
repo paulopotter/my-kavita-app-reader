@@ -6,6 +6,7 @@ import { ScrollView, Text, View } from 'react-native';
 // callers; promote it to shared/ if a third screen ever needs it.
 import { ChapterSortFields } from '../../../screens/serie/components/chapter-sort';
 import { useStrings } from '../../../shared/i18n';
+import { BackChevron } from '../components';
 import { styles as chrome } from '../config.styles';
 import { useSerieSort } from './serie.hooks';
 
@@ -18,9 +19,7 @@ export function SerieSortScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={chrome.root}>
       <View style={chrome.subHeader}>
-        <Text onPress={onBack} style={chrome.backChevron} suppressHighlighting>
-          ‹
-        </Text>
+        <BackChevron onPress={onBack} />
         <Text style={chrome.subTitle}>{t.configMenuChapter}</Text>
       </View>
 

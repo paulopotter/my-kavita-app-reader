@@ -2,6 +2,7 @@ import React from 'react';
 import { Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../../shared/theme';
 import { useStrings } from '../../../shared/i18n';
+import { BackChevron } from '../components';
 import { styles as chrome } from '../config.styles';
 import { useReaderPrefs } from './reader.hooks';
 import { styles } from './reader.styles';
@@ -16,9 +17,7 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={chrome.root}>
       <View style={chrome.subHeader}>
-        <Text onPress={onBack} style={chrome.backChevron} suppressHighlighting>
-          ‹
-        </Text>
+        <BackChevron onPress={onBack} />
         <Text style={chrome.subTitle}>{t.configMenuReading}</Text>
       </View>
 

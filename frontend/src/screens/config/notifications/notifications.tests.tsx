@@ -1,5 +1,15 @@
 import React from 'react';
+import { TouchableOpacity } from 'react-native';
+import { ChevronLeft, MoreHorizontal, Minus, Plus, X } from 'lucide-react-native';
+import { findPressableAncestor } from '../../../shared/test-utils/find-pressable-ancestor';
 import { fireEvent, render } from '@testing-library/react-native';
+
+// GroupCard/Row render a MoreHorizontal icon (not text) for each "…" menu button — this presses
+// the Nth one found in render order.
+function pressMenuButton(root: ReturnType<typeof render>, index: number) {
+  const icons = root.UNSAFE_getAllByType(MoreHorizontal);
+  fireEvent.press(findPressableAncestor(icons[index] as never, TouchableOpacity) as never);
+}
 
 jest.mock('../../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../../shared/i18n/strings').getStrings('en'),
@@ -91,8 +101,9 @@ beforeEach(() => {
 describe('NotificationsScreen', () => {
   it('shows the back chevron and calls onBack when pressed', () => {
     const onBack = jest.fn();
-    const { getByText } = render(<NotificationsScreen onBack={onBack} />);
-    fireEvent.press(getByText('‹'));
+    const { UNSAFE_getByType } = render(<NotificationsScreen onBack={onBack} />);
+    expect(UNSAFE_getByType(ChevronLeft)).toBeTruthy();
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
   });
 
@@ -166,10 +177,10 @@ describe('NotificationsScreen', () => {
   it('the retention stepper increments/decrements via setRetentionDays', () => {
     const setRetentionDays = jest.fn();
     mockUseNotificationPrefs.mockReturnValue(prefsHook({ retentionDays: 7, setRetentionDays }));
-    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    fireEvent.press(getByText('+'));
+    const { UNSAFE_getByType } = render(<NotificationsScreen onBack={jest.fn()} />);
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(Plus), TouchableOpacity) as never);
     expect(setRetentionDays).toHaveBeenCalledWith(8);
-    fireEvent.press(getByText('−'));
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(Minus), TouchableOpacity) as never);
     expect(setRetentionDays).toHaveBeenCalledWith(6);
   });
 
@@ -215,7 +226,7 @@ describe('NotificationsScreen', () => {
       groupsHook({ group: homeGroup, urls: [homeUrl], connStatus: 'ok', connMessage: 'https://ntfy.sh' }),
     );
     const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    expect(getByText(`✓ ${t.setupConnectionOk}: https://ntfy.sh`)).toBeTruthy();
+    expect(getByText(`${t.setupConnectionOk}: https://ntfy.sh`)).toBeTruthy();
   });
 
   it('shows the error message when testConnection fails', () => {
@@ -223,7 +234,7 @@ describe('NotificationsScreen', () => {
       groupsHook({ group: homeGroup, urls: [homeUrl], connStatus: 'error', connMessage: 'boom' }),
     );
     const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    expect(getByText('✗ boom')).toBeTruthy();
+    expect(getByText('boom')).toBeTruthy();
   });
 
   it('hides the add-group button once a group exists (single-group rule)', () => {
@@ -257,23 +268,24 @@ describe('NotificationsScreen', () => {
     fireEvent.changeText(getByPlaceholderText(t.notificationsGroupModalTopicPlaceholder), 'chapters');
     fireEvent.press(getByText(t.serverFormSave));
 
-    expect(await findByText('✗ boom')).toBeTruthy();
+    expect(await findByText('boom')).toBeTruthy();
   });
 
   it('closes the add-group modal via its close button', () => {
-    const { getByText, queryByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    const { getByText, queryByText, UNSAFE_getByType } = render(<NotificationsScreen onBack={jest.fn()} />);
     fireEvent.press(getByText(t.notificationsAddGroup));
     expect(getByText(t.notificationsGroupModalNewTitle)).toBeTruthy();
-    fireEvent.press(getByText('✕'));
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(X), TouchableOpacity) as never);
     expect(queryByText(t.notificationsGroupModalNewTitle)).toBeNull();
   });
 
   it('opens the edit-group modal pre-filled, and submits via editGroup', async () => {
     const editGroup = jest.fn().mockResolvedValue(null);
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, editGroup }));
-    const { getByText, getByDisplayValue } = render(<NotificationsScreen onBack={jest.fn()} />);
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    const { getByText, getByDisplayValue } = screen;
 
-    fireEvent.press(getByText('⋯'));
+    pressMenuButton(screen, 0);
     fireEvent.press(getByText(t.serverListEdit));
     expect(getByText(t.notificationsGroupModalEditTitle)).toBeTruthy();
     expect(getByDisplayValue('Home')).toBeTruthy();
@@ -294,18 +306,18 @@ describe('NotificationsScreen', () => {
   it('removing the group via its context menu calls removeGroup', () => {
     const removeGroup = jest.fn();
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, removeGroup }));
-    const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    fireEvent.press(getByText('⋯'));
-    fireEvent.press(getByText(t.serverListDelete));
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    pressMenuButton(screen, 0);
+    fireEvent.press(screen.getByText(t.serverListDelete));
     expect(removeGroup).toHaveBeenCalledWith('g1');
   });
 
   it('dismisses the group context menu by tapping the overlay', () => {
     const removeGroup = jest.fn();
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, removeGroup }));
-    const { getByText, queryByText, UNSAFE_getAllByType } = render(<NotificationsScreen onBack={jest.fn()} />);
-    const { TouchableOpacity } = require('react-native');
-    fireEvent.press(getByText('⋯'));
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    const { getByText, queryByText, UNSAFE_getAllByType } = screen;
+    pressMenuButton(screen, 0);
     expect(getByText(t.serverListDelete)).toBeTruthy();
     const overlays = UNSAFE_getAllByType(TouchableOpacity).filter(el => el.props.activeOpacity === 1);
     fireEvent.press(overlays[0]);
@@ -334,24 +346,25 @@ describe('NotificationsScreen', () => {
     fireEvent.changeText(getByPlaceholderText(t.urlModalUrlPlaceholder), 'https://ntfy.sh');
     fireEvent.press(getByText(t.serverFormSave));
 
-    expect(await findByText('✗ boom')).toBeTruthy();
+    expect(await findByText('boom')).toBeTruthy();
   });
 
   it('closes the add-URL modal via its close button', () => {
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup }));
-    const { getByText, queryByText } = render(<NotificationsScreen onBack={jest.fn()} />);
+    const { getByText, queryByText, UNSAFE_getByType } = render(<NotificationsScreen onBack={jest.fn()} />);
     fireEvent.press(getByText(t.serverAddUrl));
     expect(getByText(t.urlModalNewTitle)).toBeTruthy();
-    fireEvent.press(getByText('✕'));
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(X), TouchableOpacity) as never);
     expect(queryByText(t.urlModalNewTitle)).toBeNull();
   });
 
   it('opens the edit-URL modal pre-filled, and submits via updateUrl', async () => {
     const updateUrl = jest.fn().mockResolvedValue(null);
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl], canRemoveUrl: false, updateUrl }));
-    const { getByText, getAllByText, getByDisplayValue } = render(<NotificationsScreen onBack={jest.fn()} />);
-    // getAllByText('⋯') — group header + the URL row.
-    fireEvent.press(getAllByText('⋯')[1]);
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    const { getByText, getByDisplayValue } = screen;
+    // index 1 — group header's menu is 0, the URL row's menu is 1.
+    pressMenuButton(screen, 1);
     fireEvent.press(getByText(t.serverListEdit));
     expect(getByText(t.urlModalEditTitle)).toBeTruthy();
     expect(getByDisplayValue('https://ntfy.sh')).toBeTruthy();
@@ -363,25 +376,25 @@ describe('NotificationsScreen', () => {
   it('removing a URL via its context menu calls removeUrl when canRemoveUrl is true', () => {
     const removeUrl = jest.fn();
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl], canRemoveUrl: true, removeUrl }));
-    const { getByText, getAllByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    fireEvent.press(getAllByText('⋯')[1]);
-    fireEvent.press(getByText(t.serverListDelete));
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    pressMenuButton(screen, 1);
+    fireEvent.press(screen.getByText(t.serverListDelete));
     expect(removeUrl).toHaveBeenCalledWith('u1');
   });
 
   it('hides the delete option in the URL menu when canRemoveUrl is false', () => {
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl], canRemoveUrl: false }));
-    const { getAllByText, queryByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    fireEvent.press(getAllByText('⋯')[1]);
-    expect(queryByText(t.serverListDelete)).toBeNull();
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    pressMenuButton(screen, 1);
+    expect(screen.queryByText(t.serverListDelete)).toBeNull();
   });
 
   it('dismisses the URL context menu by tapping the overlay', () => {
     const removeUrl = jest.fn();
     mockUseNotificationGroups.mockReturnValue(groupsHook({ group: homeGroup, urls: [homeUrl], canRemoveUrl: true, removeUrl }));
-    const { getAllByText, queryByText, UNSAFE_getAllByType } = render(<NotificationsScreen onBack={jest.fn()} />);
-    const { TouchableOpacity } = require('react-native');
-    fireEvent.press(getAllByText('⋯')[1]);
+    const screen = render(<NotificationsScreen onBack={jest.fn()} />);
+    const { queryByText, UNSAFE_getAllByType } = screen;
+    pressMenuButton(screen, 1);
     expect(queryByText(t.serverListDelete)).toBeTruthy();
     const overlays = UNSAFE_getAllByType(TouchableOpacity).filter(el => el.props.activeOpacity === 1);
     fireEvent.press(overlays[overlays.length - 1]);

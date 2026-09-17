@@ -17,7 +17,6 @@ export const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   menuRowLabel: { fontSize: 16, color: colors.textOnDark },
-  menuRowArrow: { fontSize: 22, color: colors.muted },
   divider: { height: 1, backgroundColor: colors.deep, marginHorizontal: 20 },
 
   subHeader: {
@@ -28,17 +27,6 @@ export const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
     gap: 8,
-  },
-  backBtnArea: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  // Tap target for the "‹" — the new sub-screens render it as a bare <Text onPress>, so it needs
-  // its own hit area + spacing here (the legacy config.screen wraps it in backBtnArea instead).
-  backChevron: {
-    color: colors.accent,
-    fontSize: 32,
-    fontWeight: '300',
-    lineHeight: 40,
-    paddingHorizontal: 8,
-    marginRight: 2,
   },
   subTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.textOnDark },
 

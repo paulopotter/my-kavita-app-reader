@@ -19,7 +19,6 @@ export const styles = StyleSheet.create({
 
   dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
   dotActive: { backgroundColor: colors.positive },
-  dots: { color: colors.muted, fontSize: 20, paddingHorizontal: 4 },
 
   subLabel: {
     fontSize: 11,
@@ -55,6 +54,7 @@ export const styles = StyleSheet.create({
   outlineBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.accent },
   outlineTxt: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   btnDisabled: { opacity: 0.45 },
-  msgOk: { color: colors.msgOk, fontSize: 12, marginTop: 6 },
-  msgError: { color: colors.msgError, fontSize: 12, marginTop: 6 },
+  msgRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  msgOk: { color: colors.msgOk, fontSize: 12 },
+  msgError: { color: colors.msgError, fontSize: 12 },
 });

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Minus, Plus } from 'lucide-react-native';
 import { colors } from '../../../shared/theme';
 import { useStrings } from '../../../shared/i18n';
 import type { Strings } from '../../../shared/i18n';
 import type { NotificationServiceStatus } from '../../../shared/bridge';
-import { GroupCard, UrlModal } from '../components';
+import { BackChevron, GroupCard, UrlModal } from '../components';
 import { styles as chrome } from '../config.styles';
 import { GroupModal } from './components/group-modal';
 import {
@@ -117,9 +118,7 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
   return (
     <View style={chrome.root}>
       <View style={chrome.subHeader}>
-        <Text onPress={onBack} style={chrome.backChevron} suppressHighlighting>
-          ‹
-        </Text>
+        <BackChevron onPress={onBack} />
         <Text style={chrome.subTitle}>{t.configMenuNotifications}</Text>
       </View>
 
@@ -177,14 +176,14 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                   style={styles.stepperBtn}
                   onPress={() => prefs.setRetentionDays(prefs.retentionDays - 1)}
                   disabled={prefs.retentionDays <= RETENTION_MIN_DAYS}>
-                  <Text style={styles.stepperBtnTxt}>−</Text>
+                  <Minus size={16} color={colors.accent} />
                 </TouchableOpacity>
                 <Text style={styles.retentionValue}>{`${prefs.retentionDays} ${t.notificationsRetentionDaysSuffix}`}</Text>
                 <TouchableOpacity
                   style={styles.stepperBtn}
                   onPress={() => prefs.setRetentionDays(prefs.retentionDays + 1)}
                   disabled={prefs.retentionDays >= RETENTION_MAX_DAYS}>
-                  <Text style={styles.stepperBtnTxt}>+</Text>
+                  <Plus size={16} color={colors.accent} />
                 </TouchableOpacity>
               </View>
             </View>

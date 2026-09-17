@@ -1,5 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
+import { TouchableOpacity } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
+import { findPressableAncestor } from '../../../shared/test-utils/find-pressable-ancestor';
 
 // ── service mocks — every debug step is a thin wrapper over these ─────────────
 const mk = () => jest.fn();
@@ -255,8 +258,9 @@ describe('DebugScreen', () => {
 
   it('renders a back chevron that calls onBack', async () => {
     const onBack = jest.fn();
-    const { getByText } = render(<DebugScreen onBack={onBack} />);
-    fireEvent.press(getByText('‹'));
+    const { UNSAFE_getByType } = render(<DebugScreen onBack={onBack} />);
+    expect(UNSAFE_getByType(ChevronLeft)).toBeTruthy();
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
   });
 

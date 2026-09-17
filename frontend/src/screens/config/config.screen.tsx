@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { BackHandler, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
 import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n';
+import { colors } from '../../shared/theme';
 import { LanguageToggle } from './components/language-toggle';
 import { useConfigLanguage, useConfigMenu } from './config.hooks';
 import { styles } from './config.styles';
@@ -64,25 +66,25 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('server')}>
         <Text style={styles.menuRowLabel}>{t.configMenuServer}</Text>
-        <Text style={styles.menuRowArrow}>›</Text>
+        <ChevronRight size={20} color={colors.muted} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('reader')}>
         <Text style={styles.menuRowLabel}>{t.configMenuReading}</Text>
-        <Text style={styles.menuRowArrow}>›</Text>
+        <ChevronRight size={20} color={colors.muted} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('serie')}>
         <Text style={styles.menuRowLabel}>{t.configMenuChapter}</Text>
-        <Text style={styles.menuRowArrow}>›</Text>
+        <ChevronRight size={20} color={colors.muted} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('notifications')}>
         <Text style={styles.menuRowLabel}>{t.configMenuNotifications}</Text>
-        <Text style={styles.menuRowArrow}>›</Text>
+        <ChevronRight size={20} color={colors.muted} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
@@ -90,7 +92,7 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
         <>
           <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('debug')}>
             <Text style={styles.menuRowLabel}>Debug</Text>
-            <Text style={styles.menuRowArrow}>›</Text>
+            <ChevronRight size={20} color={colors.muted} />
           </TouchableOpacity>
           <View style={styles.divider} />
         </>

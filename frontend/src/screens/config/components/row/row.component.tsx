@@ -1,17 +1,19 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { MoreHorizontal } from 'lucide-react-native';
+import { colors } from '../../../../shared/theme';
 import { styles } from './row.styles';
 
 // A single configured item — a Kavita URL, the API key, or a BFF server. Dumb: an activity dot,
-// a primary line, an optional secondary line, and a "⋯" that calls props.onMenu. The screen owns
-// the context menu and every action.
+// a primary line, an optional secondary line, and a "more" menu that calls props.onMenu. The
+// screen owns the context menu and every action.
 export interface RowProps {
   active: boolean;
   primary: string;
   secondary?: string;
   // When secondary is meant to read as "nothing linked" — renders italic/dim.
   secondaryEmpty?: boolean;
-  // A small dim label right before the "⋯" (e.g. a URL's priority: "P0").
+  // A small dim label right before the menu button (e.g. a URL's priority: "P0").
   trailing?: string;
   onMenu: () => void;
 }
@@ -32,7 +34,7 @@ export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMe
       </View>
       {trailing != null && <Text style={styles.trailing}>{trailing}</Text>}
       <TouchableOpacity onPress={onMenu} hitSlop={8}>
-        <Text style={styles.dots}>⋯</Text>
+        <MoreHorizontal size={20} color={colors.muted} />
       </TouchableOpacity>
     </View>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { MoreHorizontal } from 'lucide-react-native';
 import { Row, type RowProps } from './row.component';
 
 const props = (over: Partial<RowProps> = {}): RowProps => ({
@@ -11,9 +12,9 @@ const props = (over: Partial<RowProps> = {}): RowProps => ({
 
 describe('Row', () => {
   it('renders the primary line and the menu affordance', () => {
-    const { getByText } = render(<Row {...props()} />);
+    const { getByText, UNSAFE_getByType } = render(<Row {...props()} />);
     expect(getByText('http://host')).toBeTruthy();
-    expect(getByText('⋯')).toBeTruthy();
+    expect(UNSAFE_getByType(MoreHorizontal)).toBeTruthy();
   });
 
   it('renders the secondary line and the trailing label when given', () => {
@@ -37,10 +38,11 @@ describe('Row', () => {
     expect(getByText('http://host')).toBeTruthy();
   });
 
-  it('calls onMenu when the ⋯ is pressed', () => {
+  it('calls onMenu when the menu button is pressed', () => {
     const onMenu = jest.fn();
-    const { getByText } = render(<Row {...props({ onMenu })} />);
-    fireEvent.press(getByText('⋯'));
+    const { UNSAFE_getByType } = render(<Row {...props({ onMenu })} />);
+    const { TouchableOpacity } = require('react-native');
+    fireEvent.press(UNSAFE_getByType(TouchableOpacity));
     expect(onMenu).toHaveBeenCalledTimes(1);
   });
 });

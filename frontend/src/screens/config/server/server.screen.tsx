@@ -3,7 +3,7 @@ import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import type { ServerGroupInfo, ServerUrlInfo } from '../../../shared/bridge';
 import { useStrings } from '../../../shared/i18n';
 import { styles as chrome } from '../config.styles';
-import { GroupCard, ServerModal, UrlModal } from '../components';
+import { BackChevron, GroupCard, ServerModal, UrlModal } from '../components';
 import {
   useMetadataServer,
   useServer,
@@ -36,9 +36,7 @@ export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScre
     </View>
   ) : (
     <View style={chrome.subHeader}>
-      <Text onPress={onBack} style={chrome.backChevron} suppressHighlighting>
-        ‹
-      </Text>
+      <BackChevron onPress={onBack} />
       <Text style={chrome.subTitle}>{t.configMenuServer}</Text>
     </View>
   );

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { X } from 'lucide-react-native';
 import type { ProviderInfo } from '../../../../shared/bridge';
 import type { Strings } from '../../../../shared/i18n';
+import { colors } from '../../../../shared/theme';
 import { UrlTool } from '../../../../shared/tools/url';
 import { styles } from './modal.styles';
 
@@ -64,9 +66,9 @@ export function ServerModal({
             <Text style={styles.title}>
               {mode === 'add' ? t.serverModalNewTitle : t.serverModalEditTitle}
             </Text>
-            <Text onPress={onClose} style={styles.close} suppressHighlighting>
-              ✕
-            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <X size={18} color={colors.muted} />
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>{t.serverModalProviderLabel}</Text>
@@ -123,7 +125,12 @@ export function ServerModal({
             </>
           )}
 
-          {submitError ? <Text style={styles.errorTxt}>✗ {submitError}</Text> : null}
+          {submitError ? (
+            <View style={styles.submitErrorRow}>
+              <X size={12} color={colors.msgError} />
+              <Text style={styles.submitErrorTxt}>{submitError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>

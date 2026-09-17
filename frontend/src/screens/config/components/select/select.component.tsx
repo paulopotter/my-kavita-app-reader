@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
+import { colors } from '../../../../shared/theme';
 import { styles } from './select.styles';
 
 // A single-choice select: a trigger showing the current label, tap to open a sheet listing every
@@ -35,7 +37,7 @@ export function Select({ value, options, placeholder = '—', onChange, disabled
         <Text style={[styles.triggerTxt, !current && styles.triggerPlaceholder]} numberOfLines={1}>
           {current?.label ?? placeholder}
         </Text>
-        {!disabled && <Text style={styles.caret}>▾</Text>}
+        {!disabled && <ChevronDown size={14} color={colors.muted} style={styles.caret} />}
       </TouchableOpacity>
 
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>

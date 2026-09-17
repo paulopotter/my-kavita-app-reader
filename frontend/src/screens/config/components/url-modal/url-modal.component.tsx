@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Check, X } from 'lucide-react-native';
 import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../shared/bridge';
 import type { Strings } from '../../../../shared/i18n';
+import { colors } from '../../../../shared/theme';
 import { UrlTool } from '../../../../shared/tools/url';
 import { Select } from '../select';
 import { styles } from './url-modal.styles';
@@ -94,9 +96,9 @@ export function UrlModal({
         <View style={styles.card}>
           <View style={styles.header}>
             <Text style={styles.title}>{mode === 'add' ? t.urlModalNewTitle : t.urlModalEditTitle}</Text>
-            <Text onPress={onClose} style={styles.close} suppressHighlighting>
-              ✕
-            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <X size={18} color={colors.muted} />
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>{t.urlModalUrlLabel}</Text>
@@ -151,7 +153,7 @@ export function UrlModal({
                   if (!next) {setServerUrlId(undefined);}
                 }}>
                 <View style={[styles.checkbox, associate && styles.checkboxOn]}>
-                  {associate && <Text style={styles.checkboxMark}>✓</Text>}
+                  {associate && <Check size={12} color={colors.textOnDark} />}
                 </View>
                 <Text style={styles.assocLabel}>{t.urlModalAssociateToUrl}</Text>
               </TouchableOpacity>
@@ -188,7 +190,12 @@ export function UrlModal({
             {!testing && testResult === 'fail' && <Text style={styles.testFail}>{t.urlModalTestFail}</Text>}
           </View>
 
-          {submitError ? <Text style={styles.errorTxt}>✗ {submitError}</Text> : null}
+          {submitError ? (
+            <View style={styles.submitErrorRow}>
+              <X size={12} color={colors.msgError} />
+              <Text style={styles.submitErrorTxt}>{submitError}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>

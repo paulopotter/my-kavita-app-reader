@@ -1,6 +1,9 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { TouchableOpacity } from 'react-native';
+import { ChevronDown, X } from 'lucide-react-native';
 import { getStrings } from '../../../../../shared/i18n';
+import { findPressableAncestor } from '../../../../../shared/test-utils/find-pressable-ancestor';
 import { GroupModal, type GroupModalProps } from './group-modal.component';
 
 const t = getStrings('en');
@@ -54,7 +57,7 @@ describe('GroupModal', () => {
 
   it('with a single server, the picker is pre-selected without needing user interaction', () => {
     const onSubmit = jest.fn();
-    const { getByText, getByPlaceholderText, queryByText } = render(
+    const { getByText, getByPlaceholderText, UNSAFE_queryByType } = render(
       <GroupModal {...props({ servers: oneServer, onSubmit })} />,
     );
     expect(getByText('Home Server')).toBeTruthy();
@@ -66,18 +69,18 @@ describe('GroupModal', () => {
 
     // Tapping the disabled picker never opens the option sheet's caret.
     fireEvent.press(getByText('Home Server'));
-    expect(queryByText('▾')).toBeNull();
+    expect(UNSAFE_queryByType(ChevronDown)).toBeNull();
   });
 
   it('shows the submit error when given', () => {
     const { getByText } = render(<GroupModal {...props({ submitError: 'boom' })} />);
-    expect(getByText('✗ boom')).toBeTruthy();
+    expect(getByText('boom')).toBeTruthy();
   });
 
   it('calls onClose when the close button is pressed', () => {
     const onClose = jest.fn();
-    const { getByText } = render(<GroupModal {...props({ onClose })} />);
-    fireEvent.press(getByText('✕'));
+    const { UNSAFE_getByType } = render(<GroupModal {...props({ onClose })} />);
+    fireEvent.press(findPressableAncestor(UNSAFE_getByType(X), TouchableOpacity) as never);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
