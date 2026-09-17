@@ -10,6 +10,23 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: adiciona suporte a marcar uma notificação como não lida no histórico
+- fix: atualiza o cache do digest de série/capítulo assim que um capítulo é marcado como lido ou não lido, evitando que outras telas mostrem progresso de leitura desatualizado
+
+### Frontend
+
+- feat: tela de notificações ganha seleção múltipla, com marcar como lido/não lido e apagar em massa
+- feat: exclusão de notificação (individual ou em massa) sempre pede confirmação antes de apagar
+- feat: popup de detalhes da notificação, com capítulos do grupo, horário exato e a imagem da série
+- feat: card de notificação mostra a imagem da série e o cabeçalho traz o total de notificações
+- feat: descrição da série é limitada a 6 linhas com opção de "ler mais"/"ler menos"
+- fix: tela de série não reverte mais a marcação de um capítulo como lido ao voltar do leitor
+- fix: card da tela Seguindo atualiza o progresso de leitura na hora, sem esperar recarregar a lista
+- fix: corrige pequenos saltos de layout ao carregar imagens ou entrar no modo de seleção nas telas de notificações e biblioteca
+- refactor: ícones usados nas telas de configuração, notificações e leitor passam a usar o mesmo conjunto visual do restante do app
+
 ## [[2026.09.14.1202](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1202)] - 2026-09-14
 
 O app agora verifica as releases oficiais automaticamente quando o endereço configurado falha ou está desatualizado, garantindo que versões recentes cheguem aos aparelhos de desenvolvimento. / The app now automatically checks official releases when the configured address fails or lacks updates, ensuring recent versions reach development devices.
