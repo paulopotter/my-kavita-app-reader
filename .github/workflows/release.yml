@@ -118,11 +118,11 @@ jobs:
 
           # Process policy-pending.json:
           # If non-empty, build a new policy entry and append it to the correct level.
-          # policy-pending.json format: {"level":"required","type":"app","minVersion":"auto"}
-          # "auto" for minVersion is resolved here:
-          #   type=app    → TAG (YYYY.MM.DD.HHMM)
-          #   type=rn     → RN_VER
-          #   type=kotlin → KOTLIN_VER
+          # policy-pending.json format: {level: required, type: app, minVersion: auto}
+          # auto for minVersion is resolved here:
+          #   type=app    -> TAG (YYYY.MM.DD.HHMM)
+          #   type=rn     -> RN_VER
+          #   type=kotlin -> KOTLIN_VER
           PENDING_KEYS=$(python3 -c "import json; print(len(json.load(open('policy-pending.json'))))")
           if [ "$PENDING_KEYS" -gt 0 ]; then
             POLICIES=$(python3 -c "
@@ -170,16 +170,16 @@ jobs:
               'url': 'https://github.com/$REPO/releases/download/$TAG/bundle.js',
               'bundleHash': '$BUNDLE_HASH',
               'minKotlinVersion': '$MIN_KOTLIN',
-              # The native version THIS release ships — the counterpart to lastRNVersion, and the
+              # The native version THIS release ships - the counterpart to lastRNVersion, and the
               # opposite of minKotlinVersion above (a floor that blocks). An app can compare it
               # against its own to tell that a newer APK exists.
               #
               # It answers something lastAppVersion can't: that one advances on every release,
-              # including JS-only ones the OTA already applied by itself, so it can't tell "there's
-              # something for you to install" from "nothing left to do". Kotlin only ever changes
-              # by installing an APK — effort the user has to spend, unlike a bundle.
+              # including JS-only ones the OTA already applied by itself, so it can't tell between
+              # something to install and nothing left to do. Kotlin only ever changes by
+              # installing an APK - effort the user has to spend, unlike a bundle.
               #
-              # Nothing reads it yet; it's published so an in-app "new version available" notice
+              # Nothing reads it yet; it's published so an in-app new-version-available notice
               # has the data when it's built.
               'lastKotlinVersion': '$KOTLIN_VER',
               'lastAppVersion': '$TAG',
