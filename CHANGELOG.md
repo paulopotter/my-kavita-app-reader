@@ -10,22 +10,44 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.09.17.1123](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.17.1123)] - 2026-09-17
 
-- feat: adiciona suporte a marcar uma notificação como não lida no histórico
-- fix: atualiza o cache do digest de série/capítulo assim que um capítulo é marcado como lido ou não lido, evitando que outras telas mostrem progresso de leitura desatualizado
+Agora você pode gerenciar suas notificações em massa com mais facilidade e sua leitura é atualizada na hora em todas as telas. / Now you can easily manage your notifications in bulk and your reading progress updates instantly across all screens.
 
-### Frontend
 
-- feat: tela de notificações ganha seleção múltipla, com marcar como lido/não lido e apagar em massa
-- feat: exclusão de notificação (individual ou em massa) sempre pede confirmação antes de apagar
-- feat: popup de detalhes da notificação, com capítulos do grupo, horário exato e a imagem da série
-- feat: card de notificação mostra a imagem da série e o cabeçalho traz o total de notificações
-- feat: descrição da série é limitada a 6 linhas com opção de "ler mais"/"ler menos"
-- fix: tela de série não reverte mais a marcação de um capítulo como lido ao voltar do leitor
-- fix: card da tela Seguindo atualiza o progresso de leitura na hora, sem esperar recarregar a lista
-- fix: corrige pequenos saltos de layout ao carregar imagens ou entrar no modo de seleção nas telas de notificações e biblioteca
-- refactor: ícones usados nas telas de configuração, notificações e leitor passam a usar o mesmo conjunto visual do restante do app
+### **Backend** - `1.3.0`
+
+**[pt-BR]**
+- Agora você pode marcar uma notificação como não lida diretamente pelo histórico
+- O progresso de leitura dos capítulos é atualizado instantaneamente em todas as telas ao marcá-los como lidos ou não lidos
+
+**[en]**
+- You can now mark a notification as unread directly from your history
+- Chapter reading progress updates instantly across all screens when marked as read or unread
+
+### **Frontend** - `1.2.0`
+
+**[pt-BR]**
+- A tela de notificações agora permite selecionar vários itens de uma vez para marcar como lidos, não lidos ou apagar em massa
+- O app sempre pede uma confirmação antes de excluir notificações, seja de forma individual ou em lote
+- Um novo pop-up de detalhes mostra os capítulos do grupo, o horário exato e a imagem da série ao tocar em uma notificação
+- Os cards de notificação exibem a imagem da série e o cabeçalho agora mostra a contagem total de avisos
+- A descrição das séries foi limitada a seis linhas com um botão prático para expandir ou recolher o texto
+- A tela de detalhes da série não perde mais o status de leitura do capítulo ao voltar do leitor
+- O card da aba Seguindo atualiza o progresso de leitura imediatamente, sem precisar recarregar a lista
+- Pequenos saltos visuais foram eliminados ao carregar imagens ou entrar no modo de seleção nas telas de notificações e biblioteca
+- Os ícones dos menus de configuração, notificações e leitor foram padronizados com o restante do aplicativo
+
+**[en]**
+- The notifications screen now lets you select multiple items at once to mark as read, unread, or delete in bulk
+- The app always asks for confirmation before deleting notifications, whether done individually or in a batch
+- A new details pop-up shows group chapters, the exact timestamp, and the series cover image when tapping a notification
+- Notification cards display the series artwork and the header now shows the total count of alerts
+- Series descriptions are now limited to six lines with a handy button to expand or collapse the text
+- The series details screen no longer loses the chapter's read status when returning from the reader
+- The Following tab card updates reading progress immediately without needing to reload the list
+- Minor visual jumps were eliminated when loading images or entering selection mode on the notification and library screens
+- Icons in the settings, notifications, and reader menus were unified to match the rest of the app
 
 ## [[2026.09.14.1202](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.14.1202)] - 2026-09-14
 
