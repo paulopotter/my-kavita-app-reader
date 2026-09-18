@@ -12,24 +12,34 @@
 App Android para leitura de mangás via servidor [Kavita](https://www.kavitareader.com/),
 com interface em React Native e atualização de UI sem reinstalar o APK (OTA).
 
-> **Status**: em desenvolvimento inicial — não há release estável ainda.
-
 ## Screenshots
 
 ![Visão geral das telas](docs/external/screenshots/grid_preview.png)
 
-## Funcionalidades disponíveis
+## Funcionalidades
 
-- [x] Tela de splash com sincronização inicial e progresso visual
-- [x] Navegação principal com abas (Biblioteca, Seguindo, Busca, Notificações, Configurações)
-- [x] Atualizações OTA com políticas configuráveis (none, recommended, highly_recommended, required)
-- [x] Tela de biblioteca com listagem de séries, ordenação e modos grade/lista
-- [x] Tela de série com lista de capítulos e marcação de leitura
-- [x] Leitor de mangás e webtoons com controle de progresso
-- [x] Busca por nome com histórico das séries abertas
-- [x] Acompanhar séries (favoritos) com aba dedicada
-- [x] Notificações de novos capítulos
-- [x] Tela de configurações com gerenciamento de servidor e preferências
+| Símbolo | Significado |
+|:---:|---|
+| ✅ | Disponível |
+| ⚠️ | Disponível, mas exige build manual — depende de configuração em `android/local.properties`, que não é versionada; o APK das releases não traz esses valores |
+| — | Planejado |
+
+| Funcionalidade | | Observações |
+|---|:---:|---|
+| Splash com sincronização inicial e progresso visual | ✅ | |
+| Navegação por abas (Biblioteca, Seguindo, Busca, Notificações, Ajustes) | ✅ | |
+| Biblioteca com ordenação e modos grade/lista | ✅ | |
+| Tela de série com lista de capítulos e marcação de leitura | ✅ | |
+| Leitor de mangás e webtoons com controle de progresso | ✅ | |
+| Busca por nome com histórico das séries abertas | ✅ | |
+| Acompanhar séries (favoritos) em aba dedicada | ✅ | |
+| Ajustes com gerenciamento de servidor e preferências | ✅ | |
+| Atualizações OTA com políticas configuráveis | ✅ | Veja a tabela de políticas abaixo |
+| Notificações de novos capítulos | ⚠️ | Requer `NTFY_URL` e `NTFY_TOPIC` |
+| Abrir links do Kavita direto no app (deep links) | ⚠️ | Requer `deeplink.host1` / `deeplink.host2` |
+| Metadados externos de séries | ✅ | Opcional; o servidor é configurado dentro do app, sem build |
+| Múltiplos servidores simultâneos | — | |
+| Plugins para fontes de dados e provedores de notificação | — | |
 
 ## Políticas de atualização OTA
 
@@ -41,11 +51,6 @@ Quando uma nova versão do bundle JS está disponível, o app pode exibir um avi
 | `recommended` | Exibe um diálogo na splash — o usuário pode ignorar e continuar |
 | `highly_recommended` | Exibe um diálogo bloqueante na splash; reexibe após 5 minutos dentro do app |
 | `required` | Bloqueia o app permanentemente até o usuário acessar as novidades |
-
-## Funcionalidades planejadas
-
-- [ ] Suporte a múltiplos servidores simultâneos
-- [ ] Suporte a plugins para fontes de dados e notificações
 
 ## Como instalar
 

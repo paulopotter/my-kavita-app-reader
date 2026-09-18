@@ -4,9 +4,8 @@
 
 ## Versões suportadas
 
-Este projeto está em desenvolvimento inicial (sem release estável ainda) e
-segue um único ramo ativo (`main`). Apenas a versão mais recente publicada
-recebe correções de segurança.
+Este projeto segue um único ramo ativo (`main`). Apenas a versão mais
+recente publicada recebe correções de segurança.
 
 ## Reportando uma vulnerabilidade
 

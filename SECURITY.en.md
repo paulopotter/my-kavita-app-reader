@@ -4,9 +4,8 @@
 
 ## Supported versions
 
-This project is in early development (no stable release yet) and follows a
-single active branch (`main`). Only the most recently published version
-receives security fixes.
+This project follows a single active branch (`main`). Only the most
+recently published version receives security fixes.
 
 ## Reporting a vulnerability
 
