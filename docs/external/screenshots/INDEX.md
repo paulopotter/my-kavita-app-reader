@@ -65,6 +65,7 @@ the file list and its captions live in that script, not here.
 | [config-main.png](config-main.png) | Settings root menu |
 | [config-main-2.png](config-main-2.png) | Server configuration screen |
 | [config-reading-prefs.png](config-reading-prefs.png) | Reading preferences screen |
+| [config-notifications.png](config-notifications.png) | Notification settings — toggles, history retention, notification servers |
 | [config-server.png](config-server.png) | Kavita + BFF server configuration |
 
 ## Welcome / Setup

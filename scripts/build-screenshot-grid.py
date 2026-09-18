@@ -64,8 +64,8 @@ SECTIONS = [
         ("config-main.png", "Ajustes"),
         ("config-server.png", "Servidores"),
         ("config-reading-prefs.png", "Preferências de leitura"),
-        ("settings-chapter-sort-fixed.jpeg", "Ordenação (cap. limiar)"),
-        ("settings-chapter-sort-progress.jpeg", "Ordenação (% progresso)"),
+        ("config-notifications.png", "Notificações"),
+        ("settings-chapter-sort-fixed.jpeg", "Ordenação de capítulos"),
     ]),
 ]
 
