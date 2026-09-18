@@ -21,9 +21,14 @@ com interface em React Native e atualização de UI sem reinstalar o APK (OTA).
 ## Funcionalidades disponíveis
 
 - [x] Tela de splash com sincronização inicial e progresso visual
-- [x] Navegação principal com abas (Biblioteca, Configurações)
+- [x] Navegação principal com abas (Biblioteca, Seguindo, Busca, Notificações, Configurações)
 - [x] Atualizações OTA com políticas configuráveis (none, recommended, highly_recommended, required)
-- [x] Tela de biblioteca com listagem de séries
+- [x] Tela de biblioteca com listagem de séries, ordenação e modos grade/lista
+- [x] Tela de série com lista de capítulos e marcação de leitura
+- [x] Leitor de mangás e webtoons com controle de progresso
+- [x] Busca por nome com histórico das séries abertas
+- [x] Acompanhar séries (favoritos) com aba dedicada
+- [x] Notificações de novos capítulos
 - [x] Tela de configurações com gerenciamento de servidor e preferências
 
 ## Políticas de atualização OTA
@@ -39,8 +44,7 @@ Quando uma nova versão do bundle JS está disponível, o app pode exibir um avi
 
 ## Funcionalidades planejadas
 
-- [ ] Leitor de mangás com controle de progresso
-- [ ] Notificações de novos capítulos
+- [ ] Suporte a múltiplos servidores simultâneos
 - [ ] Suporte a plugins para fontes de dados e notificações
 
 ## Como instalar

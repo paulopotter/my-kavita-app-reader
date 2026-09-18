@@ -106,8 +106,8 @@ Each domain only handles its own concern and delegates **downward** to the small
 `:content-digest` or RN, never duplicated.
 
 **In RN**: the canonical shape of each domain is defined in `shared/tools/<domain>/`
-(`ChapterTool`, `SerieTool`, `ChaptersTool`); Services (`shared/services/<domain>/`) aggregate
-digests into screen-ready data. `shared/transforms/` no longer exists.
+(`ChapterTool`, `SerieTool` in `serials/`, `ChaptersTool`); Services (`shared/services/<domain>/`)
+aggregate digests into screen-ready data. `shared/transforms/` no longer exists.
 
 ---
 
@@ -302,8 +302,8 @@ replace it. Still alive:
 
 ## Screen file convention (RN)
 
-**Current** — `serie/`, `reader/`, and `config/reader/` (rewritten / added under plan 017), the
-target for any new or migrated screen:
+**Current** — `serie/`, `reader/`, `config/reader/` (rewritten / added under plan 017) and
+`search/` (backlog 009), the target for any new or migrated screen:
 
 - `<name>.screen.tsx`, `<name>.hooks.ts` (in `hooks/`), `<name>.types.ts`, `<name>.styles.ts` —
   all kebab-case, role in the filename.
@@ -315,7 +315,7 @@ target for any new or migrated screen:
   micro-ecosystem** — it may keep its own `hooks/`, `components/`, local model/adapter files;
   shared domain logic still lives in `shared/tools/<domain>/`.
 
-**Legacy** — `config/` (except `config/reader/`), `following/`, `library/`, `search/`, `setup/`,
+**Legacy** — `config/` (except `config/reader/`), `following/`, `library/`, `setup/`,
 `splash/`: `LibraryScreen.tsx`, `useLibrary.ts` (PascalCase, flat, `use*` hook). Some already
 have a `hooks/` subfolder (`library/hooks/library.hooks.ts`). Migrate to the current convention
 when a screen is next touched substantially; don't rename wholesale for its own sake.
@@ -327,7 +327,7 @@ when a screen is next touched substantially; don't rename wholesale for its own 
 
 - **The domain `Tool`** (`shared/tools/<domain>/<domain>.tool.ts`) — normalizing/formatting that
   domain's entity, for anything reusable across screens (`ChapterTool.format.title`,
-  `ChapterTool.mark.*`, `SerieTool.normalize`).
+  `ChapterTool.mark.*`, `SerieTool.normalize.card`).
 - **A screen-local model file** (`<name>.model.ts` / `<name>.window.ts`) — pure state-shape
   logic only that screen has (the reader's `reader.model.ts` chapter helpers and
   `reader.window.ts` `ReaderWindow` math — Task 037).
@@ -340,6 +340,15 @@ when a screen is next touched substantially; don't rename wholesale for its own 
 ---
 
 ## RN shared layers
+
+### `shared/components/` — Layer 5 (generic dumb components)
+
+`app-versions/`, `confirm-dialog/`, `follow-star/`, `scroll-to-top-button/`,
+`selection-bottom-bar/`, and `card/` — the serial row, with `card/list/` nested as its list
+variant (a list row is the same card in another layout, not a different component). Both take a
+`SerialCard` spread as props and render strings only; the labels are built by
+`SerieTool.normalize.card`, never in the component. Promoted out of `screens/library/` in backlog
+009, when Search became the second consumer.
 
 ### `shared/services/` — Layer 4
 
@@ -387,8 +396,11 @@ Where the **canonical shape** of each domain is defined in RN, and optimistic ac
   `mark.read/unread/toggle/readMany/unreadMany` — optimistic → confirm → revert, via `onUpdate`
   **and** `EventBus.emit(ChapterEvents.readStatusChanged, …)`). `ChaptersTool.sort` (global +
   per-series override, via `PreferencesManager`).
-- `series/serie.tool.ts` — `SerieTool` (`normalize`, `isFollowed`, `toggleFollow` optimistic via
-  `FollowedSeriesBridge`).
+- `serials/serial.tool.ts` — `SerieTool` (`normalize.digest` → `Serie`; `normalize.card` →
+  `SerialCard`, the row shape a card/list item renders, labels already localized; `relabel`
+  rebuilds those labels from the row's own raw fields after an in-place patch or a language
+  change; `isFollowed`, `toggleFollow` optimistic via `FollowedSeriesBridge`). Its plural
+  sibling `serials/serials.tool.ts` holds `SeriesTool.normalize` (a digest list → `Serie[]`).
 - `reader/reader-prefs.tool.ts` — `ReaderPrefs` (keep-screen-on / immersive, `:preferences`,
   domain `readerPrefs`). In `shared/` because both Config and Reader consume it.
 - `actions/action.tool.ts` — `ActionContract` + `createNavigateAction(...)`, EventBus-ready.

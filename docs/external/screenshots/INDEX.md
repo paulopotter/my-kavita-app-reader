@@ -8,6 +8,9 @@ Anonymized screenshots of the app. IPs, tokens, and real domain names replaced w
 |------|-------------|
 | [grid_preview.png](grid_preview.png) | All screens in a single grid (used in README) |
 
+Regenerate the grid with `python3 scripts/build-screenshot-grid.py` after adding a screenshot —
+the file list and its captions live in that script, not here.
+
 ## Splash
 
 | File | Description |
@@ -39,6 +42,21 @@ Anonymized screenshots of the app. IPs, tokens, and real domain names replaced w
 | [series-detail-sort-modal.jpeg](series-detail-sort-modal.jpeg) | Series detail — per-series chapter sort override modal |
 | [settings-chapter-sort-fixed.jpeg](settings-chapter-sort-fixed.jpeg) | Settings → Manga page — global sort, fixed chapter threshold mode |
 | [settings-chapter-sort-progress.jpeg](settings-chapter-sort-progress.jpeg) | Settings → Manga page — global sort, progress percentage mode |
+
+## Search
+
+| File | Description |
+|------|-------------|
+| [search-history.png](search-history.png) | Search with an empty query — recently opened series |
+| [search-results.png](search-results.png) | Search results while typing, with the match count |
+
+## Notifications
+
+| File | Description |
+|------|-------------|
+| [notifications-list.png](notifications-list.png) | Notification list with the unread header |
+| [notifications-selection-mode.png](notifications-selection-mode.png) | Multi-select mode active |
+| [notifications-detail-modal.png](notifications-detail-modal.png) | Single notification detail modal |
 
 ## Settings
 

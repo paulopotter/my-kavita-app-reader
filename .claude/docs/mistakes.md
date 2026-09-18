@@ -69,9 +69,22 @@ nav stack, until a manual pull-to-refresh. Two variants seen:
    newly-matching item never enters and a no-longer-matching one never leaves. Fix: keep the
    *unfiltered* list in state, apply the filter in a `useMemo` on every render.
 
+3. **Baked into a derived shape at build time** — B folds the shared value into a row when it
+   assembles the list (`isFollowed` written into a `SerialCard` by `normalize.card`), so the row
+   keeps whatever was true at fetch time. Same failure as 2, one level deeper: the list isn't
+   filtered wrong, each *row* is stale. Fix: don't bake a value that changes independently —
+   keep the live set in its own state (fed by `SeriesFollowedEmitter`) and apply it where the
+   rows are read (a `useMemo` over the list), not where they're built. Seen twice in backlog
+   009, in Search: a hardcoded `isFollowed={false}` on the history row, and the followed set
+   read only once at load.
+
 **Rule**: for anything shared across screens, always ask "what if this changes while I'm not
 focused" — React Navigation doesn't remount on back. (RN→RN cross-screen updates now go through
 the `EventBus` — `ChapterEvents.readStatusChanged`.)
+
+**Corollary — a persisted record never stores a value that changes on its own.** Search's
+history stores the series' id/name/cover, never `isFollowed`: it would be wrong the moment
+after it was written. Identity is safe to persist; state is resolved at read time.
 
 ### 9. Scroll-position math anchored to the wrong zero point
 A reader progress bar / chapter-switch trigger fires early or late, and the error scales with
