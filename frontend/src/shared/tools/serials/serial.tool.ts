@@ -87,11 +87,11 @@ export interface SerialCard {
   chapterCount?: number;
   chapterCountLabel?: string;
   // Raw provider status as it arrived, kept so a caller patching this field in place writes what
-  // it has (a BFF string) and lets relabel do the mapping — same shape as the raw counts below.
+  // it has (the provider's own string) and lets relabel map it — same shape as the raw counts below.
   rawPublicationStatus?: string;
   publicationStatus?: PublicationStatus;
   publicationLabel?: string;
-  // Raw BFF counts kept alongside their label: the Library patches these as its per-card
+  // Raw counts kept alongside their label: the Library patches these as its per-card
   // enrichment lands, then rebuilds the labels through SerieTool.relabel.
   downloadedChapters?: number;
   totalChapters?: number;
@@ -102,27 +102,29 @@ export interface SerialCard {
   lastChapterAddedEpochMs?: number;
 }
 
-// The optional extras a caller may already have. The Library has all of them (BFF match + its
+// The optional extras a caller may already have. The Library has all of them (its external-metadata match + its
 // persistent digest index + the followed set); Search has only isFollowed.
 export interface SerialCardEnrichment {
   isFollowed?: boolean;
   // Real chapter counts — from the Library's SeriesDigestIndex. Absent → page-based progress.
   readChapters?: number;
   totalChapters?: number;
-  // BFF/M3 enrichment.
+  // From the external-metadata source, when the caller has one.
   publicationStatus?: string;
-  // Next source tried when `publicationStatus` is missing OR unrecognized (the Library's own
-  // digest-index value, which speaks Kavita's enum rather than the BFF's vocabulary).
+  // Next source tried when `publicationStatus` is missing OR unrecognized — the two sources
+  // speak different vocabularies, so an unknown string here must fall through rather than win.
   fallbackPublicationStatus?: string;
+  // How many chapters the external source has, and how many of those are downloaded. Separate
+  // from `totalChapters` above, which counts what the content server itself reports.
   downloadedChapters?: number;
-  bffTotalChapters?: number;
+  externalTotalChapters?: number;
   hasErrors?: boolean;
 }
 
 // Which raw strings mean each status. Written this way round — status → its synonyms — for two
 // reasons: the Record is keyed by the enum, so adding a status to PublicationStatus without
 // listing its raw spellings fails to compile; and the synonyms of one status stay together
-// instead of scattering as repeated values. Two provider vocabularies land here: the BFF's
+// instead of scattering as repeated values. Two provider vocabularies land here: the external source's
 // ("ongoing", "publishing_finished", …) and Kavita's own ("OnGoing", "Hiatus", …).
 const RAW_PUBLICATION_STATUS: Record<PublicationStatus, string[]> = {
   ONGOING: ['ongoing'],
@@ -265,7 +267,7 @@ export const SerieTool = {
     // → SerialCard, the shape ONE row renders (grid card or its list variant). Every label is
     // resolved here, with `t`, because the card is a dumb component: it takes strings, never an
     // enum and never i18n of its own. The optional fields are the enrichments only some callers
-    // have — the Library passes its BFF match and digest-index counts, Search passes neither and
+    // have — the Library passes its external match and digest-index counts, Search passes neither and
     // the card simply renders without those lines.
     card({ serial, t, enrichment }: {
       serial: Serie;
@@ -298,8 +300,8 @@ export const SerieTool = {
         publicationStatus,
         publicationLabel: publicationStatus ? publicationLabel(publicationStatus, t) : undefined,
         downloadedChapters: enrichment?.downloadedChapters,
-        totalChapters: enrichment?.bffTotalChapters,
-        downloadedLabel: countLabel(enrichment?.downloadedChapters, enrichment?.bffTotalChapters, t),
+        totalChapters: enrichment?.externalTotalChapters,
+        downloadedLabel: countLabel(enrichment?.downloadedChapters, enrichment?.externalTotalChapters, t),
         hasErrors: enrichment?.hasErrors,
         errorsLabel: enrichment?.hasErrors ? t.hasErrors : undefined,
         lastChapterAddedEpochMs: serial.lastUpdatesUTC?.chapterAdded,

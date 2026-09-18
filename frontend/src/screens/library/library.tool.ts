@@ -50,7 +50,7 @@ export const LibraryTool = {
           publicationStatus: match?.status,
           fallbackPublicationStatus: index?.publicationStatus,
           downloadedChapters: match?.downloadedChapters,
-          bffTotalChapters: match?.totalChapters,
+          externalTotalChapters: match?.totalChapters,
           hasErrors: match?.hasErrors,
         },
       });

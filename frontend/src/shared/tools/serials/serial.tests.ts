@@ -321,11 +321,11 @@ describe('SerieTool.normalize.card', () => {
     ).toBe(0);
   });
 
-  it('builds the BFF labels from the enrichment', () => {
+  it('builds the external-source labels from the enrichment', () => {
     const card = SerieTool.normalize.card({
       serial: serial(),
       t: cardStrings,
-      enrichment: { publicationStatus: 'completed', downloadedChapters: 40, bffTotalChapters: 40, hasErrors: true },
+      enrichment: { publicationStatus: 'completed', downloadedChapters: 40, externalTotalChapters: 40, hasErrors: true },
     });
     expect(card.publicationStatus).toBe('COMPLETED');
     expect(card.publicationLabel).toBe('Completo');
@@ -394,7 +394,7 @@ describe('SerieTool.relabel', () => {
     expect(patched.readStatus).toBe('IN_PROGRESS');
   });
 
-  it('rebuilds the BFF labels from the raw counts carried on the card', () => {
+  it('rebuilds the external-source labels from the raw counts carried on the card', () => {
     const card = SerieTool.normalize.card({ serial: serial(), t: cardStrings });
     const patched = SerieTool.relabel({
       card: { ...card, downloadedChapters: 7, totalChapters: 20, hasErrors: true },
@@ -416,7 +416,7 @@ describe('SerieTool.relabel', () => {
   it('maps a raw status written by an in-place patch', () => {
     const card = SerieTool.normalize.card({ serial: serial(), t: cardStrings });
     expect(card.publicationStatus).toBeUndefined();
-    // What the Library's lazy BFF enrichment does: write the raw string, let relabel map it.
+    // What the Library's lazy enrichment does: write the raw string, let relabel map it.
     const patched = SerieTool.relabel({ card: { ...card, rawPublicationStatus: 'hiatus' }, t: cardStrings });
     expect(patched.publicationStatus).toBe('ON_HIATUS');
     expect(patched.publicationLabel).toBe('Hiato');
