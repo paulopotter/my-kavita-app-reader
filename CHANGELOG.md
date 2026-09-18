@@ -10,19 +10,32 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Frontend
+## [[2026.09.18.2140](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.18.2140)] - 2026-09-18
 
-- feat: nova tela de busca — encontra uma série pelo nome, ignorando acentos e
-  maiúsculas, com a contagem de resultados e um histórico das séries abertas
-  por ali (removível, com confirmação)
-- refactor: o card de série sai da biblioteca para `shared/components/card`,
-  com a variante de lista aninhada, e passa a ser montado por
-  `SerieTool.normalize.card` — a tela recebe a linha com os rótulos prontos em
-  vez de montá-los
-- refactor: o domínio `shared/tools/series` vira `serials`, alinhado ao
-  vocabulário que a camada de dados já usava
-- fix: a estrela de favorito deixa de ficar presa ao valor que tinha quando a
-  lista foi carregada — passa a acompanhar o estado atual em qualquer tela
+Agora você pode buscar mangás ignorando acentos, gerenciar seu histórico de pesquisas e ver o status de favorito atualizado em tempo real. / Now you can search for mangas ignoring accents, manage your search history, and see real-time updated favorite statuses.
+
+
+### **Backend** - `1.3.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
+
+### **Frontend** - `1.3.0`
+
+**[pt-BR]**
+- Nova tela de busca inteligente que encontra séries pelo nome ignorando acentos e maiúsculas, exibindo a contagem de resultados e um histórico de pesquisas removível com confirmação
+- O cartão visual das séries foi movido para um componente compartilhado padronizado com suporte a listas aninhadas, simplificando a montagem das telas
+- A pasta com ferramentas de séries foi renomeada para alinhar o nome com o vocabulário utilizado pela camada de dados do sistema
+- O ícone de favorito agora reflete o estado atual corretamente em qualquer tela, sem ficar preso ao valor antigo de quando a lista foi carregada
+
+**[en]**
+- New intelligent search screen that finds series by name ignoring accents and uppercase letters, displaying the result count and a removable search history with confirmation
+- The visual series card was moved to a standardized shared component supporting nested lists, simplifying screen assembly
+- The series tools folder was renamed to align with the vocabulary used by the system data layer
+- The favorite icon now correctly reflects the current state on any screen without getting stuck on the old value from when the list was loaded
 
 ## [[2026.09.17.1123](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.17.1123)] - 2026-09-17
 

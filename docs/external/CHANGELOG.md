@@ -10,6 +10,33 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.09.18.2140](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.18.2140)] - 2026-09-18
+
+Agora você pode buscar mangás ignorando acentos, gerenciar seu histórico de pesquisas e ver o status de favorito atualizado em tempo real. / Now you can search for mangas ignoring accents, manage your search history, and see real-time updated favorite statuses.
+
+
+### **Backend** - `1.3.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
+
+### **Frontend** - `1.3.0`
+
+**[pt-BR]**
+- Nova tela de busca inteligente que encontra séries pelo nome ignorando acentos e maiúsculas, exibindo a contagem de resultados e um histórico de pesquisas removível com confirmação
+- O cartão visual das séries foi movido para um componente compartilhado padronizado com suporte a listas aninhadas, simplificando a montagem das telas
+- A pasta com ferramentas de séries foi renomeada para alinhar o nome com o vocabulário utilizado pela camada de dados do sistema
+- O ícone de favorito agora reflete o estado atual corretamente em qualquer tela, sem ficar preso ao valor antigo de quando a lista foi carregada
+
+**[en]**
+- New intelligent search screen that finds series by name ignoring accents and uppercase letters, displaying the result count and a removable search history with confirmation
+- The visual series card was moved to a standardized shared component supporting nested lists, simplifying screen assembly
+- The series tools folder was renamed to align with the vocabulary used by the system data layer
+- The favorite icon now correctly reflects the current state on any screen without getting stuck on the old value from when the list was loaded
+
 ## [[2026.09.17.1123](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.17.1123)] - 2026-09-17
 
 Agora você pode gerenciar suas notificações em massa com mais facilidade e sua leitura é atualizada na hora em todas as telas. / Now you can easily manage your notifications in bulk and your reading progress updates instantly across all screens.
