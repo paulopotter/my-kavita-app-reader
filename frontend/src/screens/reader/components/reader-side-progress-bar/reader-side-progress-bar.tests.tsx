@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { ReaderSideProgressBar } from './reader-side-progress-bar.component';
+import { colors } from '../../../../shared/theme';
 
 function setup(over: Partial<React.ComponentProps<typeof ReaderSideProgressBar>> = {}) {
   const onPageSelect = jest.fn();
@@ -42,7 +43,7 @@ describe('ReaderSideProgressBar', () => {
     // currentPage=2 exercises both the `index < currentPage` (read) and `index === currentPage`
     // (active) style branches — the active dot carries the accent colour #E94560.
     const { toJSON } = setup({ totalPages: 5, currentPage: 2 });
-    expect(JSON.stringify(toJSON())).toContain('#E94560');
+    expect(JSON.stringify(toJSON())).toContain(colors.accent);
   });
 
   it('arrows call their callbacks when enabled', () => {

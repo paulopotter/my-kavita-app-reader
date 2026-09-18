@@ -1,4 +1,5 @@
 import { Platform, StatusBar, StyleSheet } from 'react-native';
+import { colors } from '../../../../shared/theme';
 
 // Gap between the status bar and the series name — the header sits right under it (exact status
 // bar distance, not a device-dependent guess).
@@ -15,7 +16,7 @@ export const styles = StyleSheet.create({
     alignItems: 'stretch',
     paddingBottom: 8,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.overlayReader,
   },
   backButton: {
     justifyContent: 'center',
@@ -26,6 +27,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 4,
   },
-  seriesName: { color: '#A0AEC0', fontSize: 11 },
-  chapterTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '600', alignSelf: 'flex-start' },
+  seriesName: { color: colors.muted, fontSize: 11 },
+  chapterTitle: { color: colors.textOnDark, fontSize: 17, fontWeight: '600', alignSelf: 'flex-start' },
 });

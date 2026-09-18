@@ -1,11 +1,12 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
   root: {
     flexDirection: 'row',
-    backgroundColor: '#16213E',
+    backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: '#0F3460',
+    borderTopColor: colors.deep,
     paddingVertical: 14,
     minHeight: 76,
   },
@@ -16,5 +17,5 @@ export const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 4,
   },
-  buttonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  buttonText: { color: colors.textOnDark, fontSize: 11, fontWeight: '600', textAlign: 'center' },
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { STATUS_BAR_GAP, statusBarHeight, styles } from './reader-top-bar.styles';
+import { colors } from '../../../../shared/theme';
 
 interface Props {
   seriesName: string;
@@ -20,7 +21,7 @@ export function ReaderTopBar({ seriesName, chapterTitle, onBack, visible }: Prop
         style={styles.backButton}
         onPress={onBack}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-        <ChevronLeft size={28} color="#FFFFFF" />
+        <ChevronLeft size={28} color={colors.textOnDark} />
       </TouchableOpacity>
       <View style={styles.titles}>
         <Text style={styles.seriesName} numberOfLines={1}>

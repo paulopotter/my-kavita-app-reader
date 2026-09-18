@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   bar: {
@@ -8,7 +9,7 @@ export const styles = StyleSheet.create({
     bottom: 0,
     width: 36,
     justifyContent: 'center',
-    backgroundColor: 'rgba(15,52,96,0.85)',
+    backgroundColor: colors.deepTranslucent,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
   },
@@ -20,7 +21,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   letter: {
-    color: '#E94560',
+    color: colors.accent,
     fontSize: 11,
     fontWeight: '700',
   },

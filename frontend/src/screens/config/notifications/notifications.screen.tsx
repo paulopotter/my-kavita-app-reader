@@ -45,7 +45,7 @@ function ToggleRow({
         onValueChange={onValueChange}
         disabled={disabled}
         thumbColor={value ? colors.accent : colors.muted}
-        trackColor={{ false: colors.deep, true: '#7F1D1D' }}
+        trackColor={{ false: colors.deep, true: colors.dangerDeep }}
       />
     </TouchableOpacity>
   );

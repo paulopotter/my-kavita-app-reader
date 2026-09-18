@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   root: {
@@ -11,13 +12,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#16213E',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#0F3460',
+    borderColor: colors.deep,
   },
   input: {
     flex: 1,
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 15,
     padding: 0,
   },

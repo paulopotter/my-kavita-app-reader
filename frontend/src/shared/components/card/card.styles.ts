@@ -1,10 +1,11 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
   card: {
     flex: 1,
     margin: 6,
-    backgroundColor: '#16213E',
+    backgroundColor: colors.card,
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -19,7 +20,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 6,
     borderTopLeftRadius: 4,
     borderBottomLeftRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colors.overlayCard,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
@@ -27,7 +28,7 @@ export const styles = StyleSheet.create({
   cover: {
     width: '100%',
     aspectRatio: 2 / 3,
-    backgroundColor: '#0F3460',
+    backgroundColor: colors.deep,
   },
   info: {
     padding: 8,
@@ -36,7 +37,7 @@ export const styles = StyleSheet.create({
   // takes up the same height as a 2-line one (numberOfLines={2} ellipsizes anything past that),
   // so every card's progress bar/badges/etc. start at the same y regardless of title length.
   name: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 12,
     lineHeight: 15,
     height: 30,
@@ -45,14 +46,14 @@ export const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: '#0F3460',
+    backgroundColor: colors.deep,
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 2,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#E94560',
+    backgroundColor: colors.accent,
     borderRadius: 2,
   },
   progressLine: {
@@ -62,7 +63,7 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
   },
   progressText: {
-    color: '#A0AEC0',
+    color: colors.muted,
     fontSize: 10,
   },
   // Fixed height (one badge row's worth) reserved whether or not this card actually has a badge
@@ -81,16 +82,16 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 9,
     fontWeight: '600',
   },
-  badgePub: { backgroundColor: '#553C9A' },
-  badgeError: { backgroundColor: '#C53030' },
+  badgePub: { backgroundColor: colors.badgeSpecial },
+  badgeError: { backgroundColor: colors.dangerAlt },
   // Fixed height reserved the same way as badges above — an entry with no BFF match (no
   // downloadedLabel) still takes up this line's space.
   chapters: {
-    color: '#A0AEC0',
+    color: colors.muted,
     fontSize: 10,
     height: 13,
   },

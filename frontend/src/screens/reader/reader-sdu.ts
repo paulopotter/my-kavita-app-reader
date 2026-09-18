@@ -1,4 +1,5 @@
 import { PixelRatio } from 'react-native';
+import { colors } from '../../shared/theme';
 
 // Server-Driven UI: describes non-page reader content (what used to be fixed Header/Footer/Gap
 // Kotlin Composables) as plain data RN sends over the bridge — see
@@ -35,9 +36,9 @@ function dpToPx(dp: number): number {
   return PixelRatio.getPixelSizeForLayoutSize(dp);
 }
 
-const WHITE = '#FFFFFF';
-const MUTED = '#A0AEC0';
-const HEADER_FOOTER_BG = '#1A1A1A';
+const WHITE = colors.textOnDark;
+const MUTED = colors.muted;
+const HEADER_FOOTER_BG = colors.sduBackground;
 
 function gapNode(): SduNode {
   return { type: 'container', heightPx: dpToPx(GAP_HEIGHT_DP), children: [] };

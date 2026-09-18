@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 24,
     width: '100%',
     gap: 12,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.45,
     shadowRadius: 16,
@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   message: {
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.white72,
     fontSize: 14,
     lineHeight: 21,
   },
@@ -53,10 +53,10 @@ export const styles = StyleSheet.create({
   btnSecondary: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: colors.white20,
   },
   btnLabel: { fontSize: 14, fontWeight: '600' },
   btnLabelPrimary: { color: colors.textOnDark },
   btnLabelDestructive: { color: colors.textOnDark },
-  btnLabelSecondary: { color: 'rgba(255,255,255,0.80)' },
+  btnLabelSecondary: { color: colors.white80 },
 });

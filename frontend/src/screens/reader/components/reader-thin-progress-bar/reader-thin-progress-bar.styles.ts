@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   // Thin, gold, translucent — anchored to the right edge, inset 10% top and bottom.
@@ -9,8 +10,8 @@ export const styles = StyleSheet.create({
     bottom: '10%',
     width: 3,
     borderRadius: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.white20,
     overflow: 'visible',
   },
-  fill: { width: 3, backgroundColor: '#FFC107' },
+  fill: { width: 3, backgroundColor: colors.progressAmber },
 });

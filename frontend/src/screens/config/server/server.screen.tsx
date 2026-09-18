@@ -12,6 +12,7 @@ import {
   type UseServerResult,
 } from './server.hooks';
 import { styles } from './server.styles';
+import { colors } from '../../../shared/theme';
 
 // Server management: the server itself + a section for a metadata server. Reached two ways:
 //  - Config menu (onBack) → "manage" mode, back chevron.
@@ -32,7 +33,7 @@ export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScre
   const header = isSetup ? (
     <View style={{ padding: 20, paddingBottom: 8 }}>
       <Text style={chrome.pageTitle}>{t.setupTitle}</Text>
-      <Text style={{ color: '#A0AEC0' }}>{t.setupSubtitle}</Text>
+      <Text style={{ color: colors.muted }}>{t.setupSubtitle}</Text>
     </View>
   ) : (
     <View style={chrome.subHeader}>

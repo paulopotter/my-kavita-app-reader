@@ -16,6 +16,7 @@ import type { FreshnessBannerVariant } from './components';
 import { useLibrary, type LibraryBannerState } from './hooks';
 import { styles } from './library.styles';
 import type { LibraryMode } from './library.types';
+import { colors } from '../../shared/theme';
 
 // The same screen backs two tabs. Which one is driven entirely by the route param `mode` (set via
 // Tab.Screen's initialParams in MainNavigator) — there is no separate Following screen. 'following'
@@ -122,7 +123,7 @@ export function LibraryScreen() {
   if (loading && data.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#E94560" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.message}>{t.libraryLoading}</Text>
       </View>
     );
@@ -162,7 +163,7 @@ export function LibraryScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.viewToggleBtn} onPress={toggleViewMode}>
-          {viewMode === 'GRID' ? <LayoutList size={18} color="#A0AEC0" /> : <LayoutGrid size={18} color="#A0AEC0" />}
+          {viewMode === 'GRID' ? <LayoutList size={18} color={colors.muted} /> : <LayoutGrid size={18} color={colors.muted} />}
         </TouchableOpacity>
       </View>
 
@@ -179,8 +180,8 @@ export function LibraryScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={refresh}
-              tintColor="#E94560"
-              progressBackgroundColor="rgba(22,33,62,0.85)"
+              tintColor={colors.accent}
+              progressBackgroundColor={colors.cardTranslucent}
             />
           }
           renderItem={viewMode === 'GRID' ? renderGridItem : (renderListItem as never)}

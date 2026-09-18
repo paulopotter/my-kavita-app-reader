@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { SmokeTestStep } from '../../debug.steps';
 import { styles } from './section.styles';
+import { colors } from '../../../../../shared/theme';
 
 // One smoke-test section: a title, an optional editable id field, a Run button, and the result
 // list. Dumb — it holds only its own running/results state and calls props.onRun(). The Config
@@ -39,7 +40,7 @@ export function Section({ title, idLabel, idValue, onIdChange, disabled, onRun }
             value={idValue}
             onChangeText={onIdChange}
             placeholder="(not discovered — enter manually)"
-            placeholderTextColor="#4A5568"
+            placeholderTextColor={colors.mutedDim}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -50,7 +51,7 @@ export function Section({ title, idLabel, idValue, onIdChange, disabled, onRun }
         style={[styles.runBtn, (running || disabled) && styles.disabled]}
         onPress={handleRun}
         disabled={running || disabled}>
-        {running ? <ActivityIndicator size="small" color="#E94560" /> : <Text style={styles.runTxt}>Run {title}</Text>}
+        {running ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.runTxt}>Run {title}</Text>}
       </TouchableOpacity>
 
       {steps.map((step, i) => (

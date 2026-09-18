@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   strip: {
@@ -7,12 +8,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stale: { backgroundColor: 'rgba(233,69,96,0.16)' },
-  offline: { backgroundColor: 'rgba(233,69,96,0.24)' },
-  confirmed: { backgroundColor: 'rgba(46,160,67,0.20)' },
+  stale: { backgroundColor: colors.accentSofter },
+  offline: { backgroundColor: colors.accentSoft },
+  confirmed: { backgroundColor: colors.positiveSoft },
   text: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#B8C1D9',
+    color: colors.textBanner,
   },
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { CheckCircle2, Circle, Info, X } from 'lucide-react-native';
 import { styles } from './history-item.styles';
+import { colors } from '../../../../shared/theme';
 
 // Dumb: an unread dot, series cover (when known), series name, body-equivalent summary, relative
 // timestamp (already formatted by the hook via DateTool), a delete affordance, an info affordance
@@ -51,7 +52,7 @@ export function HistoryItem({
     >
       <View style={styles.indicator}>
         {selectionMode ? (
-          selected ? <CheckCircle2 size={20} color="#E94560" /> : <Circle size={20} color="#718096" />
+          selected ? <CheckCircle2 size={20} color={colors.accent} /> : <Circle size={20} color={colors.mutedAlt} />
         ) : (
           <View style={[styles.dot, read ? styles.dotRead : styles.dotUnread]} />
         )}
@@ -68,10 +69,10 @@ export function HistoryItem({
       </View>
       <View style={[styles.trailingActions, selectionMode && styles.trailingActionsHidden]} pointerEvents={selectionMode ? 'none' : 'auto'}>
         <TouchableOpacity style={styles.iconBtn} onPress={onInfo} hitSlop={8} accessibilityLabel={infoLabel}>
-          <Info size={18} color="#718096" />
+          <Info size={18} color={colors.mutedAlt} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn} onPress={onDelete} hitSlop={8} accessibilityLabel={deleteLabel}>
-          <X size={18} color="#718096" />
+          <X size={18} color={colors.mutedAlt} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

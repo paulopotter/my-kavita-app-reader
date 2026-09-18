@@ -25,10 +25,11 @@ import { styles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
 import { ChapterTool } from '../../shared/tools/chapters';
 import type { ChapterSortMode } from './serie.types';
+import { colors } from '../../shared/theme';
 
-const ICON_COLOR = '#FFFFFF';
-const ICON_MUTED = '#A0AEC0';
-const STAR_ACTIVE = '#F6AD55';
+const ICON_COLOR = colors.textOnDark;
+const ICON_MUTED = colors.muted;
+const STAR_ACTIVE = colors.starActive;
 
 type RouteParams = {
   Serie: { seriesId: string; origin?: NavOrigin };
@@ -128,7 +129,7 @@ export function SerieScreen() {
   if (loading && chapters.length === 0 && !serie) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#E94560" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.message}>{t.seriesDetailLoading}</Text>
       </View>
     );
@@ -178,8 +179,8 @@ export function SerieScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor="#E94560"
-            progressBackgroundColor="rgba(22,33,62,0.85)"
+            tintColor={colors.accent}
+            progressBackgroundColor={colors.cardTranslucent}
           />
         }
         onScroll={handleScroll}

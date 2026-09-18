@@ -73,7 +73,7 @@ export function ServerModal({
 
           <Text style={styles.label}>{t.serverModalProviderLabel}</Text>
           <View style={[styles.input, styles.inputDisabled]}>
-            <Text style={{ color: '#FFF', fontSize: 13 }}>{provider?.displayName ?? '—'}</Text>
+            <Text style={{ color: colors.textOnDark, fontSize: 13 }}>{provider?.displayName ?? '—'}</Text>
           </View>
 
           <Text style={styles.label}>{t.serverModalNameLabel}</Text>
@@ -82,7 +82,7 @@ export function ServerModal({
             value={name}
             onChangeText={setName}
             placeholder={t.serverModalNamePlaceholder}
-            placeholderTextColor="#4A5568"
+            placeholderTextColor={colors.mutedDim}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -99,7 +99,7 @@ export function ServerModal({
                 value={creds[f.name] ?? ''}
                 onChangeText={v => setCreds(prev => ({ ...prev, [f.name]: v }))}
                 placeholder={f.label}
-                placeholderTextColor="#4A5568"
+                placeholderTextColor={colors.mutedDim}
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry={f.type === 'secret'}
@@ -118,7 +118,7 @@ export function ServerModal({
                 value={firstUrl}
                 onChangeText={setFirstUrl}
                 placeholder={t.urlModalUrlPlaceholder}
-                placeholderTextColor="#4A5568"
+                placeholderTextColor={colors.mutedDim}
                 autoCapitalize="none"
                 autoCorrect={false}
               />

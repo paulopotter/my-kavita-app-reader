@@ -1,20 +1,21 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../shared/theme';
 
 export const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1A1A2E' },
+  root: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  message: { color: 'rgba(255,255,255,0.55)', fontSize: 14, textAlign: 'center', marginTop: 12 },
-  errorText: { color: '#E94560', fontSize: 14, textAlign: 'center' },
+  message: { color: colors.white55, fontSize: 14, textAlign: 'center', marginTop: 12 },
+  errorText: { color: colors.accent, fontSize: 14, textAlign: 'center' },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#E94560',
+    backgroundColor: colors.accent,
   },
-  retryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  retryText: { color: colors.textOnDark, fontSize: 14, fontWeight: '600' },
   sectionTitle: {
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.white45,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -24,7 +25,7 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   resultCount: {
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.white45,
     fontSize: 12,
     marginHorizontal: 16,
     marginBottom: 8,

@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../../../shared/theme';
 
 export const ARROW_BUTTON_SIZE = 32;
 export const DOT_SIZE = 6;
@@ -20,7 +21,7 @@ export const styles = StyleSheet.create({
     width: ARROW_BUTTON_SIZE,
     height: ARROW_BUTTON_SIZE,
     borderRadius: ARROW_BUTTON_SIZE / 2,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: colors.overlayReaderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -32,12 +33,12 @@ export const styles = StyleSheet.create({
     marginVertical: 4,
     width: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: colors.overlayReaderStrong,
   },
   dotTouchable: { alignItems: 'center', justifyContent: 'center' },
-  dot: { width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2, backgroundColor: '#A0AEC0' },
+  dot: { width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2, backgroundColor: colors.muted },
   // Read page: same gold as the thin progress bar (#FFC107) at reduced opacity, to differ from
   // the active page without competing with its highlight.
-  dotRead: { backgroundColor: 'rgba(255, 193, 7, 0.5)' },
-  dotActive: { backgroundColor: '#E94560', width: 8, height: 8, borderRadius: 4 },
+  dotRead: { backgroundColor: colors.progressAmberSoft },
+  dotActive: { backgroundColor: colors.accent, width: 8, height: 8, borderRadius: 4 },
 });

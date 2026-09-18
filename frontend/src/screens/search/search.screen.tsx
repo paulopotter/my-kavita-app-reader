@@ -12,6 +12,7 @@ import { SearchInput } from './components';
 import { useSearch } from './hooks';
 import { styles } from './search.styles';
 import type { SearchHistoryRow } from './search.types';
+import { colors } from '../../shared/theme';
 
 // How many rows matched, as a finished string. One form per count so a language can word the
 // singular differently rather than appending an "s".
@@ -83,7 +84,7 @@ export function SearchScreen() {
           accessibilityRole="button"
           accessibilityLabel={t.searchRecentDelete}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <X size={18} color="#4A5568" />
+          <X size={18} color={colors.mutedDim} />
         </TouchableOpacity>
       </View>
     ),
@@ -132,7 +133,7 @@ export function SearchScreen() {
       if (loading) {
         return (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color="#E94560" />
+            <ActivityIndicator size="large" color={colors.accent} />
             <Text style={styles.message}>{t.searchLoading}</Text>
           </View>
         );

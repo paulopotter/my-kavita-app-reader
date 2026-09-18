@@ -3,6 +3,7 @@ import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { Strings } from '../../../../shared/i18n';
 import type { ChapterSortMode } from '../../serie.types';
 import { styles } from './chapter-sort.styles';
+import { colors } from '../../../../shared/theme';
 
 const MODES: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 'AUTO_PROGRESS'];
 
@@ -105,7 +106,7 @@ export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, on
                   value={thresholdText}
                   onChangeText={handleThresholdChange}
                   keyboardType="numeric"
-                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  placeholderTextColor={colors.white40}
                 />
                 <Text style={styles.fieldHint}>{t.seriesDetailSortConfigFixedThresholdHint}</Text>
               </View>
@@ -119,7 +120,7 @@ export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, on
                   value={progressText}
                   onChangeText={handleProgressChange}
                   keyboardType="numeric"
-                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  placeholderTextColor={colors.white40}
                 />
                 <Text style={styles.fieldHint}>{t.seriesDetailSortConfigProgressPercentHint}</Text>
               </View>

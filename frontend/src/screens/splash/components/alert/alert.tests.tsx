@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { SplashAlert, type SplashAlertProps } from './alert.component';
+import { colors } from '../../../../shared/theme';
 
 const base = (over: Partial<SplashAlertProps> = {}): SplashAlertProps => ({
   visible: true,
@@ -61,9 +62,9 @@ describe('SplashAlert', () => {
       />,
     );
     // the label colours differ per variant — primary/destructive white, secondary dimmed
-    expect(getByText('P').props.style).toEqual(expect.arrayContaining([expect.objectContaining({ color: '#FFFFFF' })]));
+    expect(getByText('P').props.style).toEqual(expect.arrayContaining([expect.objectContaining({ color: colors.textOnDark })]));
     expect(getByText('S').props.style).toEqual(
-      expect.arrayContaining([expect.objectContaining({ color: 'rgba(255,255,255,0.80)' })]),
+      expect.arrayContaining([expect.objectContaining({ color: colors.white80 })]),
     );
   });
 });

@@ -14,7 +14,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   triggerTxt: { color: colors.textOnDark, fontSize: 13, flex: 1 },
-  triggerPlaceholder: { color: '#4A5568' },
+  triggerPlaceholder: { color: colors.mutedDim },
   triggerDisabled: { opacity: 0.6 },
   caret: { marginLeft: 8 },
 

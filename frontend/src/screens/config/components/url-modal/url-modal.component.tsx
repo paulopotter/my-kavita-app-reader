@@ -111,7 +111,7 @@ export function UrlModal({
               setTestResult(null);
             }}
             placeholder={t.urlModalUrlPlaceholder}
-            placeholderTextColor="#4A5568"
+            placeholderTextColor={colors.mutedDim}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -125,7 +125,7 @@ export function UrlModal({
             onChangeText={v => setPriority(v.replace(/[^0-9]/g, ''))}
             keyboardType="number-pad"
             placeholder="0"
-            placeholderTextColor="#4A5568"
+            placeholderTextColor={colors.mutedDim}
           />
 
           {link && (
@@ -179,7 +179,7 @@ export function UrlModal({
               disabled={testing}>
               {testing ? (
                 <View style={styles.testStatus}>
-                  <ActivityIndicator size="small" color="#E94560" />
+                  <ActivityIndicator size="small" color={colors.accent} />
                   <Text style={styles.testTxt}>{t.urlModalTesting}</Text>
                 </View>
               ) : (

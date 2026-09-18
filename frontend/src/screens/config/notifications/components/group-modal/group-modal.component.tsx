@@ -63,7 +63,7 @@ export function GroupModal({
             value={name}
             onChangeText={setName}
             placeholder={t.notificationsGroupModalNamePlaceholder}
-            placeholderTextColor="#4A5568"
+            placeholderTextColor={colors.mutedDim}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -75,7 +75,7 @@ export function GroupModal({
             value={topic}
             onChangeText={setTopic}
             placeholder={t.notificationsGroupModalTopicPlaceholder}
-            placeholderTextColor="#4A5568"
+            placeholderTextColor={colors.mutedDim}
             autoCapitalize="none"
             autoCorrect={false}
           />

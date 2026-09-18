@@ -34,7 +34,7 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
                 value={prefs.keepScreenOnDuringReading}
                 onValueChange={v => update({ keepScreenOnDuringReading: v })}
                 thumbColor={prefs.keepScreenOnDuringReading ? colors.accent : colors.muted}
-                trackColor={{ false: colors.deep, true: '#7F1D1D' }}
+                trackColor={{ false: colors.deep, true: colors.dangerDeep }}
               />
             </TouchableOpacity>
             <View style={chrome.divider} />
@@ -47,7 +47,7 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
                 value={prefs.immersiveModeDuringReading}
                 onValueChange={v => update({ immersiveModeDuringReading: v })}
                 thumbColor={prefs.immersiveModeDuringReading ? colors.accent : colors.muted}
-                trackColor={{ false: colors.deep, true: '#7F1D1D' }}
+                trackColor={{ false: colors.deep, true: colors.dangerDeep }}
               />
             </TouchableOpacity>
             <View style={chrome.divider} />

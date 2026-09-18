@@ -10,6 +10,7 @@ import { registerSeriesDigestIndexListener } from './shared/managers/store';
 import { registerNotificationHistoryListener } from './shared/services/notifications';
 import { RootNavigator, Routes, BOTTOM_NAV_ROUTES } from './navigation';
 import { linking } from './navigation/linking.config';
+import { colors } from './shared/theme';
 
 
 export default function App() {
@@ -94,7 +95,7 @@ function AppContent() {
 
   return (
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>
-      <StatusBar backgroundColor="#1A1A2E" barStyle="light-content" translucent={false} />
+      <StatusBar backgroundColor={colors.background} barStyle="light-content" translucent={false} />
       <View style={[styles.root, { paddingTop: statusBarHeight }]}>
         <StartupProvider>
           <NavigationContainer ref={navRef} linking={linking} onStateChange={onNavigationStateChange}>
@@ -111,5 +112,5 @@ function AppContent() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1A1A2E' },
+  root: { flex: 1, backgroundColor: colors.background },
 });

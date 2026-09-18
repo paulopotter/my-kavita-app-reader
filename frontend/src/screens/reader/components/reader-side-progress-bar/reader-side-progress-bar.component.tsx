@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { styles } from './reader-side-progress-bar.styles';
+import { colors } from '../../../../shared/theme';
 
 interface Props {
   totalPages: number;
@@ -36,7 +37,7 @@ export function ReaderSideProgressBar({
         onPress={() => {
           if (hasPrev) {onPrevChapter();}
         }}>
-        <ChevronUp size={18} color={hasPrev ? '#FFFFFF' : '#4A5568'} />
+        <ChevronUp size={18} color={hasPrev ? colors.textOnDark : colors.mutedDim} />
       </TouchableOpacity>
       <View style={styles.dots}>
         {Array.from({ length: totalPages }, (_, index) => (
@@ -62,7 +63,7 @@ export function ReaderSideProgressBar({
         onPress={() => {
           if (hasNext) {onNextChapter();}
         }}>
-        <ChevronDown size={18} color={hasNext ? '#FFFFFF' : '#4A5568'} />
+        <ChevronDown size={18} color={hasNext ? colors.textOnDark : colors.mutedDim} />
       </TouchableOpacity>
     </View>
   );

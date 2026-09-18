@@ -1,26 +1,27 @@
 import { StyleSheet } from 'react-native';
+import { colors } from '../../theme';
 
 export const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: colors.overlayHeavy,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 28,
   },
   card: {
-    backgroundColor: '#16213E',
+    backgroundColor: colors.card,
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 24,
     width: '100%',
     gap: 16,
   },
-  title: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  title: { color: colors.textOnDark, fontSize: 17, fontWeight: '700' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   btn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, minWidth: 80, alignItems: 'center' },
-  btnPrimary: { backgroundColor: '#E94560' },
-  btnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  btnLabelPrimary: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  btnLabelSecondary: { color: 'rgba(255,255,255,0.80)', fontSize: 14, fontWeight: '600' },
+  btnPrimary: { backgroundColor: colors.accent },
+  btnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.white20 },
+  btnLabelPrimary: { color: colors.textOnDark, fontSize: 14, fontWeight: '600' },
+  btnLabelSecondary: { color: colors.white80, fontSize: 14, fontWeight: '600' },
 });

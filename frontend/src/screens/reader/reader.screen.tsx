@@ -19,6 +19,7 @@ import { useReader } from './hooks';
 import { progressBarFraction } from './reader.model';
 import { windowToWebtoonBlocks } from './modes/webtoon.adapter';
 import { styles } from './reader.styles';
+import { colors } from '../../shared/theme';
 
 type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin; seriesName?: string };
@@ -69,14 +70,14 @@ export function ReaderScreen() {
             <Text style={styles.buttonText}>{t.readerRetry}</Text>
           </Pressable>
           <Pressable style={styles.buttonSecondary} onPress={handleBack}>
-            <ArrowLeft size={18} color="#FFFFFF" />
+            <ArrowLeft size={18} color={colors.textOnDark} />
           </Pressable>
         </View>
       );
     }
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
+        <ActivityIndicator size="large" color={colors.textOnDark} />
         <Text style={styles.loadingText}>{t.readerLoading}</Text>
       </View>
     );
@@ -115,7 +116,7 @@ export function ReaderScreen() {
 
       {currIsPlaceholder && (
         <View style={styles.pageLoadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <ActivityIndicator size="large" color={colors.textOnDark} />
         </View>
       )}
 

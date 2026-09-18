@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { FollowStar } from '../../follow-star';
 import { styles } from './list.styles';
+import { colors } from '../../../theme';
 
 // Dumb component: primitives + callbacks + render only.
 export interface CardListProps {
@@ -50,7 +51,7 @@ export const CardList = React.memo(function CardList({
         style={styles.starBtn}
         onPress={() => onToggleFollow(id)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <FollowStar active={isFollowed} size={22} color="#4A5568" />
+        <FollowStar active={isFollowed} size={22} color={colors.mutedDim} />
       </TouchableOpacity>
     </TouchableOpacity>
   );

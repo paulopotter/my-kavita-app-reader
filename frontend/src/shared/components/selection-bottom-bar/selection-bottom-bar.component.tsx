@@ -2,9 +2,10 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { styles } from './selection-bottom-bar.styles';
+import { colors } from '../../theme';
 
 const ICON_SIZE = 22;
-const ICON_COLOR = '#E94560';
+const ICON_COLOR = colors.accent;
 
 export interface SelectionBottomBarAction {
   // Distinguishes actions across re-renders without relying on array index (a screen's action
