@@ -16,6 +16,22 @@ function mask(
   return `${value.slice(0, keepStart)}${middle}${value.slice(-keepEnd)}`;
 }
 
+// Fold a string to a comparable form: decompose to NFD, drop the combining marks that
+// decomposition exposes (so "ç" → "c", "ã" → "a"), lowercase, and collapse runs of whitespace.
+// Deliberately knows nothing about WHY a caller wants this — it's the same fold whether you're
+// comparing, searching or sorting; the decision of what to do with the result stays with them.
+function toNFD(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export const StringTool = {
   mask,
+  normalize: {
+    NFD: toNFD,
+  },
 };
