@@ -10,6 +10,20 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Frontend
+
+- feat: nova tela de busca — encontra uma série pelo nome, ignorando acentos e
+  maiúsculas, com a contagem de resultados e um histórico das séries abertas
+  por ali (removível, com confirmação)
+- refactor: o card de série sai da biblioteca para `shared/components/card`,
+  com a variante de lista aninhada, e passa a ser montado por
+  `SerieTool.normalize.card` — a tela recebe a linha com os rótulos prontos em
+  vez de montá-los
+- refactor: o domínio `shared/tools/series` vira `serials`, alinhado ao
+  vocabulário que a camada de dados já usava
+- fix: a estrela de favorito deixa de ficar presa ao valor que tinha quando a
+  lista foi carregada — passa a acompanhar o estado atual em qualquer tela
+
 ## [[2026.09.17.1123](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.17.1123)] - 2026-09-17
 
 Agora você pode gerenciar suas notificações em massa com mais facilidade e sua leitura é atualizada na hora em todas as telas. / Now you can easily manage your notifications in bulk and your reading progress updates instantly across all screens.
