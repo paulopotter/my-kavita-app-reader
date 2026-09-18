@@ -16,6 +16,9 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 SHOTS = ROOT / "docs" / "external" / "screenshots"
 OUT = SHOTS / "grid_preview.png"
+# The README shows this one instead: a single row of the screens worth showing off. The full grid
+# stays as the inventory, linked from the docs rather than embedded.
+HERO_OUT = SHOTS / "hero_preview.png"
 
 # Layout
 COLUMNS = 5
@@ -29,6 +32,16 @@ BG = (13, 17, 33)
 FG = (232, 236, 245)
 SECTION_FG = (233, 69, 96)
 SECTION_H = 34
+
+# The README strip: one row, the screens that actually sell the app.
+HERO = [
+    ("library-grid-recent.png", "Biblioteca"),
+    ("series-detail-full.jpeg", "Série"),
+    ("search-history.png", "Busca"),
+    ("notifications-list.png", "Notificações"),
+    ("config-main.png", "Ajustes"),
+]
+HERO_THUMB_W = 300
 
 # (section title, [(file, caption), …]). A section always starts on a new row.
 SECTIONS = [
@@ -81,32 +94,53 @@ def font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
-def scaled(path: Path) -> Image.Image:
+def scaled(path: Path, width: int = None) -> Image.Image:
     """Scale to THUMB_W, then pad (never stretch) to the canonical phone aspect.
 
     The shots come from different capture sessions at different resolutions; scaling each to a
     common width alone would leave a short one visibly squatter than its neighbours. Padding to
     one aspect keeps every frame the same size without distorting any of them.
     """
+    w = width or THUMB_W
     im = Image.open(path).convert("RGB")
-    im = im.resize((THUMB_W, round(im.height * THUMB_W / im.width)), Image.LANCZOS)
-    target_h = round(THUMB_W * THUMB_ASPECT)
+    im = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
+    target_h = round(w * THUMB_ASPECT)
     if im.height == target_h:
         return im
     if im.height > target_h:
         # Taller than the canonical frame: crop the bottom, which is dead space on these shots.
-        return im.crop((0, 0, THUMB_W, target_h))
-    frame = Image.new("RGB", (THUMB_W, target_h), BG)
+        return im.crop((0, 0, w, target_h))
+    frame = Image.new("RGB", (w, target_h), BG)
     frame.paste(im, (0, 0))
     return frame
 
 
+def build_hero(caption_font: ImageFont.ImageFont) -> None:
+    """One horizontal strip for the README — captions under each shot, nothing else."""
+    images = [scaled(SHOTS / f, HERO_THUMB_W) for f, _ in HERO]
+    height = max(im.height for im in images)
+    canvas = Image.new(
+        "RGB",
+        (PAD * 2 + len(images) * HERO_THUMB_W + (len(images) - 1) * GAP, PAD * 2 + height + CAPTION_H),
+        BG,
+    )
+    draw = ImageDraw.Draw(canvas)
+    x = PAD
+    for im, (_, caption) in zip(images, HERO):
+        canvas.paste(im, (x, PAD))
+        draw.text((x, PAD + height + 4), caption, font=caption_font, fill=FG)
+        x += HERO_THUMB_W + GAP
+    canvas.save(HERO_OUT, optimize=True)
+    print(f"{HERO_OUT.relative_to(ROOT)} — {canvas.width}x{canvas.height}")
+
+
 def main() -> None:
-    missing = [f for _, shots in SECTIONS for f, _ in shots if not (SHOTS / f).exists()]
+    missing = [f for _, shots in list(SECTIONS) + [("hero", HERO)] for f, _ in shots if not (SHOTS / f).exists()]
     if missing:
         raise SystemExit(f"missing screenshots: {', '.join(missing)}")
 
     caption_font, section_font = font(13), font(17)
+    build_hero(font(15))
 
     # Measure first: each section's rows are as tall as their tallest shot.
     plan, total_h = [], PAD

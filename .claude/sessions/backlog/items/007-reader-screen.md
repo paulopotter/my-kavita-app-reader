@@ -11,10 +11,10 @@ The core feature of the app.
 - Kotlin tools: `cachedRequest` for page images, `progress.save()` repo
 - RN: `ReaderScreen` → `PageView` (dummy) + `ReaderControls` (dummy)
   + `useReader` hook + `ReaderService` + `ReaderTransform`
-- Horizontal/vertical scroll modes
+- ~~Horizontal/vertical scroll modes~~ → moved to backlog 026
 - Keep-screen-on (from Config preference)
 - Progress saved on page turn and on exit
-- Double-tap to zoom
+- ~~Double-tap to zoom~~ → moved to backlog 026
 
 ## Dependencies
 - Plan 001 (Config — keep-screen-on preference)
