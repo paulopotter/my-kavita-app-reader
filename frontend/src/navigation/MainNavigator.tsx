@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import { Bell, Library, Settings, Star } from 'lucide-react-native';
+import { Bell, Library, Search, Settings, Star } from 'lucide-react-native';
 import { Routes } from './routes';
 import { LibraryScreen } from '../screens/library';
 import { ConfigScreen } from '../screens/config';
 import { NotificationsScreen, useUnreadNotificationsCount } from '../screens/notifications';
+import { SearchScreen } from '../screens/search';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
 import { NotificationsService } from '../shared/services/notifications';
@@ -112,6 +113,14 @@ export function MainNavigator() {
         options={{
           tabBarLabel: strings.navLibrary,
           tabBarIcon: ({ focused }) => <Library size={20} color={focused ? ACTIVE : INACTIVE} />,
+        }}
+      />
+      <Tab.Screen
+        name={Routes.SEARCH}
+        component={SearchScreen}
+        options={{
+          tabBarLabel: strings.navSearch,
+          tabBarIcon: ({ focused }) => <Search size={20} color={focused ? ACTIVE : INACTIVE} />,
         }}
       />
       {notificationsEnabled && (

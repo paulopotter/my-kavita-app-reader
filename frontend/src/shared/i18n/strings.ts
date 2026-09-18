@@ -93,6 +93,24 @@ export interface Strings {
   navNotifications: string;
   navConfig: string;
 
+  // ── Search screen ────────────────────────────────────────────────────────
+  searchPlaceholder: string;
+  searchClear: string;
+  searchLoading: string;
+  searchError: string;
+  searchRetry: string;
+  searchNoResults: string;
+  // "{0} resultados" — {0} is the count. Singular/plural handled by two separate strings so a
+  // language can word them differently, rather than bolting an "s" onto one of them.
+  searchResultCount: string;
+  searchResultCountOne: string;
+  searchEmptyHint: string;
+  searchRecentTitle: string;
+  searchRecentDelete: string;
+  searchRecentDeleteConfirm: string;
+  searchDeleteCancel: string;
+  searchDeleteConfirm: string;
+
   // ── Splash screen ─────────────────────────────────────────────────────────
   splashVersion: string;
   splashUpdateButton: string;
@@ -381,6 +399,21 @@ const ptBR: Strings = {
   navNotifications: 'Notificações',
   navConfig: 'Ajustes',
 
+  searchPlaceholder: 'Buscar por nome',
+  searchClear: 'Limpar busca',
+  searchLoading: 'Carregando séries...',
+  searchError: 'Não foi possível carregar as séries',
+  searchRetry: 'Tentar novamente',
+  searchNoResults: 'Nenhuma série encontrada',
+  searchResultCount: '{0} resultados',
+  searchResultCountOne: '1 resultado',
+  searchEmptyHint: 'Digite para buscar na sua biblioteca',
+  searchRecentTitle: 'Abertas recentemente',
+  searchRecentDelete: 'Remover do histórico',
+  searchRecentDeleteConfirm: 'Remover esta série do histórico?',
+  searchDeleteCancel: 'Cancelar',
+  searchDeleteConfirm: 'Remover',
+
   splashVersion: 'v',
   splashUpdateButton: 'Aplicar atualização',
 
@@ -645,6 +678,21 @@ const en: Strings = {
   navSearch: 'Search',
   navNotifications: 'Notifications',
   navConfig: 'Settings',
+
+  searchPlaceholder: 'Search by name',
+  searchClear: 'Clear search',
+  searchLoading: 'Loading series...',
+  searchError: 'Could not load the series',
+  searchRetry: 'Try again',
+  searchNoResults: 'No series found',
+  searchResultCount: '{0} results',
+  searchResultCountOne: '1 result',
+  searchEmptyHint: 'Type to search your library',
+  searchRecentTitle: 'Recently opened',
+  searchRecentDelete: 'Remove from history',
+  searchRecentDeleteConfirm: 'Remove this series from the history?',
+  searchDeleteCancel: 'Cancel',
+  searchDeleteConfirm: 'Remove',
 
   splashVersion: 'v',
   splashUpdateButton: 'Apply update',
