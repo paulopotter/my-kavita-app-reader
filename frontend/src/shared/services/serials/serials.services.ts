@@ -6,7 +6,7 @@ import { Methods } from '../../tools/methods';
 // SerialService.get: it goes through DigestBridge.getSerialsDigest (:content-digest, Layer 3),
 // which is cache-first (each series merged into its own per-series cache) and reports how fresh
 // the data is via lastUpdatedEpochMs. Callers wanting the canonical Serie[] shape run
-// result.serials through SeriesTool.normalize (shared/tools/series), the plural sibling of
+// result.serials through SeriesTool.normalize (shared/tools/serials), the plural sibling of
 // SerieTool.normalize. `raw.list()` is the un-digested escape hatch — a bare ServerBridge
 // (Layer 2) call returning SerialData[] straight from the plugin, for the smoke test / debugging
 // only.

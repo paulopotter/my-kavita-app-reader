@@ -1,6 +1,6 @@
-import { LibraryTool, normalizePublicationStatus } from './library.tool';
+import { LibraryTool } from './library.tool';
 import type { ExternalMetadataMatch } from '../../shared/bridge/external';
-import { serieEvents, type Serie } from '../../shared/tools/series';
+import { serieEvents, type Serie } from '../../shared/tools/serials';
 import type { SeriesDigestIndexEntry } from '../../shared/managers/store';
 import type { Strings } from '../../shared/i18n/strings';
 import type { ServerActiveInfo } from '../../shared/bridge/digest';
@@ -37,6 +37,8 @@ const t = {
   readStatusUnread: 'Não lido',
   readStatusReading: 'Lendo',
   readStatusRead: 'Lido',
+  chaptersFormat: 'caps.',
+  hasErrors: 'Erros',
 } as Strings;
 
 function one(args: {
@@ -50,52 +52,9 @@ function one(args: {
     matches: [args.match ?? null],
     indexBySeriesId: args.index ? new Map([['s1', args.index]]) : new Map(),
     followedIds: new Set(args.isFollowed ? ['s1'] : []),
+    t,
   })[0];
 }
-
-describe('normalizePublicationStatus', () => {
-  it.each([
-    ['ongoing', 'ONGOING'],
-    ['completed', 'COMPLETED'],
-    ['ended', 'COMPLETED'],
-    ['publishing_finished', 'COMPLETED'],
-    ['cancelled', 'CANCELLED'],
-    ['on_hiatus', 'ON_HIATUS'],
-    ['hiatus', 'ON_HIATUS'],
-    ['abandoned', 'ABANDONED'],
-    ['OnGoing', 'ONGOING'],
-  ])('maps %s → %s', (raw, expected) => {
-    expect(normalizePublicationStatus(raw)).toBe(expected);
-  });
-
-  it('undefined for unknown / empty / undefined', () => {
-    expect(normalizePublicationStatus('weird')).toBeUndefined();
-    expect(normalizePublicationStatus('')).toBeUndefined();
-    expect(normalizePublicationStatus(undefined)).toBeUndefined();
-  });
-});
-
-describe('LibraryTool.label', () => {
-  it('publication covers every status', () => {
-    expect(LibraryTool.label.publication('ONGOING', t)).toBe('Em andamento');
-    expect(LibraryTool.label.publication('COMPLETED', t)).toBe('Completo');
-    expect(LibraryTool.label.publication('CANCELLED', t)).toBe('Cancelado');
-    expect(LibraryTool.label.publication('ON_HIATUS', t)).toBe('Hiato');
-    expect(LibraryTool.label.publication('ABANDONED', t)).toBe('Abandonado');
-  });
-
-  it('readStatus covers every status', () => {
-    expect(LibraryTool.label.readStatus('UNREAD', t)).toBe('Não lido');
-    expect(LibraryTool.label.readStatus('IN_PROGRESS', t)).toBe('Lendo');
-    expect(LibraryTool.label.readStatus('READ', t)).toBe('Lido');
-  });
-
-  it('progressPercent rounds', () => {
-    expect(LibraryTool.label.progressPercent(0.4266)).toBe('43%');
-    expect(LibraryTool.label.progressPercent(0)).toBe('0%');
-    expect(LibraryTool.label.progressPercent(1)).toBe('100%');
-  });
-});
 
 describe('LibraryTool.normalize', () => {
   it('page-based progress when there is no index entry', () => {
@@ -171,6 +130,7 @@ describe('LibraryTool.normalize', () => {
       matches: [match({ seriesId: 'a', downloadedChapters: 5 }), null],
       indexBySeriesId: new Map(),
       followedIds: new Set(),
+      t,
     });
     expect(out[0].downloadedChapters).toBe(5);
     expect(out[1].downloadedChapters).toBeUndefined();

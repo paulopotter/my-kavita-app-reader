@@ -7,10 +7,11 @@ import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button'
 import { useStrings } from '../../shared/i18n';
 import type { Strings } from '../../shared/i18n';
 import { NavOrigin, Routes } from '../../navigation/routes';
-import { SerieTool } from '../../shared/tools/series';
+import { SerieTool } from '../../shared/tools/serials';
 import { DateTool } from '../../shared/tools/date';
-import { LibraryTool, type LibraryEntry } from './library.tool';
-import { AlphabetIndex, FreshnessBanner, SeriesCard, SeriesListItem } from './components';
+import type { LibraryEntry } from './library.tool';
+import { Card, CardList } from '../../shared/components';
+import { AlphabetIndex, FreshnessBanner } from './components';
 import type { FreshnessBannerVariant } from './components';
 import { useLibrary, type LibraryBannerState } from './hooks';
 import { styles } from './library.styles';
@@ -79,18 +80,18 @@ export function LibraryScreen() {
   const renderGridItem = useCallback(
     ({ item }: { item: LibraryEntry | null }) =>
       item ? (
-        <SeriesCard {...cardProps(item, t)} onToggleFollow={toggleFollow} onPress={openSeries} />
+        <Card {...item} onToggleFollow={toggleFollow} onPress={openSeries} />
       ) : (
         <View style={styles.cardPlaceholder} />
       ),
-    [t, toggleFollow, openSeries],
+    [toggleFollow, openSeries],
   );
 
   const renderListItem = useCallback(
     ({ item }: { item: LibraryEntry }) => (
-      <SeriesListItem {...listItemProps(item, t)} onToggleFollow={toggleFollow} onPress={openSeries} />
+      <CardList {...item} onToggleFollow={toggleFollow} onPress={openSeries} />
     ),
-    [t, toggleFollow, openSeries],
+    [toggleFollow, openSeries],
   );
 
   const keyExtractor = useCallback((item: LibraryEntry | null, idx: number) => (item ? item.id : `pad-${idx}`), []);
@@ -246,48 +247,4 @@ function freshnessBanner(
             text: t.libraryOfflineStale.replace('{0}', DateTool.format.to.relative(state.sinceEpochMs, t)),
           };
   }
-}
-
-// ── label assembly (pure, screen-local — the dumb components take strings only) ──────────────
-
-function chapterCountLabel(entry: LibraryEntry, t: Strings): string | undefined {
-  if (entry.readChapters == null || entry.chapterCount == null) {
-    return undefined;
-  }
-  return `${entry.readChapters}/${entry.chapterCount} ${t.chaptersFormat}`;
-}
-
-function downloadedLabel(entry: LibraryEntry, t: Strings): string | undefined {
-  if (entry.downloadedChapters == null || entry.totalChapters == null) {
-    return undefined;
-  }
-  return `${entry.downloadedChapters}/${entry.totalChapters} ${t.chaptersFormat}`;
-}
-
-function cardProps(entry: LibraryEntry, t: Strings) {
-  return {
-    id: entry.id,
-    name: entry.name,
-    coverUrl: entry.coverUrl,
-    progressFraction: entry.progressFraction,
-    progressLabel: LibraryTool.label.progressPercent(entry.progressFraction),
-    chapterCountLabel: chapterCountLabel(entry, t),
-    downloadedLabel: downloadedLabel(entry, t),
-    publicationLabel: entry.publicationStatus ? LibraryTool.label.publication(entry.publicationStatus, t) : undefined,
-    errorsLabel: entry.hasErrors ? t.hasErrors : undefined,
-    isFollowed: entry.isFollowed,
-  };
-}
-
-function listItemProps(entry: LibraryEntry, t: Strings) {
-  return {
-    id: entry.id,
-    name: entry.name,
-    coverUrl: entry.coverUrl,
-    progressFraction: entry.progressFraction,
-    progressLabel: LibraryTool.label.progressPercent(entry.progressFraction),
-    chapterCountLabel: chapterCountLabel(entry, t),
-    downloadedLabel: downloadedLabel(entry, t),
-    isFollowed: entry.isFollowed,
-  };
 }

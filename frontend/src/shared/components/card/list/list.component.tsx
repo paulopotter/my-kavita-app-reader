@@ -1,10 +1,10 @@
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
-import { FollowStar } from '../../../../shared/components/follow-star';
-import { styles } from './series-list-item.styles';
+import { FollowStar } from '../../follow-star';
+import { styles } from './list.styles';
 
 // Dumb component: primitives + callbacks + render only.
-export interface SeriesListItemProps {
+export interface CardListProps {
   id: string;
   name: string;
   coverUrl: string;
@@ -17,8 +17,8 @@ export interface SeriesListItemProps {
   onPress: (id: string) => void;
 }
 
-// React.memo — see SeriesCard's own note. Same rationale for the list layout.
-export const SeriesListItem = React.memo(function SeriesListItem({
+// React.memo — see Card's own note. Same rationale for the list layout.
+export const CardList = React.memo(function CardList({
   id,
   name,
   coverUrl,
@@ -29,7 +29,7 @@ export const SeriesListItem = React.memo(function SeriesListItem({
   isFollowed,
   onToggleFollow,
   onPress,
-}: SeriesListItemProps) {
+}: CardListProps) {
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(id)} activeOpacity={0.8}>
       <Image source={{ uri: coverUrl }} style={styles.thumb} resizeMode="cover" />

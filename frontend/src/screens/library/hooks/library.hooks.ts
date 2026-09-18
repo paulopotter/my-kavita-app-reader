@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { FollowedSeriesBridge, SeriesFollowedEmitter } from '../../../shared/bridge';
 import type { ExternalMetadataMatch } from '../../../shared/bridge';
+import { useStrings } from '../../../shared/i18n';
+import type { Strings } from '../../../shared/i18n';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { SerialsService, SerialService } from '../../../shared/services/serials';
 import { ChapterEvents } from '../../../shared/tools/chapters';
-import { SeriesTool, SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
+import { SeriesTool, SerieTool, SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/serials';
 import { SeriesDigestIndex, type SeriesDigestIndexEntry } from '../../../shared/managers/store';
 import { LibraryEvents } from '../library.events';
 import { LibraryPrefs, DEFAULT_SORT_MODE, DEFAULT_VIEW_MODE } from '../library.prefs';
-import { LibraryTool, normalizePublicationStatus, type LibraryEntry } from '../library.tool';
+import { LibraryTool, type LibraryEntry } from '../library.tool';
 import type { LibrarySortMode, LibraryViewMode, UseLibraryOptions } from '../library.types';
 
 // Debounce for the background reconcile after a cross-screen chapter-read event: marking several
@@ -108,8 +110,15 @@ type Action =
   | { type: 'SET_SORT_MODE'; mode: LibrarySortMode }
   | { type: 'SET_FOLLOWED_IDS'; ids: string[] }
   | { type: 'TOGGLE_FOLLOW'; seriesId: string }
-  | { type: 'PATCH_ENTRY'; seriesId: string; patch: Partial<LibraryEntry> }
-  | { type: 'ADJUST_READ'; seriesId: string; delta: number };
+  // `t` rides along on the two actions that change a count: the row carries its labels already
+  // localized, so whoever changes a number must hand the reducer the strings to rebuild them.
+  // Keeps the reducer pure — it never reaches for a context.
+  | { type: 'PATCH_ENTRY'; seriesId: string; patch: Partial<LibraryEntry>; t: Strings }
+  // The language changed. Rows carry their labels already built, so they'd otherwise keep the
+  // previous language until the next load — rebuild every label in place, from the raw fields
+  // each row already holds. No refetch: nothing about the DATA changed, only how it reads.
+  | { type: 'RELABEL'; t: Strings }
+  | { type: 'ADJUST_READ'; seriesId: string; delta: number; t: Strings };
 
 // Pure view transform — sort a list by the current mode. Not in the reducer: called by a useMemo
 // keyed on (data, sortMode) so it re-runs only when one of those actually changes.
@@ -125,17 +134,15 @@ function sortEntries(data: LibraryEntry[], mode: LibrarySortMode): LibraryEntry[
   });
 }
 
-// Recomputes progressFraction / readStatus after an in-place count change (a cross-screen mark).
-// Only applies when the entry carries chapter counts; a page-only entry is left for the reload.
-function withRecomputedProgress(entry: LibraryEntry): LibraryEntry {
+// Recomputes progress + every derived label after an in-place count change (a cross-screen mark
+// or a lazy enrichment landing). Clamps the chapter count first, then delegates to the shared
+// normalizer so a label never drifts from the number it describes.
+function withRecomputedProgress(entry: LibraryEntry, t: Strings): LibraryEntry {
   if (entry.readChapters == null || entry.chapterCount == null || entry.chapterCount <= 0) {
-    return entry;
+    return SerieTool.relabel({ card: entry, t });
   }
   const readChapters = Math.max(0, Math.min(entry.chapterCount, entry.readChapters));
-  const progressFraction = readChapters / entry.chapterCount;
-  const readStatus: LibraryEntry['readStatus'] =
-    readChapters <= 0 ? 'UNREAD' : readChapters >= entry.chapterCount ? 'READ' : 'IN_PROGRESS';
-  return { ...entry, readChapters, progressFraction, readStatus };
+  return SerieTool.relabel({ card: { ...entry, readChapters }, t });
 }
 
 export function reducer(state: State, action: Action): State {
@@ -196,10 +203,16 @@ export function reducer(state: State, action: Action): State {
       if (idx === -1) {
         return state;
       }
-      const patched = withRecomputedProgress({ ...state.data[idx], ...action.patch });
+      const patched = withRecomputedProgress({ ...state.data[idx], ...action.patch }, action.t);
       const next = state.data.slice();
       next[idx] = patched;
       return { ...state, data: next };
+    }
+    case 'RELABEL': {
+      if (state.data.length === 0) {
+        return state;
+      }
+      return { ...state, data: state.data.map(entry => SerieTool.relabel({ card: entry, t: action.t })) };
     }
     case 'ADJUST_READ': {
       const idx = state.data.findIndex(e => e.id === action.seriesId);
@@ -211,10 +224,10 @@ export function reducer(state: State, action: Action): State {
         return state;
       }
       const next = state.data.slice();
-      next[idx] = withRecomputedProgress({
-        ...e,
-        readChapters: Math.max(0, Math.min(e.chapterCount, e.readChapters + action.delta)),
-      });
+      next[idx] = withRecomputedProgress(
+        { ...e, readChapters: Math.max(0, Math.min(e.chapterCount, e.readChapters + action.delta)) },
+        action.t,
+      );
       return { ...state, data: next };
     }
   }
@@ -327,9 +340,14 @@ function settledOr<T>(result: PromiseSettledResult<T>, fallback: T): T {
 export async function assembleLibrary({
   force,
   light = true,
+  t,
 }: {
   force: boolean;
   light?: boolean;
+  // Needed because the row shape now carries its labels already localized (SerieTool.normalize
+  // .card). The caller passes its own strings, so a language switch re-assembles with the new
+  // ones instead of leaving stale labels behind.
+  t: Strings;
 }): Promise<{ entries: LibraryEntry[]; lastUpdatedEpochMs: number | null }> {
   // const t0 = Date.now(); // re-enable with the timing traces below (backlog 015-telemetria-interna-debug)
   const [serialsResult, followedResult] = await Promise.allSettled([
@@ -374,7 +392,7 @@ export async function assembleLibrary({
   }
   // console.log(`[library] assemble done light=${light} totalMs=${Date.now() - t0}`);
   return {
-    entries: LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet }),
+    entries: LibraryTool.normalize({ series, matches, indexBySeriesId, followedIds: followedSet, t }),
     lastUpdatedEpochMs: digest.lastUpdatedEpochMs,
   };
 }
@@ -403,6 +421,25 @@ async function mapWithLimit<T>(items: T[], limit: number, worker: (item: T) => P
 
 export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions = {}) {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
+  // Rows carry their labels already localized, so assembly and every count patch need the
+  // strings. Held in a ref as well: the callbacks below are deliberately dependency-free
+  // (stable identities for the FlatList), and must read the CURRENT strings, not the ones
+  // captured when they were created.
+  const t = useStrings();
+  const tRef = useRef(t);
+  const previousTRef = useRef(t);
+  tRef.current = t;
+
+  // Rows hold their labels as finished strings, so a language change has to rewrite them — the
+  // list itself is still valid, only its wording is stale. Compared against the PREVIOUS value
+  // rather than run on every render: the first render's rows were already built with these
+  // strings, and re-labelling them would be a wasted pass over the whole list.
+  useEffect(() => {
+    if (previousTRef.current !== t) {
+      previousTRef.current = t;
+      dispatch({ type: 'RELABEL', t });
+    }
+  }, [t]);
   const [viewMode, setViewModeState] = useState<LibraryViewMode>(DEFAULT_VIEW_MODE);
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadInFlightRef = useRef(false);
@@ -434,7 +471,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     }
     loadInFlightRef.current = true;
     dispatch(force ? { type: 'REFRESHING' } : { type: 'LOADING' });
-    assembleLibrary({ force })
+    assembleLibrary({ force, t: tRef.current })
       .then(({ entries, lastUpdatedEpochMs }) => {
         enrichedRef.current = new Set();
         dispatch({ type: 'LOADED', data: entries, lastUpdatedEpochMs, forced: force });
@@ -488,6 +525,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     dispatch({
       type: 'PATCH_ENTRY',
       seriesId,
+      t: tRef.current,
       patch: {
         ...(readChapters != null ? { readChapters } : {}),
         ...(totalChapters != null ? { chapterCount: totalChapters } : {}),
@@ -525,7 +563,7 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     const base = readCountDelta(changed.readStatus, changed.prevStatus);
     const delta = phase === 'reverted' ? -base : base;
     if (delta !== 0) {
-      dispatch({ type: 'ADJUST_READ', seriesId: chapter.seriesId, delta });
+      dispatch({ type: 'ADJUST_READ', seriesId: chapter.seriesId, delta, t: tRef.current });
     }
     if (reconcileTimerRef.current) {clearTimeout(reconcileTimerRef.current);}
     reconcileTimerRef.current = setTimeout(() => loadRef.current(false), RECONCILE_DEBOUNCE_MS);
@@ -654,11 +692,11 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
       const m = matchRes.value;
       if (m.downloadedChapters != null) { patch.downloadedChapters = m.downloadedChapters; }
       patch.hasErrors = m.hasErrors;
-      const status = normalizePublicationStatus(m.status);
-      if (status != null) { patch.publicationStatus = status; }
+      // The raw provider string goes in as-is; relabel (run by the reducer) maps it.
+      if (m.status != null) { patch.rawPublicationStatus = m.status; }
     }
     if (Object.keys(patch).length > 0) {
-      dispatch({ type: 'PATCH_ENTRY', seriesId, patch });
+      dispatch({ type: 'PATCH_ENTRY', seriesId, patch, t: tRef.current });
     }
   }, []);
   enrichSeriesRef.current = enrichSeries;

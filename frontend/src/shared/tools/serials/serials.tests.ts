@@ -1,4 +1,4 @@
-import { SeriesTool } from './series.tool';
+import { SeriesTool } from './serials.tool';
 import type { SerialDigest, SerialDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
 
 const server: ServerActiveInfo = {

@@ -1,5 +1,5 @@
 import { EventBus } from '../events';
-import { SerieEvents } from '../../tools/series';
+import { SerieEvents } from '../../tools/serials';
 import { Store } from './store.manager';
 
 // SeriesDigestIndex — a per-series "what I already know about this series" record: the handful of

@@ -5,6 +5,12 @@ jest.mock('../../../shared/bridge/startup', () => ({
   StartupBridge: { markUiReady: jest.fn() },
 }));
 
+// warmLibrary reads the effective locale here (it runs detached from the React tree, so there's
+// no LanguageContext to read from) — resolves to the pt-BR fallback in these tests.
+jest.mock('../../../shared/bridge/config', () => ({
+  ConfigRepository: { getAppLocale: jest.fn().mockResolvedValue('pt-BR') },
+}));
+
 const listeners: Record<string, (payload: unknown) => void> = {};
 jest.mock('../../../native/OtaModule', () => ({
   OtaModule: {

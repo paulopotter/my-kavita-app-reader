@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { LayoutList } from 'lucide-react-native';
 import { getStrings } from '../../shared/i18n/strings';
+import { SerieTool } from '../../shared/tools/serials';
 import type { LibraryEntry } from './library.types';
 
 const t = getStrings('pt-BR');
@@ -14,8 +15,8 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 const mockToggleFollow = jest.fn();
-jest.mock('../../shared/tools/series', () => {
-  const actual = jest.requireActual('../../shared/tools/series');
+jest.mock('../../shared/tools/serials', () => {
+  const actual = jest.requireActual('../../shared/tools/serials');
   return { ...actual, SerieTool: { ...actual.SerieTool, toggleFollow: (...a: unknown[]) => mockToggleFollow(...a) } };
 });
 
@@ -71,7 +72,9 @@ function entry(over: Partial<LibraryEntry> = {}): LibraryEntry {
     name: 'Alpha',
     coverUrl: 'c1',
     progressFraction: 0.5,
+    progressLabel: '50%',
     readStatus: 'IN_PROGRESS',
+    readStatusLabel: 'Lendo',
     isFollowed: false,
     ...over,
   };
@@ -173,7 +176,12 @@ describe('LibraryScreen', () => {
   });
 
   it('renders list rows in LIST mode with chapter-count and downloaded labels', () => {
-    const e = entry({ readChapters: 3, chapterCount: 12, downloadedChapters: 10, totalChapters: 40 });
+    // The row now carries its labels already built (SerieTool.normalize.card) — the screen
+    // only forwards them — so the fixture goes through relabel rather than hand-writing them.
+    const e = SerieTool.relabel({
+      card: entry({ readChapters: 3, chapterCount: 12, downloadedChapters: 10, totalChapters: 40 }),
+      t,
+    });
     mockHookState.viewMode = 'LIST';
     mockHookState.data = [e];
     mockHookState.paddedData = [e];
@@ -183,7 +191,7 @@ describe('LibraryScreen', () => {
   });
 
   it('renders publication + errors badges on the card', () => {
-    const e = entry({ publicationStatus: 'ONGOING', hasErrors: true });
+    const e = SerieTool.relabel({ card: entry({ publicationStatus: 'ONGOING', hasErrors: true }), t });
     mockHookState.data = [e];
     mockHookState.paddedData = [e, null];
     const { getByText } = render(<LibraryScreen />);

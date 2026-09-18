@@ -5,7 +5,7 @@ import { ChapterTool, ChaptersTool, SerialService, SerieTool, createBackAction, 
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
-import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/series';
+import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/serials';
 import { useStrings } from '../../../shared/i18n';
 import { originRouteFor } from '../../../navigation/routes';
 import type { NavOrigin } from '../../../navigation/routes';
@@ -116,7 +116,7 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
           // series opened here shows real chapter counts / publication status without the
           // Library refetching it). Fire-and-forget — this screen doesn't care who listens.
           EventBus.emit(SerieEvents.digestResolved, serieDigestResolvedPayload(digest));
-          return SerieTool.normalize({ digest });
+          return SerieTool.normalize.digest({ digest });
         })
         .then(normalized => {
           // Re-apply any not-yet-confirmed optimistic mark on top of this fresh digest — a

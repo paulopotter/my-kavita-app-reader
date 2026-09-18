@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { SeriesCard, type SeriesCardProps } from './series-card.component';
+import { Card, type CardProps } from './card.component';
 
-function props(over: Partial<SeriesCardProps> = {}): SeriesCardProps {
+function props(over: Partial<CardProps> = {}): CardProps {
   return {
     id: 's1',
     name: 'Some Series',
@@ -16,35 +16,35 @@ function props(over: Partial<SeriesCardProps> = {}): SeriesCardProps {
   };
 }
 
-describe('SeriesCard', () => {
+describe('Card', () => {
   it('renders name and progress label', () => {
-    const { getByText } = render(<SeriesCard {...props()} />);
+    const { getByText } = render(<Card {...props()} />);
     expect(getByText('Some Series')).toBeTruthy();
     expect(getByText('50%')).toBeTruthy();
   });
 
   it('renders the chapter-count label when provided', () => {
-    const { getByText, queryByText } = render(<SeriesCard {...props({ chapterCountLabel: '3/12 caps.' })} />);
+    const { getByText, queryByText } = render(<Card {...props({ chapterCountLabel: '3/12 caps.' })} />);
     expect(getByText('3/12 caps.')).toBeTruthy();
-    const { queryByText: q2 } = render(<SeriesCard {...props()} />);
+    const { queryByText: q2 } = render(<Card {...props()} />);
     expect(q2('3/12 caps.')).toBeNull();
     expect(queryByText).toBeDefined();
   });
 
   it('renders publication and errors badges only when provided', () => {
     const { getByText } = render(
-      <SeriesCard {...props({ publicationLabel: 'Ongoing', errorsLabel: 'Errors' })} />,
+      <Card {...props({ publicationLabel: 'Ongoing', errorsLabel: 'Errors' })} />,
     );
     expect(getByText('Ongoing')).toBeTruthy();
     expect(getByText('Errors')).toBeTruthy();
 
-    const { queryByText } = render(<SeriesCard {...props()} />);
+    const { queryByText } = render(<Card {...props()} />);
     expect(queryByText('Ongoing')).toBeNull();
     expect(queryByText('Errors')).toBeNull();
   });
 
   it('renders the downloaded label only when provided', () => {
-    const { getByText } = render(<SeriesCard {...props({ downloadedLabel: '12/40 caps.' })} />);
+    const { getByText } = render(<Card {...props({ downloadedLabel: '12/40 caps.' })} />);
     expect(getByText('12/40 caps.')).toBeTruthy();
   });
 
@@ -55,9 +55,9 @@ describe('SeriesCard', () => {
   // are always present (empty string when the value is absent), never omitted from the tree.
   it('renders the same number of Text nodes whether or not the optional fields are provided', () => {
     const { Text } = require('react-native');
-    const bare = render(<SeriesCard {...props()} />);
+    const bare = render(<Card {...props()} />);
     const full = render(
-      <SeriesCard
+      <Card
         {...props({
           chapterCountLabel: '3/12 caps.',
           publicationLabel: 'Ongoing',
@@ -67,21 +67,21 @@ describe('SeriesCard', () => {
       />,
     );
     // publicationLabel/errorsLabel badges DO add their own Text nodes (they're genuinely absent,
-    // not empty-string placeholders — see SeriesCardProps' own doc) — subtract those 2 to compare
+    // not empty-string placeholders — see CardProps' own doc) — subtract those 2 to compare
     // the always-present structural nodes.
     expect(bare.UNSAFE_root.findAllByType(Text).length).toBe(full.UNSAFE_root.findAllByType(Text).length - 2);
   });
 
   it('fires onPress with the id', () => {
     const onPress = jest.fn();
-    const { getByText } = render(<SeriesCard {...props({ onPress })} />);
+    const { getByText } = render(<Card {...props({ onPress })} />);
     fireEvent.press(getByText('Some Series'));
     expect(onPress).toHaveBeenCalledWith('s1');
   });
 
   it('fires onToggleFollow with the id from the star', () => {
     const onToggleFollow = jest.fn();
-    const { UNSAFE_getAllByType } = render(<SeriesCard {...props({ onToggleFollow })} />);
+    const { UNSAFE_getAllByType } = render(<Card {...props({ onToggleFollow })} />);
     // The star is the first nested TouchableOpacity inside the card.
     const { TouchableOpacity } = require('react-native');
     const touchables = UNSAFE_getAllByType(TouchableOpacity);
@@ -91,7 +91,7 @@ describe('SeriesCard', () => {
 
   it('is a memoized component (React.memo) — the Library re-order relies on the shallow-prop skip', () => {
     // React.memo returns a special element type, not a plain function component.
-    expect(typeof SeriesCard).toBe('object');
-    expect((SeriesCard as unknown as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    expect(typeof Card).toBe('object');
+    expect((Card as unknown as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
   });
 });

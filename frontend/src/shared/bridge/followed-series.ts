@@ -2,7 +2,7 @@ import { NativeModules } from 'react-native';
 
 // Mirrors FollowedSeriesBridgeModule.kt (android/app) 1:1 — RN→Kotlin bridge for
 // FollowedSeriesDao (:core, Room). Series follow is 100% local today (no Kavita server round
-// trip). Kept as its own small bridge so SerieTool (shared/tools/series) depends only on this
+// trip). Kept as its own small bridge so SerieTool (shared/tools/serials) depends only on this
 // DAO, not a broad series module.
 
 interface FollowedSeriesBridgeModuleInterface {

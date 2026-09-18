@@ -1,5 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+// Switchable language, so the "labels follow a language change" case below can flip it.
+const mockLanguage = { current: 'pt-BR' };
+jest.mock('../../../shared/i18n', () => ({
+  useStrings: () => require('../../../shared/i18n/strings').getStrings(mockLanguage.current),
+}));
+
 // ── mocks: the hook's fetch dependencies (SeriesTool / LibraryTool stay real — pure) ──────────
 
 // mockGet resolves a SerialsDigest ({ isSuccess, serials: SerialDigest[], lastUpdatedEpochMs }).
@@ -57,7 +63,7 @@ jest.mock('../library.prefs', () => ({
 
 import { EventBus } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
-import { SerieEvents } from '../../../shared/tools/series';
+import { SerieEvents } from '../../../shared/tools/serials';
 import { useLibrary, seedLibrary, __resetLibraryHandoff } from './library.hooks';
 import type { LibraryEntry } from '../library.tool';
 import type { ServerActiveInfo } from '../../../shared/bridge/digest';
@@ -112,6 +118,7 @@ function seriesDigest(id: string, readCount: number, total: number) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockLanguage.current = 'pt-BR';
   __resetLibraryHandoff();
   mockGet.mockResolvedValue(serialsDigest([]));
   mockExternalSync.mockResolvedValue([]);
@@ -130,6 +137,20 @@ describe('useLibrary — mount / assembly', () => {
     await waitFor(() => expect(result.current.data).toHaveLength(2));
     expect(result.current.data[0]).toMatchObject({ id: '1', progressFraction: 0.5, isFollowed: false });
     expect(result.current.data[0].coverUrl).toBe('cover/1');
+  });
+
+  it('a language change re-labels the rows in place, without refetching', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 50 })]));
+    const { result, rerender } = renderHook(() => useLibrary());
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+    expect(result.current.data[0].readStatusLabel).toBe('Lendo');
+
+    mockLanguage.current = 'en';
+    rerender({});
+
+    await waitFor(() => expect(result.current.data[0].readStatusLabel).toBe('Reading'));
+    // Only the wording changed — the list itself was still valid.
+    expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
   it('shows fresh data once the (cache-first) SerialsService.get resolves', async () => {
@@ -405,7 +426,7 @@ describe('useLibrary — cross-screen handoff (Library <-> Following)', () => {
 
   it('seedLibrary (the splash entry point) lets the first screen mount with data and no fetch', async () => {
     const seeded: LibraryEntry[] = [
-      { id: 'x', name: 'Seeded', coverUrl: 'c', progressFraction: 0, readStatus: 'UNREAD', isFollowed: false },
+      { id: 'x', name: 'Seeded', coverUrl: 'c', progressFraction: 0, progressLabel: '0%', readStatus: 'UNREAD', readStatusLabel: 'Não lido', isFollowed: false },
     ];
     seedLibrary(seeded, 1_700_000_000_000);
 
@@ -419,7 +440,7 @@ describe('useLibrary — cross-screen handoff (Library <-> Following)', () => {
 
   it('a stale handoff is ignored — the mount fetches normally', async () => {
     // Seed, then age it past HANDOFF_FRESH_MS by faking Date.now.
-    seedLibrary([{ id: 'old', name: 'Old', coverUrl: 'c', progressFraction: 0, readStatus: 'UNREAD', isFollowed: false }], null);
+    seedLibrary([{ id: 'old', name: 'Old', coverUrl: 'c', progressFraction: 0, progressLabel: '0%', readStatus: 'UNREAD', readStatusLabel: 'Não lido', isFollowed: false }], null);
     const realNow = Date.now;
     Date.now = () => realNow() + 60 * 1000;
     try {

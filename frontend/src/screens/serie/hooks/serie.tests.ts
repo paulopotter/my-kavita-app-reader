@@ -10,11 +10,11 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('../../../shared', () => ({
   SerialService: { get: jest.fn() },
   SerieTool: {
-    normalize: jest.fn(),
+    normalize: { digest: jest.fn(), card: jest.fn() },
     isFollowed: jest.fn(),
     toggleFollow: jest.fn(),
     // real impl — pure function, no deps; useSerie derives continueChapter through it
-    resolveResumeChapterId: jest.requireActual('../../../shared/tools/series/serie.tool').SerieTool
+    resolveResumeChapterId: jest.requireActual('../../../shared/tools/serials/serial.tool').SerieTool
       .resolveResumeChapterId,
   },
   ChapterTool: {
@@ -47,7 +47,7 @@ import { ChapterEvents } from '../../../shared/tools/chapters';
 import { getStrings } from '../../../shared/i18n/strings';
 
 const mockGet = SerialService.get as jest.Mock;
-const mockNormalize = SerieTool.normalize as jest.Mock;
+const mockNormalize = SerieTool.normalize.digest as jest.Mock;
 const mockIsFollowed = SerieTool.isFollowed as jest.Mock;
 const mockToggleFollow = SerieTool.toggleFollow as jest.Mock;
 const mockMarkRead = ChapterTool.mark.read as jest.Mock;

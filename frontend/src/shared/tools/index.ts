@@ -4,6 +4,6 @@ export * from './date';
 export * from './methods';
 export * from './navigation';
 export * from './reader';
-export * from './series';
+export * from './serials';
 export * from './string';
 export * from './url';

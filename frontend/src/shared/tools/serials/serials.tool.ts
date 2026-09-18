@@ -1,5 +1,5 @@
 import type { SerialDigest } from '../../bridge';
-import { SerieTool, type Serie } from './serie.tool';
+import { SerieTool, type Serie } from './serial.tool';
 
 // SeriesTool — the "series" domain normalizer for a LIST of series (SerialsService.get(), which
 // resolves a SerialsDigest whose `serials` is a SerialDigest[]). The plural sibling of SerieTool
@@ -16,6 +16,6 @@ export const SeriesTool = {
   normalize({ serials }: { serials: SerialDigest[] }): Serie[] {
     return serials
       .filter((d): d is Extract<SerialDigest, { isSuccess: true }> => d.isSuccess)
-      .map((digest) => SerieTool.normalize({ digest }));
+      .map((digest) => SerieTool.normalize.digest({ digest }));
   },
 };

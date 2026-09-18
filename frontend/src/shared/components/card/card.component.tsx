@@ -1,11 +1,11 @@
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
-import { FollowStar } from '../../../../shared/components/follow-star';
-import { styles } from './series-card.styles';
+import { FollowStar } from '../follow-star';
+import { styles } from './card.styles';
 
 // Dumb component: primitives + callbacks + render only. All labels are computed in the hook /
 // SerieTool and passed in as strings — this component holds no i18n and no domain logic.
-export interface SeriesCardProps {
+export interface CardProps {
   id: string;
   name: string;
   coverUrl: string;
@@ -23,7 +23,7 @@ export interface SeriesCardProps {
 // React.memo: the Library list re-orders on a sort toggle (new array, new renderItem call for
 // every row), but a row whose own props are unchanged must not re-render. Every prop here is a
 // primitive or a stable useCallback from the screen, so the default shallow compare is enough.
-export const SeriesCard = React.memo(function SeriesCard({
+export const Card = React.memo(function Card({
   id,
   name,
   coverUrl,
@@ -36,7 +36,7 @@ export const SeriesCard = React.memo(function SeriesCard({
   isFollowed,
   onToggleFollow,
   onPress,
-}: SeriesCardProps) {
+}: CardProps) {
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(id)} activeOpacity={0.8}>
       <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />

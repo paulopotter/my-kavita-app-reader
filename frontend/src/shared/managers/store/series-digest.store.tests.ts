@@ -8,7 +8,7 @@ jest.mock('./store.manager', () => {
 });
 
 import { EventBus } from '../events';
-import { SerieEvents } from '../../tools/series/serie.events';
+import { SerieEvents } from '../../tools/serials/serial.events';
 import { registerSeriesDigestIndexListener, SeriesDigestIndex } from './series-digest.store';
 
 const storeMock = require('./store.manager').__mock as { get: jest.Mock; set: jest.Mock };

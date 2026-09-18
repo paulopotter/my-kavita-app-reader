@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { OtaEmitter, OtaModule, OtaPolicyMode } from '../../../native';
-import { StartupBridge } from '../../../shared/bridge';
+import { ConfigRepository, StartupBridge } from '../../../shared/bridge';
 import {
   ExternalsService,
   ExternalService,
@@ -10,7 +10,7 @@ import {
   ServerService,
 } from '../../../shared/services/servers';
 import { assembleLibrary, seedLibrary } from '../../library/hooks';
-import { useStrings } from '../../../shared/i18n';
+import { getStrings, useStrings } from '../../../shared/i18n';
 import { Routes } from '../../../navigation/routes';
 import type { SplashAlertButton } from '../components';
 import type { SplashDestination, SplashNavAction, SplashOtaAlert, SplashState } from '../splash.types';
@@ -143,7 +143,15 @@ export async function runSplashBoot(opts: {
 function warmLibrary(): Promise<void> {
   return (async () => {
     try {
-      const { entries, lastUpdatedEpochMs } = await assembleLibrary({ force: false, light: true });
+      // Detached from the React tree, so there's no LanguageContext to read — resolve the
+      // effective locale the same way App.tsx does on boot (getStrings falls back to pt-BR for
+      // anything it doesn't know, including a failed read).
+      const locale = await ConfigRepository.getAppLocale().catch(() => '');
+      const { entries, lastUpdatedEpochMs } = await assembleLibrary({
+        force: false,
+        light: true,
+        t: getStrings(locale),
+      });
       seedLibrary(entries, lastUpdatedEpochMs);
     } catch {
       /* head start only */
