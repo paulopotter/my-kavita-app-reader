@@ -21,6 +21,16 @@
  */
 export type RgbColor = `rgb(${number}, ${number}, ${number})`;
 
+/**
+ * The same colour as `#RRGGBB`.
+ *
+ * Exists only for the boundary with native Android: `android.graphics.Color.parseColor` accepts
+ * hex and a few names, and throws on `rgb(...)`. A token crossing that boundary goes through
+ * `ColorTool.to.hex` — the type is what stops a raw token being handed over and silently falling
+ * back to white or transparent on the other side.
+ */
+export type HexColor = `#${string}`;
+
 /** Text colours. Nothing here paints a background, a border or an icon. */
 export interface TextColors {
   /** Ordinary body copy: paragraphs, summaries, chip text. The default for reading. */

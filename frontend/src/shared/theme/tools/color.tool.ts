@@ -1,4 +1,4 @@
-import type { RgbColor } from '../colors.types';
+import type { HexColor, RgbColor } from '../colors.types';
 
 const RGB = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/;
 
@@ -14,8 +14,24 @@ function alpha(color: RgbColor, opacity: number): string {
   return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${clamped})`;
 }
 
+// Native Android parses hex, not `rgb(...)`: a token handed over raw throws inside
+// parseColor and falls back to white or transparent, which reads as "the theme did not apply".
+function hex(color: RgbColor): HexColor {
+  const rgb = RGB.exec(color);
+  if (!rgb) {
+    // Same reasoning as alpha's: a wrong colour is visible, a crash is worse.
+    return '#000000';
+  }
+  const channel = (value: string): string =>
+    Math.min(255, Math.max(0, Number(value))).toString(16).padStart(2, '0').toUpperCase();
+  return `#${channel(rgb[1])}${channel(rgb[2])}${channel(rgb[3])}`;
+}
+
 export const ColorTool = {
   add: {
     alpha,
+  },
+  to: {
+    hex,
   },
 };

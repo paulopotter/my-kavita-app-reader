@@ -31,3 +31,29 @@ describe('ColorTool.add.alpha', () => {
     expect(ColorTool.add.alpha('' as never, 0.5)).toBe('');
   });
 });
+
+describe('ColorTool.to.hex', () => {
+  // The boundary this exists for: android.graphics.Color.parseColor throws on rgb(), so a token
+  // handed to native raw falls back to white or transparent — the theme silently not applying.
+  it('converts a token to the notation native Android parses', () => {
+    expect(ColorTool.to.hex('rgb(26, 26, 46)')).toBe('#1A1A2E');
+  });
+
+  it('pads a single-digit channel, so the result is always six characters', () => {
+    expect(ColorTool.to.hex('rgb(1, 2, 3)')).toBe('#010203');
+  });
+
+  it('handles the extremes', () => {
+    expect(ColorTool.to.hex('rgb(0, 0, 0)')).toBe('#000000');
+    expect(ColorTool.to.hex('rgb(255, 255, 255)')).toBe('#FFFFFF');
+  });
+
+  it('clamps a channel out of range rather than emitting something unparseable', () => {
+    // The type checks the shape, not the range — rgb(999, 0, 0) type-checks.
+    expect(ColorTool.to.hex('rgb(999, 0, 0)')).toBe('#FF0000');
+  });
+
+  it('falls back to black on unparseable input, because a crash is worse than a wrong colour', () => {
+    expect(ColorTool.to.hex('not a colour' as never)).toBe('#000000');
+  });
+});
