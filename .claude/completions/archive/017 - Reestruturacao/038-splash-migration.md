@@ -141,7 +141,7 @@ By the end of this task the splash references **nothing from the old model**. Co
 - `AppVersions` promoted flat → `shared/components/app-versions/` (current convention + render
   tests); Config's import updated.
 - `shared/theme/colors.ts` — first design-token pass, seeded from the colours in the files this
-  rewrite touched. Full theming = backlog **018-tema-e-design-tokens.md**.
+  rewrite touched. Full theming = plan **028-theme-and-design-tokens** (promoted from backlog 018).
 - No `ota-policy-alert` component — the mode→{title,body,buttons} mapping is pure derivation, so
   it's a `useMemo` in the hook; the screen renders `<AppAlert {...otaAlert} />` directly.
 - **Legacy `SplashScreen.tsx` / `useSplash.ts` still wired in `App.tsx`** — the new screen/hook

@@ -5,6 +5,7 @@
 | Plan | Description |
 |------|-------------|
 | [024 — Storage Footprint & Resource Hygiene](active/024-storage-footprint/README.md) | 5 tasks — pending. Novo módulo `:storage` (Layer 2) para medir e recuperar espaço: medição real por fonte (páginas Coil / cache Room / resto) antes de escolher números, teto de cache configurável pelo usuário substituindo o `READER_DISK_CACHE_MAX_BYTES` fixo de 500 MB, purga do `:cache` (que já existe e nunca é chamada) ligada na splash, e tela `config/storage/` com uso por fonte + limpeza manual. Sem job periódico, sem `WorkManager`, sem telemetria |
+| [028 — Theme & Design Tokens](active/028-theme-and-design-tokens/README.md) | 11 tasks — pending. Promove o backlog 018, já com duas fases entregues (centralização dos 206 literais em `shared/theme/` no commit `639d808` e convergência de 48 → 38 valores, aprovada no device). Fixa que **tema = cor e só cor**: taxonomia semântica com regra escrita de uso por token (sem nome citando luminosidade) e opacidade como eixo separado (fim dos `whiteNN`/`overlay*`). Tipografia (tamanhos como multiplicadores sobre a escala de fonte do sistema, `rem`-like, + slot de família que fica na fonte do sistema — nenhuma fonte nova é empacotada) e espaçamento/raio (escala de 4 já quase presente, furada por ~10 valores ímpares) viram módulos irmãos constantes, fora do objeto de tema. Mais: regra ESLint anti-literal, `ThemeProvider`/`useTheme()` devolvendo só a paleta, persistência via `:preferences`, Kotlin do `ReaderPageList` recebendo cor do RN + i18n dos textos pt-BR, tela `config/theme/`, a cor de identidade do app (recursos compilados do Android, que não seguem tema) e, por último, 3 temas de cor com paletas propostas e aprovadas durante a task |
 
 ## Concluídos
 
@@ -31,7 +32,6 @@
 | [014](backlog/items/014-additional-skills.md) | Additional Claude skills/agents | 001 + first screens |
 | [015](backlog/items/015-telemetria-interna-debug.md) | Telemetria interna (painel debug) | 010 |
 | [016](backlog/items/016-migration-rollback-strategy.md) | Estratégia de rollback de migrations Room | 001 |
-| [018](backlog/items/018-tema-e-design-tokens.md) | Tema e design tokens | 038 |
 | [019](backlog/items/019-multiplos-servidores.md) | Múltiplos servidores (grupos) ativos | 017 |
 | [020](backlog/items/020-ota-download-sob-demanda.md) | OTA download sob demanda (botão "baixar" no highly_recommended) | 038 |
 | [021](backlog/items/021-estrutura-de-testes.md) | Revisão da estrutura de arquivos de teste (convenção única, hook+screen num arquivo) | 035 |
