@@ -3,8 +3,10 @@ import { createStyles, themes, defaultThemeName } from '../../shared/theme';
 // Re-exported for the screen (which sets the RN root/container bg). Deliberately the DEFAULT
 // theme's surface, not the active one: it has to match @color/splash_background, which is compiled
 // into the APK and painted before any code runs, so it cannot follow the user's choice. Making it
-// follow the theme would reintroduce the colour jump this value exists to avoid — see plan 028
-// Task 010, which decides what the app's identity colour is.
+// follow the theme would reintroduce the colour jump this value exists to avoid.
+//
+// It tracks the default automatically — but colors.xml does not, so moving the default role means
+// editing that file by hand. The themes test is what catches the two drifting apart.
 export const BG = themes[defaultThemeName].surface.primary;
 
 // The native Android-12 splash draws the icon on a 240dp canvas; a legacy (opaque PNG) icon

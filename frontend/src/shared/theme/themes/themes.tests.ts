@@ -1,4 +1,5 @@
-import { colors, themes, activeTheme } from './index';
+import { colors, themes, activeTheme, defaultThemeName } from './index';
+import { ColorTool } from '../tools/color.tool';
 import type { ThemeColors } from '../colors.types';
 
 // What these tests defend is the *contract*, not the values. A theme may repaint anything; what it
@@ -58,6 +59,18 @@ describe('token names', () => {
       .map(([path]) => path)
       .filter(path => path.toLowerCase().includes(word));
     expect(offenders).toEqual([]);
+  });
+});
+
+// The launcher icon and the native splash are compiled into the APK and painted before any code
+// runs, so they cannot read a token — android/app/src/main/res/values/colors.xml holds a copy.
+// These are the values that file must carry; if the default role moves to another identity, this
+// test fails and says so, instead of the app booting with last identity's colours.
+describe('the identity compiled into the APK', () => {
+  it('states the hex colors.xml has to mirror', () => {
+    const identity = themes[defaultThemeName];
+    expect(ColorTool.to.hex(identity.surface.primary)).toBe('#0F1A21');
+    expect(ColorTool.to.hex(identity.button.primary)).toBe('#38BDC7');
   });
 });
 

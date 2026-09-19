@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The app's identity, compiled into the APK: the launcher icon's backdrop and the native splash
+    the OS paints before any code runs. These CANNOT follow the user's chosen theme — Android draws
+    them with the app not yet started — so they carry the default identity's colours, and moving
+    the default role (themes/index.ts) means updating them here too.
+
+    Values mirror the teal identity: surface.primary and button.primary.
+-->
 <resources>
-    <color name="ic_launcher_background">#1A1A2E</color>
-    <color name="splash_background">#1A1A2E</color>
-    <color name="splash_progress">#E94560</color>
+    <color name="ic_launcher_background">#0F1A21</color>
+    <color name="splash_background">#0F1A21</color>
+    <color name="splash_progress">#38BDC7</color>
 </resources>

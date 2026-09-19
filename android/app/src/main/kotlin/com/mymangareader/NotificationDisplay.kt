@@ -25,7 +25,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val GROUP_NEW_CHAPTERS = "new_chapters_group"
-private const val BRAND_COLOR = 0xFF1A1A2E.toInt()
+private const val BRAND_COLOR = 0xFF0F1A21.toInt()
 // The small round avatar next to the notification's text — Android crops/circles this regardless
 // of what's given, so it stays a modest square. The actual "bigger, vertical, like inside the app"
 // cover (README's ask) is the BigPictureStyle image below instead, which Android only crops to fit

@@ -1,6 +1,7 @@
 import type { ThemeColors } from '../../colors.types';
 
-// The app's original identity — the colours it has shipped with so far.
+// Deep navy with a crimson accent — the app's original identity, and what it shipped with before
+// there was more than one.
 //
 // Values are frozen: this file is the result of two earlier passes (centralising every literal,
 // then converging near-identical tones), and the device already approved them. What each field
@@ -11,7 +12,7 @@ import type { ThemeColors } from '../../colors.types';
 // all #FFFFFF). They stay separate because a different identity may want to move one without the
 // others: colouring the screen's heading is not the same decision as colouring bold text inside a
 // paragraph.
-export const defaultColors: ThemeColors = {
+export const crimsonColors: ThemeColors = {
   text: {
     primary: 'rgb(203, 213, 224)',
     secondary: 'rgb(160, 174, 192)',

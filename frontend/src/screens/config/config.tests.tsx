@@ -129,25 +129,33 @@ describe('theme picker', () => {
       </ThemeProvider>,
     );
 
+  // Teal holds the default role, and the picker marks it rather than the name carrying it.
+  const defaultLabel = `${t.themeNameTeal} - ${t.themeDefaultSuffix}`;
+
   it('shows the active theme in the select', () => {
     const { getByText } = renderThemed();
     expect(getByText(t.configMenuTheme)).toBeTruthy();
     // The default identity is what a fresh install wears.
-    expect(getByText(t.themeNameDefault)).toBeTruthy();
+    expect(getByText(defaultLabel)).toBeTruthy();
+  });
+
+  it('marks the default identity, instead of naming a theme "default"', () => {
+    const { getByText } = renderThemed();
+    expect(getByText(defaultLabel)).toBeTruthy();
   });
 
   it('lists every registered theme when opened', () => {
     const { getByText } = renderThemed();
-    fireEvent.press(getByText(t.themeNameDefault));
-    expect(getByText(t.themeNameTeal)).toBeTruthy();
+    fireEvent.press(getByText(defaultLabel));
+    expect(getByText(t.themeNameCrimson)).toBeTruthy();
   });
 
   it('repaints when another theme is chosen', () => {
     const { getByText, queryByText } = renderThemed();
-    fireEvent.press(getByText(t.themeNameDefault));
-    fireEvent.press(getByText(t.themeNameTeal));
+    fireEvent.press(getByText(defaultLabel));
+    fireEvent.press(getByText(t.themeNameCrimson));
     // The trigger now carries the new identity, which only happens if the screen re-rendered
     // against the new palette.
-    expect(queryByText(t.themeNameTeal)).toBeTruthy();
+    expect(queryByText(t.themeNameCrimson)).toBeTruthy();
   });
 });

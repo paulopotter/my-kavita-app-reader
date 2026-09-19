@@ -1,5 +1,5 @@
 import type { ThemeColors } from '../colors.types';
-import { defaultColors } from './default';
+import { crimsonColors } from './crimson';
 import { tealColors } from './teal';
 
 // The theme registry, and the one place that says which theme is active.
@@ -11,15 +11,16 @@ import { tealColors } from './teal';
 // `activeTheme` is a constant for now. Plan 028 later replaces it with a value resolved at runtime
 // (ThemeProvider + the user's stored preference); until then this is the single switch.
 export const themes = {
-  default: defaultColors,
   teal: tealColors,
+  crimson: crimsonColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;
 
 // The identity used when the user has not chosen one, and the fallback when a stored choice no
-// longer exists.
-export const defaultThemeName: ThemeName = 'default';
+// longer exists. No theme is called "default": which one holds the role is this line, and a
+// picker marks it with a translated suffix rather than the name carrying it.
+export const defaultThemeName: ThemeName = 'teal';
 
 // The palette resolved at import time. Screens that have migrated read the live one from
 // useTheme(); this is what the not-yet-migrated `styles` exports are built from.

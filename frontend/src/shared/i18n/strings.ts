@@ -20,8 +20,11 @@ export interface Strings {
   configMenuChapter: string;
   configMenuNotifications: string;
   configMenuTheme: string;
-  themeNameDefault: string;
+  themeNameCrimson: string;
   themeNameTeal: string;
+  // Marks whichever identity currently holds the default role — see themes/index.ts. No theme is
+  // named "default", so the suffix travels with the label instead of with the name.
+  themeDefaultSuffix: string;
   configChapterSortGroupTitle: string;
 
   // ── Server form ─────────────────────────────────────────────────────────
@@ -342,8 +345,9 @@ const ptBR: Strings = {
   configMenuChapter: 'Página do mangá',
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
-  themeNameDefault: 'Padrão',
+  themeNameCrimson: 'Carmim',
   themeNameTeal: 'Petróleo',
+  themeDefaultSuffix: 'padrão',
   configChapterSortGroupTitle: 'Ordenação de capítulos',
 
   serverFormUrlLabel: 'URL do servidor',
@@ -627,8 +631,9 @@ const en: Strings = {
   configMenuChapter: 'Manga page',
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
-  themeNameDefault: 'Default',
+  themeNameCrimson: 'Crimson',
   themeNameTeal: 'Teal',
+  themeDefaultSuffix: 'default',
   configChapterSortGroupTitle: 'Chapter sort order',
 
   serverFormUrlLabel: 'Server URL',
