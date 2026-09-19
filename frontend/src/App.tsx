@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { DeviceEventEmitter, StatusBar, StyleSheet, View } from 'react-native';
+import { DeviceEventEmitter, StatusBar, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageContext, getStrings } from './shared/i18n';
@@ -10,20 +10,22 @@ import { registerSeriesDigestIndexListener } from './shared/managers/store';
 import { registerNotificationHistoryListener } from './shared/services/notifications';
 import { RootNavigator, Routes, BOTTOM_NAV_ROUTES } from './navigation';
 import { linking } from './navigation/linking.config';
-import { colors } from './shared/theme';
-
+import { ThemeProvider, useTheme } from './shared/theme';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ImmersiveProvider>
-        <AppContent />
-      </ImmersiveProvider>
+      <ThemeProvider>
+        <ImmersiveProvider>
+          <AppContent />
+        </ImmersiveProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
 
 function AppContent() {
+  const { colors } = useTheme();
   const [language, setLanguageState] = useState('pt-BR');
 
   const navRef = useRef<NavigationContainerRef<any>>(null);
@@ -96,7 +98,7 @@ function AppContent() {
   return (
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>
       <StatusBar backgroundColor={colors.surface.primary} barStyle="light-content" translucent={false} />
-      <View style={[styles.root, { paddingTop: statusBarHeight }]}>
+      <View style={[{ flex: 1, backgroundColor: colors.surface.primary }, { paddingTop: statusBarHeight }]}>
         <StartupProvider>
           <NavigationContainer ref={navRef} linking={linking} onStateChange={onNavigationStateChange}>
             <RootNavigator
@@ -111,6 +113,3 @@ function AppContent() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface.primary },
-});

@@ -1,5 +1,6 @@
 import type { ThemeColors } from '../colors.types';
 import { defaultColors } from './default';
+import { tealColors } from './teal';
 
 // The theme registry, and the one place that says which theme is active.
 //
@@ -11,10 +12,17 @@ import { defaultColors } from './default';
 // (ThemeProvider + the user's stored preference); until then this is the single switch.
 export const themes = {
   default: defaultColors,
+  teal: tealColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;
 
-export const activeTheme: ThemeName = 'default';
+// The identity used when the user has not chosen one, and the fallback when a stored choice no
+// longer exists.
+export const defaultThemeName: ThemeName = 'default';
+
+// The palette resolved at import time. Screens that have migrated read the live one from
+// useTheme(); this is what the not-yet-migrated `styles` exports are built from.
+export const activeTheme: ThemeName = defaultThemeName;
 
 export const colors: ThemeColors = themes[activeTheme];

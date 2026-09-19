@@ -19,6 +19,11 @@ const stub = (label: string) => (props: { onBack?: () => void }) => {
     </Text>
   );
 };
+// The real ThemeProvider reads the stored choice through :preferences; the picker tests below
+// render inside it, so the store needs a stand-in.
+jest.mock('../../shared/managers/preferences', () => ({
+  PreferencesManager: { get: jest.fn().mockResolvedValue(null), put: jest.fn().mockResolvedValue({}) },
+}));
 jest.mock('./server', () => ({ ServerScreen: (p: { onBack?: () => void }) => stub('server')(p) }));
 jest.mock('./reader', () => ({ ReaderPrefsScreen: (p: { onBack?: () => void }) => stub('reader')(p) }));
 jest.mock('./serie', () => ({ SerieSortScreen: (p: { onBack?: () => void }) => stub('serie')(p) }));
@@ -33,6 +38,7 @@ jest.mock('../../shared/components/app-versions', () => ({
 }));
 
 import { getStrings } from '../../shared/i18n/strings';
+import { ThemeProvider } from '../../shared/theme';
 import { useConfigLanguage, useConfigMenu } from './config.hooks';
 import { ConfigScreen } from './config.screen';
 
@@ -110,5 +116,38 @@ describe('ConfigScreen router', () => {
     });
     expect(queryByText(t.configTitle)).toBeTruthy();
     spy.mockRestore();
+  });
+});
+
+describe('theme picker', () => {
+  // These render inside the real provider: without it useTheme() falls back to the default
+  // context, whose setTheme is a no-op, and the switch would silently do nothing.
+  const renderThemed = () =>
+    render(
+      <ThemeProvider>
+        <ConfigScreen />
+      </ThemeProvider>,
+    );
+
+  it('shows the active theme in the select', () => {
+    const { getByText } = renderThemed();
+    expect(getByText(t.configMenuTheme)).toBeTruthy();
+    // The default identity is what a fresh install wears.
+    expect(getByText(t.themeNameDefault)).toBeTruthy();
+  });
+
+  it('lists every registered theme when opened', () => {
+    const { getByText } = renderThemed();
+    fireEvent.press(getByText(t.themeNameDefault));
+    expect(getByText(t.themeNameTeal)).toBeTruthy();
+  });
+
+  it('repaints when another theme is chosen', () => {
+    const { getByText, queryByText } = renderThemed();
+    fireEvent.press(getByText(t.themeNameDefault));
+    fireEvent.press(getByText(t.themeNameTeal));
+    // The trigger now carries the new identity, which only happens if the screen re-rendered
+    // against the new palette.
+    expect(queryByText(t.themeNameTeal)).toBeTruthy();
   });
 });

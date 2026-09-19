@@ -19,6 +19,9 @@ export interface Strings {
   configMenuReading: string;
   configMenuChapter: string;
   configMenuNotifications: string;
+  configMenuTheme: string;
+  themeNameDefault: string;
+  themeNameTeal: string;
   configChapterSortGroupTitle: string;
 
   // ── Server form ─────────────────────────────────────────────────────────
@@ -334,6 +337,9 @@ const ptBR: Strings = {
   configMenuReading: 'Preferências de leitura',
   configMenuChapter: 'Página do mangá',
   configMenuNotifications: 'Notificações',
+  configMenuTheme: 'Tema',
+  themeNameDefault: 'Padrão',
+  themeNameTeal: 'Petróleo',
   configChapterSortGroupTitle: 'Ordenação de capítulos',
 
   serverFormUrlLabel: 'URL do servidor',
@@ -614,6 +620,9 @@ const en: Strings = {
   configMenuReading: 'Reading preferences',
   configMenuChapter: 'Manga page',
   configMenuNotifications: 'Notifications',
+  configMenuTheme: 'Theme',
+  themeNameDefault: 'Default',
+  themeNameTeal: 'Teal',
   configChapterSortGroupTitle: 'Chapter sort order',
 
   serverFormUrlLabel: 'Server URL',

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BackHandler, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n';
-import { colors } from '../../shared/theme';
+import { useTheme, type ThemeName } from '../../shared/theme';
+import { Select } from './components/select';
 import { LanguageToggle } from './components/language-toggle';
 import { useConfigLanguage, useConfigMenu } from './config.hooks';
-import { styles } from './config.styles';
+import { makeStyles } from './config.styles';
 import type { ConfigScreenProps, ConfigSubScreen } from './config.types';
 import { DebugScreen } from './debug';
 import { NotificationsScreen } from './notifications';
@@ -56,9 +57,22 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }) {
+  const { colors, themeName, available, setTheme } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const t = useStrings();
   const { language, changeLanguage } = useConfigLanguage();
   const { debugUnlocked, unlockDebug } = useConfigMenu();
+
+  // A theme's display name is translatable, so it cannot be the registry key. An identity added
+  // without a string yet falls back to its key rather than rendering an empty row.
+  const themeLabels: Record<string, string> = useMemo(
+    () => ({ default: t.themeNameDefault, teal: t.themeNameTeal }),
+    [t],
+  );
+  const themeOptions = useMemo(
+    () => available.map(name => ({ id: name, label: themeLabels[name] ?? name })),
+    [available, themeLabels],
+  );
 
   return (
     <View style={styles.root}>
@@ -87,6 +101,15 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
         <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={styles.divider} />
+
+      <Text style={styles.themeLabel}>{t.configMenuTheme}</Text>
+      <View style={styles.themeField}>
+        <Select
+          value={themeName}
+          options={themeOptions}
+          onChange={(id: string | undefined) => id && setTheme(id as ThemeName)}
+        />
+      </View>
 
       {debugUnlocked && (
         <>

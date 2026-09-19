@@ -5,3 +5,4 @@
 export * from './colors.types';
 export { alpha } from './alpha';
 export * from './themes';
+export { ThemeProvider, useTheme, type ThemeState } from './theme.context';
