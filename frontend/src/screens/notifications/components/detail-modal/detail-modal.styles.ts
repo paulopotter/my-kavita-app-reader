@@ -1,9 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const detailModalStyles = createStyles(({ colors, text, alpha }) => ({
     backdrop: {
       flex: 1,
       backgroundColor: alpha(colors.surface.dim, 0.72),
@@ -20,24 +16,24 @@ export const makeStyles = (colors: ThemeColors) =>
       gap: 16,
       maxHeight: '80%',
     },
-    title: { color: colors.text.title.primary, fontSize: 17, fontWeight: '700' },
+    title: { color: colors.text.title.primary, fontSize: text.size[5], fontWeight: text.weight.bold },
     header: { flexDirection: 'row', gap: 12 },
     cover: { width: 64, height: 91, borderRadius: 6, flexShrink: 0 },
     headerInfo: { flex: 1, justifyContent: 'center', gap: 4 },
-    seriesName: { color: colors.text.title.primary, fontSize: 15, fontWeight: '600' },
-    bodyText: { color: colors.text.secondary, fontSize: 13 },
-    timestamp: { color: colors.text.secondary, fontSize: 12 },
+    seriesName: { color: colors.text.title.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
+    bodyText: { color: colors.text.secondary, fontSize: text.size[3] },
+    timestamp: { color: colors.text.secondary, fontSize: text.size[2] },
     chaptersSection: { gap: 6 },
-    chaptersTitle: { color: alpha(colors.text.secondary, 0.6), fontSize: 12, fontWeight: '600' },
+    chaptersTitle: { color: alpha(colors.text.secondary, 0.6), fontSize: text.size[2], fontWeight: text.weight.bold },
     chaptersList: { maxHeight: 140 },
-    chapterRow: { color: colors.text.primary, fontSize: 13, paddingVertical: 4 },
+    chapterRow: { color: colors.text.primary, fontSize: text.size[3], paddingVertical: 4 },
     actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     actionBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
     actionBtnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: alpha(colors.border.secondary, 0.2) },
     actionBtnDanger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border.accent },
-    actionLabelSecondary: { color: alpha(colors.text.button.secondary, 0.8), fontSize: 13, fontWeight: '600' },
-    actionLabelDanger: { color: colors.text.link.primary, fontSize: 13, fontWeight: '600' },
+    actionLabelSecondary: { color: alpha(colors.text.button.secondary, 0.8), fontSize: text.size[3], fontWeight: text.weight.bold },
+    actionLabelDanger: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
     closeBtn: { alignSelf: 'center', paddingVertical: 8 },
-    closeLabel: { color: alpha(colors.text.secondary, 0.6), fontSize: 13, fontWeight: '600' },
-  });
+    closeLabel: { color: alpha(colors.text.secondary, 0.6), fontSize: text.size[3], fontWeight: text.weight.bold },
+}));
 

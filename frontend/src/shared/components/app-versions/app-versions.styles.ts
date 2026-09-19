@@ -1,9 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { alpha } from '../../theme';
-import type { ThemeColors } from '../../theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../theme';
+export const appVersionsStyles = createStyles(({ colors, text, alpha }) => ({
     row: {
       flexDirection: 'row',
       paddingHorizontal: 16,
@@ -16,14 +13,14 @@ export const makeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
     },
     label: {
-      fontSize: 9,
+      fontSize: text.size[1],
       color: alpha(colors.text.ghost, 0.27),
       textTransform: 'lowercase',
       marginBottom: 2,
     },
     value: {
-      fontSize: 10,
+      fontSize: text.size[1],
       color: colors.text.secondary,
     },
-  });
+}));
 

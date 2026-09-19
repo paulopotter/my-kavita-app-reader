@@ -2,10 +2,10 @@ import React from 'react';
 import { Text } from 'react-native';
 import { act, render, waitFor } from '@testing-library/react-native';
 import { ThemeProvider, useTheme } from './theme.context';
-import { themes, defaultThemeName } from './themes';
-import { PreferencesManager } from '../managers/preferences';
+import { themes, defaultThemeName } from '../../theme/themes';
+import { PreferencesManager } from '../../managers/preferences';
 
-jest.mock('../managers/preferences', () => ({
+jest.mock('../../managers/preferences', () => ({
   PreferencesManager: { get: jest.fn(), put: jest.fn() },
 }));
 

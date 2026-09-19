@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
-import { useTheme } from '../../../../shared/theme';
-import { makeStyles } from './select.styles';
+import { useTheme, useStyles } from '../../../../shared/context';
+import { selectStyles } from './select.styles';
 
 // A single-choice select: a trigger showing the current label, tap to open a sheet listing every
 // option one per row. No native picker dependency; scales to a long option list, unlike chips.
@@ -26,7 +26,7 @@ export interface SelectProps {
 // last-resort fallback.
 export function Select({ value, options, placeholder = '—', onChange, disabled = false }: SelectProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(selectStyles);
   const [open, setOpen] = useState(false);
   const current = options.find(o => o.id === value);
 

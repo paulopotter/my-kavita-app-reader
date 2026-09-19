@@ -1,8 +1,5 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../theme';
+export const scrollToTopButtonStyles = createStyles(({ colors }) => ({
     button: {
       position: 'absolute',
       bottom: 16,
@@ -14,5 +11,5 @@ export const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
       elevation: 4,
     },
-  });
+}));
 

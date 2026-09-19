@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { CheckCircle2, Circle, Info, X } from 'lucide-react-native';
-import { makeStyles } from './history-item.styles';
-import { useTheme } from '../../../../shared/theme';
+import { historyItemStyles } from './history-item.styles';
+import { useTheme, useStyles } from '../../../../shared/context';
 
 // Dumb: an unread dot, series cover (when known), series name, body-equivalent summary, relative
 // timestamp (already formatted by the hook via DateTool), a delete affordance, an info affordance
@@ -44,7 +44,7 @@ export function HistoryItem({
   infoLabel,
 }: HistoryItemProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(historyItemStyles);
   return (
     <TouchableOpacity
       style={[styles.row, selected && styles.rowSelected]}

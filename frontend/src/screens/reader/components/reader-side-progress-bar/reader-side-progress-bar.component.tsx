@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
-import { makeStyles } from './reader-side-progress-bar.styles';
-import { useTheme } from '../../../../shared/theme';
+import { readerSideProgressBarStyles } from './reader-side-progress-bar.styles';
+import { useTheme, useStyles } from '../../../../shared/context';
 
 interface Props {
   totalPages: number;
@@ -27,7 +27,7 @@ export function ReaderSideProgressBar({
   visible,
 }: Props) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(readerSideProgressBarStyles);
   if (!visible) {return null;}
 
   return (

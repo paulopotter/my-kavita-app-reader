@@ -1,14 +1,11 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../shared/theme';
-
+import { createStyles } from '../../shared/theme';
 // Shared chrome for the Config screens — the menu rows, the sub-screen header with the back
 // chevron, the scroll padding, the uppercase section label. Each sub-screen adds its own
 // *.styles.ts for the bits only it uses.
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const configStyles = createStyles(({ colors, text }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
 
-    pageTitle: { fontSize: 22, fontWeight: '700', color: colors.text.title.primary, padding: 20, paddingBottom: 8 },
+    pageTitle: { fontSize: text.size[7], fontWeight: text.weight.bold, color: colors.text.title.primary, padding: 20, paddingBottom: 8 },
 
     menuRow: {
       flexDirection: 'row',
@@ -17,13 +14,13 @@ export const makeStyles = (colors: ThemeColors) =>
       paddingHorizontal: 20,
       paddingVertical: 16,
     },
-    menuRowLabel: { fontSize: 16, color: colors.text.label },
+    menuRowLabel: { fontSize: text.size[4], color: colors.text.label },
     // The theme picker: a section label with the select at full width under it, same shape as a
     // form field elsewhere in config. `section` carries no padding of its own — every other screen
     // renders it inside a padded scroll container — so the label repeats menuRow's inset here.
     themeLabel: {
-      fontSize: 11,
-      fontWeight: '700',
+      fontSize: text.size[2],
+      fontWeight: text.weight.bold,
       color: colors.text.title.secondary,
       textTransform: 'uppercase',
       letterSpacing: 1.2,
@@ -44,12 +41,12 @@ export const makeStyles = (colors: ThemeColors) =>
       paddingBottom: 8,
       gap: 8,
     },
-    subTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.text.title.primary },
+    subTitle: { flex: 1, fontSize: text.size[6], fontWeight: text.weight.bold, color: colors.text.title.primary },
 
     scroll: { padding: 16, paddingBottom: 48 },
     section: {
-      fontSize: 11,
-      fontWeight: '700',
+      fontSize: text.size[2],
+      fontWeight: text.weight.bold,
       color: colors.text.title.secondary,
       textTransform: 'uppercase',
       letterSpacing: 1.2,
@@ -58,5 +55,5 @@ export const makeStyles = (colors: ThemeColors) =>
     },
 
     menuFooter: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  });
+}));
 

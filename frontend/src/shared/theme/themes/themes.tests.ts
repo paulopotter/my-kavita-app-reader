@@ -33,7 +33,7 @@ describe('every theme fills the contract', () => {
       expect(value.trim()).not.toBe('');
       // Every token is an opaque `rgb()` triple. The type already enforces the shape; this
       // guards the halves it cannot see — that the channels are real 0-255 numbers, and that no
-      // alpha crept in (opacity is the call site's, applied with `alpha()`).
+      // alpha crept in (opacity is the call site's, applied with `ColorTool.add.alpha()`).
       const channels = /^rgb\((\d{1,3}), (\d{1,3}), (\d{1,3})\)$/.exec(value);
       expect(channels).not.toBeNull();
       for (const channel of channels!.slice(1)) {

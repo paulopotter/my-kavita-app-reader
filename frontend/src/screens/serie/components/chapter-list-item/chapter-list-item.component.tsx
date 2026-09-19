@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { SerieChapter } from '../../../../shared';
-import { makeStyles } from './chapter-list-item.styles';
-import { useTheme } from '../../../../shared/theme';
+import { chapterListItemStyles } from './chapter-list-item.styles';
+import { useStyles } from '../../../../shared/context';
 
 interface Props {
   chapter: SerieChapter;
@@ -20,8 +20,7 @@ interface Props {
 // Dumb: only decides how to render the data it's given (zebra striping by index, checkbox when
 // in selection mode) — no fetching, no domain logic.
 export function ChapterListItem({ chapter, title, index, selectionMode, selected, onPress, onLongPress }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(chapterListItemStyles);
   const isRead = chapter.readStatus === 'READ';
   const isZebra = index % 2 === 1;
 

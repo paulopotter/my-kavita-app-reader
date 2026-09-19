@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View } from 'react-native';
-import { makeStyles } from './reader-thin-progress-bar.styles';
-import { useTheme } from '../../../../shared/theme';
+import { readerThinProgressBarStyles } from './reader-thin-progress-bar.styles';
+import { useStyles } from '../../../../shared/context';
 
 interface Props {
   fraction: number;
@@ -13,8 +13,7 @@ interface Props {
 // Dumb: clamps the fraction it's given and renders the fill. The clamp is trivial layout math,
 // not domain logic.
 export function ReaderThinProgressBar({ fraction }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(readerThinProgressBarStyles);
   const clamped = Math.min(1, Math.max(0, fraction));
 
   return (

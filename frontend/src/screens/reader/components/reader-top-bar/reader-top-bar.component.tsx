@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
-import { STATUS_BAR_GAP, statusBarHeight, makeStyles } from './reader-top-bar.styles';
-import { useTheme } from '../../../../shared/theme';
+import { STATUS_BAR_GAP, statusBarHeight, readerTopBarStyles } from './reader-top-bar.styles';
+import { useTheme, useStyles } from '../../../../shared/context';
 
 interface Props {
   seriesName: string;
@@ -14,7 +14,7 @@ interface Props {
 // Dumb: renders the series name + chapter title it's given and fires onBack.
 export function ReaderTopBar({ seriesName, chapterTitle, onBack, visible }: Props) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(readerTopBarStyles);
   if (!visible) {return null;}
 
   return (

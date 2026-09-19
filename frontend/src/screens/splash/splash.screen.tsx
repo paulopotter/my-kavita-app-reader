@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { OtaModule } from '../../native';
@@ -6,8 +6,8 @@ import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n';
 import { Progress, SplashAlert } from './components';
 import { useSplash } from './hooks';
-import { makeStyles } from './splash.styles';
-import { useTheme } from '../../shared/theme';
+import { splashStyles } from './splash.styles';
+import { useStyles } from '../../shared/context';
 
 // The RN splash — the RootNavigator's initial route. It owns useSplash (every rule lives there,
 // including turning the boot outcome into a `navigate` object) and just forwards that to
@@ -15,8 +15,7 @@ import { useTheme } from '../../shared/theme';
 // splash so the handoff doesn't resize it), the progress bar, the version footer, the
 // always-mounted-but-usually-hidden update button, and the OTA alert.
 export function SplashScreen() {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(splashStyles);
   const t = useStrings();
   const navigation = useNavigation<any>();
   const { progress, progressLabel, otaUpdateReady, otaAlert, navigate } = useSplash();

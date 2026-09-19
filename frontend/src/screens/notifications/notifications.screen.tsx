@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
 import type { ViewToken } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -12,17 +12,16 @@ import { SelectionBottomBar } from '../../shared/components/selection-bottom-bar
 import { HistoryItem } from './components/history-item';
 import { DetailModal } from './components/detail-modal';
 import { useNotificationHistory } from './notifications.hooks';
-import { makeStyles } from './notifications.styles';
+import { notificationsStyles } from './notifications.styles';
 import type { NotificationHistoryRow } from './notifications.types';
-import { useTheme } from '../../shared/theme';
+import { useStyles } from '../../shared/context';
 
 // The in-app notification history — a tab of its own (MainNavigator), reachable independently of
 // where the user came from, so it always returns to the Library tab when opening a series/reader
 // (no NavOrigin variant exists for "from the notifications tab" and adding one isn't worth it for
 // a single fallback destination).
 export function NotificationsScreen() {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(notificationsStyles);
   const t = useStrings();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const {

@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { useTheme } from '../../../shared/theme';
+import { useStyles } from '../../../shared/context';
 import { BackChevron } from '../components';
-import { makeStyles as makeChrome } from '../config.styles';
+
 import { Section } from './components/section';
 import { useDebugIds } from './debug.hooks';
+import { configStyles as makeChrome } from '../config.styles';
 import {
   chapterSteps,
   discoverFirstChapterId,
@@ -22,8 +23,7 @@ import {
 // Chapters, Pages, External), each with its own Run button and result list. Unlocked from the
 // Config menu by tapping the version footer.
 export function DebugScreen({ onBack }: { onBack: () => void }) {
-  const { colors } = useTheme();
-  const chrome = useMemo(() => makeChrome(colors), [colors]);
+  const chrome = useStyles(makeChrome);
   const {
     groupId,
     setGroupId,

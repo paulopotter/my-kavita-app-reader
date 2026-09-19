@@ -1,9 +1,6 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../shared/theme';
-
+import { createStyles } from '../../../shared/theme';
 // Verbatim from ConfigScreen's prefContainer/prefRow/prefLabel.
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const readerStyles = createStyles(({ colors, text }) => ({
     container: { padding: 16 },
     row: {
       flexDirection: 'row',
@@ -11,6 +8,6 @@ export const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       paddingVertical: 16,
     },
-    label: { flex: 1, color: colors.text.label, fontSize: 15, marginRight: 12 },
-  });
+    label: { flex: 1, color: colors.text.label, fontSize: text.size[3], marginRight: 12 },
+}));
 

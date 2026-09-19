@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../shared/bridge';
 import type { Strings } from '../../../../shared/i18n';
-import { useTheme } from '../../../../shared/theme';
+import { useTheme, useStyles } from '../../../../shared/context';
 import { UrlTool } from '../../../../shared/tools/url';
 import { Select } from '../select';
-import { makeStyles } from './url-modal.styles';
+import { urlModalStyles } from './url-modal.styles';
 
 // The "link this URL to a server" section — only rendered for a metadata-server URL. The screen
 // passes the list of servers (already just one today) + a resolver for a picked server's URLs.
@@ -45,7 +45,7 @@ export function UrlModal({
   onClose,
 }: UrlModalProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(urlModalStyles);
   const [url, setUrl] = useState(initialUrl);
   const [priority, setPriority] = useState(String(initialPriority));
   const [urlError, setUrlError] = useState('');

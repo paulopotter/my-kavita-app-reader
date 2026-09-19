@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { makeStyles } from './detail-modal.styles';
-import { useTheme } from '../../../../shared/theme';
+import { detailModalStyles } from './detail-modal.styles';
+import { useStyles } from '../../../../shared/context';
 
 export interface DetailModalProps {
   visible: boolean;
@@ -47,8 +47,7 @@ export function DetailModal({
   onDelete,
   onClose,
 }: DetailModalProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(detailModalStyles);
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>

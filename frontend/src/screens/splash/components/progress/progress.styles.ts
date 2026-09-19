@@ -1,9 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const progressStyles = createStyles(({ colors, text, alpha }) => ({
     root: {
       width: '100%',
       alignItems: 'center',
@@ -23,8 +19,8 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     label: {
       color: alpha(colors.text.secondary, 0.6),
-      fontSize: 11,
+      fontSize: text.size[2],
       textAlign: 'center',
     },
-  });
+}));
 

@@ -1,9 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const alertStyles = createStyles(({ colors, text, alpha }) => ({
     backdrop: {
       flex: 1,
       backgroundColor: alpha(colors.surface.dim, 0.72),
@@ -26,13 +22,13 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     title: {
       color: colors.text.emphasis,
-      fontSize: 17,
-      fontWeight: '700',
+      fontSize: text.size[5],
+      fontWeight: text.weight.bold,
       letterSpacing: 0.1,
     },
     message: {
       color: alpha(colors.text.button.secondary, 0.8),
-      fontSize: 14,
+      fontSize: text.size[3],
       lineHeight: 21,
     },
     actions: {
@@ -57,9 +53,9 @@ export const makeStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: alpha(colors.border.secondary, 0.2),
     },
-    btnLabel: { fontSize: 14, fontWeight: '600' },
+    btnLabel: { fontSize: text.size[3], fontWeight: text.weight.bold },
     btnLabelPrimary: { color: colors.text.button.primary },
     btnLabelDestructive: { color: colors.text.button.destructive },
     btnLabelSecondary: { color: alpha(colors.text.button.secondary, 0.8) },
-  });
+}));
 

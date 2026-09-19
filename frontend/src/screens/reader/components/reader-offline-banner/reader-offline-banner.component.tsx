@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Text, View } from 'react-native';
 import { Strings } from '../../../../shared/i18n';
-import { makeStyles } from './reader-offline-banner.styles';
-import { useTheme } from '../../../../shared/theme';
+import { readerOfflineBannerStyles } from './reader-offline-banner.styles';
+import { useStyles } from '../../../../shared/context';
 
 interface Props {
   visible: boolean;
@@ -11,8 +11,7 @@ interface Props {
 
 // Dumb: shows the offline label when visible.
 export function ReaderOfflineBanner({ visible, t }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(readerOfflineBannerStyles);
   if (!visible) {return null;}
   return (
     <View style={styles.root}>

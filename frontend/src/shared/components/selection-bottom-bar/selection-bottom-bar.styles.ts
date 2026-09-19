@@ -1,8 +1,5 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../theme';
+export const selectionBottomBarStyles = createStyles(({ colors, text }) => ({
     root: {
       flexDirection: 'row',
       backgroundColor: colors.surface.secondary,
@@ -18,6 +15,6 @@ export const makeStyles = (colors: ThemeColors) =>
       gap: 6,
       paddingHorizontal: 4,
     },
-    buttonText: { color: colors.text.button.primary, fontSize: 11, fontWeight: '600', textAlign: 'center' },
-  });
+    buttonText: { color: colors.text.button.primary, fontSize: text.size[2], fontWeight: text.weight.bold, textAlign: 'center' },
+}));
 

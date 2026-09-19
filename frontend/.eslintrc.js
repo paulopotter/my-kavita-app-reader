@@ -9,6 +9,15 @@ const COLOUR_MESSAGE =
   'For a translucent one, apply the level at the call site: alpha(colors.surface.dim, 0.5). ' +
   'See docs/contributing/theme/README.md.';
 
+// fontSize / fontWeight written as a literal instead of a type token.
+const TYPE_LITERAL =
+  "Property[key.name=/^(fontSize|fontWeight)$/] > Literal[raw=/^['\"]?[0-9.]+['\"]?$/]";
+
+const TYPE_MESSAGE =
+  'No font-size or font-weight literals. Use a type token — import { text } from ' +
+  "'shared/theme' and pick a step (text.size[3], text.size.title['x-large']) or a weight " +
+  '(text.weight.bold). See docs/contributing/theme/README.md.';
+
 module.exports = {
   root: true,
   extends: '@react-native',
@@ -19,7 +28,11 @@ module.exports = {
     'react/no-unstable-nested-components': 'off',
     // Keeps the palette the single source of colour. Without this, a stray literal is merely
     // untidy today and a real bug once themes switch at runtime: it would not repaint.
-    'no-restricted-syntax': ['error', { selector: COLOUR_LITERAL, message: COLOUR_MESSAGE }],
+    'no-restricted-syntax': [
+      'error',
+      { selector: COLOUR_LITERAL, message: COLOUR_MESSAGE },
+      { selector: TYPE_LITERAL, message: TYPE_MESSAGE },
+    ],
   },
   overrides: [
     {

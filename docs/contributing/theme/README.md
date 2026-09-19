@@ -8,13 +8,20 @@ Every colour the app paints comes from the active theme. A screen never writes a
 frontend/src/shared/theme/
   colors.types.ts          the contract: what every colour MEANS
   alpha.ts                 applies an opacity level to a token
+  typography.ts            the type scale, weights and family
   themes/
-    index.ts               the registry + which theme is active
+    index.ts               the registry of identities
     default/
       colors.tokens.ts     the values for the "default" identity
       index.ts
   index.ts
+
+frontend/src/shared/context/theme/
+  theme.context.tsx        ThemeProvider + useTheme — which identity is active
 ```
+
+Tokens and rules live in `shared/theme/`; *which identity is active* is state, so it sits with the
+app's other contexts in `shared/context/`.
 
 Two files, two jobs: `colors.types.ts` says what a token means and where it may be used;
 `themes/<name>/colors.tokens.ts` says what colour that means in one identity. A meaning is
@@ -32,6 +39,32 @@ export const styles = StyleSheet.create({
 ```
 
 Hover a token in your editor to read its rule — that is what `colors.types.ts` is for.
+
+## Type
+
+Sizes and weights come from `text`, a **constant** — switching identity changes no size, no weight
+and no family.
+
+```ts
+import { text } from '../../shared/theme';
+
+title: { fontSize: text.size.title['xx-large'], fontWeight: text.weight.bold },
+body:  { fontSize: text.size[3] },
+```
+
+Each step is a ratio against a base of 16, resolved to whole pixels, so moving the base rescales
+the hierarchy at once. Step 3 lands on 14 — Android's own default text size.
+
+The general steps are **numbered, not named**: the same step serves a metadata line on one screen
+and body copy on another, so a role in the name would be a lie. Headings are the exception —
+they have a real hierarchy, so `size.title` runs `large` → `xxx-large`, mapped to h4…h1. Text that
+merely looks big is not a title and belongs on a high general step.
+
+There are **two weights**, `regular` and `bold`, because the app only ever meant two things. The
+system font ships no semibold anyway — a 600 resolves to bold on Android.
+
+The device's font-size setting is applied by React Native itself; nothing here multiplies by it
+again. `MAX_FONT_SCALE` caps how far it may go.
 
 ## Opacity
 

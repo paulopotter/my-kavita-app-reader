@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
-import { useTheme } from '../../../../shared/theme';
+import { useTheme } from '../../../../shared/context';
 import { styles } from './back-chevron.styles';
 
 export interface BackChevronProps {

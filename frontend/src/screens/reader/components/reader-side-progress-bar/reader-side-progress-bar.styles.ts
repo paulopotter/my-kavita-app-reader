@@ -1,7 +1,4 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
+import { createStyles } from '../../../../shared/theme';
 export const ARROW_BUTTON_SIZE = 32;
 export const DOT_SIZE = 6;
 // Minimum gap between dots = half the dot size. The dots container always spans arrow to arrow
@@ -9,8 +6,7 @@ export const DOT_SIZE = 6;
 // overflow keeps the minimum gap instead of squeezing dots below legible.
 export const DOT_GAP = DOT_SIZE / 2;
 
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const readerSideProgressBarStyles = createStyles(({ colors, alpha }) => ({
     root: {
       position: 'absolute',
       right: 8,
@@ -43,5 +39,5 @@ export const makeStyles = (colors: ThemeColors) =>
     // the active page without competing with its highlight.
     dotRead: { backgroundColor: alpha(colors.progress.reading.primary, 0.5) },
     dotActive: { backgroundColor: colors.progress.reading.primary, width: 8, height: 8, borderRadius: 4 },
-  });
+}));
 

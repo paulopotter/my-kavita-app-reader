@@ -1,9 +1,6 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../../shared/theme';
-
+import { createStyles } from '../../../../shared/theme';
 // From ConfigScreen's serverRow/dot/serverUrl/linkedLabel/menuDots.
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const rowStyles = createStyles(({ colors, text }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -15,9 +12,9 @@ export const makeStyles = (colors: ThemeColors) =>
       gap: 8,
     },
     body: { flex: 1 },
-    primary: { color: colors.text.emphasis, fontSize: 13 },
-    secondary: { color: colors.text.secondary, fontSize: 11, marginTop: 2 },
-    secondaryNone: { color: colors.text.tertiary, fontSize: 11, marginTop: 2, fontStyle: 'italic' },
-    trailing: { color: colors.text.tertiary, fontSize: 11, fontWeight: '500' },
-  });
+    primary: { color: colors.text.emphasis, fontSize: text.size[3] },
+    secondary: { color: colors.text.secondary, fontSize: text.size[2], marginTop: 2 },
+    secondaryNone: { color: colors.text.tertiary, fontSize: text.size[2], marginTop: 2, fontStyle: 'italic' },
+    trailing: { color: colors.text.tertiary, fontSize: text.size[2], fontWeight: text.weight.regular },
+}));
 

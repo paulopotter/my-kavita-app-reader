@@ -1,8 +1,5 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const alphabetIndexStyles = createStyles(({ colors, text }) => ({
     bar: {
       position: 'absolute',
       right: 0,
@@ -23,8 +20,8 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     letter: {
       color: colors.text.link.primary,
-      fontSize: 11,
-      fontWeight: '700',
+      fontSize: text.size[2],
+      fontWeight: text.weight.bold,
     },
-  });
+}));
 

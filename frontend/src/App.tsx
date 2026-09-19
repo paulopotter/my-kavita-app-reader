@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { DeviceEventEmitter, StatusBar, View } from 'react-native';
+import { DeviceEventEmitter, StatusBar, Text, TextInput, View } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageContext, getStrings } from './shared/i18n';
@@ -10,7 +10,21 @@ import { registerSeriesDigestIndexListener } from './shared/managers/store';
 import { registerNotificationHistoryListener } from './shared/services/notifications';
 import { RootNavigator, Routes, BOTTOM_NAV_ROUTES } from './navigation';
 import { linking } from './navigation/linking.config';
-import { ThemeProvider, useTheme } from './shared/theme';
+import { MAX_FONT_SCALE } from './shared/theme';
+import { ThemeProvider, useTheme } from './shared/context';
+
+// Caps how far the device's font-size setting may enlarge text, app-wide. Set once on the
+// components' defaults rather than on every <Text>, so a screen added later inherits it without
+// anyone remembering to.
+type ScalableDefaults = { defaultProps?: { maxFontSizeMultiplier?: number } };
+(Text as unknown as ScalableDefaults).defaultProps = {
+  ...(Text as unknown as ScalableDefaults).defaultProps,
+  maxFontSizeMultiplier: MAX_FONT_SCALE,
+};
+(TextInput as unknown as ScalableDefaults).defaultProps = {
+  ...(TextInput as unknown as ScalableDefaults).defaultProps,
+  maxFontSizeMultiplier: MAX_FONT_SCALE,
+};
 
 export default function App() {
   return (

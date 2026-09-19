@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { makeStyles } from './alphabet-index.styles';
-import { useTheme } from '../../../../shared/theme';
+import { alphabetIndexStyles } from './alphabet-index.styles';
+import { useStyles } from '../../../../shared/context';
 
 // Dumb component: renders the letter rail and reports which row index to jump to. The letter →
 // index map is computed in the hook (library.hooks.ts).
@@ -11,8 +11,7 @@ export interface AlphabetIndexProps {
 }
 
 export function AlphabetIndex({ entries, onJump }: AlphabetIndexProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(alphabetIndexStyles);
   if (entries.length === 0) {
     return null;
   }

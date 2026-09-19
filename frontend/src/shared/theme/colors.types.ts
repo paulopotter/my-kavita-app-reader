@@ -1,23 +1,9 @@
-// The colour contract every theme must fill.
+// The colour contract every theme fills. Each field's doc comment is its application rule, shown
+// by the editor at the call site; a theme supplies values and may not add or remove fields.
 //
-// This is the single source of truth for *what a colour means* — each field's doc comment is its
-// application rule, and an editor shows it at the call site, which a separate rules document never
-// would. A theme (see `themes/<name>/colors.tokens.ts`) supplies the values; it may not add or
-// remove fields.
-//
-// Grammar of a token path: <what it is>.<type of content>.<variation>.
-//   - the first level says what is being painted (text, and later icon/surface/…);
-//   - the second names the kind of content or the component (title, button, input, …);
-//   - the third is the variation, and only exists when there is more than one.
-// A type with a single variation stays flat: `text.label`, not `text.label.primary`.
-//
-// `primary` always means **the canonical case of its parent**, never "the strongest one":
-// `title.primary` is the screen's main heading, `text.primary` is ordinary body copy, and
-// `button.primary` is the label on the theme-coloured button.
-//
-// Names never mention brightness. `textOnDark`, `white80` and the like are disqualified: under a
-// future identity they would describe something that is no longer true.
-
+// Grammar: <what it is>.<type of content>.<variation>, where `primary` means the canonical case of
+// its parent, never "the strongest". A type with one variation stays flat. Names never mention
+// brightness — under another identity they would stop being true.
 
 /**
  * A colour token's value: `rgb(r, g, b)` and nothing else.
@@ -25,9 +11,9 @@
  * Deliberately not `string`. Two things follow from the shape:
  *   - **no alpha.** Opacity is a separate axis — how transparent something is depends on what is
  *     being drawn, not on its colour — so a token carries the colour and a call site applies the
- *     level with `alpha()`. `rgba(...)` does not satisfy this type, which makes that a compile
+ *     level with `ColorTool.add.alpha()`. `rgba(...)` does not satisfy this type, which makes that a compile
  *     error rather than a convention someone has to remember.
- *   - **one notation.** Hex, `hsl()` and named colours are all rejected, so `alpha()` has exactly
+ *   - **one notation.** Hex, `hsl()` and named colours are all rejected, so `ColorTool.add.alpha()` has exactly
  *     one shape to parse and a theme cannot drift into a second style.
  *
  * TypeScript checks the shape, not the range: `rgb(999, 0, 0)` type-checks. The themes test
@@ -110,7 +96,6 @@ export interface TextColors {
   };
 }
 
-
 /** Icon colours. An icon takes a single colour; when it is filled, `fill` and `stroke` get the
  * same one (lucide's default is `fill: "none"`, so passing `fill` is what makes a glyph solid). */
 export interface IconColors {
@@ -157,7 +142,6 @@ export interface IconColors {
   };
 }
 
-
 /**
  * Surfaces — the planes content sits on. A surface is painted with `backgroundColor`; it never
  * colours text, an icon or a border.
@@ -187,7 +171,6 @@ export interface SurfaceColors {
    */
   dim: RgbColor;
 }
-
 
 /**
  * Interactive controls. Everything here is a *fill* — the text or icon that sits on top of it
@@ -237,7 +220,6 @@ export interface BannerColors {
   good: RgbColor;
 }
 
-
 /**
  * Borders and dividers — a line, never a fill. `primary` is the ordinary structural line; the
  * alpha-over-white variants (a secondary button's outline, the faintest dividers) are still on the
@@ -246,7 +228,7 @@ export interface BannerColors {
 export interface BorderColors {
   /** The structural line: a card's outline, the divider between two sections. */
   primary: RgbColor;
-  /** The outline of a transparent control, and the faintest dividers — always used with `alpha()`,
+  /** The outline of a transparent control, and the faintest dividers — always used with `ColorTool.add.alpha()`,
    * since what distinguishes it from the surface is the level, not the colour. */
   secondary: RgbColor;
   /** An outline that marks selection or an active state. */
@@ -270,7 +252,6 @@ export interface BorderColors {
     off: RgbColor;
   };
 }
-
 
 /**
  * Progress bars. `primary` is the filled part, `secondary` the empty remainder — the same pair

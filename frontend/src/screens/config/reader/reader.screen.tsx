@@ -1,19 +1,20 @@
 import React, { useMemo } from 'react';
 import { Switch, Text, TouchableOpacity, View } from 'react-native';
-import { useTheme } from '../../../shared/theme';
+import { useTheme, useStyles } from '../../../shared/context';
 import { useStrings } from '../../../shared/i18n';
 import { BackChevron } from '../components';
-import { makeStyles as makeChrome } from '../config.styles';
+
 import { useReaderPrefs } from './reader.hooks';
-import { makeStyles } from './reader.styles';
+import { readerStyles } from './reader.styles';
+import { configStyles as makeChrome } from '../config.styles';
 
 // Reading preferences: keep-screen-on + immersive mode while reading. Same folder name as the
 // real reader screen (screens/reader/) on purpose — this is that screen's config, scoped inside
 // screens/config/.
 export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
-  const { colors } = useTheme();
-  const chrome = useMemo(() => makeChrome(colors), [colors]);
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, text } = useTheme();
+  const chrome = useStyles(makeChrome);
+  const styles = useMemo(() => readerStyles({ colors, text }), [colors, text]);
   const t = useStrings();
   const { prefs, update } = useReaderPrefs();
 

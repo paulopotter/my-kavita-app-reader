@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { ServerGroupInfo } from '../../../../../shared/bridge';
 import type { Strings } from '../../../../../shared/i18n';
-import { useTheme } from '../../../../../shared/theme';
+import { useTheme, useStyles } from '../../../../../shared/context';
 import { Select } from '../../../components/select';
-import { makeStyles } from './group-modal.styles';
+import { groupModalStyles } from './group-modal.styles';
 
 // Add / edit a notification group (a :notifications group, ntfy provider only for now — no
 // provider picker like config/server has, since there's only the one). `servers` is the Kavita
@@ -37,7 +37,7 @@ export function GroupModal({
   onClose,
 }: GroupModalProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(groupModalStyles);
   const [name, setName] = useState(initialName);
   const [topic, setTopic] = useState(initialTopic);
   const [linkedServerGroupId, setLinkedServerGroupId] = useState<string | undefined>(

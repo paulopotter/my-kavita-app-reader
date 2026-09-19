@@ -1,8 +1,5 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../theme';
+export const listStyles = createStyles(({ colors, text }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -14,7 +11,7 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     thumb: { width: 52, height: 74, flexShrink: 0 },
     info: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
-    name: { color: colors.text.title.primary, fontSize: 14, fontWeight: '600', marginBottom: 4 },
+    name: { color: colors.text.title.primary, fontSize: text.size[3], fontWeight: text.weight.bold, marginBottom: 4 },
     progressBar: {
       height: 4,
       backgroundColor: colors.surface.tertiary,
@@ -32,8 +29,8 @@ export const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    meta: { color: colors.text.secondary, fontSize: 12, marginBottom: 2 },
-    chapters: { color: colors.text.secondary, fontSize: 11 },
+    meta: { color: colors.text.secondary, fontSize: text.size[2], marginBottom: 2 },
+    chapters: { color: colors.text.secondary, fontSize: text.size[2] },
     starBtn: { paddingHorizontal: 12 },
-  });
+}));
 

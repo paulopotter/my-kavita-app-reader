@@ -1,9 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const readerThinProgressBarStyles = createStyles(({ colors, alpha }) => ({
     // Thin, gold, translucent — anchored to the right edge, inset 10% top and bottom.
     track: {
       position: 'absolute',
@@ -16,5 +12,5 @@ export const makeStyles = (colors: ThemeColors) =>
       overflow: 'visible',
     },
     fill: { width: 3, backgroundColor: colors.progress.reading.primary },
-  });
+}));
 

@@ -1,10 +1,7 @@
 import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
+import { createStyles } from '../../../../shared/theme';
 // Verbatim from ConfigScreen's langSwitchRow/langOption/langTrack/langThumb block.
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const languageToggleStyles = createStyles(({ colors, text, alpha }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -16,7 +13,7 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     option: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
     optionActive: { backgroundColor: colors.button.selected },
-    optionTxt: { color: colors.text.secondary, fontSize: 13, fontWeight: '600' },
+    optionTxt: { color: colors.text.secondary, fontSize: text.size[3], fontWeight: text.weight.bold },
     optionTxtActive: { color: colors.text.emphasis },
     track: {
       width: 40,
@@ -30,5 +27,5 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     thumb: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.button.primary, alignSelf: 'flex-start' },
     thumbRight: { alignSelf: 'flex-end' },
-  });
+}));
 

@@ -3,11 +3,12 @@ import { BackHandler, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n';
-import { useTheme, type ThemeName } from '../../shared/theme';
+import { type ThemeName } from '../../shared/theme';
+import { useTheme } from '../../shared/context';
 import { Select } from './components/select';
 import { LanguageToggle } from './components/language-toggle';
 import { useConfigLanguage, useConfigMenu } from './config.hooks';
-import { makeStyles } from './config.styles';
+import { configStyles } from './config.styles';
 import type { ConfigScreenProps, ConfigSubScreen } from './config.types';
 import { DebugScreen } from './debug';
 import { NotificationsScreen } from './notifications';
@@ -57,8 +58,8 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }) {
-  const { colors, themeName, available, setTheme } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, text, themeName, available, setTheme } = useTheme();
+  const styles = useMemo(() => configStyles({ colors, text }), [colors, text]);
   const t = useStrings();
   const { language, changeLanguage } = useConfigLanguage();
   const { debugUnlocked, unlockDebug } = useConfigMenu();

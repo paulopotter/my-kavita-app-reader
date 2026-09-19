@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { makeStyles } from './selection-bottom-bar.styles';
+import { selectionBottomBarStyles } from './selection-bottom-bar.styles';
 
-import { useTheme } from '../../theme';
+import { useTheme } from '../../context';
+import { useStyles } from '../../context';
 
 const ICON_SIZE = 22;
 
@@ -25,7 +26,7 @@ interface Props {
 // shape only; a screen's hook owns what each action actually does.
 export function SelectionBottomBar({ actions }: Props) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(selectionBottomBarStyles);
   return (
     <View style={styles.root}>
       {actions.map(({ key, icon: Icon, label, onPress }) => (

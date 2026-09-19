@@ -1,8 +1,8 @@
-// The theme's public surface.
-//
-// `colors` is the active theme's palette (see `themes/index.ts`), typed by `ThemeColors`; `alpha`
-// applies an opacity level to one of its tokens. Nothing else paints a colour in this app.
+// Design tokens and the rules for using them. Which identity is *active* is state, and lives in
+// `shared/context/theme`.
+
 export * from './colors.types';
-export { alpha } from './alpha';
+export { ColorTool } from './tools/color.tool';
+export { createStyles, type StyleContext } from './tools/styles.tool';
+export { text, MAX_FONT_SCALE, type TextTokens } from './typography';
 export * from './themes';
-export { ThemeProvider, useTheme, type ThemeState } from './theme.context';

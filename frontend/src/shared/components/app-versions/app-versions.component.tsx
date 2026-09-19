@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { AppVersions as Versions, OtaModule } from '../../../native';
 import { Strings } from '../../i18n';
-import { makeStyles } from './app-versions.styles';
-import { useTheme } from '../../theme';
+import { appVersionsStyles } from './app-versions.styles';
+import { useStyles } from '../../context';
 
 interface Props {
   t: Strings;
@@ -17,8 +17,7 @@ const DEBUG_UNLOCK_TAPS = 5;
 // dumb component: nothing upstream has the version strings and there's no state worth lifting.
 // Tapping the "app" column DEBUG_UNLOCK_TAPS times fires onDebugUnlocked (Config only).
 export function AppVersions({ t, onDebugUnlocked }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(appVersionsStyles);
   const [versions, setVersions] = useState<Versions | null>(null);
   const tapCount = useRef(0);
 
@@ -48,8 +47,7 @@ export function AppVersions({ t, onDebugUnlocked }: Props) {
 }
 
 function VersionCol({ label, value }: { label: string; value: string }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(appVersionsStyles);
   return (
     <View style={styles.col}>
       <Text style={styles.label}>{label}</Text>

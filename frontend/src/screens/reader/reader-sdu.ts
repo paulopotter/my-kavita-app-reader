@@ -1,5 +1,5 @@
 import { PixelRatio } from 'react-native';
-import { colors } from '../../shared/theme';
+import { colors, text } from '../../shared/theme';
 
 // Server-Driven UI: describes non-page reader content (what used to be fixed Header/Footer/Gap
 // Kotlin Composables) as plain data RN sends over the bridge — see
@@ -57,7 +57,7 @@ export function buildFirstNode(chapterTitle: string, hasGapAbove: boolean): SduN
     type: 'container',
     backgroundColor: HEADER_FOOTER_BG,
     paddingPx: dpToPx(HEADER_PADDING_DP),
-    children: [{ type: 'text', text: chapterTitle, color: WHITE, fontSize: 20, bold: true, maxLines: 2 }],
+    children: [{ type: 'text', text: chapterTitle, color: WHITE, fontSize: text.size[6], bold: true, maxLines: 2 }],
   };
   if (!hasGapAbove) {return header;}
   return { type: 'container', children: [gapNode(), header] };
@@ -81,8 +81,8 @@ export function buildLastNode(
     backgroundColor: HEADER_FOOTER_BG,
     paddingPx: dpToPx(FOOTER_PADDING_DP),
     children: [
-      { type: 'text', text: `${endOfChapterLabel} `, color: MUTED, fontSize: 14 },
-      { type: 'text', text: chapterNumber, color: WHITE, fontSize: 13, bold: true },
+      { type: 'text', text: `${endOfChapterLabel} `, color: MUTED, fontSize: text.size[3] },
+      { type: 'text', text: chapterNumber, color: WHITE, fontSize: text.size[3], bold: true },
     ],
   };
 }

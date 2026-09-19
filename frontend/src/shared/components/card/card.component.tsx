@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { FollowStar } from '../follow-star';
-import { makeStyles } from './card.styles';
-import { useTheme } from '../../theme';
+import { cardStyles } from './card.styles';
+import { useTheme } from '../../context';
+import { useStyles } from '../../context';
 
 // Dumb component: primitives + callbacks + render only. All labels are computed in the hook /
 // SerieTool and passed in as strings — this component holds no i18n and no domain logic.
@@ -39,7 +40,7 @@ export const Card = React.memo(function Card({
   onPress,
 }: CardProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(cardStyles);
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(id)} activeOpacity={0.8}>
       <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />

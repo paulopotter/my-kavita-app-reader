@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -21,11 +21,11 @@ import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button'
 import { SelectionBottomBar } from '../../shared/components/selection-bottom-bar';
 import { ChapterListItem, ChapterSortFields, Header, sortModeLabel } from './components';
 import { useSerie } from './hooks';
-import { makeStyles } from './serie.styles';
+import { serieStyles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
 import { ChapterTool } from '../../shared/tools/chapters';
 import type { ChapterSortMode } from './serie.types';
-import { useTheme } from '../../shared/theme';
+import { useTheme, useStyles } from '../../shared/context';
 
 type RouteParams = {
   Serie: { seriesId: string; origin?: NavOrigin };
@@ -36,7 +36,7 @@ type RouteParams = {
 // visibility, scroll-to-top button), neither of which useSerie needs to know about.
 export function SerieScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(serieStyles);
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<RouteParams, 'Serie'>>();
   const { seriesId, origin } = route.params ?? {};

@@ -1,9 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../../../shared/theme';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const readerOfflineBannerStyles = createStyles(({ colors, text, alpha }) => ({
     root: {
       position: 'absolute',
       bottom: 8,
@@ -15,6 +11,6 @@ export const makeStyles = (colors: ThemeColors) =>
       backgroundColor: alpha(colors.banner.alert, 0.9),
       alignItems: 'center',
     },
-    text: { color: colors.text.emphasis, fontSize: 13, fontWeight: '600' },
-  });
+    text: { color: colors.text.emphasis, fontSize: text.size[3], fontWeight: text.weight.bold },
+}));
 

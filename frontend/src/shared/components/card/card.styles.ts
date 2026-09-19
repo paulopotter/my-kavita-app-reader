@@ -1,9 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../theme';
-import type { ThemeColors } from '../../theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../theme';
+export const cardStyles = createStyles(({ colors, text, alpha }) => ({
     card: {
       flex: 1,
       margin: 6,
@@ -40,10 +36,10 @@ export const makeStyles = (colors: ThemeColors) =>
     // so every card's progress bar/badges/etc. start at the same y regardless of title length.
     name: {
       color: colors.text.emphasis,
-      fontSize: 12,
+      fontSize: text.size[2],
       lineHeight: 15,
       height: 30,
-      fontWeight: '600',
+      fontWeight: text.weight.bold,
       marginBottom: 6,
     },
     progressBar: {
@@ -66,7 +62,7 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     progressText: {
       color: colors.text.secondary,
-      fontSize: 10,
+      fontSize: text.size[1],
     },
     // Fixed height (one badge row's worth) reserved whether or not this card actually has a badge
     // to show — an entry with neither publicationLabel nor errorsLabel would otherwise render a
@@ -85,8 +81,8 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     badgeText: {
       color: colors.text.emphasis,
-      fontSize: 9,
-      fontWeight: '600',
+      fontSize: text.size[1],
+      fontWeight: text.weight.bold,
     },
     badgePub: { backgroundColor: colors.badge.special },
     badgeError: { backgroundColor: colors.badge.error },
@@ -94,8 +90,8 @@ export const makeStyles = (colors: ThemeColors) =>
     // downloadedLabel) still takes up this line's space.
     chapters: {
       color: colors.text.secondary,
-      fontSize: 10,
+      fontSize: text.size[1],
       height: 13,
     },
-  });
+}));
 

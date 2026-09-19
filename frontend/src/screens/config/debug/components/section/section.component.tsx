@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Circle } from 'lucide-react-native';
 import type { SmokeTestStep } from '../../debug.steps';
-import { makeStyles } from './section.styles';
-import { useTheme } from '../../../../../shared/theme';
+import { sectionStyles } from './section.styles';
+import { useTheme, useStyles } from '../../../../../shared/context';
 
 // One smoke-test section: a title, an optional editable id field, a Run button, and the result
 // list. Dumb — it holds only its own running/results state and calls props.onRun(). The Config
@@ -19,7 +19,7 @@ export interface SectionProps {
 
 export function Section({ title, idLabel, idValue, onIdChange, disabled, onRun }: SectionProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(sectionStyles);
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<SmokeTestStep[]>([]);
 

@@ -3,9 +3,10 @@ import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { ProviderInfo } from '../../../../shared/bridge';
 import type { Strings } from '../../../../shared/i18n';
-import { useTheme } from '../../../../shared/theme';
+
+import { useTheme, useStyles } from '../../../../shared/context';
 import { UrlTool } from '../../../../shared/tools/url';
-import { makeStyles } from './modal.styles';
+import { modalStyles } from './modal.styles';
 
 // Shared shape for a provider's credential values, keyed by ProviderCredentialField.name — used
 // by both config/server and config/notifications (whichever provider's group this modal is
@@ -44,8 +45,8 @@ export function ServerModal({
   onSubmit,
   onClose,
 }: ServerModalProps) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors, text } = useTheme();
+  const styles = useStyles(modalStyles);
   const provider = providers.find(p => p.id === providerId) ?? providers[0];
   const fields = useMemo(() => provider?.credentialFields ?? [], [provider]);
 
@@ -75,7 +76,7 @@ export function ServerModal({
 
           <Text style={styles.label}>{t.serverModalProviderLabel}</Text>
           <View style={[styles.input, styles.inputDisabled]}>
-            <Text style={{ color: colors.text.emphasis, fontSize: 13 }}>{provider?.displayName ?? '—'}</Text>
+            <Text style={{ color: colors.text.emphasis, fontSize: text.size[3] }}>{provider?.displayName ?? '—'}</Text>
           </View>
 
           <Text style={styles.label}>{t.serverModalNameLabel}</Text>

@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { FollowStar } from '../../follow-star';
-import { makeStyles } from './list.styles';
-import { useTheme } from '../../../theme';
+import { listStyles } from './list.styles';
+import { useTheme } from '../../../context';
+import { useStyles } from '../../../context';
 
 // Dumb component: primitives + callbacks + render only.
 export interface CardListProps {
@@ -32,7 +33,7 @@ export const CardList = React.memo(function CardList({
   onPress,
 }: CardListProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(listStyles);
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(id)} activeOpacity={0.8}>
       <Image source={{ uri: coverUrl }} style={styles.thumb} resizeMode="cover" />

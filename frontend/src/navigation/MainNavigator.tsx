@@ -11,7 +11,8 @@ import { SearchScreen } from '../screens/search';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
 import { NotificationsService } from '../shared/services/notifications';
-import { alpha, useTheme } from '../shared/theme';
+import { ColorTool } from '../shared/theme';
+import { useTheme } from '../shared/context';
 
 // Whether notifications are enabled right now (the real Android channel's own state — see Plan
 // 008 README Decision 10) — read straight from the shared Service, re-checked whenever the app
@@ -37,7 +38,6 @@ function useNotificationsEnabled(): boolean {
 
 const Tab = createBottomTabNavigator();
 
-
 // Extracted to avoid react/no-unstable-nested-components lint warning.
 function ConfigTab({
   onRegisterBackHandler,
@@ -55,11 +55,11 @@ function ConfigTab({
 }
 
 export function MainNavigator() {
-  const { colors } = useTheme();
+  const { colors, text } = useTheme();
   const BG = colors.surface.secondary;
   const BORDER = colors.border.primary;
   const ACTIVE = colors.icon.button.secondary;
-  const INACTIVE = alpha(colors.text.secondary, 0.45);
+  const INACTIVE = ColorTool.add.alpha(colors.text.secondary, 0.45);
   const { refresh, hasFollowedSeries } = useStartup();
   const strings = useStrings();
   const navigation = useNavigation<any>();
@@ -92,7 +92,7 @@ export function MainNavigator() {
         },
         tabBarActiveTintColor: ACTIVE,
         tabBarInactiveTintColor: INACTIVE,
-        tabBarLabelStyle: { fontSize: 11 },
+        tabBarLabelStyle: { fontSize: text.size[2] },
       }}
     >
       {/* Following and Library are the same component; the `mode` route param is the only

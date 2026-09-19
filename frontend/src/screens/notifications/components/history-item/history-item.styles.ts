@@ -1,8 +1,6 @@
 import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const historyItemStyles = createStyles(({ colors, text }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -22,14 +20,14 @@ export const makeStyles = (colors: ThemeColors) =>
     thumb: { width: 36, height: 51, borderRadius: 4, marginRight: 12, flexShrink: 0 },
     thumbPlaceholder: { backgroundColor: colors.surface.tertiary },
     body: { flex: 1 },
-    seriesName: { color: colors.text.title.primary, fontSize: 14, fontWeight: '600' },
-    seriesNameRead: { color: colors.text.secondary, fontWeight: '400' },
-    bodyText: { color: colors.text.secondary, fontSize: 13, marginTop: 2 },
-    timestamp: { color: colors.text.secondary, fontSize: 11, marginTop: 4 },
+    seriesName: { color: colors.text.title.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
+    seriesNameRead: { color: colors.text.secondary, fontWeight: text.weight.regular },
+    bodyText: { color: colors.text.secondary, fontSize: text.size[3], marginTop: 2 },
+    timestamp: { color: colors.text.secondary, fontSize: text.size[2], marginTop: 4 },
     // Reserved even in selection mode (opacity 0, not removed — see HistoryItem's own doc) so the
     // row's available text width never changes when entering/exiting selection mode.
     trailingActions: { flexDirection: 'row' },
     trailingActionsHidden: { opacity: 0 },
     iconBtn: { paddingHorizontal: 8, paddingVertical: 4, marginLeft: 4 },
-  });
+}));
 

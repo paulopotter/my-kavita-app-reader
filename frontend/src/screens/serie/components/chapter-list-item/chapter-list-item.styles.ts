@@ -1,8 +1,5 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const chapterListItemStyles = createStyles(({ colors, text }) => ({
     root: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -25,8 +22,8 @@ export const makeStyles = (colors: ThemeColors) =>
       backgroundColor: colors.button.selected,
       borderColor: colors.border.checkbox.on,
     },
-    title: { color: colors.text.title.primary, fontSize: 14, marginLeft: 8, flex: 1 },
+    title: { color: colors.text.title.primary, fontSize: text.size[3], marginLeft: 8, flex: 1 },
     titleRead: { color: colors.text.secondary },
-    titleSelected: { color: colors.text.title.primary, fontWeight: '600' },
-  });
+    titleSelected: { color: colors.text.title.primary, fontWeight: text.weight.bold },
+}));
 

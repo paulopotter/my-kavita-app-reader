@@ -1,8 +1,5 @@
-import { StyleSheet } from 'react-native';
-import type { ThemeColors } from '../../../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../../../shared/theme';
+export const searchInputStyles = createStyles(({ colors, text }) => ({
     root: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -20,8 +17,8 @@ export const makeStyles = (colors: ThemeColors) =>
     input: {
       flex: 1,
       color: colors.text.emphasis,
-      fontSize: 15,
+      fontSize: text.size[3],
       padding: 0,
     },
-  });
+}));
 

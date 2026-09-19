@@ -1,6 +1,6 @@
 import React from 'react';
 import { Star } from 'lucide-react-native';
-import { useTheme } from '../../theme';
+import { useTheme } from '../../context';
 
 // A filled/hollow star for the "following" state. Dumb — the parent owns whether it's active and
 // what happens on press; this only renders the glyph. `color`/`activeColor` default to the theme

@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { themes, defaultThemeName, type ThemeColors } from '../../shared/theme';
-
+import { createStyles, themes, defaultThemeName } from '../../shared/theme';
 // Re-exported for the screen (which sets the RN root/container bg). Deliberately the DEFAULT
 // theme's surface, not the active one: it has to match @color/splash_background, which is compiled
 // into the APK and painted before any code runs, so it cannot follow the user's choice. Making it
@@ -13,8 +12,7 @@ export const BG = themes[defaultThemeName].surface.primary;
 // (it read smaller before — the old RN splash used 180).
 const LOGO_SIZE = 192;
 
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const splashStyles = createStyles(({ colors, text }) => ({
     container: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.surface.primary,
@@ -47,8 +45,8 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     updateButtonText: {
       color: colors.text.emphasis,
-      fontWeight: '600',
-      fontSize: 14,
+      fontWeight: text.weight.bold,
+      fontSize: text.size[3],
     },
-  });
+}));
 

@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { TextInput, TouchableOpacity, View } from 'react-native';
 import { Search, X } from 'lucide-react-native';
-import { makeStyles } from './search-input.styles';
-import { alpha, useTheme } from '../../../../shared/theme';
+import { searchInputStyles } from './search-input.styles';
+import { ColorTool } from '../../../../shared/theme';
+import { useTheme, useStyles } from '../../../../shared/context';
 
 // Dumb component: primitives + callbacks + render only. Holds no i18n (the placeholder and the
 // clear button's label arrive as strings) and no filtering logic.
@@ -15,7 +16,7 @@ export interface SearchInputProps {
 
 export function SearchInput({ value, placeholder, clearAccessibilityLabel, onChange }: SearchInputProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(searchInputStyles);
   return (
     <View style={styles.root}>
       <Search size={18} color={colors.icon.secondary} />
@@ -24,7 +25,7 @@ export function SearchInput({ value, placeholder, clearAccessibilityLabel, onCha
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={alpha(colors.text.input.placeholder, 0.4)}
+        placeholderTextColor={ColorTool.add.alpha(colors.text.input.placeholder, 0.4)}
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"

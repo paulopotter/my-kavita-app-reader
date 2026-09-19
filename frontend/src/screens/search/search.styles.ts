@@ -1,13 +1,9 @@
-import { StyleSheet } from 'react-native';
-import { alpha } from '../../shared/theme';
-import type { ThemeColors } from '../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../shared/theme';
+export const searchStyles = createStyles(({ colors, text, alpha }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-    message: { color: alpha(colors.text.secondary, 0.6), fontSize: 14, textAlign: 'center', marginTop: 12 },
-    errorText: { color: colors.text.link.primary, fontSize: 14, textAlign: 'center' },
+    message: { color: alpha(colors.text.secondary, 0.6), fontSize: text.size[3], textAlign: 'center', marginTop: 12 },
+    errorText: { color: colors.text.link.primary, fontSize: text.size[3], textAlign: 'center' },
     retryButton: {
       marginTop: 16,
       paddingHorizontal: 20,
@@ -15,11 +11,11 @@ export const makeStyles = (colors: ThemeColors) =>
       borderRadius: 8,
       backgroundColor: colors.button.primary,
     },
-    retryText: { color: colors.text.button.primary, fontSize: 14, fontWeight: '600' },
+    retryText: { color: colors.text.button.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
     sectionTitle: {
       color: alpha(colors.text.secondary, 0.45),
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: text.size[2],
+      fontWeight: text.weight.bold,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
       marginHorizontal: 16,
@@ -28,7 +24,7 @@ export const makeStyles = (colors: ThemeColors) =>
     },
     resultCount: {
       color: alpha(colors.text.secondary, 0.45),
-      fontSize: 12,
+      fontSize: text.size[2],
       marginHorizontal: 16,
       marginBottom: 8,
     },
@@ -36,5 +32,5 @@ export const makeStyles = (colors: ThemeColors) =>
     historyRow: { flexDirection: 'row', alignItems: 'center' },
     historyCard: { flex: 1 },
     historyDelete: { paddingHorizontal: 16, paddingVertical: 12 },
-  });
+}));
 

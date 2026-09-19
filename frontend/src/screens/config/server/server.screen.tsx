@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import type { ServerGroupInfo, ServerUrlInfo } from '../../../shared/bridge';
 import { useStrings } from '../../../shared/i18n';
-import { makeStyles as makeChrome } from '../config.styles';
+
 import { BackChevron, GroupCard, ServerModal, UrlModal } from '../components';
 import {
   useMetadataServer,
@@ -11,8 +11,9 @@ import {
   type UseMetadataServerResult,
   type UseServerResult,
 } from './server.hooks';
-import { makeStyles } from './server.styles';
-import { useTheme } from '../../../shared/theme';
+import { serverStyles } from './server.styles';
+import { useTheme, useStyles } from '../../../shared/context';
+import { configStyles as makeChrome } from '../config.styles';
 
 // Server management: the server itself + a section for a metadata server. Reached two ways:
 //  - Config menu (onBack) → "manage" mode, back chevron.
@@ -25,9 +26,9 @@ export interface ServerScreenProps {
 }
 
 export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScreenProps) {
-  const { colors: palette } = useTheme();
-  const chrome = useMemo(() => makeChrome(palette), [palette]);
-  const styles = useMemo(() => makeStyles(palette), [palette]);
+  const { colors: palette, text } = useTheme();
+  const chrome = useStyles(makeChrome);
+  const styles = useMemo(() => serverStyles({ colors: palette, text }), [palette, text]);
   const t = useStrings();
   const server = useServer({ onServerCleared });
   const metadata = useMetadataServer();
@@ -105,9 +106,8 @@ function ServerSection({
   link?: { servers: ServerGroupInfo[]; urlsOf: (id: string) => Promise<ServerUrlInfo[]> };
   urlSubline?: (urlId: string) => string | undefined;
 }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const chrome = useMemo(() => makeChrome(colors), [colors]);
+  const styles = useStyles(serverStyles);
+  const chrome = useStyles(makeChrome);
   const t = useStrings();
 
   const [serverModal, setServerModal] = useState<{ mode: 'add' | 'edit' } | null>(null);

@@ -38,7 +38,7 @@ jest.mock('../../shared/components/app-versions', () => ({
 }));
 
 import { getStrings } from '../../shared/i18n/strings';
-import { ThemeProvider } from '../../shared/theme';
+import { ThemeProvider } from '../../shared/context';
 import { useConfigLanguage, useConfigMenu } from './config.hooks';
 import { ConfigScreen } from './config.screen';
 

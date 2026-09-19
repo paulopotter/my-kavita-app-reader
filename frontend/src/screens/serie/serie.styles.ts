@@ -1,9 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { alpha } from '../../shared/theme';
-import type { ThemeColors } from '../../shared/theme';
-
-export const makeStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+import { createStyles } from '../../shared/theme';
+export const serieStyles = createStyles(({ colors, text, alpha }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
     center: {
       flex: 1,
@@ -12,10 +9,10 @@ export const makeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       padding: 24,
     },
-    message: { color: colors.text.secondary, fontSize: 16, marginTop: 12, textAlign: 'center' },
-    errorText: { color: colors.text.message.bad, fontSize: 16, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
+    message: { color: colors.text.secondary, fontSize: text.size[4], marginTop: 12, textAlign: 'center' },
+    errorText: { color: colors.text.message.bad, fontSize: text.size[4], fontWeight: text.weight.bold, marginBottom: 20, textAlign: 'center' },
     retryButton: { backgroundColor: colors.button.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-    retryText: { color: colors.text.button.primary, fontWeight: '600' },
+    retryText: { color: colors.text.button.primary, fontWeight: text.weight.bold },
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -39,9 +36,9 @@ export const makeStyles = (colors: ThemeColors) =>
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.primary,
     },
-    chapterCount: { color: colors.text.secondary, fontSize: 12 },
+    chapterCount: { color: colors.text.secondary, fontSize: text.size[2] },
     sortToggle: { paddingHorizontal: 4, paddingVertical: 4 },
-    sortToggleText: { color: colors.text.link.primary, fontSize: 13, fontWeight: '600' },
+    sortToggleText: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
 
     // ── sort config modal (was chapter-sort-config-modal.styles.ts — folded into the screen) ──
     sortModalBackdrop: {
@@ -59,15 +56,15 @@ export const makeStyles = (colors: ThemeColors) =>
       width: '100%',
       gap: 12,
     },
-    sortModalTitle: { color: colors.text.title.primary, fontSize: 17, fontWeight: '700' },
-    sortModalOverrideNote: { color: alpha(colors.text.secondary, 0.6), fontSize: 12, lineHeight: 16 },
+    sortModalTitle: { color: colors.text.title.primary, fontSize: text.size[5], fontWeight: text.weight.bold },
+    sortModalOverrideNote: { color: alpha(colors.text.secondary, 0.6), fontSize: text.size[2], lineHeight: 16 },
     sortModalResetBtn: { alignSelf: 'flex-start', paddingVertical: 4 },
-    sortModalResetText: { color: colors.text.link.primary, fontSize: 13, fontWeight: '600' },
+    sortModalResetText: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
     sortModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 4 },
     sortModalBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, minWidth: 80, alignItems: 'center' },
     sortModalBtnPrimary: { backgroundColor: colors.button.primary },
     sortModalBtnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: alpha(colors.border.secondary, 0.2) },
-    sortModalBtnLabelPrimary: { color: colors.text.button.primary, fontSize: 14, fontWeight: '600' },
-    sortModalBtnLabelSecondary: { color: alpha(colors.text.button.secondary, 0.8), fontSize: 14, fontWeight: '600' },
-  });
+    sortModalBtnLabelPrimary: { color: colors.text.button.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
+    sortModalBtnLabelSecondary: { color: alpha(colors.text.button.secondary, 0.8), fontSize: text.size[3], fontWeight: text.weight.bold },
+}));
 

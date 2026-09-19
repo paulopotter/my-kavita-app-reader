@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { Strings } from '../../../../shared/i18n';
 import type { ChapterSortMode } from '../../serie.types';
-import { makeStyles } from './chapter-sort.styles';
-import { alpha, useTheme } from '../../../../shared/theme';
+import { chapterSortStyles } from './chapter-sort.styles';
+import { ColorTool } from '../../../../shared/theme';
+import { useTheme, useStyles } from '../../../../shared/context';
 
 const MODES: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 'AUTO_PROGRESS'];
 
@@ -59,7 +60,7 @@ export interface ChapterSortFieldsProps {
 
 export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, onChange }: ChapterSortFieldsProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(chapterSortStyles);
   const [selectedMode, setSelectedMode] = useState<ChapterSortMode>(mode);
   const [thresholdText, setThresholdText] = useState(String(fixedThreshold ?? ''));
   const [progressText, setProgressText] = useState(String(progressPercent));
@@ -108,7 +109,7 @@ export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, on
                   value={thresholdText}
                   onChangeText={handleThresholdChange}
                   keyboardType="numeric"
-                  placeholderTextColor={alpha(colors.text.input.placeholder, 0.4)}
+                  placeholderTextColor={ColorTool.add.alpha(colors.text.input.placeholder, 0.4)}
                 />
                 <Text style={styles.fieldHint}>{t.seriesDetailSortConfigFixedThresholdHint}</Text>
               </View>
@@ -122,7 +123,7 @@ export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, on
                   value={progressText}
                   onChangeText={handleProgressChange}
                   keyboardType="numeric"
-                  placeholderTextColor={alpha(colors.text.input.placeholder, 0.4)}
+                  placeholderTextColor={ColorTool.add.alpha(colors.text.input.placeholder, 0.4)}
                 />
                 <Text style={styles.fieldHint}>{t.seriesDetailSortConfigProgressPercentHint}</Text>
               </View>

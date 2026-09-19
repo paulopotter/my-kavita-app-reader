@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,9 +10,9 @@ import { Routes } from '../../navigation/routes';
 import { SerieTool, type SerialCard } from '../../shared/tools/serials';
 import { SearchInput } from './components';
 import { useSearch } from './hooks';
-import { makeStyles } from './search.styles';
+import { searchStyles } from './search.styles';
 import type { SearchHistoryRow } from './search.types';
-import { useTheme } from '../../shared/theme';
+import { useTheme, useStyles } from '../../shared/context';
 
 // How many rows matched, as a finished string. One form per count so a language can word the
 // singular differently rather than appending an "s".
@@ -24,7 +24,7 @@ function resultCountLabel(count: number, t: Strings): string {
 // and the delete confirmation all live in useSearch; the screen owns navigation alone.
 export function SearchScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const styles = useStyles(searchStyles);
   const t = useStrings();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const {
