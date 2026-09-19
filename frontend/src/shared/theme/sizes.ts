@@ -66,20 +66,6 @@ export const icon = {
     8: 26,
     9: 28,
   },
-
-  // A glyph is drawn inside its box, not edge to edge: how much of the box stays empty is a
-  // property of the drawing. Lucide's chevron is a narrow V — `m15 18-6-6 6-6` spans x=9..15 of a
-  // 24 viewBox, leaving 9 units on each side — while a Search or a filled Circle fills nearly all
-  // of it. Discounting that empty margin is what lines the STROKE up with the gutter; without it
-  // the box lands on the gutter and the glyph reads as pushed further in.
-  //
-  // Expressed as a fraction of the rendered size, so it holds at any step: slack(28) = 10.5.
-  slack: {
-    /** A chevron or an arrow: a thin stroke with wide margins. */
-    wide: (size: number): number => Math.round(size * (9 / 24)),
-    /** A glyph that fills its box — a filled circle, a solid star. Nothing to discount. */
-    none: (): number => 0,
-  },
 } as const;
 
 export type Icon = typeof icon;
