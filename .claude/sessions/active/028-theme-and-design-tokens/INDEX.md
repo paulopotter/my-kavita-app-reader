@@ -8,12 +8,12 @@ non-goals, and the open questions each task is blocked on.
 | [001](001-semantic-taxonomy.md) | Semantic taxonomy + written application rules for every token | — | **done** |
 | [002](002-opacity-as-a-separate-axis.md) | Opacity as a separate axis — scale, mechanic, and the end of `whiteNN`/`overlay*` | 001 | **done** |
 | [003](003-typography-scale-and-family.md) | Typography module — size tokens as multipliers, weight, and the font-family token | 001 | pending |
-| [004](004-spacing-and-radius-tokens.md) | Spacing & radius tokens — the step-of-4 scale and its punctures | — | pending |
+| [004](004-spacing-and-radius-tokens.md) | Spacing & radius tokens — the step-of-4 scale and its punctures | — | partial (odd values normalised; tokens pending) |
 | [005](005-eslint-no-color-literals.md) | ESLint `no-restricted-syntax` rule against colour literals | 001, 002, 004 | **done** |
-| [006](006-theme-provider-and-use-theme.md) | `ThemeProvider` + `useTheme()` + `makeStyles(theme)` migration | 001, 002, 003, 004 | pending |
-| [007](007-theme-persistence.md) | Persistence via `:preferences` + resolution at boot/splash | 006 | pending |
+| [006](006-theme-provider-and-use-theme.md) | `ThemeProvider` + `useTheme()` + `makeStyles(theme)` migration | 001, 002, 003, 004 | **done** |
+| [007](007-theme-persistence.md) | Persistence via `:preferences` + resolution at boot/splash | 006 | **done** |
 | [008](008-kotlin-reader-colours-and-i18n.md) | Kotlin: `ReaderPageList` takes colours from RN + i18n for its pt-BR strings | 003, 006 | pending |
-| [009](009-theme-config-screen.md) | `config/theme/` — the theme picker | 007 | pending |
+| [009](009-theme-config-screen.md) | `config/theme/` — the theme picker | 007 | **done** (as a select in Settings, not a sub-screen) |
 | [010](010-app-identity-colour.md) | **Penultimate:** the app's identity colour (Android resources, splash, sync process) | 007 | pending |
 | [011](011-three-additional-themes.md) | **Last:** three additional themes, palettes proposed and approved during the task | 010 | pending |
 
