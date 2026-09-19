@@ -5,7 +5,7 @@
 | Plan | Description |
 |------|-------------|
 | [024 — Storage Footprint & Resource Hygiene](active/024-storage-footprint/README.md) | 5 tasks — pending. Novo módulo `:storage` (Layer 2) para medir e recuperar espaço: medição real por fonte (páginas Coil / cache Room / resto) antes de escolher números, teto de cache configurável pelo usuário substituindo o `READER_DISK_CACHE_MAX_BYTES` fixo de 500 MB, purga do `:cache` (que já existe e nunca é chamada) ligada na splash, e tela `config/storage/` com uso por fonte + limpeza manual. Sem job periódico, sem `WorkManager`, sem telemetria |
-| [028 — Theme & Design Tokens](active/028-theme-and-design-tokens/README.md) | 11 tasks — 6 concluídas (+1 parcial). Toda cor do app vem do tema ativo: contrato tipado em `colors.types.ts`, registry de temas, `ThemeProvider`/`useTheme()` e `alpha()` como eixo separado (o tipo `RgbColor` torna token-com-alfa erro de compilação). O `colors.ts` legado morreu, os `*.styles.ts` viraram `makeStyles(colors)` e a troca de tema repinta na hora — validado no device com um segundo tema (Petróleo). Falta: tipografia (003), tokenizar espaçamento/raio (004), o Kotlin do reader (008), a cor de identidade do app (010) e os 3 temas finais (011) |
+| [028 — Theme & Design Tokens](active/028-theme-and-design-tokens/README.md) | 11 tasks — 7 concluídas (+1 parcial). Cor e tipografia vêm de tokens: contrato tipado, `ThemeProvider`/`useTheme()` com troca em runtime, `createStyles` injetando tokens e `alpha` nos estilos, e uma regra de lint que recusa literal de cor ou de fonte. Validado no device com um segundo tema. Falta: tokenizar espaçamento/raio (004), o Kotlin do reader (008), a cor de identidade do app (010) e os 3 temas finais (011) |
 
 ## Concluídos
 
