@@ -10,6 +10,32 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Frontend
+
+- feat: 12 temas de cor, todos escuros, com a troca aplicada na hora — quatro deles em versão
+  OLED, de fundo preto real
+- refactor: todo valor de design passa a vir de token — cor, tipo, altura de linha, espaçamento,
+  raio, borda e tamanho de ícone — injetados nos estilos e com lint recusando literais
+- feat: a escolha de tema fica guardada entre sessões, e o seletor mostra uma amostra da cor de
+  cada um antes de vesti-lo
+- feat: toda tela abre com o mesmo respiro nas bordas, e o leitor segue sendo a exceção que
+  desenha de ponta a ponta
+- fix: o histórico da busca mostra o progresso real de cada série, em vez da barra sempre zerada
+- fix: as setas de voltar alinham pelo traço do ícone, não pela caixa em volta dele
+- fix: a mensagem de conexão e a sub-linha de URL vinculada usam ícones de verdade, e passam a
+  seguir o tema e o idioma
+- feat: gerador de tema por linha de comando, que escreve os tokens a partir de duas cores, se
+  registra sozinho e desenha uma amostra do resultado
+
+### Backend
+
+- feat: o aviso de página que falhou no leitor segue o tema e o idioma do app, em vez de cor e
+  texto fixos
+- feat: a interface dirigida por dados do leitor ganha indicador de carregamento, área tocável e
+  substituição de texto, o que permite descrever esses avisos inteiramente do lado do app
+- feat: o ícone na gaveta, a splash do sistema e a cor da notificação passam a espelhar a
+  identidade do app
+
 ## [[2026.09.18.2140](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.18.2140)] - 2026-09-18
 
 Agora você pode buscar mangás ignorando acentos, gerenciar seu histórico de pesquisas e ver o status de favorito atualizado em tempo real. / Now you can search for mangas ignoring accents, manage your search history, and see real-time updated favorite statuses.
