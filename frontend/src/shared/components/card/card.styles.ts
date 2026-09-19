@@ -72,7 +72,7 @@ export const cardStyles = createStyles(({ colors, text, line, spacing, radius, a
       flexWrap: 'wrap',
       gap: spacing[2],
       marginBottom: spacing[2],
-      height: 18,
+      height: line.height[4],
     },
     badge: {
       paddingHorizontal: spacing[3],
@@ -91,7 +91,7 @@ export const cardStyles = createStyles(({ colors, text, line, spacing, radius, a
     chapters: {
       color: colors.text.secondary,
       fontSize: text.size[1],
-      height: 13,
+      height: line.height[1],
     },
 }));
 

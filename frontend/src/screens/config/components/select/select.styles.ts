@@ -1,7 +1,7 @@
 import { createStyles } from '../../../../shared/theme';
 // A tap-to-open single-choice select. The trigger shows the current value; the sheet lists every
 // option one per row. Used where a chip row would get unreadable (e.g. many URLs).
-export const selectStyles = createStyles(({ colors, text, spacing, radius, alpha }) => ({
+export const selectStyles = createStyles(({ colors, text, spacing, radius, alpha, border }) => ({
     trigger: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -22,6 +22,6 @@ export const selectStyles = createStyles(({ colors, text, spacing, radius, alpha
     optionActive: { backgroundColor: colors.surface.tertiary },
     optionTxt: { color: colors.text.emphasis, fontSize: text.size[3] },
     optionTxtActive: { color: colors.text.link.primary, fontWeight: text.weight.bold },
-    divider: { height: 0.5, backgroundColor: colors.surface.tertiary },
+    divider: { height: border.small, backgroundColor: colors.surface.tertiary },
 }));
 

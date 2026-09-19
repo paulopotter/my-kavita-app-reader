@@ -66,7 +66,7 @@ export const serverStyles = createStyles(({ colors, text, spacing, radius, borde
     menuItem: { padding: spacing[6], alignItems: 'center' },
     menuItemTxt: { color: colors.text.emphasis, fontSize: text.size[3] },
     menuItemDanger: { color: colors.text.message.bad },
-    menuDivider: { height: 1, backgroundColor: colors.surface.tertiary },
+    menuDivider: { height: border.small, backgroundColor: colors.surface.tertiary },
 
     // onboarding CTA (setup mode only)
     goBtn: {

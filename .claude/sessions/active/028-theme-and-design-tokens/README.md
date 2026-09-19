@@ -346,6 +346,18 @@ it.
   specific component's own measurement.** Task 004 may make two justified exceptions: touch targets
   (44/48, an accessibility concern) and icon dimensions.
 
+  Two rules the user added while Task 004 was being verified on the device:
+
+  - **A measurement is even, and it is the sum of what it holds** — not a box the content is
+    squeezed into. When the children add up to 77, the box becomes 78; it does not become 74 with
+    the padding shaved to fit. Worked example in `CardList`.
+  - **`icon.size` is deferred, and one value is already waiting for it.** A glyph is drawn in the
+    middle of its box, so an icon button has invisible slack that has to be discounted for the
+    stroke — not the box — to land on the gutter. `back-chevron.styles.ts` holds that value as a
+    local `GLYPH_SLACK`, marked with a TODO: it is a property of the glyph, not a spacing choice, so
+    it moves to `icon.size` when that scale is created and every icon button reads it from there
+    instead of redeclaring it.
+
 - **No new font is bundled.** Decision 4b prepares the family axis; it does not exercise it. Out of
   scope, explicitly: font files in assets, registration via `react-native.config.js` / the Android
   assets path, per-weight fallback when a family lacks one of the four weights in use
