@@ -141,3 +141,65 @@ the proposed scale gates only the final landing, not the work.
 - Everything lives under `shared/theme/`; no screen defines a step.
 - A method with an argument takes one named object, never positional arguments (CLAUDE.md).
 - Tests sit beside the file; naming follows `name.type.ext`.
+
+---
+
+## Result — done
+
+The task delivered its own scope and then grew well past it, because each slice verified on the
+device exposed something the previous one had been hiding. That is recorded here as it happened,
+not as if it had been planned.
+
+### What the task set out to do
+
+`sizes.ts` with three scales — `spacing` numbered (base 8, nine steps), `radius` and `border`
+named, since a corner and a line have a vocabulary that already reads well. `radius.full` is an
+instruction rather than a step; `border.small` is `StyleSheet.hairlineWidth`, which a literal 0.5
+gets wrong on some densities. All three are injected by `createStyles`, so no style file imports
+them. The ESLint `SIZE_LITERAL` rule was extended to cover them.
+
+### What the user added during verification
+
+- **`gutter`** (`spacing[6]` = 16) — every screen opens with the same inset and nothing inside
+  repeats it. It landed correctly on the vertical without extra work: `App.tsx` already pads by the
+  status-bar inset, so a screen's gutter starts below the notification bar. The Reader opts out by
+  omission, the same exception it already made for that inset.
+- **`line.height`** — its own numbered scale rather than a ratio applied to a size, because the
+  same size wants a tighter line in a packed bar than in a paragraph. RN's `lineHeight` is absolute
+  (a number is dp, never a multiplier as in CSS), so the scale holds resolved values.
+- **A measurement is even, and it is the sum of what it holds** — not a box the content is squeezed
+  into. `CardList`'s row is the worked example: it became 78, rather than 74 with the padding
+  shaved to fit.
+- **`icon.size`** — numbered 12..28 in steps of two, unused rungs kept so a size added later lands
+  on a step that already exists. `dot` is the one named entry: a filled circle standing in for a
+  status light is not a glyph.
+
+### What verification found, that nobody had set out to fix
+
+- **Settings had three insets living side by side** (20 in the menu, 16 in the sub-containers, 8 in
+  the header), which is why a bordered card looked misaligned.
+- **The search history never showed progress.** The catalogue was already loaded on that screen —
+  the same call the Library makes — but the history rows were built only from what had been
+  persisted. Fixed by crossing with the catalogue when it is there, keeping the fallback so a row
+  still renders while it loads or fails.
+- **Three back arrows were misaligned, each patched differently.** A Lucide glyph is drawn inside a
+  24-unit box and none of them fill it (a chevron leaves 9 units each side, an arrow 5, a circle 2),
+  so putting the *box* on the gutter leaves the *stroke* short of it. `IconButton` now owns that
+  correction for all three, with the slack measured from each glyph's path.
+- **Characters were doing an icon's job.** `✓`/`✗` lived inside the translated strings, so they
+  could take no colour from the theme and every language carried the symbol again; `↳` was built by
+  the caller in a template string. All three became real icons.
+
+### Verification
+
+`tsc --noEmit` clean, ESLint 0 errors (5 pre-existing warnings), 99 suites / 1281 tests passing.
+Verified on the real device across rc15…rc25; the user approved the result.
+
+Versions: `1.3.0-rc15` → `1.3.0-rc25` (APK), `1.2.0-rc15` → `1.2.0-rc25` (bundle).
+
+### Left for later
+
+- `Settings2` in the series top bar is labelled `glyph="arrow"` without that glyph having been
+  measured. It carries no `alignStroke`, so nothing depends on it today, but the label is imprecise.
+- `icon.slack.none` was written with no call site and removed; `GLYPH_INSET` in
+  `icon-button.glyphs.ts` is the surviving home for per-glyph measurements.

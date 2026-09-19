@@ -5,7 +5,7 @@
 | Plan | Description |
 |------|-------------|
 | [024 — Storage Footprint & Resource Hygiene](active/024-storage-footprint/README.md) | 5 tasks — pending. Novo módulo `:storage` (Layer 2) para medir e recuperar espaço: medição real por fonte (páginas Coil / cache Room / resto) antes de escolher números, teto de cache configurável pelo usuário substituindo o `READER_DISK_CACHE_MAX_BYTES` fixo de 500 MB, purga do `:cache` (que já existe e nunca é chamada) ligada na splash, e tela `config/storage/` com uso por fonte + limpeza manual. Sem job periódico, sem `WorkManager`, sem telemetria |
-| [028 — Theme & Design Tokens](active/028-theme-and-design-tokens/README.md) | 11 tasks — 7 concluídas (+1 parcial). Cor e tipografia vêm de tokens: contrato tipado, `ThemeProvider`/`useTheme()` com troca em runtime, `createStyles` injetando tokens e `alpha` nos estilos, e uma regra de lint que recusa literal de cor ou de fonte. Validado no device com um segundo tema. Falta: tokenizar espaçamento/raio (004), o Kotlin do reader (008), a cor de identidade do app (010) e os 3 temas finais (011) |
+| [028 — Theme & Design Tokens](active/028-theme-and-design-tokens/README.md) | 11 tasks — 8 concluídas. Cor, tipografia e tamanho vêm de tokens: contrato tipado, `ThemeProvider`/`useTheme()` com troca em runtime, `createStyles` injetando tokens e `alpha` nos estilos, espaçamento/raio/borda/gutter/altura de linha/tamanho de ícone em escalas próprias, e uma regra de lint que recusa literal de cor, de fonte ou de tamanho. Validado no device com um segundo tema. Falta: o Kotlin do reader (008), a cor de identidade do app (010) e os 3 temas finais (011) |
 
 ## Concluídos
 

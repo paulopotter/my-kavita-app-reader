@@ -8,7 +8,7 @@ non-goals, and the open questions each task is blocked on.
 | [001](001-semantic-taxonomy.md) | Semantic taxonomy + written application rules for every token | — | **done** |
 | [002](002-opacity-as-a-separate-axis.md) | Opacity as a separate axis — scale, mechanic, and the end of `whiteNN`/`overlay*` | 001 | **done** |
 | [003](003-typography-scale-and-family.md) | Typography module — size tokens as multipliers, weight, and the font-family token | 001 | **done** |
-| [004](004-spacing-and-radius-tokens.md) | Spacing & radius tokens — the step-of-4 scale and its punctures | — | partial (odd values normalised; tokens pending) |
+| [004](004-spacing-and-radius-tokens.md) | Sizing tokens — spacing, radius, border, gutter, line height and icon size | — | **done** |
 | [005](005-eslint-no-color-literals.md) | ESLint `no-restricted-syntax` rule against colour literals | 001, 002, 004 | **done** |
 | [006](006-theme-provider-and-use-theme.md) | `ThemeProvider` + `useTheme()` + `makeStyles(theme)` migration | 001, 002, 003, 004 | **done** |
 | [007](007-theme-persistence.md) | Persistence via `:preferences` + resolution at boot/splash | 006 | **done** |
