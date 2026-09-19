@@ -22,7 +22,7 @@ export function SearchInput({ value, placeholder, clearAccessibilityLabel, onCha
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={alpha(colors.text.input.placeholder, 0.35)}
+        placeholderTextColor={alpha(colors.text.input.placeholder, 0.4)}
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"

@@ -52,11 +52,25 @@ resulting alphas should reproduce them.
 enters its public surface. Describe the mechanic, the level names and the full migration mapping in
 text, get approval, then edit code.
 
+## How it actually landed
+
+The mechanic is `alpha(token, level)` in `shared/theme/alpha.ts`, and the levels are **plain
+numbers at the call site** — not the named scale this task proposed. The user rejected naming them:
+a level called `border` is a second word for an alpha, and the indirection buys nothing when the
+number is already right there in the component that owns the decision.
+
+Two things came out stronger than planned. Tokens are written `rgb(r, g, b)` and typed `RgbColor`,
+so **a token carrying an alpha is a compile error** rather than a convention. And the scrims did not
+need deciding separately: `surface.dim` is one colour, and 0.5 vs 0.72 is the level, which is
+exactly what treating opacity as an axis means.
+
+The levels were then consolidated 23 → 12, folding the pairs no eye separates (0.75 → 0.72,
+0.55/0.6 → 0.5 for scrims, 0.72 → 0.8 for secondary labels, 0.35 → 0.4 for placeholders).
+
 ## Blocked on
 
-**README open question 1** — how many levels the scale has, and whether scrims share it. Four
-distinct foreground roles plus two scrims are visible in the evidence; whether the scale is 4, 6 or 8
-steps is a decision, not a measurement.
+~~README open question 1~~ — answered by the shape above: there is no named scale to size, and the
+scrims share `surface.dim` with the level applied per call site.
 
 ## Files to create
 

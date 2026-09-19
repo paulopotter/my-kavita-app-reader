@@ -9,8 +9,8 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stale: { backgroundColor: alpha(colors.banner.notice, 0.16) },
-  offline: { backgroundColor: alpha(colors.banner.alert, 0.24) },
-  confirmed: { backgroundColor: alpha(colors.banner.good, 0.2) },
+  offline: { backgroundColor: alpha(colors.banner.alert, 0.16) },
+  confirmed: { backgroundColor: alpha(colors.banner.good, 0.16) },
   text: {
     fontSize: 11,
     fontWeight: '600',

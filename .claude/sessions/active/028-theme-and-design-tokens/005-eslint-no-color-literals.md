@@ -39,6 +39,22 @@ If a version is adopted, it must be **narrowly scoped to the properties that hav
 `padding*`, `margin*`, `gap`, `borderRadius` — never to numbers in general. Justify whichever way it
 goes.
 
+## How it actually landed
+
+`no-restricted-syntax` in `frontend/.eslintrc.js`, matching `#RGB`…`#RRGGBBAA` and
+`rgb()`/`rgba()`/`hsl()`/`hsla()` on the literal's raw text, with two `overrides`: `src/shared/theme/**`,
+where colours belong, and test files.
+
+Exempting whole test files — rather than an inline disable on the `follow-star.tests.tsx` line —
+was deliberate: a colour in a test is an assertion value, and the next test that needs one would
+otherwise have to repeat the disable.
+
+**Spacing/radius are not covered**, for the reason this task anticipated: legitimate numeric
+literals survive Task 004 (every fixed width/height), so a numeric rule would cry wolf and get
+switched off, taking the colour protection with it.
+
+Verified both ways: the rule passes clean on the current tree, and flags a freshly added literal.
+
 ## Blocked on
 
 Nothing. The colour decisions it enforces are already made; the spacing question above is settled

@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 6,
     borderTopLeftRadius: 4,
     borderBottomLeftRadius: 4,
-    backgroundColor: alpha(colors.surface.dim, 0.55),
+    backgroundColor: alpha(colors.surface.dim, 0.5),
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,

@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
     alignItems: 'stretch',
     paddingBottom: 8,
     paddingHorizontal: 16,
-    backgroundColor: alpha(colors.surface.dim, 0.6),
+    backgroundColor: alpha(colors.surface.dim, 0.5),
   },
   backButton: {
     justifyContent: 'center',

@@ -45,7 +45,13 @@ outline:{ borderColor: alpha(colors.border.secondary, 0.2) },
 ```
 
 This is enforced, not merely agreed: the `RgbColor` type rejects `rgba(...)` and hex alike, so a
-token carrying an alpha is a compile error.
+token carrying an alpha is a compile error. Levels are plain numbers — a named scale would just be
+a second word for the same thing — but they are shared: before inventing one, look at what the app
+already uses (0.5 and 0.72 for scrims, 0.2 for a secondary outline, 0.4 for a placeholder).
+
+An ESLint rule (`no-restricted-syntax` in `frontend/.eslintrc.js`) fails the build on any colour
+literal outside `shared/theme/`. Test files are exempt: a colour in a test is an assertion value,
+not a UI colour.
 
 ## How a token is named
 

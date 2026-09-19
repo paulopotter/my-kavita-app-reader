@@ -1,3 +1,14 @@
+// A string shaped like a colour: #RGB / #RRGGBB / #RRGGBBAA / #AARRGGBB, or an rgb()/hsl()
+// function call. Matched on the literal's raw text, so it catches both quote styles.
+const COLOUR_LITERAL =
+  ':matches(Literal[raw=/^[\'"]#[0-9a-fA-F]{3,8}[\'"]$/], Literal[raw=/^[\'"](rgba?|hsla?)\\(/])';
+
+const COLOUR_MESSAGE =
+  'No colour literals. Every colour comes from the active theme — import { colors } from ' +
+  "'shared/theme' and use a token (colors.text.primary, colors.surface.secondary, …). " +
+  'For a translucent one, apply the level at the call site: alpha(colors.surface.dim, 0.5). ' +
+  'See docs/contributing/theme/README.md.';
+
 module.exports = {
   root: true,
   extends: '@react-native',
@@ -6,5 +17,22 @@ module.exports = {
     // eslint-plugin-react crashes with minimatch v9 when evaluating render props;
     // disable until the plugin is updated to support minimatch v9.
     'react/no-unstable-nested-components': 'off',
+    // Keeps the palette the single source of colour. Without this, a stray literal is merely
+    // untidy today and a real bug once themes switch at runtime: it would not repaint.
+    'no-restricted-syntax': ['error', { selector: COLOUR_LITERAL, message: COLOUR_MESSAGE }],
   },
+  overrides: [
+    {
+      // Where colours are supposed to live.
+      files: ['src/shared/theme/**'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      // A colour in a test is an assertion value, not a UI colour — follow-star.tests.tsx passes
+      // '#123456' to prove the `activeColor` prop is honoured, and a token would defeat the test
+      // by matching the default. Exempting the files beats an inline disable on each one.
+      files: ['**/*.tests.ts', '**/*.tests.tsx', '**/__tests__/**'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+  ],
 };

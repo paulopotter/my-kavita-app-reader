@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   message: {
-    color: alpha(colors.text.button.secondary, 0.72),
+    color: alpha(colors.text.button.secondary, 0.8),
     fontSize: 14,
     lineHeight: 21,
   },
