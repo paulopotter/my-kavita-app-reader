@@ -1,37 +1,35 @@
-import { StyleSheet } from 'react-native';
 import { createStyles } from '../../shared/theme';
-export const notificationsStyles = createStyles(({ colors, text }) => ({
+export const notificationsStyles = createStyles(({ colors, text, line, spacing, border, gutter }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
-    center: { flex: 1, backgroundColor: colors.surface.primary, justifyContent: 'center', alignItems: 'center', padding: 24 },
+    center: { flex: 1, backgroundColor: colors.surface.primary, justifyContent: 'center', alignItems: 'center', padding: spacing[8] },
     message: { color: colors.text.secondary, fontSize: text.size[4], textAlign: 'center' },
 
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: gutter,
+      paddingVertical: spacing[5],
+      borderBottomWidth: border.small,
       borderBottomColor: colors.border.primary,
     },
-    // Same lineHeight as selectionCount below (both fontSize 13) — topBar and selectionTopBar
-    // share identical paddingVertical, so keeping every text inside them at the same lineHeight is
-    // what keeps the header's own total height from shifting by a couple px when entering/exiting
-    // selection mode.
-    totalCount: { color: colors.text.secondary, fontSize: text.size[3], lineHeight: 18, fontWeight: text.weight.bold },
-    markAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-    markAllTxt: { color: colors.text.link.primary, fontSize: text.size[3], lineHeight: 18, fontWeight: text.weight.bold },
+    // Every text in both bars shares one line height: the bars have identical paddingVertical, so
+    // this is what keeps the header's total height from shifting when entering/exiting selection
+    // mode.
+    totalCount: { color: colors.text.secondary, fontSize: text.size[3], lineHeight: line.height[4], fontWeight: text.weight.bold },
+    markAllBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+    markAllTxt: { color: colors.text.link.primary, fontSize: text.size[3], lineHeight: line.height[4], fontWeight: text.weight.bold },
     selectionTopBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: gutter,
+      paddingVertical: spacing[5],
+      borderBottomWidth: border.small,
       borderBottomColor: colors.border.primary,
       backgroundColor: colors.surface.tertiary,
     },
-    selectionCount: { color: colors.text.title.primary, fontSize: text.size[3], lineHeight: 18, fontWeight: text.weight.bold },
-    selectionCancelTxt: { color: colors.text.link.primary, fontSize: text.size[3], lineHeight: 18, fontWeight: text.weight.bold },
+    selectionCount: { color: colors.text.title.primary, fontSize: text.size[3], lineHeight: line.height[4], fontWeight: text.weight.bold },
+    selectionCancelTxt: { color: colors.text.link.primary, fontSize: text.size[3], lineHeight: line.height[4], fontWeight: text.weight.bold },
 }));
 

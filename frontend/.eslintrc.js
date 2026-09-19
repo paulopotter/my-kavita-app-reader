@@ -18,6 +18,17 @@ const TYPE_MESSAGE =
   "'shared/theme' and pick a step (text.size[3], text.size.title['x-large']) or a weight " +
   '(text.weight.bold). See docs/contributing/theme/README.md.';
 
+// padding / margin / gap / borderRadius / borderWidth written as a literal. Zero is allowed: it
+// means "none", not a step. Fixed width/height stay out — those are a component's own measurement,
+// not a scale, and flagging them would make the rule cry wolf.
+const SIZE_LITERAL =
+  "Property[key.name=/^(padding|paddingTop|paddingBottom|paddingLeft|paddingRight|paddingHorizontal|paddingVertical|margin|marginTop|marginBottom|marginLeft|marginRight|marginHorizontal|marginVertical|gap|rowGap|columnGap|borderRadius|borderWidth|borderTopWidth|borderBottomWidth|borderLeftWidth|borderRightWidth|lineHeight)$/] > Literal[value!=0][raw=/^[0-9.]+$/]";
+
+const SIZE_MESSAGE =
+  'No spacing, radius, border-width or line-height literals. Use a token — import { spacing, ' +
+  "radius, border, line } from 'shared/theme', or take them from createStyles: spacing[4], " +
+  'radius.medium, border.small, line.height[4]. See docs/contributing/theme/README.md.';
+
 module.exports = {
   root: true,
   extends: '@react-native',
@@ -32,6 +43,7 @@ module.exports = {
       'error',
       { selector: COLOUR_LITERAL, message: COLOUR_MESSAGE },
       { selector: TYPE_LITERAL, message: TYPE_MESSAGE },
+      { selector: SIZE_LITERAL, message: SIZE_MESSAGE },
     ],
   },
   overrides: [

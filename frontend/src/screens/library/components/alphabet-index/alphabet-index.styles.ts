@@ -1,5 +1,5 @@
 import { createStyles } from '../../../../shared/theme';
-export const alphabetIndexStyles = createStyles(({ colors, text }) => ({
+export const alphabetIndexStyles = createStyles(({ colors, text, spacing }) => ({
     bar: {
       position: 'absolute',
       right: 0,
@@ -12,11 +12,11 @@ export const alphabetIndexStyles = createStyles(({ colors, text }) => ({
       borderBottomLeftRadius: 8,
     },
     scroll: { flexGrow: 0 },
-    content: { paddingVertical: 6 },
+    content: { paddingVertical: spacing[3] },
     item: {
       width: 36,
       alignItems: 'center',
-      paddingVertical: 4,
+      paddingVertical: spacing[2],
     },
     letter: {
       color: colors.text.link.primary,

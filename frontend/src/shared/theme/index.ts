@@ -4,5 +4,6 @@
 export * from './colors.types';
 export { ColorTool } from './tools/color.tool';
 export { createStyles, type StyleContext } from './tools/styles.tool';
-export { text, MAX_FONT_SCALE, type TextTokens } from './typography';
+export { text, line, MAX_FONT_SCALE, type TextTokens, type LineTokens } from './typography';
+export { spacing, radius, border, gutter, type Spacing, type Radius, type Border, type Gutter } from './sizes';
 export * from './themes';

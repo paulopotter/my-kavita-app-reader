@@ -1,5 +1,5 @@
 import { createStyles } from '../../../../shared/theme';
-export const readerThinProgressBarStyles = createStyles(({ colors, alpha }) => ({
+export const readerThinProgressBarStyles = createStyles(({ colors, radius, alpha }) => ({
     // Thin, gold, translucent — anchored to the right edge, inset 10% top and bottom.
     track: {
       position: 'absolute',
@@ -7,7 +7,7 @@ export const readerThinProgressBarStyles = createStyles(({ colors, alpha }) => (
       top: '10%',
       bottom: '10%',
       width: 3,
-      borderRadius: 2.5,
+      borderRadius: radius.full,
       backgroundColor: alpha(colors.progress.secondary, 0.15),
       overflow: 'visible',
     },

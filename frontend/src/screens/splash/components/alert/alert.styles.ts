@@ -1,19 +1,19 @@
 import { createStyles } from '../../../../shared/theme';
-export const alertStyles = createStyles(({ colors, text, alpha }) => ({
+export const alertStyles = createStyles(({ colors, text, line, spacing, radius, border, alpha }) => ({
     backdrop: {
       flex: 1,
       backgroundColor: alpha(colors.surface.dim, 0.72),
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: 28,
+      paddingHorizontal: spacing[8],
     },
     card: {
       backgroundColor: colors.surface.secondary,
-      borderRadius: 16,
-      paddingVertical: 24,
-      paddingHorizontal: 24,
+      borderRadius: radius.large,
+      paddingVertical: spacing[8],
+      paddingHorizontal: spacing[8],
       width: '100%',
-      gap: 12,
+      gap: spacing[5],
       shadowColor: colors.surface.dim,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.45,
@@ -29,19 +29,19 @@ export const alertStyles = createStyles(({ colors, text, alpha }) => ({
     message: {
       color: alpha(colors.text.button.secondary, 0.8),
       fontSize: text.size[3],
-      lineHeight: 21,
+      lineHeight: line.height[6],
     },
     actions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       flexWrap: 'wrap',
-      gap: 10,
-      marginTop: 4,
+      gap: spacing[4],
+      marginTop: spacing[2],
     },
     btn: {
-      paddingHorizontal: 18,
-      paddingVertical: 10,
-      borderRadius: 10,
+      paddingHorizontal: spacing[6],
+      paddingVertical: spacing[4],
+      borderRadius: radius.medium,
       minWidth: 80,
       alignItems: 'center',
     },
@@ -50,7 +50,7 @@ export const alertStyles = createStyles(({ colors, text, alpha }) => ({
     btnDestructive: { backgroundColor: colors.button.destructive },
     btnSecondary: {
       backgroundColor: 'transparent',
-      borderWidth: 1,
+      borderWidth: border.medium,
       borderColor: alpha(colors.border.secondary, 0.2),
     },
     btnLabel: { fontSize: text.size[3], fontWeight: text.weight.bold },

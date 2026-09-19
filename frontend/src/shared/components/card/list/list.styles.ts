@@ -1,36 +1,50 @@
 import { createStyles } from '../../../theme';
-export const listStyles = createStyles(({ colors, text }) => ({
+
+// The row's height is the sum of what it holds, rounded up to an even number — not a box the
+// content is squeezed into: 16 padding + 40 title (2 lines + margin) + 6 progress bar + 16 meta.
+const ROW_HEIGHT = 78;
+export const listStyles = createStyles(({ colors, text, line, spacing, radius }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
+      height: ROW_HEIGHT,
       backgroundColor: colors.surface.secondary,
-      borderRadius: 8,
-      marginHorizontal: 8,
-      marginVertical: 4,
+      borderRadius: radius.medium,
+      marginHorizontal: spacing[4],
+      marginVertical: spacing[2],
       overflow: 'hidden',
     },
-    thumb: { width: 52, height: 74, flexShrink: 0 },
-    info: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
-    name: { color: colors.text.title.primary, fontSize: text.size[3], fontWeight: text.weight.bold, marginBottom: 4 },
+    thumb: { width: 52, height: ROW_HEIGHT, flexShrink: 0 },
+    info: { flex: 1, paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
+    // Two lines always: reserved even for a one-line name, so the row's own height never depends
+    // on how long the title happens to be.
+    name: {
+      color: colors.text.title.primary,
+      fontSize: text.size[3],
+      lineHeight: line.height[4],
+      height: line.height[4] * 2,
+      fontWeight: text.weight.bold,
+      marginBottom: spacing[2],
+    },
     progressBar: {
       height: 4,
       backgroundColor: colors.surface.tertiary,
-      borderRadius: 2,
+      borderRadius: radius.full,
       overflow: 'hidden',
-      marginBottom: 2,
+      marginBottom: spacing[1],
     },
     progressFill: {
       height: '100%',
       backgroundColor: colors.button.primary,
-      borderRadius: 2,
+      borderRadius: radius.full,
     },
     metaLine: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    meta: { color: colors.text.secondary, fontSize: text.size[2], marginBottom: 2 },
+    meta: { color: colors.text.secondary, fontSize: text.size[2], lineHeight: line.height[3] },
     chapters: { color: colors.text.secondary, fontSize: text.size[2] },
-    starBtn: { paddingHorizontal: 12 },
+    starBtn: { paddingHorizontal: spacing[5] },
 }));
 

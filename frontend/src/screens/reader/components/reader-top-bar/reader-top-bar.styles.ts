@@ -6,7 +6,7 @@ import { Platform, StatusBar } from 'react-native';
 export const STATUS_BAR_GAP = 6;
 export const statusBarHeight = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
-export const readerTopBarStyles = createStyles(({ colors, text, alpha }) => ({
+export const readerTopBarStyles = createStyles(({ colors, text, spacing, alpha }) => ({
     root: {
       position: 'absolute',
       top: 0,
@@ -14,18 +14,18 @@ export const readerTopBarStyles = createStyles(({ colors, text, alpha }) => ({
       right: 0,
       flexDirection: 'row',
       alignItems: 'stretch',
-      paddingBottom: 8,
-      paddingHorizontal: 16,
+      paddingBottom: spacing[4],
+      paddingHorizontal: spacing[6],
       backgroundColor: alpha(colors.surface.dim, 0.5),
     },
     backButton: {
       justifyContent: 'center',
-      marginRight: 12,
+      marginRight: spacing[5],
     },
     titles: {
       flex: 1,
       justifyContent: 'space-between',
-      paddingTop: 4,
+      paddingTop: spacing[2],
     },
     seriesName: { color: colors.text.secondary, fontSize: text.size[2] },
     chapterTitle: { color: colors.text.title.primary, fontSize: text.size[5], fontWeight: text.weight.bold, alignSelf: 'flex-start' },

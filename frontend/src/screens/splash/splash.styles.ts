@@ -12,7 +12,7 @@ export const BG = themes[defaultThemeName].surface.primary;
 // (it read smaller before — the old RN splash used 180).
 const LOGO_SIZE = 192;
 
-export const splashStyles = createStyles(({ colors, text }) => ({
+export const splashStyles = createStyles(({ colors, text, spacing, radius }) => ({
     container: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.surface.primary,
@@ -31,17 +31,17 @@ export const splashStyles = createStyles(({ colors, text }) => ({
     },
     footer: {
       width: '100%',
-      paddingHorizontal: 32,
-      paddingBottom: 32,
+      paddingHorizontal: spacing[9],
+      paddingBottom: spacing[9],
       alignItems: 'center',
-      gap: 12,
+      gap: spacing[5],
     },
     updateButton: {
-      marginTop: 4,
-      paddingHorizontal: 20,
-      paddingVertical: 10,
+      marginTop: spacing[2],
+      paddingHorizontal: spacing[7],
+      paddingVertical: spacing[4],
       backgroundColor: colors.button.primary,
-      borderRadius: 8,
+      borderRadius: radius.medium,
     },
     updateButtonText: {
       color: colors.text.emphasis,

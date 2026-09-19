@@ -1,11 +1,10 @@
-import { StyleSheet } from 'react-native';
 import { createStyles } from '../../theme';
-export const appVersionsStyles = createStyles(({ colors, text, alpha }) => ({
+export const appVersionsStyles = createStyles(({ colors, text, spacing, border, alpha }) => ({
     row: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderTopWidth: StyleSheet.hairlineWidth,
+      paddingHorizontal: spacing[6],
+      paddingVertical: spacing[5],
+      borderTopWidth: border.small,
       borderTopColor: alpha(colors.border.secondary, 0.13),
     },
     col: {
@@ -16,7 +15,7 @@ export const appVersionsStyles = createStyles(({ colors, text, alpha }) => ({
       fontSize: text.size[1],
       color: alpha(colors.text.ghost, 0.27),
       textTransform: 'lowercase',
-      marginBottom: 2,
+      marginBottom: spacing[1],
     },
     value: {
       fontSize: text.size[1],

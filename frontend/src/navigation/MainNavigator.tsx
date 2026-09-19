@@ -11,7 +11,7 @@ import { SearchScreen } from '../screens/search';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
 import { NotificationsService } from '../shared/services/notifications';
-import { ColorTool } from '../shared/theme';
+import { ColorTool, border } from '../shared/theme';
 import { useTheme } from '../shared/context';
 
 // Whether notifications are enabled right now (the real Android channel's own state — see Plan
@@ -87,7 +87,7 @@ export function MainNavigator() {
         tabBarStyle: {
           backgroundColor: BG,
           borderTopColor: BORDER,
-          borderTopWidth: 1,
+          borderTopWidth: border.medium,
           height: 60,
         },
         tabBarActiveTintColor: ACTIVE,

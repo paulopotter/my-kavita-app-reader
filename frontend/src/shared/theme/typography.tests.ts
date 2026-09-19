@@ -1,5 +1,27 @@
-import { text, MAX_FONT_SCALE } from './typography';
+import { text, line, MAX_FONT_SCALE } from './typography';
 import { themes } from './themes';
+
+describe('line height scale', () => {
+  const steps = [1, 2, 3, 4, 5, 6, 7] as const;
+
+  it('renders every step as a whole pixel', () => {
+    for (const s of steps) {
+      expect(Number.isInteger(line.height[s])).toBe(true);
+    }
+  });
+
+  it('grows monotonically, with no two steps alike', () => {
+    const rendered = steps.map(s => line.height[s]);
+    expect(rendered).toEqual([...rendered].sort((a, b) => a - b));
+    expect(new Set(rendered).size).toBe(rendered.length);
+  });
+
+  // It is its own scale, not a ratio bound to a size: a size is paired with a height at the call
+  // site, so the two indexes are free to differ.
+  it('leaves room above the body size, so text in a packed bar still has air', () => {
+    expect(line.height[4]).toBeGreaterThan(text.size[3]);
+  });
+});
 
 describe('type scale', () => {
   const steps = [1, 2, 3, 4, 5, 6, 7] as const;

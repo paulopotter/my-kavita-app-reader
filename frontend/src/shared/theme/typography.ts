@@ -50,4 +50,21 @@ export const text = {
   },
 } as const;
 
+// Line height is its own scale, not a ratio applied to a size: the same size wants a different
+// height in a packed bar than it does in a paragraph, so the pairing is a call-site decision.
+// RN's lineHeight is absolute (a number here is dp, never a multiplier as in CSS), which is why
+// these are resolved values rather than the ratios they came from.
+export const line = {
+  height: {
+    1: step(0.75),
+    2: step(0.875),
+    3: step(1),
+    4: step(1.125),
+    5: step(1.25),
+    6: step(1.3125),
+    7: step(1.5),
+  },
+} as const;
+
 export type TextTokens = typeof text;
+export type LineTokens = typeof line;

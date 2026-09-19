@@ -9,6 +9,7 @@ frontend/src/shared/theme/
   colors.types.ts          the contract: what every colour MEANS
   alpha.ts                 applies an opacity level to a token
   typography.ts            the type scale, weights and family
+  sizes.ts                 spacing, the screen gutter, radius and border width
   themes/
     index.ts               the registry of identities
     default/
@@ -65,6 +66,75 @@ system font ships no semibold anyway — a 600 resolves to bold on Android.
 
 The device's font-size setting is applied by React Native itself; nothing here multiplies by it
 again. `MAX_FONT_SCALE` caps how far it may go.
+
+### Line height
+
+```ts
+name: { fontSize: text.size[3], lineHeight: line.height[4] },
+```
+
+`line.height` is its **own** numbered scale, not a ratio applied to a size: the same size wants a
+tighter line in a packed bar than it does in a paragraph, so which height goes with which size is a
+call-site decision, and the two indexes need not match.
+
+RN's `lineHeight` is absolute — a number there is dp, never a multiplier as in CSS — so the scale
+holds resolved values rather than the ratios they came from.
+
+## Spacing, radius and border
+
+```ts
+export const cardStyles = createStyles(({ spacing, radius, border }) => ({
+  card: { padding: spacing[5], borderRadius: radius.large, borderWidth: border.small },
+  avatar: { borderRadius: radius.full },
+}));
+```
+
+Ratios against a base of 8. Spacing is **numbered** — the same step serves a padding here and a gap
+there — while radius and border are **named**, because a corner and a line have a small vocabulary
+that already reads well. `radius.full` is not a step but an instruction: round it away entirely.
+
+`border.small` is `StyleSheet.hairlineWidth`, the thinnest line the screen can draw — a literal 0.5
+misses that on some densities.
+
+Unlike type, none of this answers to the device's font scale: doubling every padding would push
+content off the screen, which is why Android keeps `sp` for text and `dp` for layout.
+
+A **fixed width or height is not a token**. Those are a component's own measurement, not a step on
+a scale, so they stay literal and the lint rule leaves them alone.
+
+But a measurement is **even**, and it is the **sum of what it holds** — not a box the content is
+squeezed into. When the children add up to 77, the box becomes 78; it does not become 74 with the
+padding shaved to fit. `CardList`'s row is the worked example: 16 padding + 40 title + 6 progress
+bar + 16 meta = 78, and the cover is sized to the row rather than the row to the cover.
+
+## The screen gutter
+
+Every screen opens with the same inset, so nothing is ever drawn flush against the edge:
+
+```ts
+export const screenStyles = createStyles(({ gutter }) => ({
+  root: { paddingHorizontal: gutter },
+}));
+```
+
+`gutter` is one chosen spacing step (`spacing[6]`), not a scale of its own — it is a single value
+because the whole point is that every screen starts at the same place. Once a container carries it,
+nothing inside repeats it: a child that needs more space adds a spacing step **on top**, and one
+that needs none inherits it.
+
+Vertically it applies the same way, and lands correctly on its own — the app's root View already
+pads by the status-bar inset (`App.tsx`), so a screen's gutter starts below the notification bar
+rather than under it.
+
+Three cases opt out, each deliberately:
+
+- **The Reader** draws edge to edge, so it takes no gutter at all — the same exception it already
+  makes for the status-bar inset.
+- **A full-bleed row** (a list item with a selection background or a bottom border) keeps its own
+  `paddingHorizontal: gutter` instead, so the background reaches the edge while the text still
+  lines up with every other screen.
+- **A list of cards that carry their own margin** pads by the remainder (`gutter - spacing[3]`), so
+  the outer edge still lands on the gutter and the gap between two cards stays one step.
 
 ## Opacity
 

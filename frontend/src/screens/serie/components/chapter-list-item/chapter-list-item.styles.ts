@@ -1,10 +1,10 @@
 import { createStyles } from '../../../../shared/theme';
-export const chapterListItemStyles = createStyles(({ colors, text }) => ({
+export const chapterListItemStyles = createStyles(({ colors, text, spacing, radius, border, gutter }) => ({
     root: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 16,
+      paddingVertical: spacing[5],
+      paddingHorizontal: gutter,
       backgroundColor: colors.surface.secondary,
     },
     zebra: { backgroundColor: colors.surface.primary },
@@ -14,15 +14,15 @@ export const chapterListItemStyles = createStyles(({ colors, text }) => ({
     checkboxBox: {
       width: 18,
       height: 18,
-      borderRadius: 4,
-      borderWidth: 1,
+      borderRadius: radius.small,
+      borderWidth: border.medium,
       borderColor: colors.border.checkbox.off,
     },
     checkboxBoxChecked: {
       backgroundColor: colors.button.selected,
       borderColor: colors.border.checkbox.on,
     },
-    title: { color: colors.text.title.primary, fontSize: text.size[3], marginLeft: 8, flex: 1 },
+    title: { color: colors.text.title.primary, fontSize: text.size[3], marginLeft: spacing[4], flex: 1 },
     titleRead: { color: colors.text.secondary },
     titleSelected: { color: colors.text.title.primary, fontWeight: text.weight.bold },
 }));

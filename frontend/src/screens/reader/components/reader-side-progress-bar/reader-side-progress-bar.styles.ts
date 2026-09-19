@@ -6,7 +6,7 @@ export const DOT_SIZE = 6;
 // overflow keeps the minimum gap instead of squeezing dots below legible.
 export const DOT_GAP = DOT_SIZE / 2;
 
-export const readerSideProgressBarStyles = createStyles(({ colors, alpha }) => ({
+export const readerSideProgressBarStyles = createStyles(({ colors, spacing, radius, alpha }) => ({
     root: {
       position: 'absolute',
       right: 8,
@@ -28,9 +28,9 @@ export const readerSideProgressBarStyles = createStyles(({ colors, alpha }) => (
       justifyContent: 'space-evenly',
       alignItems: 'center',
       paddingVertical: DOT_GAP,
-      marginVertical: 4,
+      marginVertical: spacing[2],
       width: 28,
-      borderRadius: 14,
+      borderRadius: radius.full,
       backgroundColor: alpha(colors.surface.dim, 0.72),
     },
     dotTouchable: { alignItems: 'center', justifyContent: 'center' },
@@ -38,6 +38,6 @@ export const readerSideProgressBarStyles = createStyles(({ colors, alpha }) => (
     // Read page: same gold as the thin progress bar (#FFC107) at reduced opacity, to differ from
     // the active page without competing with its highlight.
     dotRead: { backgroundColor: alpha(colors.progress.reading.primary, 0.5) },
-    dotActive: { backgroundColor: colors.progress.reading.primary, width: 8, height: 8, borderRadius: 4 },
+    dotActive: { backgroundColor: colors.progress.reading.primary, width: 8, height: 8, borderRadius: radius.small },
 }));
 

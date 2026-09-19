@@ -1,9 +1,9 @@
 import { createStyles } from '../../../../shared/theme';
 
-export const freshnessBannerStyles = createStyles(({ colors, text, alpha }) => ({
+export const freshnessBannerStyles = createStyles(({ colors, text, spacing, alpha }) => ({
   strip: {
-    paddingVertical: 4,
-    paddingHorizontal: 14,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[5],
     alignItems: 'center',
     justifyContent: 'center',
   },

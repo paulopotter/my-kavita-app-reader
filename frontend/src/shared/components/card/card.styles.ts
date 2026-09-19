@@ -1,10 +1,10 @@
 import { createStyles } from '../../theme';
-export const cardStyles = createStyles(({ colors, text, alpha }) => ({
+export const cardStyles = createStyles(({ colors, text, line, spacing, radius, alpha }) => ({
     card: {
       flex: 1,
-      margin: 6,
+      margin: spacing[3],
       backgroundColor: colors.surface.secondary,
-      borderRadius: 8,
+      borderRadius: radius.medium,
       overflow: 'hidden',
     },
     // Bookmark-style: flush to right edge, 6dp from top, rounded on the left only.
@@ -12,10 +12,10 @@ export const cardStyles = createStyles(({ colors, text, alpha }) => ({
       position: 'absolute',
       top: 6,
       right: 0,
-      paddingLeft: 6,
-      paddingRight: 4,
-      paddingTop: 4,
-      paddingBottom: 6,
+      paddingLeft: spacing[3],
+      paddingRight: spacing[2],
+      paddingTop: spacing[2],
+      paddingBottom: spacing[3],
       borderTopLeftRadius: 4,
       borderBottomLeftRadius: 4,
       backgroundColor: alpha(colors.surface.dim, 0.5),
@@ -29,7 +29,7 @@ export const cardStyles = createStyles(({ colors, text, alpha }) => ({
       backgroundColor: colors.surface.tertiary,
     },
     info: {
-      padding: 8,
+      padding: spacing[4],
     },
     // lineHeight × 2 reserves the title's own space for 2 lines always — a 1-line title still
     // takes up the same height as a 2-line one (numberOfLines={2} ellipsizes anything past that),
@@ -37,28 +37,28 @@ export const cardStyles = createStyles(({ colors, text, alpha }) => ({
     name: {
       color: colors.text.emphasis,
       fontSize: text.size[2],
-      lineHeight: 15,
-      height: 30,
+      lineHeight: line.height[3],
+      height: line.height[3] * 2,
       fontWeight: text.weight.bold,
-      marginBottom: 6,
+      marginBottom: spacing[3],
     },
     progressBar: {
       height: 4,
       backgroundColor: colors.surface.tertiary,
-      borderRadius: 2,
+      borderRadius: radius.full,
       overflow: 'hidden',
-      marginBottom: 2,
+      marginBottom: spacing[1],
     },
     progressFill: {
       height: '100%',
       backgroundColor: colors.button.primary,
-      borderRadius: 2,
+      borderRadius: radius.full,
     },
     progressLine: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 4,
+      marginBottom: spacing[2],
     },
     progressText: {
       color: colors.text.secondary,
@@ -70,14 +70,14 @@ export const cardStyles = createStyles(({ colors, text, alpha }) => ({
     badges: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 4,
-      marginBottom: 4,
+      gap: spacing[2],
+      marginBottom: spacing[2],
       height: 18,
     },
     badge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
+      paddingHorizontal: spacing[3],
+      paddingVertical: spacing[1],
+      borderRadius: radius.small,
     },
     badgeText: {
       color: colors.text.emphasis,

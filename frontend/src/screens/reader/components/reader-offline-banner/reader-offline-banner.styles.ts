@@ -1,13 +1,13 @@
 import { createStyles } from '../../../../shared/theme';
-export const readerOfflineBannerStyles = createStyles(({ colors, text, alpha }) => ({
+export const readerOfflineBannerStyles = createStyles(({ colors, text, spacing, radius, alpha }) => ({
     root: {
       position: 'absolute',
       bottom: 8,
       left: 16,
       right: 16,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 8,
+      paddingVertical: spacing[4],
+      paddingHorizontal: spacing[6],
+      borderRadius: radius.medium,
       backgroundColor: alpha(colors.banner.alert, 0.9),
       alignItems: 'center',
     },
