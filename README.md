@@ -74,6 +74,16 @@ E o app é seu: em **ajustes** você conecta seus servidores e deixa o resto do
 seu jeito - a tela que não apaga no meio do capítulo, a ordem em que os
 capítulos aparecem, como os avisos chegam e o idioma (português e inglês).
 
+**Doze temas**, todos escuros, com a cor trocando na hora - sem reiniciar o
+app. Quatro deles têm uma versão **OLED**, de fundo preto de verdade: no
+celular com tela OLED o pixel preto fica apagado, o que dá contraste total e
+gasta menos bateria. Todos passam no contraste mínimo de leitura
+([AAA da WCAG](https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced)).
+
+![Os doze temas](docs/external/screenshots/themes.png)
+
+> Cada tema de perto: [veja a pasta](docs/external/screenshots/themes/).
+
 > As telas do app: splash, boas-vindas, biblioteca, seguindo, série, leitor,
 > busca, notificações e as páginas de ajustes.
 > [Veja todas](docs/external/screenshots/grid_preview.png).

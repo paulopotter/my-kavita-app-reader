@@ -39,9 +39,15 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
   identifiers
 - A feature is gated by missing config, never by an `if`
 - All UI text is translatable — never hardcode a string in one language
-- Every colour comes from the active theme (`colors.text.*` from `shared/theme`) — never a literal
-  in a component or `*.styles.ts`. Reuse an existing token before adding one; a new key means a
-  role the app did not have, and it goes in `colors.types.ts` (with its rule) plus every theme.
+- **Every design value comes from a token**, never a literal in a component or `*.styles.ts`:
+  colour (`colors.*`, from the active theme), type (`text.size` / `text.weight`), line height
+  (`line.height`), spacing, radius, border width, the screen `gutter`, and icon size
+  (`icon.size`). `createStyles` injects all of them; ESLint refuses the literals.
+  The one exception, for now, is a **component's own width/height** — a measurement belonging to
+  one component is not a step on a scale, so it stays literal. Even then it is **even** and is the
+  **sum of what it holds**, not a box the content is squeezed into.
+  Reuse an existing token before adding one; a new colour key means a role the app did not have,
+  and it goes in `colors.types.ts` (with its rule) plus every theme.
   How to → `docs/contributing/theme/README.md`
 - "Splash" = the RN one (`frontend/src/screens/splash/`). The native one is just the OS minimum
   — frozen

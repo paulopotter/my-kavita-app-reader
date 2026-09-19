@@ -72,6 +72,16 @@ And the app is yours: in **settings** you connect your servers and set up the
 rest your way - the screen that won't sleep mid-chapter, the order chapters
 appear in, how alerts reach you, and the language (Portuguese and English).
 
+**Twelve themes**, all dark, repainting as you pick one - no restart. Four of
+them have an **OLED** version with a true black floor: on an OLED screen a black
+pixel is switched off, which gives absolute contrast and costs no battery.
+Every one clears the reading contrast bar
+([WCAG AAA](https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced)).
+
+![The twelve themes](docs/external/screenshots/themes.png)
+
+> Each theme up close: [see the folder](docs/external/screenshots/themes/).
+
 > Every screen in the app: splash, welcome, library, following, series, reader,
 > search, notifications and the settings pages.
 > [See them all](docs/external/screenshots/grid_preview.png).

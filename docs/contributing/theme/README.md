@@ -224,14 +224,48 @@ red button. Red text with no fill behind it is `text.link.destructive`.
 
 ## Adding a theme
 
-1. `mkdir frontend/src/shared/theme/themes/<name>/`
-2. Write `colors.tokens.ts`, typed `ThemeColors`. TypeScript rejects a missing or extra field, so
-   the compiler tells you when a token is unfilled — you cannot ship a half-filled identity.
-3. Add `index.ts` with `export * from './colors.tokens';`
-4. Register it in `themes/index.ts`: import it, add it to `themes`, and point `activeTheme` at it
-   to try it out.
+```bash
+node scripts/generate-theme.js --name forest --bg 16,28,22 --accent 94,200,130 --oled
+```
+
+A theme is 64 tokens, but an identity is only a few decisions. Two colours are enough: the surface
+ladder is derived from the background, the supporting text is lightened until it clears the card,
+and the colour that reads *on* the accent is picked from black or white by measuring. Override any
+of them with a flag — `--text`, `--muted`, `--sheet`, `--good`, and so on; `node
+scripts/generate-theme.js` with no arguments prints the list.
+
+`--oled` adds a variant whose floor is real black. It lives in its parent's file as a spread that
+overrides the three surfaces, **not** as a theme of its own — so repainting the identity repaints
+both, and a variant can never drift from its parent. The whole surface ladder drops together:
+blackening only the background would widen the gap to the card, and the card would read as
+floating rather than sitting on the screen.
+
+The script also registers the theme in `themes/index.ts`. That list is the picker's order, and it
+is kept mechanical so a script can maintain it: **alphabetical by key, each OLED variant pinned
+directly under its parent**. By key and not by label, because the label is a translation — sorting
+on it would reshuffle the list when the language changes. `themes.tests.ts` holds the rule.
+
+What is left by hand is the display name, which is a translation and cannot be derived:
+
+1. `themeName<Name>` in both languages in `shared/i18n/strings.ts`;
+2. the same key in the label map in `config.screen.tsx`, and in `NAMES` in
+   `scripts/build-theme-cards.py`;
+3. `npx jest src/shared/theme` — the legibility bar lives there: body copy clears 7:1 (WCAG AAA)
+   against the screen and the card. Two identities predate that rule and are recorded as
+   exceptions rather than quietly excused.
 
 Nothing else changes. Screens read `colors`, never a theme by name.
+
+### Seeing it
+
+```bash
+python3 scripts/build-theme-cards.py
+```
+
+Draws one card per identity into `docs/external/screenshots/themes/` — the mock library screen in
+that palette, which is enough for its character to show. The colours are parsed out of the token
+files, so a theme repainted in code is repainted here on the next run and the images cannot drift
+from the app. `generate-theme.js` runs this for you once the theme is registered and named.
 
 ## Adding a token
 
