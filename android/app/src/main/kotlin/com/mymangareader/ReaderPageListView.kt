@@ -11,6 +11,7 @@ import com.facebook.react.bridge.ReactContext
 import com.facebook.react.uimanager.events.RCTEventEmitter
 import com.mymangareader.features.kavita.reader.ui.ChapterBlock
 import com.mymangareader.features.kavita.reader.ui.ReaderPageList
+import com.mymangareader.features.kavita.reader.ui.SduNode
 
 /**
  * Native scrollable page list for the reader screen, exposed to React Native via
@@ -28,6 +29,8 @@ class ReaderPageListView(
     private var currentBlocks by mutableStateOf<List<ChapterBlock>>(emptyList())
     private var currentScrollToChapterId by mutableStateOf<String?>(null)
     private var currentScrollToPageIndex by mutableStateOf<Int?>(null)
+    private var currentPageLoadingNode by mutableStateOf<SduNode?>(null)
+    private var currentPageErrorNode by mutableStateOf<SduNode?>(null)
 
     init {
         // RN can detach/reattach this View across re-renders of the host screen; the default
@@ -51,6 +54,16 @@ class ReaderPageListView(
         currentScrollToPageIndex = pageIndex
     }
 
+    // What a page draws while loading and when it fails. RN owns both so they follow the active
+    // theme and the app's language — see ReaderPageList for the fallback when they are absent.
+    fun setPageLoadingNode(node: SduNode?) {
+        currentPageLoadingNode = node
+    }
+
+    fun setPageErrorNode(node: SduNode?) {
+        currentPageErrorNode = node
+    }
+
     @androidx.compose.runtime.Composable
     override fun Content() {
         ReaderPageList(
@@ -60,6 +73,8 @@ class ReaderPageListView(
             onVisiblePageChanged = ::emitVisiblePageChanged,
             onScrollToChapterHandled = ::emitScrollToChapterHandled,
             onTap = ::emitTap,
+            pageLoadingNode = currentPageLoadingNode,
+            pageErrorNode = currentPageErrorNode,
         )
     }
 

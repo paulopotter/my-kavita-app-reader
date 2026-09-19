@@ -312,6 +312,24 @@ class ReaderPageListTest {
     }
 
     @Test
+    fun `errorCodeOrNull gives nothing for a network failure, so the message keeps its wording`() {
+        // A timeout or a reset is transient: retrying IS the answer, and a code adds nothing.
+        assertTrue(errorCodeOrNull(java.io.IOException("timeout")) == null)
+    }
+
+    @Test
+    fun `errorCodeOrNull gives a code for a decode failure, which is worth reporting`() {
+        assertTrue(errorCodeOrNull(IllegalArgumentException("bad bytes")) == "-1")
+    }
+
+    @Test
+    fun `the retry action name matches what RN puts in the node`() {
+        // reader-sdu.ts builds the pressable with action: 'retry'. A rename on either side has to
+        // break a test rather than silently stop the button working.
+        assertTrue(RETRY_ACTION == "retry")
+    }
+
+    @Test
     fun `pageErrorMessage appends an unknown error code for a non-network failure`() {
         assertTrue(
             pageErrorMessage(IllegalArgumentException("bad bytes")) == "Falha ao carregar página (-1)",

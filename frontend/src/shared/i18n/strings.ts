@@ -188,6 +188,10 @@ export interface Strings {
   readerLoading: string;
   readerError: string;
   readerRetry: string;
+  // A single page failing inside the reader — distinct from readerError, which is the whole
+  // chapter. The "…WithCode" variant carries {code} for a decode failure worth reporting.
+  readerPageError: string;
+  readerPageErrorWithCode: string;
   readerOffline: string;
   readerEndOfChapter: string;
   // Same message as readerEndOfChapter, but WITHOUT the {0} placeholder — the footer now renders
@@ -487,6 +491,8 @@ const ptBR: Strings = {
   readerLoading: 'Carregando...',
   readerError: 'Erro ao carregar o capítulo',
   readerRetry: 'Tentar novamente',
+  readerPageError: 'Falha ao carregar página',
+  readerPageErrorWithCode: 'Falha ao carregar página ({code})',
   readerOffline: 'Sem conexão',
   readerEndOfChapter: 'Fim do capítulo {0}',
   readerEndOfChapterPrefix: 'Fim do capítulo',
@@ -770,6 +776,8 @@ const en: Strings = {
   readerLoading: 'Loading...',
   readerError: 'Failed to load chapter',
   readerRetry: 'Retry',
+  readerPageError: 'Failed to load page',
+  readerPageErrorWithCode: 'Failed to load page ({code})',
   readerOffline: 'No connection',
   readerEndOfChapter: 'End of chapter {0}',
   readerEndOfChapterPrefix: 'End of chapter',

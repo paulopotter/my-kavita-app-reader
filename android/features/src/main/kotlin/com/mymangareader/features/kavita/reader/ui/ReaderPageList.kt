@@ -506,6 +506,11 @@ fun ReaderPageList(
     // an RN-side PanResponder placed over this native view raced the Compose gesture detector for
     // the touch stream and intermittently ate scroll gestures, confirmed on-device.
     onTap: () -> Unit = {},
+    // What a page draws while it loads, and when it fails. Both come from RN as SDU so the colours
+    // follow the active theme and the words follow the app's language; null falls back to the
+    // plain Compose UI below, which is never invisible but is neither themed nor translated.
+    pageLoadingNode: SduNode? = null,
+    pageErrorNode: SduNode? = null,
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -840,7 +845,13 @@ fun ReaderPageList(
                 ) {
                     when (entry) {
                         is ListEntry.Sdu -> SduNodeView(entry.node)
-                        is ListEntry.Page -> ReaderPageImage(url = entry.url, aspectRatio = entry.aspectRatio)
+                        is ListEntry.Page ->
+                            ReaderPageImage(
+                                url = entry.url,
+                                aspectRatio = entry.aspectRatio,
+                                loadingNode = pageLoadingNode,
+                                errorNode = pageErrorNode,
+                            )
                     }
                 }
             }
@@ -852,6 +863,8 @@ fun ReaderPageList(
 internal fun ReaderPageImage(
     url: String,
     aspectRatio: Float = 0f,
+    loadingNode: SduNode? = null,
+    errorNode: SduNode? = null,
 ) {
     // Bumped by the retry button below. Included as a request parameter so Coil treats each
     // retry as a distinct cache key — otherwise a request that failed (e.g. a transient WebP
@@ -885,13 +898,29 @@ internal fun ReaderPageImage(
     ) {
         when (painter.state) {
             is AsyncImagePainter.State.Loading, is AsyncImagePainter.State.Empty ->
-                ReaderPagePlaceholder(aspectRatio) { CircularProgressIndicator(color = Color.White) }
+                ReaderPagePlaceholder(aspectRatio) {
+                    if (loadingNode != null) {
+                        SduNodeView(loadingNode)
+                    } else {
+                        CircularProgressIndicator(color = Color.White)
+                    }
+                }
             is AsyncImagePainter.State.Error -> {
                 val error = painter.state as AsyncImagePainter.State.Error
                 ReaderPagePlaceholder(aspectRatio) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(pageErrorMessage(error.result.throwable), color = Color.White)
-                        RetryButton(onClick = { retryCount++ })
+                    if (errorNode != null) {
+                        // A network failure carries no code — the message keeps its plain wording,
+                        // and any {code} the node declares is left for the decode case below.
+                        SduNodeView(
+                            node = errorNode,
+                            substitution = errorCodeOrNull(error.result.throwable),
+                            onAction = { action -> if (action == RETRY_ACTION) retryCount++ },
+                        )
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(pageErrorMessage(error.result.throwable), color = Color.White)
+                            RetryButton(onClick = { retryCount++ })
+                        }
                     }
                 }
             }
@@ -905,6 +934,14 @@ internal fun ReaderPageImage(
 // "unknown decode failure" — real codes (corrupted file, unsupported format, etc.) are deliberately
 // not assigned yet; add them here as they're identified, without changing callers.
 private fun decodeErrorCode(throwable: Throwable): Int = -1
+
+/** The action name RN gives the retry control inside `pageErrorNode` — see reader-sdu.ts. */
+internal const val RETRY_ACTION = "retry"
+
+// Only a non-network failure has a code worth showing; a timeout or a reset is transient and
+// retrying is the whole answer. Null means "leave the message as it is".
+internal fun errorCodeOrNull(throwable: Throwable): String? =
+    if (throwable is IOException) null else decodeErrorCode(throwable).toString()
 
 // A network/IO failure (timeout, connection reset, DNS, HTTP error) never gets a decode error
 // code — those are transient and retrying without any extra data is enough. Only a failure that

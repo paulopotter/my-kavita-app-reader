@@ -4,6 +4,7 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
+import { buildPageLoadingNode, buildPageErrorNode } from './reader-sdu';
 import { useAction } from '../../shared/tools/actions';
 import { ChapterTool } from '../../shared/tools/chapters';
 import {
@@ -59,6 +60,27 @@ export function ReaderScreen() {
 
   // Only webtoon has a native renderer today. When another mode is implemented this becomes a
   // switch(reader.readingMode) picking which <ReaderXxxView> to render — no change to the hook.
+  const pageLoadingNode = useMemo(
+    () => buildPageLoadingNode({ spinner: colors.icon.primary }),
+    [colors],
+  );
+  const pageErrorNode = useMemo(
+    () =>
+      buildPageErrorNode({
+        // The WithCode wording always: Kotlin substitutes {code} only for a decode failure and
+        // leaves the token in place otherwise — see buildPageErrorNode.
+        message: t.readerPageErrorWithCode,
+        retryLabel: t.readerRetry,
+        tokens: {
+          spinner: colors.icon.primary,
+          errorText: colors.text.primary,
+          retryBackground: colors.button.primary,
+          retryText: colors.text.button.primary,
+        },
+      }),
+    [colors, t],
+  );
+
   const blocks: ReaderChapterBlock[] = useMemo(
     () => (reader.window ? windowToWebtoonBlocks(reader.window, reader.order, t) : []),
     [reader.window, reader.order, t],
@@ -115,6 +137,8 @@ export function ReaderScreen() {
         onVisiblePageChanged={handleVisiblePageChanged}
         onScrollToChapterHandled={reader.handleScrollRequestHandled}
         onTap={reader.toggleOverlay}
+        pageLoadingNode={pageLoadingNode}
+        pageErrorNode={pageErrorNode}
       />
 
       {currIsPlaceholder && (

@@ -32,6 +32,8 @@ interface NativeProps {
   onVisiblePageChanged?: (event: NativeSyntheticEvent<VisiblePageChangedEvent>) => void;
   onScrollToChapterHandled?: () => void;
   onTap?: () => void;
+  pageLoadingNode?: SduNode;
+  pageErrorNode?: SduNode;
 }
 
 const RCTReaderPageListView = requireNativeComponent<NativeProps>('ReaderPageListView');
@@ -51,6 +53,10 @@ interface Props {
   ) => void;
   onScrollToChapterHandled?: () => void;
   onTap?: () => void;
+  // What a page draws while it loads and when it fails, as SDU — so the colours follow the theme
+  // and the words the language, neither of which reaches native Compose on its own.
+  pageLoadingNode?: SduNode;
+  pageErrorNode?: SduNode;
 }
 
 // Dumb: forwards props to the native view and unwraps its event payloads. Kotlin never decides
@@ -63,6 +69,8 @@ export function ReaderPageListView({
   onVisiblePageChanged,
   onScrollToChapterHandled,
   onTap,
+  pageLoadingNode,
+  pageErrorNode,
 }: Props) {
   return (
     <RCTReaderPageListView
@@ -84,6 +92,8 @@ export function ReaderPageListView({
       }
       onScrollToChapterHandled={onScrollToChapterHandled}
       onTap={onTap}
+      pageLoadingNode={pageLoadingNode}
+      pageErrorNode={pageErrorNode}
     />
   );
 }
