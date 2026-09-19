@@ -10,31 +10,38 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Frontend
+## [[2026.09.19.1953](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.19.1953)] - 2026-09-19
 
-- feat: 12 temas de cor, todos escuros, com a troca aplicada na hora — quatro deles em versão
-  OLED, de fundo preto real
-- refactor: todo valor de design passa a vir de token — cor, tipo, altura de linha, espaçamento,
-  raio, borda e tamanho de ícone — injetados nos estilos e com lint recusando literais
-- feat: a escolha de tema fica guardada entre sessões, e o seletor mostra uma amostra da cor de
-  cada um antes de vesti-lo
-- feat: toda tela abre com o mesmo respiro nas bordas, e o leitor segue sendo a exceção que
-  desenha de ponta a ponta
-- fix: o histórico da busca mostra o progresso real de cada série, em vez da barra sempre zerada
-- fix: as setas de voltar alinham pelo traço do ícone, não pela caixa em volta dele
-- fix: a mensagem de conexão e a sub-linha de URL vinculada usam ícones de verdade, e passam a
-  seguir o tema e o idioma
-- feat: gerador de tema por linha de comando, que escreve os tokens a partir de duas cores, se
-  registra sozinho e desenha uma amostra do resultado
+Avisos do leitor adaptados ao idioma e tema do app, além de doze opções de cores escuras para a interface. / Reader warnings adapted to the app language and theme, plus twelve dark color options for the interface.
 
-### Backend
 
-- feat: o aviso de página que falhou no leitor segue o tema e o idioma do app, em vez de cor e
-  texto fixos
-- feat: a interface dirigida por dados do leitor ganha indicador de carregamento, área tocável e
-  substituição de texto, o que permite descrever esses avisos inteiramente do lado do app
-- feat: o ícone na gaveta, a splash do sistema e a cor da notificação passam a espelhar a
-  identidade do app
+### **Backend** - `1.4.0`
+
+**[pt-BR]**
+- Os avisos de erro no leitor agora acompanham o idioma e as cores do app.
+- O leitor recebeu indicadores de carregamento e áreas de toque aprimoradas.
+- O ícone do aplicativo, a tela de abertura e as notificações adotaram a nova identidade visual.
+
+**[en]**
+- Reader error notices now match the app language and color scheme.
+- The reader received loading indicators and improved touch areas.
+- The app icon, launch screen, and notifications adopted the new visual identity.
+
+### **Frontend** - `1.4.0`
+
+**[pt-BR]**
+- Adicionados doze temas escuros com troca instantânea, incluindo quatro opções em preto puro para telas OLED.
+- A preferência de tema é lembrada ao reabrir o app, e o seletor exibe uma prévia visual antes da aplicação.
+- O histórico de leitura exibe o progresso correto de cada obra em vez de barras zeradas.
+- As setas de navegação foram realinhadas com precisão e os avisos de conexão ganharam novos ícones temáticos.
+- Todas as telas ganharam margens padronizadas, mantendo o leitor em tela cheia.
+
+**[en]**
+- Added twelve dark themes with instant switching, including four pure black options for OLED screens.
+- Your theme choice is remembered upon reopening the app, and the selector displays a visual preview before application.
+- Reading history now displays the correct progress for each title instead of empty bars.
+- Navigation arrows were precisely realigned and connection warnings gained new themed icons.
+- All screens received standardized margins while keeping the reader in full screen.
 
 ## [[2026.09.18.2140](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.18.2140)] - 2026-09-18
 

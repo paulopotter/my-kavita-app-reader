@@ -10,6 +10,39 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.09.19.1953](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.19.1953)] - 2026-09-19
+
+Avisos do leitor adaptados ao idioma e tema do app, além de doze opções de cores escuras para a interface. / Reader warnings adapted to the app language and theme, plus twelve dark color options for the interface.
+
+
+### **Backend** - `1.4.0`
+
+**[pt-BR]**
+- Os avisos de erro no leitor agora acompanham o idioma e as cores do app.
+- O leitor recebeu indicadores de carregamento e áreas de toque aprimoradas.
+- O ícone do aplicativo, a tela de abertura e as notificações adotaram a nova identidade visual.
+
+**[en]**
+- Reader error notices now match the app language and color scheme.
+- The reader received loading indicators and improved touch areas.
+- The app icon, launch screen, and notifications adopted the new visual identity.
+
+### **Frontend** - `1.4.0`
+
+**[pt-BR]**
+- Adicionados doze temas escuros com troca instantânea, incluindo quatro opções em preto puro para telas OLED.
+- A preferência de tema é lembrada ao reabrir o app, e o seletor exibe uma prévia visual antes da aplicação.
+- O histórico de leitura exibe o progresso correto de cada obra em vez de barras zeradas.
+- As setas de navegação foram realinhadas com precisão e os avisos de conexão ganharam novos ícones temáticos.
+- Todas as telas ganharam margens padronizadas, mantendo o leitor em tela cheia.
+
+**[en]**
+- Added twelve dark themes with instant switching, including four pure black options for OLED screens.
+- Your theme choice is remembered upon reopening the app, and the selector displays a visual preview before application.
+- Reading history now displays the correct progress for each title instead of empty bars.
+- Navigation arrows were precisely realigned and connection warnings gained new themed icons.
+- All screens received standardized margins while keeping the reader in full screen.
+
 ## [[2026.09.18.2140](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.18.2140)] - 2026-09-18
 
 Agora você pode buscar mangás ignorando acentos, gerenciar seu histórico de pesquisas e ver o status de favorito atualizado em tempo real. / Now you can search for mangas ignoring accents, manage your search history, and see real-time updated favorite statuses.
