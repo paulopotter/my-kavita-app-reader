@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Minus, Plus } from 'lucide-react-native';
-import { colors } from '../../../shared/theme';
+import { useTheme } from '../../../shared/theme';
 import { useStrings } from '../../../shared/i18n';
 import type { Strings } from '../../../shared/i18n';
 import type { NotificationServiceStatus } from '../../../shared/bridge';
 import { BackChevron, GroupCard, UrlModal } from '../components';
-import { styles as chrome } from '../config.styles';
+import { makeStyles as makeChrome } from '../config.styles';
 import { GroupModal } from './components/group-modal';
 import {
   useNotificationChannel,
@@ -17,7 +17,7 @@ import {
   RETENTION_MAX_DAYS,
   RETENTION_MIN_DAYS,
 } from './notifications.hooks';
-import { styles } from './notifications.styles';
+import { makeStyles } from './notifications.styles';
 
 // A Switch row whose entire line (label included) is a toggle target — tapping anywhere on the
 // row flips the value, not just the Switch thumb. Applied to every simple toggle in this screen;
@@ -33,6 +33,8 @@ function ToggleRow({
   onValueChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <TouchableOpacity
       style={[styles.row, disabled && styles.rowDisabled]}
@@ -72,6 +74,9 @@ type GroupModalState = { mode: 'add' } | { mode: 'edit'; name: string; topic: st
 type UrlModalState = { mode: 'add' } | { mode: 'edit'; urlId: string; url: string; priority: number; linkedServerUrlId?: string };
 
 export function NotificationsScreen({ onBack }: { onBack: () => void }) {
+  const { colors } = useTheme();
+  const chrome = useMemo(() => makeChrome(colors), [colors]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const t = useStrings();
   const channel = useNotificationChannel();
   const prefs = useNotificationPrefs();

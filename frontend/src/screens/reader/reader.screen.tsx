@@ -18,8 +18,8 @@ import {
 import { useReader } from './hooks';
 import { progressBarFraction } from './reader.model';
 import { windowToWebtoonBlocks } from './modes/webtoon.adapter';
-import { styles } from './reader.styles';
-import { colors } from '../../shared/theme';
+import { makeStyles } from './reader.styles';
+import { useTheme } from '../../shared/theme';
 
 type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin; seriesName?: string };
@@ -29,6 +29,8 @@ type RouteParams = {
 // to the hook verbatim (the hook owns every decision), and renders what the hook exposes. The
 // webtoon adapter turns the mode-agnostic window into native ChapterBlocks.
 export function ReaderScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const route = useRoute<RouteProp<RouteParams, 'Reader'>>();
   const { seriesId, chapterId, seriesName } = route.params ?? {};
   const t = useStrings();

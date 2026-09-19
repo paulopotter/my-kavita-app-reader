@@ -11,7 +11,7 @@ import { SearchScreen } from '../screens/search';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
 import { NotificationsService } from '../shared/services/notifications';
-import { colors, alpha } from '../shared/theme';
+import { alpha, useTheme } from '../shared/theme';
 
 // Whether notifications are enabled right now (the real Android channel's own state — see Plan
 // 008 README Decision 10) — read straight from the shared Service, re-checked whenever the app
@@ -37,10 +37,6 @@ function useNotificationsEnabled(): boolean {
 
 const Tab = createBottomTabNavigator();
 
-const BG = colors.surface.secondary;
-const BORDER = colors.border.primary;
-const ACTIVE = colors.icon.button.secondary;
-const INACTIVE = alpha(colors.text.secondary, 0.45);
 
 // Extracted to avoid react/no-unstable-nested-components lint warning.
 function ConfigTab({
@@ -59,6 +55,11 @@ function ConfigTab({
 }
 
 export function MainNavigator() {
+  const { colors } = useTheme();
+  const BG = colors.surface.secondary;
+  const BORDER = colors.border.primary;
+  const ACTIVE = colors.icon.button.secondary;
+  const INACTIVE = alpha(colors.text.secondary, 0.45);
   const { refresh, hasFollowedSeries } = useStartup();
   const strings = useStrings();
   const navigation = useNavigation<any>();

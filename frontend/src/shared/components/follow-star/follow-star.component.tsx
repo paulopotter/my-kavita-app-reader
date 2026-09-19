@@ -1,6 +1,6 @@
 import React from 'react';
 import { Star } from 'lucide-react-native';
-import { colors } from '../../theme';
+import { useTheme } from '../../theme';
 
 // A filled/hollow star for the "following" state. Dumb — the parent owns whether it's active and
 // what happens on press; this only renders the glyph. `color`/`activeColor` default to the theme
@@ -15,12 +15,10 @@ export interface FollowStarProps {
   activeColor?: string;
 }
 
-export function FollowStar({
-  active,
-  size = 22,
-  color = colors.icon.tertiary,
-  activeColor = colors.icon.following,
-}: FollowStarProps) {
-  const tint = active ? activeColor : color;
+export function FollowStar({ active, size = 22, color, activeColor }: FollowStarProps) {
+  // The defaults come from the live palette, so they cannot be parameter defaults (those are
+  // evaluated before any hook runs). A caller's override still wins.
+  const { colors } = useTheme();
+  const tint = active ? activeColor ?? colors.icon.following : color ?? colors.icon.tertiary;
   return <Star size={size} color={tint} fill={active ? tint : 'none'} />;
 }

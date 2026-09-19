@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
-import { styles } from './alert.styles';
+import { makeStyles } from './alert.styles';
+import { useTheme } from '../../../../shared/theme';
 
 export interface SplashAlertButton {
   label: string;
@@ -22,6 +23,8 @@ export interface SplashAlertProps {
 // The splash's modal alert — the only alert the app raises today (the OTA advisory / hard-block).
 // Dumb: the splash hook builds title/message/buttons; this only lays out the card and routes taps.
 export function SplashAlert({ visible, title, message, buttons, dismissible = true, onDismiss }: SplashAlertProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   function handleBackdrop() {
     if (dismissible) {
       onDismiss?.();

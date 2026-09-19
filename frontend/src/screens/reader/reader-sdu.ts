@@ -36,6 +36,12 @@ function dpToPx(dp: number): number {
   return PixelRatio.getPixelSizeForLayoutSize(dp);
 }
 
+// These resolve once, at import time, so the chapter bands do NOT repaint when the theme changes
+// until the reader is reopened. Unlike every other screen, the SDU builders are pure functions
+// feeding native Compose — no hook can run here — so threading the palette through means changing
+// the signature of the whole chain (webtoon.adapter → buildFirstNode/buildLastNode). That is a
+// contract change and belongs to plan 028 Task 008, which already opens this boundary to pass
+// colours from RN to the reader.
 const WHITE = colors.text.primary;
 const MUTED = colors.text.secondary;
 const HEADER_FOOTER_BG = colors.surface.reading.strip;

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
-import { styles } from './confirm-dialog.styles';
+import { makeStyles } from './confirm-dialog.styles';
+import { useTheme } from '../../theme';
 
 export interface ConfirmDialogProps {
   visible: boolean;
@@ -15,6 +16,8 @@ export interface ConfirmDialogProps {
 // modal (backdrop + centered card), extracted here since it isn't tied to any one screen's
 // domain. A screen owns WHEN to show it and WHAT happens on confirm; this only renders the ask.
 export function ConfirmDialog({ visible, title, cancelLabel, confirmLabel, onCancel, onConfirm }: ConfirmDialogProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onCancel}>
       <Pressable style={styles.backdrop} onPress={onCancel}>

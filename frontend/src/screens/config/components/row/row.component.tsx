@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Circle, MoreHorizontal } from 'lucide-react-native';
-import { colors } from '../../../../shared/theme';
-import { styles } from './row.styles';
+import { useTheme } from '../../../../shared/theme';
+import { makeStyles } from './row.styles';
 
 // A single configured item — a Kavita URL, the API key, or a BFF server. Dumb: an activity dot,
 // a primary line, an optional secondary line, and a "more" menu that calls props.onMenu. The
@@ -19,6 +19,8 @@ export interface RowProps {
 }
 
 export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMenu }: RowProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const dotTint = active ? colors.icon.status.good : colors.icon.status.off;
   return (
     <View style={styles.row}>

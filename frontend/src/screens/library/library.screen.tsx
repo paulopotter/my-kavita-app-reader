@@ -14,9 +14,9 @@ import { Card, CardList } from '../../shared/components';
 import { AlphabetIndex, FreshnessBanner } from './components';
 import type { FreshnessBannerVariant } from './components';
 import { useLibrary, type LibraryBannerState } from './hooks';
-import { styles } from './library.styles';
+import { makeStyles } from './library.styles';
 import type { LibraryMode } from './library.types';
-import { colors } from '../../shared/theme';
+import { useTheme } from '../../shared/theme';
 
 // The same screen backs two tabs. Which one is driven entirely by the route param `mode` (set via
 // Tab.Screen's initialParams in MainNavigator) — there is no separate Following screen. 'following'
@@ -30,6 +30,8 @@ function resolveMode(raw: unknown): LibraryMode {
 // (alphabetIndex, padded list, scroll-to-top visibility, sort/view mode) comes from useLibrary;
 // the only thing the screen owns is navigation and the FlatList ref.
 export function LibraryScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const t = useStrings();
   const route = useRoute();
   const mode = resolveMode((route.params as { mode?: string } | undefined)?.mode);
@@ -85,7 +87,7 @@ export function LibraryScreen() {
       ) : (
         <View style={styles.cardPlaceholder} />
       ),
-    [toggleFollow, openSeries],
+    [toggleFollow, openSeries, styles.cardPlaceholder],
   );
 
   const renderListItem = useCallback(

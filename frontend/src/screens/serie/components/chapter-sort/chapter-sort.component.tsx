@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { Strings } from '../../../../shared/i18n';
 import type { ChapterSortMode } from '../../serie.types';
-import { styles } from './chapter-sort.styles';
-import { colors, alpha } from '../../../../shared/theme';
+import { makeStyles } from './chapter-sort.styles';
+import { alpha, useTheme } from '../../../../shared/theme';
 
 const MODES: ChapterSortMode[] = ['ASCENDING', 'DESCENDING', 'AUTO_FIXED', 'AUTO_PROGRESS'];
 
@@ -58,6 +58,8 @@ export interface ChapterSortFieldsProps {
 }
 
 export function ChapterSortFields({ mode, fixedThreshold, progressPercent, t, onChange }: ChapterSortFieldsProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [selectedMode, setSelectedMode] = useState<ChapterSortMode>(mode);
   const [thresholdText, setThresholdText] = useState(String(fixedThreshold ?? ''));
   const [progressText, setProgressText] = useState(String(progressPercent));

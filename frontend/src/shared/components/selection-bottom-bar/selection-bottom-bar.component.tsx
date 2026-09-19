@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { styles } from './selection-bottom-bar.styles';
-import { colors } from '../../theme';
+import { makeStyles } from './selection-bottom-bar.styles';
+
+import { useTheme } from '../../theme';
 
 const ICON_SIZE = 22;
-const ICON_COLOR = colors.icon.button.secondary;
 
 export interface SelectionBottomBarAction {
   // Distinguishes actions across re-renders without relying on array index (a screen's action
@@ -24,11 +24,13 @@ interface Props {
 // flow (Serie's chapter list, Notifications' history list) passes its own actions in. Visual
 // shape only; a screen's hook owns what each action actually does.
 export function SelectionBottomBar({ actions }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.root}>
       {actions.map(({ key, icon: Icon, label, onPress }) => (
         <TouchableOpacity key={key} style={styles.button} onPress={onPress} activeOpacity={0.7}>
-          <Icon size={ICON_SIZE} color={ICON_COLOR} />
+          <Icon size={ICON_SIZE} color={colors.icon.button.secondary} />
           <Text style={styles.buttonText}>{label}</Text>
         </TouchableOpacity>
       ))}

@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Circle, Check, MoreHorizontal, X } from 'lucide-react-native';
 import type { ProviderCredentialField } from '../../../../shared/bridge';
-import { colors } from '../../../../shared/theme';
+import { useTheme } from '../../../../shared/theme';
 import { Row } from '../row';
-import { styles } from './group-card.styles';
+import { makeStyles } from './group-card.styles';
 
 // One server section: the header (name + a "more" menu), the masked credential rows the provider declares,
 // and the URL list with its add / test buttons. Dumb — every action is a prop the screen wires
@@ -63,6 +63,8 @@ export function GroupCard({
   onTestConnection,
   strings,
 }: GroupCardProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.card}>
       <View style={styles.header}>

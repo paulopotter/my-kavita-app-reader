@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './language-toggle.styles';
+import { makeStyles } from './language-toggle.styles';
+import { useTheme } from '../../../../shared/theme';
 
 // Dumb PT/EN switch. Two labelled taps + a sliding track, all driven by props. Used by the
 // Config menu footer and by the onboarding (setup) screen. The persist-and-re-render rule lives
@@ -11,6 +12,8 @@ export interface LanguageToggleProps {
 }
 
 export function LanguageToggle({ language, onChange }: LanguageToggleProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const isPt = language === 'pt-BR';
   const toggle = () => onChange(isPt ? 'en' : 'pt-BR');
 

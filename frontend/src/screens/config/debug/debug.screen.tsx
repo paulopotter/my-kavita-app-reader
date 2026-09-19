@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useTheme } from '../../../shared/theme';
 import { BackChevron } from '../components';
-import { styles as chrome } from '../config.styles';
+import { makeStyles as makeChrome } from '../config.styles';
 import { Section } from './components/section';
 import { useDebugIds } from './debug.hooks';
 import {
@@ -21,6 +22,8 @@ import {
 // Chapters, Pages, External), each with its own Run button and result list. Unlocked from the
 // Config menu by tapping the version footer.
 export function DebugScreen({ onBack }: { onBack: () => void }) {
+  const { colors } = useTheme();
+  const chrome = useMemo(() => makeChrome(colors), [colors]);
   const {
     groupId,
     setGroupId,

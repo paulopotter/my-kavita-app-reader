@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,9 +10,9 @@ import { Routes } from '../../navigation/routes';
 import { SerieTool, type SerialCard } from '../../shared/tools/serials';
 import { SearchInput } from './components';
 import { useSearch } from './hooks';
-import { styles } from './search.styles';
+import { makeStyles } from './search.styles';
 import type { SearchHistoryRow } from './search.types';
-import { colors } from '../../shared/theme';
+import { useTheme } from '../../shared/theme';
 
 // How many rows matched, as a finished string. One form per count so a language can word the
 // singular differently rather than appending an "s".
@@ -23,6 +23,8 @@ function resultCountLabel(count: number, t: Strings): string {
 // search.screen.tsx — render + event forwarding only. The catalogue, the matching, the history
 // and the delete confirmation all live in useSearch; the screen owns navigation alone.
 export function SearchScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const t = useStrings();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const {
@@ -88,7 +90,7 @@ export function SearchScreen() {
         </TouchableOpacity>
       </View>
     ),
-    [toggleFollow, openSeries, requestDelete, t],
+    [toggleFollow, openSeries, requestDelete, t, colors.icon.tertiary, styles.historyCard, styles.historyDelete, styles.historyRow],
   );
 
   const isSearching = query.trim().length > 0;

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import type { ServerGroupInfo, ServerUrlInfo } from '../../../shared/bridge';
 import { useStrings } from '../../../shared/i18n';
-import { styles as chrome } from '../config.styles';
+import { makeStyles as makeChrome } from '../config.styles';
 import { BackChevron, GroupCard, ServerModal, UrlModal } from '../components';
 import {
   useMetadataServer,
@@ -11,8 +11,8 @@ import {
   type UseMetadataServerResult,
   type UseServerResult,
 } from './server.hooks';
-import { styles } from './server.styles';
-import { colors } from '../../../shared/theme';
+import { makeStyles } from './server.styles';
+import { useTheme } from '../../../shared/theme';
 
 // Server management: the server itself + a section for a metadata server. Reached two ways:
 //  - Config menu (onBack) → "manage" mode, back chevron.
@@ -25,6 +25,9 @@ export interface ServerScreenProps {
 }
 
 export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScreenProps) {
+  const { colors: palette } = useTheme();
+  const chrome = useMemo(() => makeChrome(palette), [palette]);
+  const styles = useMemo(() => makeStyles(palette), [palette]);
   const t = useStrings();
   const server = useServer({ onServerCleared });
   const metadata = useMetadataServer();
@@ -33,7 +36,7 @@ export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScre
   const header = isSetup ? (
     <View style={{ padding: 20, paddingBottom: 8 }}>
       <Text style={chrome.pageTitle}>{t.setupTitle}</Text>
-      <Text style={{ color: colors.text.secondary }}>{t.setupSubtitle}</Text>
+      <Text style={{ color: palette.text.secondary }}>{t.setupSubtitle}</Text>
     </View>
   ) : (
     <View style={chrome.subHeader}>
@@ -102,6 +105,9 @@ function ServerSection({
   link?: { servers: ServerGroupInfo[]; urlsOf: (id: string) => Promise<ServerUrlInfo[]> };
   urlSubline?: (urlId: string) => string | undefined;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const chrome = useMemo(() => makeChrome(colors), [colors]);
   const t = useStrings();
 
   const [serverModal, setServerModal] = useState<{ mode: 'add' | 'edit' } | null>(null);

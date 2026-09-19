@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
-import { styles } from './progress.styles';
+import { makeStyles } from './progress.styles';
+import { useTheme } from '../../../../shared/theme';
 
 export interface ProgressProps {
   // 0..1. Clamped here so a caller can pass raw values without guarding.
@@ -13,6 +14,8 @@ export interface ProgressProps {
 // Dumb component: draws the determinate progress bar and, when given one, a caption under it.
 // All wording and the progress number come from the hook/screen.
 export const Progress = React.memo(function Progress({ progress, label }: ProgressProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
   return (
     <View style={styles.root}>

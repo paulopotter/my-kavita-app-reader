@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -21,15 +21,11 @@ import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button'
 import { SelectionBottomBar } from '../../shared/components/selection-bottom-bar';
 import { ChapterListItem, ChapterSortFields, Header, sortModeLabel } from './components';
 import { useSerie } from './hooks';
-import { styles } from './serie.styles';
+import { makeStyles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
 import { ChapterTool } from '../../shared/tools/chapters';
 import type { ChapterSortMode } from './serie.types';
-import { colors } from '../../shared/theme';
-
-const ICON_COLOR = colors.icon.primary;
-const ICON_MUTED = colors.icon.secondary;
-const STAR_ACTIVE = colors.icon.following;
+import { useTheme } from '../../shared/theme';
 
 type RouteParams = {
   Serie: { seriesId: string; origin?: NavOrigin };
@@ -39,6 +35,8 @@ type RouteParams = {
 // useSerie(); it only orchestrates NAVIGATION and local visual-only state (sort modal
 // visibility, scroll-to-top button), neither of which useSerie needs to know about.
 export function SerieScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<RouteProp<RouteParams, 'Serie'>>();
   const { seriesId, origin } = route.params ?? {};
@@ -150,10 +148,10 @@ export function SerieScreen() {
     <View style={styles.root}>
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.topBarButton} onPress={handleBack} accessibilityRole="button" hitSlop={8}>
-          <ArrowLeft size={22} color={ICON_COLOR} />
+          <ArrowLeft size={22} color={colors.icon.primary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.starButton} onPress={toggleFollow} activeOpacity={0.8} accessibilityRole="button">
-          <FollowStar active={isFollowed} size={26} color={ICON_MUTED} activeColor={STAR_ACTIVE} />
+          <FollowStar active={isFollowed} size={26} color={colors.icon.secondary} activeColor={colors.icon.following} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.topBarButton}
@@ -167,7 +165,7 @@ export function SerieScreen() {
           }}
           accessibilityRole="button"
           hitSlop={8}>
-          <Settings2 size={22} color={ICON_MUTED} />
+          <Settings2 size={22} color={colors.icon.secondary} />
         </TouchableOpacity>
       </View>
 

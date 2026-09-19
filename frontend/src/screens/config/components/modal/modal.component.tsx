@@ -3,9 +3,9 @@ import { Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { ProviderInfo } from '../../../../shared/bridge';
 import type { Strings } from '../../../../shared/i18n';
-import { colors } from '../../../../shared/theme';
+import { useTheme } from '../../../../shared/theme';
 import { UrlTool } from '../../../../shared/tools/url';
-import { styles } from './modal.styles';
+import { makeStyles } from './modal.styles';
 
 // Shared shape for a provider's credential values, keyed by ProviderCredentialField.name — used
 // by both config/server and config/notifications (whichever provider's group this modal is
@@ -44,6 +44,8 @@ export function ServerModal({
   onSubmit,
   onClose,
 }: ServerModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const provider = providers.find(p => p.id === providerId) ?? providers[0];
   const fields = useMemo(() => provider?.credentialFields ?? [], [provider]);
 

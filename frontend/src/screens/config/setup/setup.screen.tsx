@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import { colors } from '../../../shared/theme';
+import { useTheme } from '../../../shared/theme';
 import { LanguageToggle } from '../components/language-toggle';
 import { ServerScreen } from '../server';
 import { useSetup } from './setup.hooks';
-import { styles } from './setup.styles';
+import { makeStyles } from './setup.styles';
 
 // Onboarding. Reached only by the splash redirect (no server/auth) or a data wipe — never from
 // the Config menu. Almost no code of its own: the language toggle on top, the server screen as
@@ -15,6 +15,8 @@ export interface SetupScreenProps {
 }
 
 export function SetupScreen({ onComplete }: SetupScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { language, changeLanguage } = useSetup();
 
   return (
