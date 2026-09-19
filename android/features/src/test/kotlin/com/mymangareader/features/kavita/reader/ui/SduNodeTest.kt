@@ -2,6 +2,8 @@ package com.mymangareader.features.kavita.reader.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -75,10 +77,76 @@ class SduNodeTest {
     @Test
     fun `a spacer renders without content`() {
         composeRule.setContent {
-            SduNodeView(SduNode.Spacer(sizePx = 48))
+            SduNodeView(SduNode.Spacer(sizeDp = 48))
         }
 
         composeRule.waitForIdle()
+    }
+
+    @Test
+    fun `a text node swaps its declared placeholder for the substitution`() {
+        composeRule.setContent {
+            SduNodeView(
+                node = SduNode.TextNode(text = "Falha ao carregar página ({code})", placeholder = "{code}"),
+                substitution = "-1",
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Falha ao carregar página (-1)").assertExists()
+    }
+
+    @Test
+    fun `a text node keeps its placeholder when there is nothing to substitute`() {
+        // A network failure has no code to show, so the token stays — the wording is still legible.
+        composeRule.setContent {
+            SduNodeView(
+                node = SduNode.TextNode(text = "Falha ({code})", placeholder = "{code}"),
+                substitution = null,
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Falha ({code})").assertExists()
+    }
+
+    @Test
+    fun `a text node without a declared placeholder is left alone`() {
+        composeRule.setContent {
+            SduNodeView(node = SduNode.TextNode(text = "Fim do capítulo"), substitution = "-1")
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Fim do capítulo").assertExists()
+    }
+
+    @Test
+    fun `a pressable reports its own action name when tapped`() {
+        var fired: String? = null
+        composeRule.setContent {
+            SduNodeView(
+                node =
+                    SduNode.Pressable(
+                        action = "retry",
+                        children = listOf(SduNode.TextNode(text = "Tentar novamente")),
+                    ),
+                onAction = { fired = it },
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Tentar novamente").performClick()
+        assertEquals("retry", fired)
+    }
+
+    @Test
+    fun `a spinner renders without content`() {
+        composeRule.setContent {
+            SduNodeView(SduNode.Spinner(color = "#FF0000"))
+        }
+
+        composeRule.waitForIdle()
+        assertTrue(true)
     }
 
     @Test

@@ -48,6 +48,25 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         view.setScrollToPageIndex(pageIndex.takeIf { it >= 0 })
     }
 
+    // What a page draws while loading and when it fails, as SDU. RN owns both so the colours
+    // follow the active theme and the words the app's language; Kotlin keeps a plain fallback for
+    // when they are absent.
+    @ReactProp(name = "pageLoadingNode")
+    fun setPageLoadingNode(
+        view: ReaderPageListView,
+        node: ReadableMap?,
+    ) {
+        view.setPageLoadingNode(node?.let(::parseSduNode))
+    }
+
+    @ReactProp(name = "pageErrorNode")
+    fun setPageErrorNode(
+        view: ReaderPageListView,
+        node: ReadableMap?,
+    ) {
+        view.setPageErrorNode(node?.let(::parseSduNode))
+    }
+
     private fun parseBlock(map: ReadableMap): ChapterBlock? {
         val chapterId = map.getString("chapterId") ?: return null
         val pageUrlsArray = map.getArray("pageUrls") ?: return null
@@ -73,6 +92,13 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         )
     }
 
+    private fun parseChildren(map: ReadableMap): List<SduNode> {
+        val children = map.getArray("children")
+        return (0 until (children?.size() ?: 0)).mapNotNull { index ->
+            children?.getMap(index)?.let(::parseSduNode)
+        }
+    }
+
     private fun parseSduNode(map: ReadableMap): SduNode? {
         return when (map.getString("type")) {
             "container" -> {
@@ -88,19 +114,14 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
                         "end" -> SduNode.Container.Align.END
                         else -> SduNode.Container.Align.CENTER
                     }
-                val childrenArray = map.getArray("children")
-                val children =
-                    (0 until (childrenArray?.size() ?: 0)).mapNotNull { index ->
-                        childrenArray?.getMap(index)?.let(::parseSduNode)
-                    }
                 SduNode.Container(
                     direction = direction,
                     backgroundColor = map.getString("backgroundColor"),
-                    heightPx = if (map.hasKey("heightPx")) map.getInt("heightPx") else null,
-                    paddingPx = if (map.hasKey("paddingPx")) map.getInt("paddingPx") else 0,
-                    gapPx = if (map.hasKey("gapPx")) map.getInt("gapPx") else 0,
+                    heightDp = if (map.hasKey("heightDp")) map.getInt("heightDp") else null,
+                    paddingDp = if (map.hasKey("paddingDp")) map.getInt("paddingDp") else 0,
+                    gapDp = if (map.hasKey("gapDp")) map.getInt("gapDp") else 0,
                     align = align,
-                    children = children,
+                    children = parseChildren(map),
                 )
             }
             "text" -> {
@@ -111,9 +132,26 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
                     fontSizeSp = if (map.hasKey("fontSize")) map.getInt("fontSize") else 14,
                     bold = map.hasKey("bold") && map.getBoolean("bold"),
                     maxLines = if (map.hasKey("maxLines")) map.getInt("maxLines") else Int.MAX_VALUE,
+                    placeholder = map.getString("placeholder"),
                 )
             }
-            "spacer" -> SduNode.Spacer(sizePx = if (map.hasKey("sizePx")) map.getInt("sizePx") else 0)
+            "spacer" -> SduNode.Spacer(sizeDp = if (map.hasKey("sizeDp")) map.getInt("sizeDp") else 0)
+            "spinner" ->
+                SduNode.Spinner(
+                    color = map.getString("color") ?: "#FFFFFF",
+                    sizeDp = if (map.hasKey("sizeDp")) map.getInt("sizeDp") else 48,
+                )
+            "pressable" -> {
+                val action = map.getString("action") ?: return null
+                SduNode.Pressable(
+                    action = action,
+                    backgroundColor = map.getString("backgroundColor"),
+                    cornerRadiusDp = if (map.hasKey("cornerRadiusDp")) map.getInt("cornerRadiusDp") else 0,
+                    paddingHorizontalDp = if (map.hasKey("paddingHorizontalDp")) map.getInt("paddingHorizontalDp") else 0,
+                    paddingVerticalDp = if (map.hasKey("paddingVerticalDp")) map.getInt("paddingVerticalDp") else 0,
+                    children = parseChildren(map),
+                )
+            }
             else -> null
         }
     }
