@@ -83,25 +83,25 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
         <Text style={styles.menuRowLabel}>{t.configMenuServer}</Text>
         <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
-      <View style={styles.divider} />
+      <View style={[styles.divider, styles.dividerInset]} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('reader')}>
         <Text style={styles.menuRowLabel}>{t.configMenuReading}</Text>
         <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
-      <View style={styles.divider} />
+      <View style={[styles.divider, styles.dividerInset]} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('serie')}>
         <Text style={styles.menuRowLabel}>{t.configMenuChapter}</Text>
         <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
-      <View style={styles.divider} />
+      <View style={[styles.divider, styles.dividerInset]} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('notifications')}>
         <Text style={styles.menuRowLabel}>{t.configMenuNotifications}</Text>
         <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
-      <View style={styles.divider} />
+      <View style={[styles.divider, styles.dividerInset]} />
 
       <Text style={styles.themeLabel}>{t.configMenuTheme}</Text>
       <View style={styles.themeField}>
@@ -118,7 +118,7 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
             <Text style={styles.menuRowLabel}>Debug</Text>
             <ChevronRight size={20} color={colors.icon.secondary} />
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, styles.dividerInset]} />
         </>
       )}
 

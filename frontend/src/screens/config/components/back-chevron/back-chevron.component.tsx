@@ -1,8 +1,8 @@
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
-import { useTheme } from '../../../../shared/context';
-import { styles } from './back-chevron.styles';
+import { useTheme, useStyles } from '../../../../shared/context';
+import { backChevronStyles } from './back-chevron.styles';
 
 export interface BackChevronProps {
   onPress?: () => void;
@@ -11,6 +11,7 @@ export interface BackChevronProps {
 // The "‹ back" affordance every config sub-screen's own subHeader renders before its title —
 // shared here instead of each screen repeating the same JSX/style (was a bare <Text>'…'</Text>).
 export function BackChevron({ onPress }: BackChevronProps) {
+  const styles = useStyles(backChevronStyles);
   const { colors } = useTheme();
   return (
     <TouchableOpacity onPress={onPress} style={styles.hitArea} accessibilityRole="button">

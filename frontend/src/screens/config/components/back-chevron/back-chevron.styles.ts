@@ -1,5 +1,13 @@
-import { StyleSheet } from 'react-native';
+import { createStyles } from '../../../../shared/theme';
 
-export const styles = StyleSheet.create({
-  hitArea: { paddingHorizontal: 8, paddingVertical: 4, marginRight: 2, alignItems: 'center', justifyContent: 'center' },
-});
+export const backChevronStyles = createStyles(({ spacing }) => ({
+  // The header already insets by the gutter; the negative margin pulls the touch target back out
+  // so the glyph — not its padding — is what lines up with everything below it.
+  hitArea: {
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    marginLeft: -spacing[4],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+}));

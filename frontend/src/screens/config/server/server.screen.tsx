@@ -14,6 +14,7 @@ import {
 import { serverStyles } from './server.styles';
 import { useTheme, useStyles } from '../../../shared/context';
 import { configStyles as makeChrome } from '../config.styles';
+import { spacing } from '../../../shared/theme';
 
 // Server management: the server itself + a section for a metadata server. Reached two ways:
 //  - Config menu (onBack) → "manage" mode, back chevron.
@@ -35,7 +36,7 @@ export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScre
   const isSetup = onComplete != null;
 
   const header = isSetup ? (
-    <View style={{ padding: 20, paddingBottom: 8 }}>
+    <View style={{ padding: spacing[7], paddingBottom: spacing[4] }}>
       <Text style={chrome.pageTitle}>{t.setupTitle}</Text>
       <Text style={{ color: palette.text.secondary }}>{t.setupSubtitle}</Text>
     </View>
@@ -62,7 +63,7 @@ export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScre
 
         {/* The metadata section only makes sense once a server exists (it links to one). */}
         {server.group && (
-          <View style={{ marginTop: 16 }}>
+          <View style={{ marginTop: spacing[6] }}>
             <ServerSection
               hook={metadata}
               sectionTitle={
