@@ -93,3 +93,69 @@ Both are decided *in* this task, with the user, before code is edited.
 - No personal data, no telemetry.
 - The reasoning for the chosen splash-vs-theme answer is written down, not just implemented — it is
   the kind of decision that looks arbitrary six months later.
+
+---
+
+## Result — done
+
+### The default moved first
+
+Before the identity could be chosen, the user promoted **teal** from the second theme (built to
+prove runtime switching) to the default one, and the old palette was named for what it is:
+**crimson**, deep navy with a crimson accent. Its folder was renamed `themes/default/` →
+`themes/crimson/`.
+
+No theme is called "default" any more. Which identity holds that role is `defaultThemeName`, and
+the picker marks it with a **translated suffix** (`Petróleo - padrão` / `Teal - default`) rather
+than the name carrying it — so moving the role later does not leave a name lying.
+
+### The identity
+
+Taken from the teal palette, as the user asked:
+
+| resource | was | is |
+|---|---|---|
+| `splash_background` | `#1A1A2E` | `#0F1A21` (`surface.primary`) |
+| `ic_launcher_background` | `#1A1A2E` | `#0F1A21` |
+| `splash_progress` | `#E94560` | `#38BDC7` (`button.primary`) |
+| `NotificationDisplay.BRAND_COLOR` | `0xFF1A1A2E` | `0xFF0F1A21` |
+
+`NotificationDisplay` was included although Task 008 had listed it as a fixed colour: the reason
+recorded there was that no live RN can be asked, not that it never changes. It is the brand colour
+and follows the identity.
+
+The RN splash needed nothing — it already reads `themes[defaultThemeName]`.
+
+**A test now holds the two ends together.** The launcher icon and the native splash are painted
+before any code runs, so they cannot read a token and hold a copy instead; the test states the hex
+`colors.xml` must carry, and fails naming it if the default role moves without that file being
+edited.
+
+### Also delivered: the theme swatch
+
+Not in the task's original scope, asked for while it was open. Each option in the theme picker now
+carries a square split corner to corner — accent above the diagonal, surface below — so an identity
+can be read without wearing it. Two `<Polygon>` from `react-native-svg` (already a dependency,
+until now only pulled in by lucide).
+
+It is the **one place in the app where a colour legitimately bypasses the token rule**: the sample
+shows an identity that is deliberately *not* active, so it comes from the registry rather than
+`useTheme()` and cannot pass through `createStyles`. Commented on both sides so it is not "fixed"
+later.
+
+The `Select` stays dumb — it receives a ready-made sample and never learns these are themes. Both
+identities are dark and the sample sits on a dark sheet, so it carries a border; without one the
+surface half would vanish and the accent would read as a loose triangle.
+
+### Verification
+
+`tsc --noEmit` clean, ESLint 0 errors, 100 suites / 1297 JS tests, `make coverage-kotlin` passes.
+Verified on the real device (rc28, rc29). The user approved the identity — *"a splash do RN
+respeita o tema, então ta de boas"* — and the swatch: *"lindo, pode commitar"*.
+
+Versions: `1.3.0-rc27` → `1.3.0-rc29` (APK), `1.2.0-rc27` → `1.2.0-rc29` (bundle).
+
+### Worth knowing
+
+The launcher icon's backdrop is now considerably darker than before. On an OLED launcher it sits
+close to the system's own black; the user looked and accepted it.

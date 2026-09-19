@@ -14,7 +14,7 @@ non-goals, and the open questions each task is blocked on.
 | [007](007-theme-persistence.md) | Persistence via `:preferences` + resolution at boot/splash | 006 | **done** |
 | [008](008-kotlin-reader-colours-and-i18n.md) | Kotlin: `ReaderPageList` takes colours from RN + i18n for its pt-BR strings | 003, 006 | **done** |
 | [009](009-theme-config-screen.md) | `config/theme/` — the theme picker | 007 | **done** (as a select in Settings, not a sub-screen) |
-| [010](010-app-identity-colour.md) | **Penultimate:** the app's identity colour (Android resources, splash, sync process) | 007 | pending |
+| [010](010-app-identity-colour.md) | **Penultimate:** the app's identity colour (Android resources, splash, sync process) | 007 | **done** |
 | [011](011-three-additional-themes.md) | **Last:** three additional themes, palettes proposed and approved during the task | 010 | pending |
 
 ## Suggested execution order
