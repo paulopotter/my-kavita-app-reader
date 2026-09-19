@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Circle } from 'lucide-react-native';
 import type { SmokeTestStep } from '../../debug.steps';
 import { styles } from './section.styles';
 import { colors } from '../../../../../shared/theme';
@@ -40,7 +41,7 @@ export function Section({ title, idLabel, idValue, onIdChange, disabled, onRun }
             value={idValue}
             onChangeText={onIdChange}
             placeholder="(not discovered — enter manually)"
-            placeholderTextColor={colors.mutedDim}
+            placeholderTextColor={colors.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -51,12 +52,12 @@ export function Section({ title, idLabel, idValue, onIdChange, disabled, onRun }
         style={[styles.runBtn, (running || disabled) && styles.disabled]}
         onPress={handleRun}
         disabled={running || disabled}>
-        {running ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={styles.runTxt}>Run {title}</Text>}
+        {running ? <ActivityIndicator size="small" color={colors.icon.button.secondary} /> : <Text style={styles.runTxt}>Run {title}</Text>}
       </TouchableOpacity>
 
       {steps.map((step, i) => (
         <View key={i} style={styles.resultRow}>
-          <View style={[styles.dot, step.ok ? styles.dotOk : styles.dotFail]} />
+          <Circle size={8} color={step.ok ? colors.icon.status.good : colors.icon.status.off} fill={step.ok ? colors.icon.status.good : colors.icon.status.off} />
           <View style={{ flex: 1 }}>
             <Text style={styles.label} numberOfLines={1}>
               {step.label}

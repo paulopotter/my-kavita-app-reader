@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../shared/theme';
+import { colors, alpha } from '../../../../shared/theme';
 
 // Verbatim from ConfigScreen's langSwitchRow/langOption/langTrack/langThumb block.
 export const styles = StyleSheet.create({
@@ -10,22 +10,22 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.versionDivider,
+    borderTopColor: alpha(colors.border.secondary, 0.13),
   },
   option: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
-  optionActive: { backgroundColor: colors.accent },
-  optionTxt: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  optionTxtActive: { color: colors.textOnDark },
+  optionActive: { backgroundColor: colors.button.selected },
+  optionTxt: { color: colors.text.secondary, fontSize: 13, fontWeight: '600' },
+  optionTxtActive: { color: colors.text.emphasis },
   track: {
     width: 40,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.deep,
+    backgroundColor: colors.surface.tertiary,
     borderWidth: 1,
-    borderColor: colors.mutedDim,
+    borderColor: colors.border.disabled,
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
-  thumb: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.accent, alignSelf: 'flex-start' },
+  thumb: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.button.primary, alignSelf: 'flex-start' },
   thumbRight: { alignSelf: 'flex-end' },
 });

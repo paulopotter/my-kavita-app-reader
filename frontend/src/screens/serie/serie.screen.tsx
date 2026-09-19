@@ -27,9 +27,9 @@ import { ChapterTool } from '../../shared/tools/chapters';
 import type { ChapterSortMode } from './serie.types';
 import { colors } from '../../shared/theme';
 
-const ICON_COLOR = colors.textOnDark;
-const ICON_MUTED = colors.muted;
-const STAR_ACTIVE = colors.starActive;
+const ICON_COLOR = colors.icon.primary;
+const ICON_MUTED = colors.icon.secondary;
+const STAR_ACTIVE = colors.icon.following;
 
 type RouteParams = {
   Serie: { seriesId: string; origin?: NavOrigin };
@@ -129,7 +129,7 @@ export function SerieScreen() {
   if (loading && chapters.length === 0 && !serie) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.icon.button.secondary} />
         <Text style={styles.message}>{t.seriesDetailLoading}</Text>
       </View>
     );
@@ -179,8 +179,10 @@ export function SerieScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={colors.accent}
-            progressBackgroundColor={colors.cardTranslucent}
+            // `tintColor` is iOS-only; Android draws the spinner with `colors`, so both are set.
+            tintColor={colors.icon.primary}
+            colors={[colors.icon.primary]}
+            progressBackgroundColor={colors.surface.secondary}
           />
         }
         onScroll={handleScroll}

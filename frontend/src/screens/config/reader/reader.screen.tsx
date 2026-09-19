@@ -33,8 +33,8 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
               <Switch
                 value={prefs.keepScreenOnDuringReading}
                 onValueChange={v => update({ keepScreenOnDuringReading: v })}
-                thumbColor={prefs.keepScreenOnDuringReading ? colors.accent : colors.muted}
-                trackColor={{ false: colors.deep, true: colors.dangerDeep }}
+                thumbColor={prefs.keepScreenOnDuringReading ? colors.button.switch.thumb.on : colors.button.switch.thumb.off}
+                trackColor={{ false: colors.button.switch.track.off, true: colors.button.switch.track.on }}
               />
             </TouchableOpacity>
             <View style={chrome.divider} />
@@ -46,8 +46,8 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
               <Switch
                 value={prefs.immersiveModeDuringReading}
                 onValueChange={v => update({ immersiveModeDuringReading: v })}
-                thumbColor={prefs.immersiveModeDuringReading ? colors.accent : colors.muted}
-                trackColor={{ false: colors.deep, true: colors.dangerDeep }}
+                thumbColor={prefs.immersiveModeDuringReading ? colors.button.switch.thumb.on : colors.button.switch.thumb.off}
+                trackColor={{ false: colors.button.switch.track.off, true: colors.button.switch.track.on }}
               />
             </TouchableOpacity>
             <View style={chrome.divider} />

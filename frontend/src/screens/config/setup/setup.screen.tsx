@@ -18,7 +18,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
   const { language, changeLanguage } = useSetup();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface.primary }}>
       <View style={styles.langBar}>
         <LanguageToggle language={language} onChange={changeLanguage} />
       </View>

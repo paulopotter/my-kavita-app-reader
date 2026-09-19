@@ -39,6 +39,10 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
   identifiers
 - A feature is gated by missing config, never by an `if`
 - All UI text is translatable — never hardcode a string in one language
+- Every colour comes from the active theme (`colors.text.*` from `shared/theme`) — never a literal
+  in a component or `*.styles.ts`. Reuse an existing token before adding one; a new key means a
+  role the app did not have, and it goes in `colors.types.ts` (with its rule) plus every theme.
+  How to → `docs/contributing/theme/README.md`
 - "Splash" = the RN one (`frontend/src/screens/splash/`). The native one is just the OS minimum
   — frozen
 

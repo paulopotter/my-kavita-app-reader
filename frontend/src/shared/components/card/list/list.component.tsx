@@ -51,7 +51,7 @@ export const CardList = React.memo(function CardList({
         style={styles.starBtn}
         onPress={() => onToggleFollow(id)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <FollowStar active={isFollowed} size={22} color={colors.mutedDim} />
+        <FollowStar active={isFollowed} size={22} color={colors.icon.tertiary} />
       </TouchableOpacity>
     </TouchableOpacity>
   );

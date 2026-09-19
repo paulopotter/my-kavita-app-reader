@@ -67,13 +67,13 @@ export function ServerModal({
               {mode === 'add' ? t.serverModalNewTitle : t.serverModalEditTitle}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={18} color={colors.muted} />
+              <X size={18} color={colors.icon.secondary} />
             </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>{t.serverModalProviderLabel}</Text>
           <View style={[styles.input, styles.inputDisabled]}>
-            <Text style={{ color: colors.textOnDark, fontSize: 13 }}>{provider?.displayName ?? '—'}</Text>
+            <Text style={{ color: colors.text.emphasis, fontSize: 13 }}>{provider?.displayName ?? '—'}</Text>
           </View>
 
           <Text style={styles.label}>{t.serverModalNameLabel}</Text>
@@ -82,7 +82,7 @@ export function ServerModal({
             value={name}
             onChangeText={setName}
             placeholder={t.serverModalNamePlaceholder}
-            placeholderTextColor={colors.mutedDim}
+            placeholderTextColor={colors.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -99,7 +99,7 @@ export function ServerModal({
                 value={creds[f.name] ?? ''}
                 onChangeText={v => setCreds(prev => ({ ...prev, [f.name]: v }))}
                 placeholder={f.label}
-                placeholderTextColor={colors.mutedDim}
+                placeholderTextColor={colors.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry={f.type === 'secret'}
@@ -118,7 +118,7 @@ export function ServerModal({
                 value={firstUrl}
                 onChangeText={setFirstUrl}
                 placeholder={t.urlModalUrlPlaceholder}
-                placeholderTextColor={colors.mutedDim}
+                placeholderTextColor={colors.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -127,7 +127,7 @@ export function ServerModal({
 
           {submitError ? (
             <View style={styles.submitErrorRow}>
-              <X size={12} color={colors.msgError} />
+              <X size={12} color={colors.icon.message.bad} />
               <Text style={styles.submitErrorTxt}>{submitError}</Text>
             </View>
           ) : null}

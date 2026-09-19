@@ -37,7 +37,7 @@ export function ReaderSideProgressBar({
         onPress={() => {
           if (hasPrev) {onPrevChapter();}
         }}>
-        <ChevronUp size={18} color={hasPrev ? colors.textOnDark : colors.mutedDim} />
+        <ChevronUp size={18} color={hasPrev ? colors.icon.primary : colors.icon.tertiary} />
       </TouchableOpacity>
       <View style={styles.dots}>
         {Array.from({ length: totalPages }, (_, index) => (
@@ -63,7 +63,7 @@ export function ReaderSideProgressBar({
         onPress={() => {
           if (hasNext) {onNextChapter();}
         }}>
-        <ChevronDown size={18} color={hasNext ? colors.textOnDark : colors.mutedDim} />
+        <ChevronDown size={18} color={hasNext ? colors.icon.primary : colors.icon.tertiary} />
       </TouchableOpacity>
     </View>
   );

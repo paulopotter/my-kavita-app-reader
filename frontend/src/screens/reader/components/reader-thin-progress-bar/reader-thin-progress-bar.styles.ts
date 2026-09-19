@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../shared/theme';
+import { colors, alpha } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   // Thin, gold, translucent — anchored to the right edge, inset 10% top and bottom.
@@ -10,8 +10,8 @@ export const styles = StyleSheet.create({
     bottom: '10%',
     width: 3,
     borderRadius: 1.5,
-    backgroundColor: colors.white20,
+    backgroundColor: alpha(colors.progress.secondary, 0.2),
     overflow: 'visible',
   },
-  fill: { width: 3, backgroundColor: colors.progressAmber },
+  fill: { width: 3, backgroundColor: colors.progress.reading.primary },
 });

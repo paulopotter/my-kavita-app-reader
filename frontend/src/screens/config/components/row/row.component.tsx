@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { MoreHorizontal } from 'lucide-react-native';
+import { Circle, MoreHorizontal } from 'lucide-react-native';
 import { colors } from '../../../../shared/theme';
 import { styles } from './row.styles';
 
@@ -19,9 +19,10 @@ export interface RowProps {
 }
 
 export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMenu }: RowProps) {
+  const dotTint = active ? colors.icon.status.good : colors.icon.status.off;
   return (
     <View style={styles.row}>
-      <View style={[styles.dot, active ? styles.dotActive : styles.dotInactive]} />
+      <Circle size={8} color={dotTint} fill={dotTint} />
       <View style={styles.body}>
         <Text style={styles.primary} numberOfLines={1}>
           {primary}
@@ -34,7 +35,7 @@ export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMe
       </View>
       {trailing != null && <Text style={styles.trailing}>{trailing}</Text>}
       <TouchableOpacity onPress={onMenu} hitSlop={8}>
-        <MoreHorizontal size={20} color={colors.muted} />
+        <MoreHorizontal size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
     </View>
   );

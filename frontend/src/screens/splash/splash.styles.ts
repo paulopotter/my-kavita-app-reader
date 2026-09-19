@@ -5,7 +5,7 @@ import { colors } from '../../shared/theme';
 // @color/splash_background, so the system-splash → RN-splash handoff has no colour jump. When the
 // app gains theming this is the token the RN splash resolves at runtime; the native side stays
 // static (it runs before any code — see Task 038 notes on the colour model).
-export const BG = colors.background;
+export const BG = colors.surface.primary;
 
 // The native Android-12 splash draws the icon on a 240dp canvas; a legacy (opaque PNG) icon
 // shows at roughly 192dp. Match that here so the logo doesn't visibly resize during the handoff
@@ -15,7 +15,7 @@ const LOGO_SIZE = 192;
 export const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface.primary,
     justifyContent: 'space-between',
     alignItems: 'center',
     zIndex: 9999,
@@ -40,11 +40,11 @@ export const styles = StyleSheet.create({
     marginTop: 4,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.button.primary,
     borderRadius: 8,
   },
   updateButtonText: {
-    color: colors.textOnDark,
+    color: colors.text.emphasis,
     fontWeight: '600',
     fontSize: 14,
   },

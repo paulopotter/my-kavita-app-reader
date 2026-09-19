@@ -44,8 +44,8 @@ function ToggleRow({
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
-        thumbColor={value ? colors.accent : colors.muted}
-        trackColor={{ false: colors.deep, true: colors.dangerDeep }}
+        thumbColor={value ? colors.button.switch.thumb.on : colors.button.switch.thumb.off}
+        trackColor={{ false: colors.button.switch.track.off, true: colors.button.switch.track.on }}
       />
     </TouchableOpacity>
   );
@@ -176,14 +176,14 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                   style={styles.stepperBtn}
                   onPress={() => prefs.setRetentionDays(prefs.retentionDays - 1)}
                   disabled={prefs.retentionDays <= RETENTION_MIN_DAYS}>
-                  <Minus size={16} color={colors.accent} />
+                  <Minus size={16} color={colors.icon.button.secondary} />
                 </TouchableOpacity>
                 <Text style={styles.retentionValue}>{`${prefs.retentionDays} ${t.notificationsRetentionDaysSuffix}`}</Text>
                 <TouchableOpacity
                   style={styles.stepperBtn}
                   onPress={() => prefs.setRetentionDays(prefs.retentionDays + 1)}
                   disabled={prefs.retentionDays >= RETENTION_MAX_DAYS}>
-                  <Plus size={16} color={colors.accent} />
+                  <Plus size={16} color={colors.icon.button.secondary} />
                 </TouchableOpacity>
               </View>
             </View>

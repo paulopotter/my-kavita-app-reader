@@ -123,7 +123,7 @@ export function LibraryScreen() {
   if (loading && data.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.icon.button.secondary} />
         <Text style={styles.message}>{t.libraryLoading}</Text>
       </View>
     );
@@ -163,7 +163,7 @@ export function LibraryScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.viewToggleBtn} onPress={toggleViewMode}>
-          {viewMode === 'GRID' ? <LayoutList size={18} color={colors.muted} /> : <LayoutGrid size={18} color={colors.muted} />}
+          {viewMode === 'GRID' ? <LayoutList size={18} color={colors.icon.secondary} /> : <LayoutGrid size={18} color={colors.icon.secondary} />}
         </TouchableOpacity>
       </View>
 
@@ -180,8 +180,10 @@ export function LibraryScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={refresh}
-              tintColor={colors.accent}
-              progressBackgroundColor={colors.cardTranslucent}
+              // `tintColor` is iOS-only; Android draws the spinner with `colors`, so both are set.
+              tintColor={colors.icon.primary}
+              colors={[colors.icon.primary]}
+              progressBackgroundColor={colors.surface.secondary}
             />
           }
           renderItem={viewMode === 'GRID' ? renderGridItem : (renderListItem as never)}

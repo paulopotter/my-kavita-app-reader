@@ -33,7 +33,7 @@ export function ServerScreen({ onBack, onComplete, onServerCleared }: ServerScre
   const header = isSetup ? (
     <View style={{ padding: 20, paddingBottom: 8 }}>
       <Text style={chrome.pageTitle}>{t.setupTitle}</Text>
-      <Text style={{ color: colors.muted }}>{t.setupSubtitle}</Text>
+      <Text style={{ color: colors.text.secondary }}>{t.setupSubtitle}</Text>
     </View>
   ) : (
     <View style={chrome.subHeader}>

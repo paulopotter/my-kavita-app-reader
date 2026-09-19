@@ -66,25 +66,25 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('server')}>
         <Text style={styles.menuRowLabel}>{t.configMenuServer}</Text>
-        <ChevronRight size={20} color={colors.muted} />
+        <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('reader')}>
         <Text style={styles.menuRowLabel}>{t.configMenuReading}</Text>
-        <ChevronRight size={20} color={colors.muted} />
+        <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('serie')}>
         <Text style={styles.menuRowLabel}>{t.configMenuChapter}</Text>
-        <ChevronRight size={20} color={colors.muted} />
+        <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('notifications')}>
         <Text style={styles.menuRowLabel}>{t.configMenuNotifications}</Text>
-        <ChevronRight size={20} color={colors.muted} />
+        <ChevronRight size={20} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={styles.divider} />
 
@@ -92,7 +92,7 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
         <>
           <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('debug')}>
             <Text style={styles.menuRowLabel}>Debug</Text>
-            <ChevronRight size={20} color={colors.muted} />
+            <ChevronRight size={20} color={colors.icon.secondary} />
           </TouchableOpacity>
           <View style={styles.divider} />
         </>

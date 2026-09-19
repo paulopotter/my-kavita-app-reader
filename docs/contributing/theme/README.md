@@ -1,0 +1,99 @@
+# Theme
+
+Every colour the app paints comes from the active theme. A screen never writes a colour literal.
+
+## Layout
+
+```
+frontend/src/shared/theme/
+  colors.types.ts          the contract: what every colour MEANS
+  alpha.ts                 applies an opacity level to a token
+  themes/
+    index.ts               the registry + which theme is active
+    default/
+      colors.tokens.ts     the values for the "default" identity
+      index.ts
+  index.ts
+```
+
+Two files, two jobs: `colors.types.ts` says what a token means and where it may be used;
+`themes/<name>/colors.tokens.ts` says what colour that means in one identity. A meaning is
+written once, on the contract — never repeated in a theme, so the two cannot drift apart.
+
+## Using a colour
+
+```ts
+import { colors } from '../../shared/theme';
+
+export const styles = StyleSheet.create({
+  heading: { color: colors.text.title.primary },
+  body:    { color: colors.text.primary },
+});
+```
+
+Hover a token in your editor to read its rule — that is what `colors.types.ts` is for.
+
+## Opacity
+
+A token is always an opaque `rgb(r, g, b)`. **Opacity is a separate axis**: how transparent
+something should be depends on what is being drawn — a secondary button's outline, a scrim over a
+modal — not on which colour it happens to be. So the call site applies it:
+
+```ts
+scrim:  { backgroundColor: alpha(colors.surface.dim, 0.5) },
+outline:{ borderColor: alpha(colors.border.secondary, 0.2) },
+```
+
+This is enforced, not merely agreed: the `RgbColor` type rejects `rgba(...)` and hex alike, so a
+token carrying an alpha is a compile error.
+
+## How a token is named
+
+```
+<what it is>.<type of content>.<variation>
+```
+
+- **First level** — what is being painted: `text` (and, as later slices land, icons and surfaces).
+- **Second level** — the kind of content or the component: `title`, `button`, `input`, `link`.
+- **Third level** — the variation, and only when more than one exists. A type with a single
+  variation stays flat: `text.label`, not `text.label.primary`.
+
+Two rules that decide most questions:
+
+**`primary` is the canonical case of its parent, not the strongest one.** `title.primary` is the
+screen's main heading; `text.primary` is ordinary body copy; `button.primary` is the label on the
+theme-coloured button. Reach for `emphasis` or `bold` when you mean "louder".
+
+**A name never mentions brightness.** `textOnDark`, `white80` and similar are disqualified: under a
+future identity they would describe something that is no longer true. Names describe role, never
+lightness and never a position on a scale.
+
+One consequence worth knowing: `text.button.*` is named after **the background the text sits on**,
+not after what the button does. `text.button.destructive` is the light text that goes *on top of* a
+red button. Red text with no fill behind it is `text.link.destructive`.
+
+## Adding a theme
+
+1. `mkdir frontend/src/shared/theme/themes/<name>/`
+2. Write `colors.tokens.ts`, typed `ThemeColors`. TypeScript rejects a missing or extra field, so
+   the compiler tells you when a token is unfilled — you cannot ship a half-filled identity.
+3. Add `index.ts` with `export * from './colors.tokens';`
+4. Register it in `themes/index.ts`: import it, add it to `themes`, and point `activeTheme` at it
+   to try it out.
+
+Nothing else changes. Screens read `colors`, never a theme by name.
+
+## Adding a token
+
+Prefer an existing token. A new one means a role the app genuinely did not have before — if two
+plausible tokens fit your case, the answer is usually that one of them is right, not that a third
+is missing.
+
+When it is genuinely new: add the field to `colors.types.ts` with its rule as a doc comment, then
+fill it in **every** theme. The compiler enforces the second half.
+
+## One notation
+
+Tokens are written `rgb(r, g, b)` and nothing else — not hex, not `hsl()`, not named colours. One
+shape means `alpha()` has one thing to parse and a theme cannot drift into a second style. The
+`RgbColor` type enforces it.

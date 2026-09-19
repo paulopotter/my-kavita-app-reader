@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Check, MoreHorizontal, X } from 'lucide-react-native';
+import { Circle, Check, MoreHorizontal, X } from 'lucide-react-native';
 import type { ProviderCredentialField } from '../../../../shared/bridge';
 import { colors } from '../../../../shared/theme';
 import { Row } from '../row';
@@ -67,13 +67,13 @@ export function GroupCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerName}>
-          <View style={[styles.dot, styles.dotActive]} />
+          <Circle size={8} color={colors.icon.status.good} fill={colors.icon.status.good} />
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
         </View>
         <TouchableOpacity onPress={onGroupMenu} hitSlop={8}>
-          <MoreHorizontal size={20} color={colors.muted} />
+          <MoreHorizontal size={20} color={colors.icon.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -124,13 +124,13 @@ export function GroupCard({
             </View>
             {connStatus === 'ok' && (
               <View style={styles.msgRow}>
-                <Check size={14} color={colors.msgOk} />
+                <Check size={14} color={colors.icon.message.good} />
                 <Text style={styles.msgOk}>{`${strings.connectionOk}: ${connMessage}`}</Text>
               </View>
             )}
             {connStatus === 'error' && (
               <View style={styles.msgRow}>
-                <X size={14} color={colors.msgError} />
+                <X size={14} color={colors.icon.message.bad} />
                 <Text style={styles.msgError}>{connMessage}</Text>
               </View>
             )}

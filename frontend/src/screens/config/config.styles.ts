@@ -5,9 +5,9 @@ import { colors } from '../../shared/theme';
 // chevron, the scroll padding, the uppercase section label. Each sub-screen adds its own
 // *.styles.ts for the bits only it uses.
 export const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.surface.primary },
 
-  pageTitle: { fontSize: 22, fontWeight: '700', color: colors.textOnDark, padding: 20, paddingBottom: 8 },
+  pageTitle: { fontSize: 22, fontWeight: '700', color: colors.text.title.primary, padding: 20, paddingBottom: 8 },
 
   menuRow: {
     flexDirection: 'row',
@@ -16,8 +16,8 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  menuRowLabel: { fontSize: 16, color: colors.textOnDark },
-  divider: { height: 1, backgroundColor: colors.deep, marginHorizontal: 20 },
+  menuRowLabel: { fontSize: 16, color: colors.text.label },
+  divider: { height: 1, backgroundColor: colors.surface.tertiary, marginHorizontal: 20 },
 
   subHeader: {
     flexDirection: 'row',
@@ -28,13 +28,13 @@ export const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 8,
   },
-  subTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.textOnDark },
+  subTitle: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.text.title.primary },
 
   scroll: { padding: 16, paddingBottom: 48 },
   section: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.sectionLabel,
+    color: colors.text.title.secondary,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
     marginTop: 20,

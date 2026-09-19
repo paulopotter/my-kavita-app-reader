@@ -70,14 +70,14 @@ export function ReaderScreen() {
             <Text style={styles.buttonText}>{t.readerRetry}</Text>
           </Pressable>
           <Pressable style={styles.buttonSecondary} onPress={handleBack}>
-            <ArrowLeft size={18} color={colors.textOnDark} />
+            <ArrowLeft size={18} color={colors.icon.primary} />
           </Pressable>
         </View>
       );
     }
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.textOnDark} />
+        <ActivityIndicator size="large" color={colors.icon.primary} />
         <Text style={styles.loadingText}>{t.readerLoading}</Text>
       </View>
     );
@@ -116,7 +116,7 @@ export function ReaderScreen() {
 
       {currIsPlaceholder && (
         <View style={styles.pageLoadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" color={colors.textOnDark} />
+          <ActivityIndicator size="large" color={colors.icon.primary} />
         </View>
       )}
 

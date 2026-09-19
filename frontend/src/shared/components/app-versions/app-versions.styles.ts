@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../theme';
+import { colors, alpha } from '../../theme';
 
 export const styles = StyleSheet.create({
   row: {
@@ -7,7 +7,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.versionDivider,
+    borderTopColor: alpha(colors.border.secondary, 0.13),
   },
   col: {
     flex: 1,
@@ -15,12 +15,12 @@ export const styles = StyleSheet.create({
   },
   label: {
     fontSize: 9,
-    color: colors.versionLabel,
+    color: alpha(colors.text.ghost, 0.27),
     textTransform: 'lowercase',
     marginBottom: 2,
   },
   value: {
     fontSize: 10,
-    color: colors.versionValue,
+    color: colors.text.secondary,
   },
 });

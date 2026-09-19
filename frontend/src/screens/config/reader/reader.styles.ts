@@ -10,5 +10,5 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
   },
-  label: { flex: 1, color: colors.textOnDark, fontSize: 15, marginRight: 12 },
+  label: { flex: 1, color: colors.text.label, fontSize: 15, marginRight: 12 },
 });

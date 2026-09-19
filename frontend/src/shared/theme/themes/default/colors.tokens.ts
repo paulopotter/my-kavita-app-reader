@@ -1,0 +1,143 @@
+import type { ThemeColors } from '../../colors.types';
+
+// The app's original identity — the colours it has shipped with so far.
+//
+// Values are frozen: this file is the result of two earlier passes (centralising every literal,
+// then converging near-identical tones), and the device already approved them. What each field
+// *means* is documented once, on the contract in `colors.types.ts` — not repeated here, so the two
+// can never drift apart.
+//
+// Several fields share a value today (title.primary, emphasis, bold, label and input.primary are
+// all #FFFFFF). They stay separate because a different identity may want to move one without the
+// others: colouring the screen's heading is not the same decision as colouring bold text inside a
+// paragraph.
+export const defaultColors: ThemeColors = {
+  text: {
+    primary: 'rgb(203, 213, 224)',
+    secondary: 'rgb(160, 174, 192)',
+    tertiary: 'rgb(74, 85, 104)',
+    ghost: 'rgb(255, 255, 255)',
+    emphasis: 'rgb(255, 255, 255)',
+    bold: 'rgb(255, 255, 255)',
+
+    title: {
+      primary: 'rgb(255, 255, 255)',
+      secondary: 'rgb(160, 174, 192)',
+    },
+
+    button: {
+      primary: 'rgb(255, 255, 255)',
+      secondary: 'rgb(255, 255, 255)',
+      destructive: 'rgb(255, 255, 255)',
+    },
+
+    link: {
+      primary: 'rgb(233, 69, 96)',
+      secondary: 'rgb(255, 255, 255)',
+      destructive: 'rgb(252, 129, 129)',
+    },
+
+    input: {
+      primary: 'rgb(255, 255, 255)',
+      masked: 'rgb(255, 255, 255)',
+      placeholder: 'rgb(74, 85, 104)',
+    },
+
+    label: 'rgb(255, 255, 255)',
+
+    message: {
+      good: 'rgb(104, 211, 145)',
+      bad: 'rgb(252, 129, 129)',
+    },
+  },
+
+  icon: {
+    primary: 'rgb(255, 255, 255)',
+    secondary: 'rgb(160, 174, 192)',
+    tertiary: 'rgb(74, 85, 104)',
+
+    button: {
+      primary: 'rgb(255, 255, 255)',
+      secondary: 'rgb(233, 69, 96)',
+    },
+
+    following: 'rgb(255, 193, 7)',
+
+    status: {
+      good: 'rgb(56, 161, 105)',
+      off: 'rgb(74, 85, 104)',
+      bad: 'rgb(252, 129, 129)',
+      unread: 'rgb(233, 69, 96)',
+    },
+
+    message: {
+      good: 'rgb(104, 211, 145)',
+      bad: 'rgb(252, 129, 129)',
+    },
+  },
+
+  surface: {
+    primary: 'rgb(26, 26, 46)',
+    secondary: 'rgb(22, 33, 62)',
+    tertiary: 'rgb(15, 52, 96)',
+
+    reading: {
+      background: 'rgb(0, 0, 0)',
+      strip: 'rgb(26, 26, 26)',
+    },
+
+    dim: 'rgb(0, 0, 0)',
+  },
+
+  button: {
+    primary: 'rgb(233, 69, 96)',
+    secondary: 'rgb(45, 55, 72)',
+    destructive: 'rgb(192, 57, 43)',
+    confirmation: 'rgb(56, 161, 105)',
+    selected: 'rgb(233, 69, 96)',
+    disabled: 'rgb(74, 85, 104)',
+
+    switch: {
+      thumb: { on: 'rgb(233, 69, 96)', off: 'rgb(160, 174, 192)' },
+      track: { on: 'rgb(127, 29, 29)', off: 'rgb(15, 52, 96)' },
+    },
+  },
+
+  badge: {
+    special: 'rgb(85, 60, 154)',
+    error: 'rgb(197, 48, 48)',
+  },
+
+  banner: {
+    alert: 'rgb(233, 69, 96)',
+    notice: 'rgb(233, 69, 96)',
+    good: 'rgb(46, 160, 67)',
+  },
+
+  border: {
+    primary: 'rgb(15, 52, 96)',
+    secondary: 'rgb(255, 255, 255)',
+    accent: 'rgb(233, 69, 96)',
+    disabled: 'rgb(74, 85, 104)',
+
+    input: {
+      primary: 'rgb(15, 52, 96)',
+      error: 'rgb(233, 69, 96)',
+    },
+
+    checkbox: {
+      on: 'rgb(233, 69, 96)',
+      off: 'rgb(74, 85, 104)',
+    },
+  },
+
+  progress: {
+    primary: 'rgb(233, 69, 96)',
+    secondary: 'rgb(255, 255, 255)',
+
+    reading: {
+      primary: 'rgb(255, 193, 7)',
+      secondary: 'rgb(160, 174, 192)',
+    },
+  },
+};

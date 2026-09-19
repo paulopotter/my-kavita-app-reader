@@ -21,7 +21,7 @@ export function ReaderTopBar({ seriesName, chapterTitle, onBack, visible }: Prop
         style={styles.backButton}
         onPress={onBack}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-        <ChevronLeft size={28} color={colors.textOnDark} />
+        <ChevronLeft size={28} color={colors.icon.primary} />
       </TouchableOpacity>
       <View style={styles.titles}>
         <Text style={styles.seriesName} numberOfLines={1}>

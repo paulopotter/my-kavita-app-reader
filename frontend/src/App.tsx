@@ -95,7 +95,7 @@ function AppContent() {
 
   return (
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>
-      <StatusBar backgroundColor={colors.background} barStyle="light-content" translucent={false} />
+      <StatusBar backgroundColor={colors.surface.primary} barStyle="light-content" translucent={false} />
       <View style={[styles.root, { paddingTop: statusBarHeight }]}>
         <StartupProvider>
           <NavigationContainer ref={navRef} linking={linking} onStateChange={onNavigationStateChange}>
@@ -112,5 +112,5 @@ function AppContent() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.surface.primary },
 });

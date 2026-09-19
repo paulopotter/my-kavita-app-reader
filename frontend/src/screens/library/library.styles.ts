@@ -2,18 +2,18 @@ import { StyleSheet } from 'react-native';
 import { colors } from '../../shared/theme';
 
 export const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.surface.primary },
   center: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface.primary,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
-  message: { color: colors.muted, fontSize: 16, marginTop: 12, textAlign: 'center' },
-  errorText: { color: colors.msgError, fontSize: 16, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
-  retryButton: { backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  retryText: { color: colors.textOnDark, fontWeight: '600' },
+  message: { color: colors.text.secondary, fontSize: 16, marginTop: 12, textAlign: 'center' },
+  errorText: { color: colors.text.message.bad, fontSize: 16, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
+  retryButton: { backgroundColor: colors.button.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  retryText: { color: colors.text.button.primary, fontWeight: '600' },
 
   topBar: {
     flexDirection: 'row',
@@ -21,11 +21,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.deep,
+    borderBottomColor: colors.border.primary,
   },
-  countTxt: { color: colors.mutedAlt, fontSize: 12, flex: 1 },
+  countTxt: { color: colors.text.secondary, fontSize: 12, flex: 1 },
   sortBtn: { paddingHorizontal: 10, paddingVertical: 4 },
-  sortBtnTxt: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  sortBtnTxt: { color: colors.text.link.primary, fontSize: 13, fontWeight: '600' },
   viewToggleBtn: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4 },
 
   content: { flex: 1 },

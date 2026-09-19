@@ -9,6 +9,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 8,
     paddingTop: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface.primary,
   },
 });

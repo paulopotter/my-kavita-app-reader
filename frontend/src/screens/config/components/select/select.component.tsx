@@ -37,7 +37,7 @@ export function Select({ value, options, placeholder = '—', onChange, disabled
         <Text style={[styles.triggerTxt, !current && styles.triggerPlaceholder]} numberOfLines={1}>
           {current?.label ?? placeholder}
         </Text>
-        {!disabled && <ChevronDown size={14} color={colors.muted} style={styles.caret} />}
+        {!disabled && <ChevronDown size={14} color={colors.icon.secondary} style={styles.caret} />}
       </TouchableOpacity>
 
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>

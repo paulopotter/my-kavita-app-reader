@@ -53,7 +53,7 @@ export function GroupModal({
               {mode === 'add' ? t.notificationsGroupModalNewTitle : t.notificationsGroupModalEditTitle}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={18} color={colors.muted} />
+              <X size={18} color={colors.icon.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -63,7 +63,7 @@ export function GroupModal({
             value={name}
             onChangeText={setName}
             placeholder={t.notificationsGroupModalNamePlaceholder}
-            placeholderTextColor={colors.mutedDim}
+            placeholderTextColor={colors.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -75,7 +75,7 @@ export function GroupModal({
             value={topic}
             onChangeText={setTopic}
             placeholder={t.notificationsGroupModalTopicPlaceholder}
-            placeholderTextColor={colors.mutedDim}
+            placeholderTextColor={colors.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -95,7 +95,7 @@ export function GroupModal({
 
           {submitError ? (
             <View style={styles.submitErrorRow}>
-              <X size={12} color={colors.msgError} />
+              <X size={12} color={colors.icon.message.bad} />
               <Text style={styles.submitErrorTxt}>{submitError}</Text>
             </View>
           ) : null}

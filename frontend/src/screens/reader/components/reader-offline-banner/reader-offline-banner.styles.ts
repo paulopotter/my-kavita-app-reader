@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../shared/theme';
+import { colors, alpha } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   root: {
@@ -10,8 +10,8 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: colors.accentStrong,
+    backgroundColor: alpha(colors.banner.alert, 0.9),
     alignItems: 'center',
   },
-  text: { color: colors.textOnDark, fontSize: 13, fontWeight: '600' },
+  text: { color: colors.text.emphasis, fontSize: 13, fontWeight: '600' },
 });

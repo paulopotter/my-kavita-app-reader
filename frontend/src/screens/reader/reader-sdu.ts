@@ -36,9 +36,9 @@ function dpToPx(dp: number): number {
   return PixelRatio.getPixelSizeForLayoutSize(dp);
 }
 
-const WHITE = colors.textOnDark;
-const MUTED = colors.muted;
-const HEADER_FOOTER_BG = colors.sduBackground;
+const WHITE = colors.text.primary;
+const MUTED = colors.text.secondary;
+const HEADER_FOOTER_BG = colors.surface.reading.strip;
 
 function gapNode(): SduNode {
   return { type: 'container', heightPx: dpToPx(GAP_HEIGHT_DP), children: [] };

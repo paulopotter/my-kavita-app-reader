@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../../../shared/theme';
+import { colors, alpha } from '../../../../shared/theme';
 
 export const styles = StyleSheet.create({
   root: { gap: 12 },
@@ -9,21 +9,21 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.white20,
+    borderColor: alpha(colors.border.secondary, 0.2),
   },
-  modeOptionSelected: { borderColor: colors.accent, backgroundColor: colors.accentFaint },
-  modeOptionText: { color: colors.white80, fontSize: 14 },
-  modeOptionTextSelected: { color: colors.textOnDark, fontWeight: '600' },
+  modeOptionSelected: { borderColor: colors.border.accent, backgroundColor: alpha(colors.button.selected, 0.12) },
+  modeOptionText: { color: alpha(colors.text.button.secondary, 0.8), fontSize: 14 },
+  modeOptionTextSelected: { color: colors.text.emphasis, fontWeight: '600' },
   field: { gap: 4, marginTop: 8, marginBottom: 4 },
-  fieldLabel: { color: colors.white72, fontSize: 12 },
-  fieldHint: { color: colors.white45, fontSize: 11, fontStyle: 'italic' },
+  fieldLabel: { color: alpha(colors.text.button.secondary, 0.72), fontSize: 12 },
+  fieldHint: { color: alpha(colors.text.secondary, 0.45), fontSize: 11, fontStyle: 'italic' },
   input: {
     borderWidth: 1,
-    borderColor: colors.white20,
+    borderColor: alpha(colors.border.secondary, 0.2),
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: colors.textOnDark,
+    color: colors.text.emphasis,
     fontSize: 14,
   },
 });

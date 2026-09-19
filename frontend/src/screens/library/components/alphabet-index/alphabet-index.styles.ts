@@ -9,7 +9,7 @@ export const styles = StyleSheet.create({
     bottom: 0,
     width: 36,
     justifyContent: 'center',
-    backgroundColor: colors.deepTranslucent,
+    backgroundColor: colors.surface.secondary,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
   },
@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   letter: {
-    color: colors.accent,
+    color: colors.text.link.primary,
     fontSize: 11,
     fontWeight: '700',
   },

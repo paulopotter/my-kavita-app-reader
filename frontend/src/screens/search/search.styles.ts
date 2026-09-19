@@ -1,21 +1,21 @@
 import { StyleSheet } from 'react-native';
-import { colors } from '../../shared/theme';
+import { colors, alpha } from '../../shared/theme';
 
 export const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: colors.surface.primary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  message: { color: colors.white55, fontSize: 14, textAlign: 'center', marginTop: 12 },
-  errorText: { color: colors.accent, fontSize: 14, textAlign: 'center' },
+  message: { color: alpha(colors.text.secondary, 0.55), fontSize: 14, textAlign: 'center', marginTop: 12 },
+  errorText: { color: colors.text.link.primary, fontSize: 14, textAlign: 'center' },
   retryButton: {
     marginTop: 16,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.button.primary,
   },
-  retryText: { color: colors.textOnDark, fontSize: 14, fontWeight: '600' },
+  retryText: { color: colors.text.button.primary, fontSize: 14, fontWeight: '600' },
   sectionTitle: {
-    color: colors.white45,
+    color: alpha(colors.text.secondary, 0.45),
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   resultCount: {
-    color: colors.white45,
+    color: alpha(colors.text.secondary, 0.45),
     fontSize: 12,
     marginHorizontal: 16,
     marginBottom: 8,

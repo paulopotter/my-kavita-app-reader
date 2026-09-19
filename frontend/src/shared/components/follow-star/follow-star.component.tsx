@@ -1,11 +1,13 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Star } from 'lucide-react-native';
 import { colors } from '../../theme';
-import { styles } from './follow-star.styles';
 
 // A filled/hollow star for the "following" state. Dumb — the parent owns whether it's active and
 // what happens on press; this only renders the glyph. `color`/`activeColor` default to the theme
 // tokens but a caller (e.g. a card on a lighter surface) can override.
+//
+// Filled vs hollow is `fill`, not a second icon: lucide ships one `Star` whose default is
+// `fill: "none"`, so passing the same colour to `fill` and `color` is what makes it solid.
 export interface FollowStarProps {
   active: boolean;
   size?: number;
@@ -16,12 +18,9 @@ export interface FollowStarProps {
 export function FollowStar({
   active,
   size = 22,
-  color = colors.muted,
-  activeColor = colors.starActive,
+  color = colors.icon.tertiary,
+  activeColor = colors.icon.following,
 }: FollowStarProps) {
-  return (
-    <Text style={[styles.icon, { fontSize: size, color: active ? activeColor : color }]}>
-      {active ? '★' : '☆'}
-    </Text>
-  );
+  const tint = active ? activeColor : color;
+  return <Star size={size} color={tint} fill={active ? tint : 'none'} />;
 }

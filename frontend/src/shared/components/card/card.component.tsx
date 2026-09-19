@@ -42,7 +42,7 @@ export const Card = React.memo(function Card({
     <TouchableOpacity style={styles.card} onPress={() => onPress(id)} activeOpacity={0.8}>
       <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />
       <TouchableOpacity style={styles.starBookmark} onPress={() => onToggleFollow(id)} activeOpacity={0.8}>
-        <FollowStar active={isFollowed} size={18} color={colors.textOnDark} />
+        <FollowStar active={isFollowed} size={18} color={colors.icon.primary} />
       </TouchableOpacity>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={2}>

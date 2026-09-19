@@ -13,7 +13,7 @@ export interface BackChevronProps {
 export function BackChevron({ onPress }: BackChevronProps) {
   return (
     <TouchableOpacity onPress={onPress} style={styles.hitArea} accessibilityRole="button">
-      <ChevronLeft size={28} color={colors.accent} />
+      <ChevronLeft size={28} color={colors.icon.button.secondary} />
     </TouchableOpacity>
   );
 }

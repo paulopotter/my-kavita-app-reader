@@ -52,9 +52,9 @@ export function HistoryItem({
     >
       <View style={styles.indicator}>
         {selectionMode ? (
-          selected ? <CheckCircle2 size={20} color={colors.accent} /> : <Circle size={20} color={colors.mutedAlt} />
+          selected ? <CheckCircle2 size={20} color={colors.icon.button.secondary} /> : <Circle size={20} color={colors.icon.secondary} />
         ) : (
-          <View style={[styles.dot, read ? styles.dotRead : styles.dotUnread]} />
+          <Circle size={8} color={read ? "transparent" : colors.icon.status.unread} fill={read ? "transparent" : colors.icon.status.unread} />
         )}
       </View>
       <Image source={coverUrl ? { uri: coverUrl } : undefined} style={[styles.thumb, !coverUrl && styles.thumbPlaceholder]} resizeMode="cover" />
@@ -69,10 +69,10 @@ export function HistoryItem({
       </View>
       <View style={[styles.trailingActions, selectionMode && styles.trailingActionsHidden]} pointerEvents={selectionMode ? 'none' : 'auto'}>
         <TouchableOpacity style={styles.iconBtn} onPress={onInfo} hitSlop={8} accessibilityLabel={infoLabel}>
-          <Info size={18} color={colors.mutedAlt} />
+          <Info size={18} color={colors.icon.secondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn} onPress={onDelete} hitSlop={8} accessibilityLabel={deleteLabel}>
-          <X size={18} color={colors.mutedAlt} />
+          <X size={18} color={colors.icon.secondary} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

@@ -16,7 +16,7 @@ const ICON_SIZE = 22;
 export function ScrollToTopButton({ onPress, right = 16 }: ScrollToTopButtonProps) {
   return (
     <TouchableOpacity style={[styles.button, { right }]} onPress={onPress}>
-      <ChevronUp size={ICON_SIZE} color={colors.textOnDark} />
+      <ChevronUp size={ICON_SIZE} color={colors.icon.button.primary} />
     </TouchableOpacity>
   );
 }

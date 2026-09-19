@@ -41,9 +41,9 @@ describe('ReaderSideProgressBar', () => {
 
   it('marks the current page dot active and the pages before it as read', () => {
     // currentPage=2 exercises both the `index < currentPage` (read) and `index === currentPage`
-    // (active) style branches — the active dot carries the accent colour #E94560.
+    // (active) style branches — the active dot carries the reader's own progress colour.
     const { toJSON } = setup({ totalPages: 5, currentPage: 2 });
-    expect(JSON.stringify(toJSON())).toContain(colors.accent);
+    expect(JSON.stringify(toJSON())).toContain(colors.progress.reading.primary);
   });
 
   it('arrows call their callbacks when enabled', () => {

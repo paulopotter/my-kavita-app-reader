@@ -84,7 +84,7 @@ export function SearchScreen() {
           accessibilityRole="button"
           accessibilityLabel={t.searchRecentDelete}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <X size={18} color={colors.mutedDim} />
+          <X size={18} color={colors.icon.tertiary} />
         </TouchableOpacity>
       </View>
     ),
@@ -133,7 +133,7 @@ export function SearchScreen() {
       if (loading) {
         return (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.accent} />
+            <ActivityIndicator size="large" color={colors.icon.button.secondary} />
             <Text style={styles.message}>{t.searchLoading}</Text>
           </View>
         );

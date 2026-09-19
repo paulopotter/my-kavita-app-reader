@@ -97,7 +97,7 @@ export function UrlModal({
           <View style={styles.header}>
             <Text style={styles.title}>{mode === 'add' ? t.urlModalNewTitle : t.urlModalEditTitle}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={18} color={colors.muted} />
+              <X size={18} color={colors.icon.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -111,7 +111,7 @@ export function UrlModal({
               setTestResult(null);
             }}
             placeholder={t.urlModalUrlPlaceholder}
-            placeholderTextColor={colors.mutedDim}
+            placeholderTextColor={colors.text.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
@@ -125,7 +125,7 @@ export function UrlModal({
             onChangeText={v => setPriority(v.replace(/[^0-9]/g, ''))}
             keyboardType="number-pad"
             placeholder="0"
-            placeholderTextColor={colors.mutedDim}
+            placeholderTextColor={colors.text.tertiary}
           />
 
           {link && (
@@ -153,7 +153,7 @@ export function UrlModal({
                   if (!next) {setServerUrlId(undefined);}
                 }}>
                 <View style={[styles.checkbox, associate && styles.checkboxOn]}>
-                  {associate && <Check size={12} color={colors.textOnDark} />}
+                  {associate && <Check size={12} color={colors.icon.button.primary} />}
                 </View>
                 <Text style={styles.assocLabel}>{t.urlModalAssociateToUrl}</Text>
               </TouchableOpacity>
@@ -179,7 +179,7 @@ export function UrlModal({
               disabled={testing}>
               {testing ? (
                 <View style={styles.testStatus}>
-                  <ActivityIndicator size="small" color={colors.accent} />
+                  <ActivityIndicator size="small" color={colors.icon.button.secondary} />
                   <Text style={styles.testTxt}>{t.urlModalTesting}</Text>
                 </View>
               ) : (
@@ -192,7 +192,7 @@ export function UrlModal({
 
           {submitError ? (
             <View style={styles.submitErrorRow}>
-              <X size={12} color={colors.msgError} />
+              <X size={12} color={colors.icon.message.bad} />
               <Text style={styles.submitErrorTxt}>{submitError}</Text>
             </View>
           ) : null}
