@@ -72,7 +72,7 @@ surface relationship*, never brightness.
 Renaming alone would leave the next developer picking `surfaceRaised` vs `surfaceInset` by feel.
 Each token therefore ships with an **explicit application rule** — e.g. *"`surfaceRaised` = card,
 list row, context menu"* — so a token is chosen by matching a documented situation, not by guessing.
-That written rule is an **entrega do plano**, checked in beside the tokens, not an implementation
+That written rule is a **plan deliverable**, checked in beside the tokens, not an implementation
 detail left in someone's head.
 
 ### 3. Opacity is an axis separate from colour
