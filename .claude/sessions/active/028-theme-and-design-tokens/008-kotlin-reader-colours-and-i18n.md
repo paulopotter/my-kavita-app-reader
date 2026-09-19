@@ -89,3 +89,69 @@ the treatments for (a), (b), (c) and (d) are all decided.
 - All UI text is translatable (CLAUDE.md fixed convention), in both `ptBR` and `en`.
 - Note the known constraint from memory: `koverVerify` in the pre-commit hook does not cover every
   module, so run `make coverage-kotlin` manually for this task.
+
+---
+
+## Result — done
+
+### What changed, and the decision that shaped it
+
+The task's own proposal was a `placeholder` prop carrying named fields (spinner colour, error text,
+retry label…). The user rejected it for a better reason than convenience: `SduNode.kt`'s own
+doc says Kotlin "never encodes what a header or footer IS", and a prop with those names would have
+taught it exactly that. So the reader sends **two SDU trees** instead, and Kotlin stays an
+interpreter.
+
+That needed three additions to the SDU vocabulary — `Spinner`, `Pressable`, and a generic
+`placeholder` on `TextNode` that the interpreter substitutes without learning what the value
+means, so the wording and the position of the error code stay with the language.
+
+### The finding that simplified the contract
+
+The retry is **not** an RN action. `ReaderPageImage` keeps a local `retryCount` that goes in as a
+Coil request parameter, so a failed request is not served from its error cache. Nothing needs to
+cross the bridge: `SduNodeView`'s `onAction` is resolved inside Compose. This removed the whole
+`onSduAction` event path the contract had originally proposed.
+
+### Three bugs the device check exposed
+
+- **Every colour crossing to native was being dropped.** `android.graphics.Color.parseColor`
+  accepts hex and throws on `rgb(...)`, which is the notation every token uses — so the retry
+  button drew transparent and the text fell back to white. This was **not new**: the chapter bands
+  had been hitting the same fallback since the colour task, invisibly, because the fallback is
+  white and the text is white. Fixed at the origin with `ColorTool.to.hex`, typed `RgbColor →
+  HexColor` so handing a raw token across is now a compile error.
+- **The spinner rendered as a dot** — `CircularProgressIndicator` with no size inside a page-sized
+  placeholder. It takes `icon.size[9]` now; sending a React icon is not possible, since an SduNode
+  becomes native Compose.
+- **`*Px` fields were read as `.dp`.** RN multiplied them by screen density on the way out and
+  Kotlin treated the result as dp again, so the chapter bands were drawn at three times the padding
+  their constants named. Renamed to `*Dp` and `dpToPx` deleted.
+
+### Verification
+
+`tsc --noEmit` clean, ESLint 0 errors, 100 suites / 1291 JS tests, Kotlin compiles and
+`make coverage-kotlin` passes (`koverVerify` across every module). Verified on the real device by
+pulling the network with the reader open: the message, the retry button and the spinner draw in the
+theme's colours, in the app's language, and the `{code}` substitution works.
+
+One acceptance criterion was **not** exercised: the placeholder was never seen under a *second*
+theme, only under the active one. What the device confirmed is that the colours arrive and apply —
+the repaint path itself (useMemo on `colors`) is the same one every other screen uses, but it was
+not observed switching.
+
+Versions: `1.3.0-rc26` → `1.3.0-rc27` (APK), `1.2.0-rc26` → `1.2.0-rc27` (bundle).
+
+### Worth watching
+
+The chapter bands are now three times smaller, which is correct but changes their share of the
+list. `itemHeights` measures **every** entry, bands included, and feeds `computeChapterFraction` —
+so the progress bar's arithmetic has shifted. It should be more accurate (less non-page height in
+the total), but it was not measured. The user raised this and chose to leave it: *"não sei o quanto
+isso vai afetar as regras de progresso, vamos descobrir no futuro."*
+
+### Left alone, as the task specified
+
+`NotificationDisplay.kt:28` keeps its fixed colour — the notification is drawn by the system with
+the app possibly dead, so there is no live RN to ask. `ViewManager`'s `"#FFFFFF"` default is the
+`TextNode` fallback on a different path and did not change.
