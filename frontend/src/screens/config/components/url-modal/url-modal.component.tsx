@@ -7,6 +7,7 @@ import { useTheme, useStyles } from '../../../../shared/context';
 import { UrlTool } from '../../../../shared/tools/url';
 import { Select } from '../select';
 import { urlModalStyles } from './url-modal.styles';
+import { icon } from '../../../../shared/theme';
 
 // The "link this URL to a server" section — only rendered for a metadata-server URL. The screen
 // passes the list of servers (already just one today) + a resolver for a picked server's URLs.
@@ -99,7 +100,7 @@ export function UrlModal({
           <View style={styles.header}>
             <Text style={styles.title}>{mode === 'add' ? t.urlModalNewTitle : t.urlModalEditTitle}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={18} color={colors.icon.secondary} />
+              <X size={icon.size[4]} color={colors.icon.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -155,7 +156,7 @@ export function UrlModal({
                   if (!next) {setServerUrlId(undefined);}
                 }}>
                 <View style={[styles.checkbox, associate && styles.checkboxOn]}>
-                  {associate && <Check size={12} color={colors.icon.button.primary} />}
+                  {associate && <Check size={icon.size[1]} color={colors.icon.button.primary} />}
                 </View>
                 <Text style={styles.assocLabel}>{t.urlModalAssociateToUrl}</Text>
               </TouchableOpacity>
@@ -188,13 +189,23 @@ export function UrlModal({
                 <Text style={styles.testTxt}>{t.urlModalTestConnection}</Text>
               )}
             </TouchableOpacity>
-            {!testing && testResult === 'ok' && <Text style={styles.testOk}>{t.urlModalTestOk}</Text>}
-            {!testing && testResult === 'fail' && <Text style={styles.testFail}>{t.urlModalTestFail}</Text>}
+            {!testing && testResult === 'ok' && (
+              <View style={styles.testResult}>
+                <Check size={icon.size[2]} color={colors.icon.message.good} />
+                <Text style={styles.testOk}>{t.urlModalTestOk}</Text>
+              </View>
+            )}
+            {!testing && testResult === 'fail' && (
+              <View style={styles.testResult}>
+                <X size={icon.size[2]} color={colors.icon.message.bad} />
+                <Text style={styles.testFail}>{t.urlModalTestFail}</Text>
+              </View>
+            )}
           </View>
 
           {submitError ? (
             <View style={styles.submitErrorRow}>
-              <X size={12} color={colors.icon.message.bad} />
+              <X size={icon.size[1]} color={colors.icon.message.bad} />
               <Text style={styles.submitErrorTxt}>{submitError}</Text>
             </View>
           ) : null}

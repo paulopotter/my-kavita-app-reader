@@ -34,6 +34,7 @@ export const urlModalStyles = createStyles(({ colors, text, spacing, radius, bor
     testTxt: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
     testStatus: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
     testMuted: { color: colors.text.secondary, fontSize: text.size[3] },
+    testResult: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
     testOk: { color: colors.text.message.good, fontSize: text.size[3] },
     testFail: { color: colors.text.message.bad, fontSize: text.size[3] },
 

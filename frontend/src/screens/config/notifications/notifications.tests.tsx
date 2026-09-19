@@ -300,7 +300,7 @@ describe('NotificationsScreen', () => {
       groupsHook({ group: homeGroup, urls: [homeUrl], linkedUrlLabel: jest.fn(() => 'http://192.168.1.10:5000') }),
     );
     const { getByText } = render(<NotificationsScreen onBack={jest.fn()} />);
-    expect(getByText('↳ http://192.168.1.10:5000')).toBeTruthy();
+    expect(getByText('http://192.168.1.10:5000')).toBeTruthy();
   });
 
   it('removing the group via its context menu calls removeGroup', () => {

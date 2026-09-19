@@ -1,8 +1,9 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Circle, MoreHorizontal } from 'lucide-react-native';
+import { Circle, CornerDownRight, MoreHorizontal } from 'lucide-react-native';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { rowStyles } from './row.styles';
+import { icon } from '../../../../shared/theme';
 
 // A single configured item — a Kavita URL, the API key, or a BFF server. Dumb: an activity dot,
 // a primary line, an optional secondary line, and a "more" menu that calls props.onMenu. The
@@ -24,20 +25,25 @@ export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMe
   const dotTint = active ? colors.icon.status.good : colors.icon.status.off;
   return (
     <View style={styles.row}>
-      <Circle size={8} color={dotTint} fill={dotTint} />
+      <Circle size={icon.size.dot} color={dotTint} fill={dotTint} />
       <View style={styles.body}>
         <Text style={styles.primary} numberOfLines={1}>
           {primary}
         </Text>
         {secondary != null && (
-          <Text style={secondaryEmpty ? styles.secondaryNone : styles.secondary} numberOfLines={1}>
-            {secondary}
-          </Text>
+          <View style={styles.secondaryRow}>
+            {/* The arrow marks a sub-line that points at something. "Nothing linked" points at
+                nothing, so it stays a bare italic line. */}
+            {!secondaryEmpty && <CornerDownRight size={icon.size[2]} color={colors.icon.tertiary} />}
+            <Text style={secondaryEmpty ? styles.secondaryNone : styles.secondary} numberOfLines={1}>
+              {secondary}
+            </Text>
+          </View>
         )}
       </View>
       {trailing != null && <Text style={styles.trailing}>{trailing}</Text>}
       <TouchableOpacity onPress={onMenu} hitSlop={8}>
-        <MoreHorizontal size={20} color={colors.icon.secondary} />
+        <MoreHorizontal size={icon.size[5]} color={colors.icon.secondary} />
       </TouchableOpacity>
     </View>
   );

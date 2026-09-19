@@ -5,6 +5,7 @@ import type { ProviderCredentialField } from '../../../../shared/bridge';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { Row } from '../row';
 import { groupCardStyles } from './group-card.styles';
+import { icon } from '../../../../shared/theme';
 
 // One server section: the header (name + a "more" menu), the masked credential rows the provider declares,
 // and the URL list with its add / test buttons. Dumb — every action is a prop the screen wires
@@ -69,13 +70,13 @@ export function GroupCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerName}>
-          <Circle size={8} color={colors.icon.status.good} fill={colors.icon.status.good} />
+          <Circle size={icon.size.dot} color={colors.icon.status.good} fill={colors.icon.status.good} />
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
         </View>
         <TouchableOpacity onPress={onGroupMenu} hitSlop={8}>
-          <MoreHorizontal size={20} color={colors.icon.secondary} />
+          <MoreHorizontal size={icon.size[5]} color={colors.icon.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -101,7 +102,7 @@ export function GroupCard({
               key={u.id}
               active={activeUrlId === u.id}
               primary={u.url}
-              secondary={subline ? `↳ ${subline}` : undefined}
+              secondary={subline}
               trailing={`P${u.priority}`}
               onMenu={() => onUrlMenu(u.id)}
             />
@@ -126,13 +127,13 @@ export function GroupCard({
             </View>
             {connStatus === 'ok' && (
               <View style={styles.msgRow}>
-                <Check size={14} color={colors.icon.message.good} />
+                <Check size={icon.size[2]} color={colors.icon.message.good} />
                 <Text style={styles.msgOk}>{`${strings.connectionOk}: ${connMessage}`}</Text>
               </View>
             )}
             {connStatus === 'error' && (
               <View style={styles.msgRow}>
-                <X size={14} color={colors.icon.message.bad} />
+                <X size={icon.size[2]} color={colors.icon.message.bad} />
                 <Text style={styles.msgError}>{connMessage}</Text>
               </View>
             )}

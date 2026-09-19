@@ -58,9 +58,9 @@ describe('GroupCard', () => {
     expect(queryByText('+ Add URL')).toBeNull();
   });
 
-  it('renders a "↳ …" sub-line from urlSubline', () => {
+  it('renders a sub-line from urlSubline', () => {
     const { getByText } = render(<GroupCard {...props({ urlSubline: () => 'http://linked' })} />);
-    expect(getByText('↳ http://linked')).toBeTruthy();
+    expect(getByText('http://linked')).toBeTruthy();
   });
 
   it('wires the menu / add / test callbacks', () => {

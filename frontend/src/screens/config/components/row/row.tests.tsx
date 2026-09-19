@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { MoreHorizontal } from 'lucide-react-native';
+import { CornerDownRight, MoreHorizontal } from 'lucide-react-native';
 import { Row, type RowProps } from './row.component';
 
 const props = (over: Partial<RowProps> = {}): RowProps => ({
@@ -18,14 +18,24 @@ describe('Row', () => {
   });
 
   it('renders the secondary line and the trailing label when given', () => {
-    const { getByText } = render(<Row {...props({ secondary: '↳ http://linked', trailing: 'P2' })} />);
-    expect(getByText('↳ http://linked')).toBeTruthy();
+    const { getByText } = render(<Row {...props({ secondary: 'http://linked', trailing: 'P2' })} />);
+    expect(getByText('http://linked')).toBeTruthy();
     expect(getByText('P2')).toBeTruthy();
   });
 
   it('omits the secondary line when not given', () => {
-    const { queryByText } = render(<Row {...props()} />);
-    expect(queryByText(/↳/)).toBeNull();
+    const { queryByText, UNSAFE_queryByType } = render(<Row {...props()} />);
+    expect(queryByText('http://linked')).toBeNull();
+    expect(UNSAFE_queryByType(CornerDownRight)).toBeNull();
+  });
+
+  // The arrow marks a sub-line that points at something; "nothing linked" points at nothing.
+  it('draws the arrow for a linked sub-line but not for an empty one', () => {
+    const linked = render(<Row {...props({ secondary: 'http://linked' })} />);
+    expect(linked.UNSAFE_getByType(CornerDownRight)).toBeTruthy();
+
+    const empty = render(<Row {...props({ secondary: '(none)', secondaryEmpty: true })} />);
+    expect(empty.UNSAFE_queryByType(CornerDownRight)).toBeNull();
   });
 
   it('renders an empty-styled secondary line when secondaryEmpty is set', () => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { getStrings } from '../../../../shared/i18n/strings';
 import type { ServerGroupInfo, ServerUrlInfo, UrlProbeResult } from '../../../../shared/bridge/server';
+import { Check } from 'lucide-react-native';
 import { UrlModal, type UrlModalProps } from './url-modal.component';
 
 const t = getStrings('en');
@@ -54,18 +55,19 @@ describe('UrlModal', () => {
     expect(onSubmit).toHaveBeenCalledWith('http://host', 2, undefined);
   });
 
-  it('runs the connection test and shows the ✓ / ✗ result', async () => {
+  it('runs the connection test and marks the result with a tick', async () => {
     const onTest = jest.fn().mockResolvedValue(ok('http://host'));
-    const { getByText, getByPlaceholderText } = render(<UrlModal {...props({ onTest })} />);
+    const { getByText, getByPlaceholderText, UNSAFE_getByType } = render(<UrlModal {...props({ onTest })} />);
     fireEvent.changeText(getByPlaceholderText(t.urlModalUrlPlaceholder), 'http://host');
     await act(async () => {
       fireEvent.press(getByText(t.urlModalTestConnection));
     });
     await waitFor(() => expect(getByText(t.urlModalTestOk)).toBeTruthy());
+    expect(UNSAFE_getByType(Check)).toBeTruthy();
     expect(onTest).toHaveBeenCalledWith('http://host');
   });
 
-  it('a failing test shows the ✗ label', async () => {
+  it('a failing test is marked with a cross', async () => {
     const onTest = jest.fn().mockResolvedValue(fail('http://host'));
     const { getByText, getByPlaceholderText } = render(<UrlModal {...props({ onTest })} />);
     fireEvent.changeText(getByPlaceholderText(t.urlModalUrlPlaceholder), 'http://host');
