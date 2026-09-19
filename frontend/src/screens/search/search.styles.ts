@@ -31,6 +31,6 @@ export const searchStyles = createStyles(({ colors, text, spacing, radius, gutte
     list: { paddingHorizontal: gutter - spacing[3], paddingBottom: spacing[8] },
     historyRow: { flexDirection: 'row', alignItems: 'center' },
     historyCard: { flex: 1 },
-    historyDelete: { paddingHorizontal: spacing[5], paddingVertical: spacing[5] },
+    historyDelete: { paddingLeft: spacing[2], paddingRight: spacing[5], paddingVertical: spacing[5] },
 }));
 

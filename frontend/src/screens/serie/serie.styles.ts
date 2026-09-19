@@ -1,4 +1,8 @@
 import { createStyles } from '../../shared/theme';
+
+// A 22px glyph plus one spacing step of slack on each side.
+const ICON_BUTTON = 38;
+
 export const serieStyles = createStyles(({ colors, text, line, spacing, radius, border, gutter, alpha }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
     center: {
@@ -16,12 +20,15 @@ export const serieStyles = createStyles(({ colors, text, line, spacing, radius, 
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: gutter,
+      paddingHorizontal: gutter - spacing[4],
       paddingVertical: spacing[4],
     },
+    // 38 so the gap around the 22px glyph is exactly one spacing step: the bar's padding is
+    // pulled in by that step (see topBar), which puts the icon itself on the gutter while the
+    // touch target stays comfortable.
     topBarButton: {
-      width: 40,
-      height: 40,
+      width: ICON_BUTTON,
+      height: ICON_BUTTON,
       alignItems: 'center',
       justifyContent: 'center',
     },

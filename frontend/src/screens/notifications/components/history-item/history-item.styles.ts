@@ -12,11 +12,11 @@ export const historyItemStyles = createStyles(({ colors, text, spacing, radius, 
     // Fixed-size slot for the leading indicator (unread dot or selection checkbox) — same
     // footprint either way, so switching selection mode never shifts the row's own content
     // horizontally (previously the 8px dot vs. 20px checkbox changed the row's layout width).
-    indicator: { width: 20, height: 20, marginRight: spacing[5], flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
+    indicator: { width: 20, height: 20, marginRight: spacing[3], flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     dot: { width: 8, height: 8, borderRadius: radius.small },
     // Reserved even before coverUrl resolves (see HistoryItem's own doc) — the placeholder fills
     // this same box, so a cover arriving later never shifts the row's layout.
-    thumb: { width: 36, height: 51, borderRadius: radius.small, marginRight: spacing[5], flexShrink: 0 },
+    thumb: { width: 36, aspectRatio: 2 / 3, borderRadius: radius.small, marginRight: spacing[5], flexShrink: 0 },
     thumbPlaceholder: { backgroundColor: colors.surface.tertiary },
     body: { flex: 1 },
     seriesName: { color: colors.text.title.primary, fontSize: text.size[3], fontWeight: text.weight.bold },

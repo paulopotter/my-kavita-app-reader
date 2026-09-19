@@ -2,7 +2,7 @@ import { createStyles } from '../../shared/theme';
 // Shared chrome for the Config screens — the menu rows, the sub-screen header with the back
 // chevron, the scroll padding, the uppercase section label. Each sub-screen adds its own
 // *.styles.ts for the bits only it uses.
-export const configStyles = createStyles(({ colors, text, spacing, gutter }) => ({
+export const configStyles = createStyles(({ colors, text, spacing, gutter, border }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
 
     pageTitle: {
@@ -37,7 +37,7 @@ export const configStyles = createStyles(({ colors, text, spacing, gutter }) => 
     },
     themeField: { paddingHorizontal: gutter, marginBottom: spacing[2] },
 
-    divider: { height: 1, backgroundColor: colors.surface.tertiary },
+    divider: { height: border.small, backgroundColor: colors.surface.tertiary },
     // The menu draws straight on the root, so it insets the divider itself; every other screen
     // renders it inside a container that already carries the gutter.
     dividerInset: { marginHorizontal: gutter },
@@ -48,7 +48,6 @@ export const configStyles = createStyles(({ colors, text, spacing, gutter }) => 
       paddingHorizontal: gutter,
       paddingTop: gutter,
       paddingBottom: spacing[4],
-      gap: spacing[4],
     },
     subTitle: { flex: 1, fontSize: text.size[6], fontWeight: text.weight.bold, color: colors.text.title.primary },
 
