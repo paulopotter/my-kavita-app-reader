@@ -9,7 +9,7 @@ frontend/src/shared/theme/
   colors.types.ts          the contract: what every colour MEANS
   alpha.ts                 applies an opacity level to a token
   typography.ts            the type scale, weights and family
-  sizes.ts                 spacing, the screen gutter, radius and border width
+  sizes.ts                 spacing, the screen gutter, radius, border width, icon size
   themes/
     index.ts               the registry of identities
     default/
@@ -106,6 +106,47 @@ But a measurement is **even**, and it is the **sum of what it holds** — not a 
 squeezed into. When the children add up to 77, the box becomes 78; it does not become 74 with the
 padding shaved to fit. `CardList`'s row is the worked example: 16 padding + 40 title + 6 progress
 bar + 16 meta = 78, and the cover is sized to the row rather than the row to the cover.
+
+## Icon size
+
+```ts
+<Search size={icon.size[4]} color={colors.icon.secondary} />
+```
+
+Numbered like spacing, 12 to 28 in steps of two. Unused rungs are kept on purpose: a size added
+later lands on a step that already exists instead of being wedged between two of them.
+
+`icon.size.dot` is the one named entry, and the exception that proves the rule — it is never a
+glyph, it is a filled circle standing in for a status light, so it does not belong on a scale of
+drawings.
+
+### Why an icon needs a component to line up
+
+A Lucide glyph is drawn inside a 24-unit box and **none of them fill it**. Measured from the paths
+Lucide ships:
+
+| glyph | stroke spans | empty each side |
+|---|---|---|
+| `ChevronLeft` | 9..15 | 9 |
+| `X` | 6..18 | 6 |
+| `ArrowLeft` | 5..19 | 5 |
+| `Check`, `CornerDownRight` | 4..20 | 4 |
+| `Circle` | 2..22 | 2 |
+
+So putting the **box** on the gutter leaves the visible **stroke** short of it — by 11px for a
+chevron drawn at 28. That is what made the three back arrows look pushed in, each patched a
+different way before this was understood.
+
+`IconButton` owns the correction, so no call site does the arithmetic:
+
+```tsx
+<IconButton icon={ChevronLeft} glyph="chevron" size={icon.size[9]} color={…} alignStroke />
+```
+
+With `alignStroke` it pulls itself out by its own glyph's empty margin. Use it for an icon in a
+corner with content below it; leave it off anywhere the icon is not meant to line up with
+something. The amount is **per glyph**, measured in `icon-button.glyphs.ts` — a new glyph used
+with `alignStroke` needs its own entry, measured rather than guessed.
 
 ## The screen gutter
 
