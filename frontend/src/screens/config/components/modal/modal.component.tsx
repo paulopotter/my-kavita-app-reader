@@ -7,6 +7,7 @@ import type { Strings } from '../../../../shared/i18n';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { UrlTool } from '../../../../shared/tools/url';
 import { modalStyles } from './modal.styles';
+import { icon } from '../../../../shared/theme';
 
 // Shared shape for a provider's credential values, keyed by ProviderCredentialField.name — used
 // by both config/server and config/notifications (whichever provider's group this modal is
@@ -70,7 +71,7 @@ export function ServerModal({
               {mode === 'add' ? t.serverModalNewTitle : t.serverModalEditTitle}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={18} color={colors.icon.secondary} />
+              <X size={icon.size[4]} color={colors.icon.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -130,7 +131,7 @@ export function ServerModal({
 
           {submitError ? (
             <View style={styles.submitErrorRow}>
-              <X size={12} color={colors.icon.message.bad} />
+              <X size={icon.size[1]} color={colors.icon.message.bad} />
               <Text style={styles.submitErrorTxt}>{submitError}</Text>
             </View>
           ) : null}

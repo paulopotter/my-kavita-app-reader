@@ -17,6 +17,7 @@ import { useLibrary, type LibraryBannerState } from './hooks';
 import { libraryStyles } from './library.styles';
 import type { LibraryMode } from './library.types';
 import { useTheme, useStyles } from '../../shared/context';
+import { icon } from '../../shared/theme';
 
 // The same screen backs two tabs. Which one is driven entirely by the route param `mode` (set via
 // Tab.Screen's initialParams in MainNavigator) — there is no separate Following screen. 'following'
@@ -165,7 +166,7 @@ export function LibraryScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.viewToggleBtn} onPress={toggleViewMode}>
-          {viewMode === 'GRID' ? <LayoutList size={18} color={colors.icon.secondary} /> : <LayoutGrid size={18} color={colors.icon.secondary} />}
+          {viewMode === 'GRID' ? <LayoutList size={icon.size[4]} color={colors.icon.secondary} /> : <LayoutGrid size={icon.size[4]} color={colors.icon.secondary} />}
         </TouchableOpacity>
       </View>
 

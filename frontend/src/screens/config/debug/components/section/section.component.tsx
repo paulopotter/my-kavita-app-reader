@@ -4,6 +4,7 @@ import { Circle } from 'lucide-react-native';
 import type { SmokeTestStep } from '../../debug.steps';
 import { sectionStyles } from './section.styles';
 import { useTheme, useStyles } from '../../../../../shared/context';
+import { icon } from '../../../../../shared/theme';
 
 // One smoke-test section: a title, an optional editable id field, a Run button, and the result
 // list. Dumb — it holds only its own running/results state and calls props.onRun(). The Config
@@ -59,7 +60,7 @@ export function Section({ title, idLabel, idValue, onIdChange, disabled, onRun }
 
       {steps.map((step, i) => (
         <View key={i} style={styles.resultRow}>
-          <Circle size={8} color={step.ok ? colors.icon.status.good : colors.icon.status.off} fill={step.ok ? colors.icon.status.good : colors.icon.status.off} />
+          <Circle size={icon.size.dot} color={step.ok ? colors.icon.status.good : colors.icon.status.off} fill={step.ok ? colors.icon.status.good : colors.icon.status.off} />
           <View style={{ flex: 1 }}>
             <Text style={styles.label} numberOfLines={1}>
               {step.label}

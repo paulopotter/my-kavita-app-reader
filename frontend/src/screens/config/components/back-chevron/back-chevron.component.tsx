@@ -1,21 +1,25 @@
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
-import { useTheme, useStyles } from '../../../../shared/context';
-import { backChevronStyles } from './back-chevron.styles';
+import { useTheme } from '../../../../shared/context';
+import { IconButton } from '../../../../shared/components/icon-button';
+import { icon } from '../../../../shared/theme';
 
 export interface BackChevronProps {
   onPress?: () => void;
 }
 
-// The "‹ back" affordance every config sub-screen's own subHeader renders before its title —
-// shared here instead of each screen repeating the same JSX/style (was a bare <Text>'…'</Text>).
+// The "back" affordance every config sub-screen's subHeader renders before its title. alignStroke
+// is what keeps the chevron's stroke on the same line as the title and the content below it.
 export function BackChevron({ onPress }: BackChevronProps) {
-  const styles = useStyles(backChevronStyles);
   const { colors } = useTheme();
   return (
-    <TouchableOpacity onPress={onPress} style={styles.hitArea} accessibilityRole="button">
-      <ChevronLeft size={28} color={colors.icon.button.secondary} />
-    </TouchableOpacity>
+    <IconButton
+      icon={ChevronLeft}
+      glyph="chevron"
+      size={icon.size[9]}
+      color={colors.icon.button.secondary}
+      onPress={onPress}
+      alignStroke
+    />
   );
 }

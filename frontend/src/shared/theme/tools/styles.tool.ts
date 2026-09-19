@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import type { ThemeColors } from '../colors.types';
 import { line, type TextTokens, type LineTokens } from '../typography';
-import { spacing, radius, border, gutter, type Spacing, type Radius, type Border, type Gutter } from '../sizes';
+import { spacing, radius, border, gutter, icon, type Spacing, type Radius, type Border, type Gutter, type Icon } from '../sizes';
 import { ColorTool } from './color.tool';
 
 /** What a style sheet is handed: the tokens it may paint with, plus the tools to shape them. */
@@ -15,6 +15,8 @@ export interface StyleContext {
   border: Border;
   /** The inset every screen opens with, so nothing sits flush against the edge. */
   gutter: Gutter;
+  /** Glyph sizes — `icon.size[4]` is the app's most common inline action. */
+  icon: Icon;
   /** The same colour at a given opacity — the axis tokens deliberately do not carry. */
   alpha: typeof ColorTool.add.alpha;
 }
@@ -35,5 +37,5 @@ export function createStyles<T extends StyleSheet.NamedStyles<T>>(
   build: (context: StyleContext) => T,
 ) {
   return ({ colors, text }: { colors: ThemeColors; text: TextTokens }) =>
-    StyleSheet.create(build({ colors, text, line, spacing, radius, border, gutter, alpha: ColorTool.add.alpha }));
+    StyleSheet.create(build({ colors, text, line, spacing, radius, border, gutter, icon, alpha: ColorTool.add.alpha }));
 }

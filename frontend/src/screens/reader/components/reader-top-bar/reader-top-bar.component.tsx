@@ -1,8 +1,10 @@
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { STATUS_BAR_GAP, statusBarHeight, readerTopBarStyles } from './reader-top-bar.styles';
 import { useTheme, useStyles } from '../../../../shared/context';
+import { icon } from '../../../../shared/theme';
+import { IconButton } from '../../../../shared/components/icon-button';
 
 interface Props {
   seriesName: string;
@@ -19,12 +21,15 @@ export function ReaderTopBar({ seriesName, chapterTitle, onBack, visible }: Prop
 
   return (
     <View style={[styles.root, { paddingTop: statusBarHeight + STATUS_BAR_GAP }]}>
-      <TouchableOpacity
-        style={styles.backButton}
+      <IconButton
+        icon={ChevronLeft}
+        glyph="chevron"
+        size={icon.size[9]}
+        color={colors.icon.primary}
         onPress={onBack}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-        <ChevronLeft size={28} color={colors.icon.primary} />
-      </TouchableOpacity>
+        style={styles.backButton}
+        alignStroke
+      />
       <View style={styles.titles}>
         <Text style={styles.seriesName} numberOfLines={1}>
           {seriesName}

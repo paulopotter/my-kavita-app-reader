@@ -26,6 +26,8 @@ import type { SerieChapter } from '../../shared';
 import { ChapterTool } from '../../shared/tools/chapters';
 import type { ChapterSortMode } from './serie.types';
 import { useTheme, useStyles } from '../../shared/context';
+import { icon } from '../../shared/theme';
+import { IconButton } from '../../shared/components/icon-button';
 
 type RouteParams = {
   Serie: { seriesId: string; origin?: NavOrigin };
@@ -147,14 +149,22 @@ export function SerieScreen() {
   return (
     <View style={styles.root}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.topBarButton} onPress={handleBack} accessibilityRole="button" hitSlop={8}>
-          <ArrowLeft size={22} color={colors.icon.primary} />
-        </TouchableOpacity>
+        <IconButton
+          icon={ArrowLeft}
+          glyph="arrow"
+          size={icon.size[6]}
+          color={colors.icon.primary}
+          onPress={handleBack}
+          alignStroke
+        />
         <TouchableOpacity style={styles.starButton} onPress={toggleFollow} activeOpacity={0.8} accessibilityRole="button">
-          <FollowStar active={isFollowed} size={26} color={colors.icon.secondary} activeColor={colors.icon.following} />
+          <FollowStar active={isFollowed} size={icon.size[6]} color={colors.icon.secondary} activeColor={colors.icon.following} />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.topBarButton}
+        <IconButton
+          icon={Settings2}
+          glyph="arrow"
+          size={icon.size[6]}
+          color={colors.icon.secondary}
           onPress={() => {
             pendingSortRef.current = {
               mode: sortMode,
@@ -163,10 +173,7 @@ export function SerieScreen() {
             };
             setSortConfigVisible(true);
           }}
-          accessibilityRole="button"
-          hitSlop={8}>
-          <Settings2 size={22} color={colors.icon.secondary} />
-        </TouchableOpacity>
+        />
       </View>
 
       <FlatList

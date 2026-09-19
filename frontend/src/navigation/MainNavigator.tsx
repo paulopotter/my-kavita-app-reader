@@ -11,7 +11,7 @@ import { SearchScreen } from '../screens/search';
 import { useStartup } from '../shared/context/startup';
 import { useStrings } from '../shared/i18n';
 import { NotificationsService } from '../shared/services/notifications';
-import { ColorTool, border } from '../shared/theme';
+import { ColorTool, border, icon } from '../shared/theme';
 import { useTheme } from '../shared/context';
 
 // Whether notifications are enabled right now (the real Android channel's own state — see Plan
@@ -104,7 +104,7 @@ export function MainNavigator() {
           initialParams={{ mode: 'following' }}
           options={{
             tabBarLabel: strings.navFollowing,
-            tabBarIcon: ({ focused }) => <Star size={20} color={focused ? ACTIVE : INACTIVE} />,
+            tabBarIcon: ({ focused }) => <Star size={icon.size[5]} color={focused ? ACTIVE : INACTIVE} />,
           }}
         />
       )}
@@ -114,7 +114,7 @@ export function MainNavigator() {
         initialParams={{ mode: 'library' }}
         options={{
           tabBarLabel: strings.navLibrary,
-          tabBarIcon: ({ focused }) => <Library size={20} color={focused ? ACTIVE : INACTIVE} />,
+          tabBarIcon: ({ focused }) => <Library size={icon.size[5]} color={focused ? ACTIVE : INACTIVE} />,
         }}
       />
       <Tab.Screen
@@ -122,7 +122,7 @@ export function MainNavigator() {
         component={SearchScreen}
         options={{
           tabBarLabel: strings.navSearch,
-          tabBarIcon: ({ focused }) => <Search size={20} color={focused ? ACTIVE : INACTIVE} />,
+          tabBarIcon: ({ focused }) => <Search size={icon.size[5]} color={focused ? ACTIVE : INACTIVE} />,
         }}
       />
       {notificationsEnabled && (
@@ -132,7 +132,7 @@ export function MainNavigator() {
           options={{
             tabBarLabel: strings.navNotifications,
             tabBarBadge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
-            tabBarIcon: ({ focused }) => <Bell size={20} color={focused ? ACTIVE : INACTIVE} />,
+            tabBarIcon: ({ focused }) => <Bell size={icon.size[5]} color={focused ? ACTIVE : INACTIVE} />,
           }}
         />
       )}
@@ -140,7 +140,7 @@ export function MainNavigator() {
         name={Routes.CONFIG}
         options={{
           tabBarLabel: strings.navConfig,
-          tabBarIcon: ({ focused }) => <Settings size={20} color={focused ? ACTIVE : INACTIVE} />,
+          tabBarIcon: ({ focused }) => <Settings size={icon.size[5]} color={focused ? ACTIVE : INACTIVE} />,
         }}
       >
         {() => (

@@ -4,6 +4,7 @@ import { FollowStar } from '../follow-star';
 import { cardStyles } from './card.styles';
 import { useTheme } from '../../context';
 import { useStyles } from '../../context';
+import { icon } from '../../theme';
 
 // Dumb component: primitives + callbacks + render only. All labels are computed in the hook /
 // SerieTool and passed in as strings — this component holds no i18n and no domain logic.
@@ -45,7 +46,7 @@ export const Card = React.memo(function Card({
     <TouchableOpacity style={styles.card} onPress={() => onPress(id)} activeOpacity={0.8}>
       <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />
       <TouchableOpacity style={styles.starBookmark} onPress={() => onToggleFollow(id)} activeOpacity={0.8}>
-        <FollowStar active={isFollowed} size={18} color={colors.icon.primary} />
+        <FollowStar active={isFollowed} size={icon.size[4]} color={colors.icon.primary} />
       </TouchableOpacity>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={2}>

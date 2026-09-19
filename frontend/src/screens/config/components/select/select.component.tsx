@@ -3,6 +3,7 @@ import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { selectStyles } from './select.styles';
+import { icon } from '../../../../shared/theme';
 
 // A single-choice select: a trigger showing the current label, tap to open a sheet listing every
 // option one per row. No native picker dependency; scales to a long option list, unlike chips.
@@ -39,7 +40,7 @@ export function Select({ value, options, placeholder = '—', onChange, disabled
         <Text style={[styles.triggerTxt, !current && styles.triggerPlaceholder]} numberOfLines={1}>
           {current?.label ?? placeholder}
         </Text>
-        {!disabled && <ChevronDown size={14} color={colors.icon.secondary} style={styles.caret} />}
+        {!disabled && <ChevronDown size={icon.size[2]} color={colors.icon.secondary} style={styles.caret} />}
       </TouchableOpacity>
 
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>

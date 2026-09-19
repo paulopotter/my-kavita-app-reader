@@ -2,7 +2,7 @@ import React from 'react';
 import { TextInput, TouchableOpacity, View } from 'react-native';
 import { Search, X } from 'lucide-react-native';
 import { searchInputStyles } from './search-input.styles';
-import { ColorTool } from '../../../../shared/theme';
+import { ColorTool, icon } from '../../../../shared/theme';
 import { useTheme, useStyles } from '../../../../shared/context';
 
 // Dumb component: primitives + callbacks + render only. Holds no i18n (the placeholder and the
@@ -19,7 +19,7 @@ export function SearchInput({ value, placeholder, clearAccessibilityLabel, onCha
   const styles = useStyles(searchInputStyles);
   return (
     <View style={styles.root}>
-      <Search size={18} color={colors.icon.secondary} />
+      <Search size={icon.size[4]} color={colors.icon.secondary} />
       <TextInput
         style={styles.input}
         value={value}
@@ -36,7 +36,7 @@ export function SearchInput({ value, placeholder, clearAccessibilityLabel, onCha
           accessibilityRole="button"
           accessibilityLabel={clearAccessibilityLabel}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <X size={18} color={colors.icon.secondary} />
+          <X size={icon.size[4]} color={colors.icon.secondary} />
         </TouchableOpacity>
       )}
     </View>

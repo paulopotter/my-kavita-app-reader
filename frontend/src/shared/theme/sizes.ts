@@ -47,6 +47,42 @@ export const border = {
   medium: 1,
 } as const;
 
+// Icon sizes. Numbered like spacing — a step carries no role of its own — with one named
+// exception: `dot` is never an icon, it is a filled circle standing in for a status light, and it
+// does not belong on a scale of glyphs.
+//
+// The scale keeps its 2px progression even where a step is unused, so a size added later lands on
+// a rung that already exists instead of wedging a number between two of them.
+export const icon = {
+  size: {
+    dot: 8,
+    1: 12,
+    2: 14,
+    3: 16,
+    4: 18,
+    5: 20,
+    6: 22,
+    7: 24,
+    8: 26,
+    9: 28,
+  },
+
+  // A glyph is drawn inside its box, not edge to edge: how much of the box stays empty is a
+  // property of the drawing. Lucide's chevron is a narrow V — `m15 18-6-6 6-6` spans x=9..15 of a
+  // 24 viewBox, leaving 9 units on each side — while a Search or a filled Circle fills nearly all
+  // of it. Discounting that empty margin is what lines the STROKE up with the gutter; without it
+  // the box lands on the gutter and the glyph reads as pushed further in.
+  //
+  // Expressed as a fraction of the rendered size, so it holds at any step: slack(28) = 10.5.
+  slack: {
+    /** A chevron or an arrow: a thin stroke with wide margins. */
+    wide: (size: number): number => Math.round(size * (9 / 24)),
+    /** A glyph that fills its box — a filled circle, a solid star. Nothing to discount. */
+    none: (): number => 0,
+  },
+} as const;
+
+export type Icon = typeof icon;
 export type Gutter = typeof gutter;
 export type Spacing = typeof spacing;
 export type Radius = typeof radius;

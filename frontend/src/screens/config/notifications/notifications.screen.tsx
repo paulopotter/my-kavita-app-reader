@@ -19,6 +19,7 @@ import {
 } from './notifications.hooks';
 import { notificationsStyles } from './notifications.styles';
 import { configStyles as makeChrome } from '../config.styles';
+import { icon } from '../../../shared/theme';
 
 // A Switch row whose entire line (label included) is a toggle target — tapping anywhere on the
 // row flips the value, not just the Switch thumb. Applied to every simple toggle in this screen;
@@ -182,14 +183,14 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                   style={styles.stepperBtn}
                   onPress={() => prefs.setRetentionDays(prefs.retentionDays - 1)}
                   disabled={prefs.retentionDays <= RETENTION_MIN_DAYS}>
-                  <Minus size={16} color={colors.icon.button.secondary} />
+                  <Minus size={icon.size[3]} color={colors.icon.button.secondary} />
                 </TouchableOpacity>
                 <Text style={styles.retentionValue}>{`${prefs.retentionDays} ${t.notificationsRetentionDaysSuffix}`}</Text>
                 <TouchableOpacity
                   style={styles.stepperBtn}
                   onPress={() => prefs.setRetentionDays(prefs.retentionDays + 1)}
                   disabled={prefs.retentionDays >= RETENTION_MAX_DAYS}>
-                  <Plus size={16} color={colors.icon.button.secondary} />
+                  <Plus size={icon.size[3]} color={colors.icon.button.secondary} />
                 </TouchableOpacity>
               </View>
             </View>

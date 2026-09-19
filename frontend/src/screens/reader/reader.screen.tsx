@@ -20,6 +20,7 @@ import { progressBarFraction } from './reader.model';
 import { windowToWebtoonBlocks } from './modes/webtoon.adapter';
 import { readerStyles } from './reader.styles';
 import { useTheme, useStyles } from '../../shared/context';
+import { icon } from '../../shared/theme';
 
 type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin; seriesName?: string };
@@ -72,7 +73,7 @@ export function ReaderScreen() {
             <Text style={styles.buttonText}>{t.readerRetry}</Text>
           </Pressable>
           <Pressable style={styles.buttonSecondary} onPress={handleBack}>
-            <ArrowLeft size={18} color={colors.icon.primary} />
+            <ArrowLeft size={icon.size[4]} color={colors.icon.primary} />
           </Pressable>
         </View>
       );

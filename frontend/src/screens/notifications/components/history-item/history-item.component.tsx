@@ -3,6 +3,7 @@ import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { CheckCircle2, Circle, Info, X } from 'lucide-react-native';
 import { historyItemStyles } from './history-item.styles';
 import { useTheme, useStyles } from '../../../../shared/context';
+import { icon } from '../../../../shared/theme';
 
 // Dumb: an unread dot, series cover (when known), series name, body-equivalent summary, relative
 // timestamp (already formatted by the hook via DateTool), a delete affordance, an info affordance
@@ -54,9 +55,9 @@ export function HistoryItem({
     >
       <View style={styles.indicator}>
         {selectionMode ? (
-          selected ? <CheckCircle2 size={20} color={colors.icon.button.secondary} /> : <Circle size={20} color={colors.icon.secondary} />
+          selected ? <CheckCircle2 size={icon.size[5]} color={colors.icon.button.secondary} /> : <Circle size={icon.size[5]} color={colors.icon.secondary} />
         ) : (
-          <Circle size={8} color={read ? "transparent" : colors.icon.status.unread} fill={read ? "transparent" : colors.icon.status.unread} />
+          <Circle size={icon.size.dot} color={read ? "transparent" : colors.icon.status.unread} fill={read ? "transparent" : colors.icon.status.unread} />
         )}
       </View>
       <Image source={coverUrl ? { uri: coverUrl } : undefined} style={[styles.thumb, !coverUrl && styles.thumbPlaceholder]} resizeMode="cover" />
@@ -71,10 +72,10 @@ export function HistoryItem({
       </View>
       <View style={[styles.trailingActions, selectionMode && styles.trailingActionsHidden]} pointerEvents={selectionMode ? 'none' : 'auto'}>
         <TouchableOpacity style={styles.iconBtn} onPress={onInfo} hitSlop={8} accessibilityLabel={infoLabel}>
-          <Info size={18} color={colors.icon.secondary} />
+          <Info size={icon.size[4]} color={colors.icon.secondary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn} onPress={onDelete} hitSlop={8} accessibilityLabel={deleteLabel}>
-          <X size={18} color={colors.icon.secondary} />
+          <X size={icon.size[4]} color={colors.icon.secondary} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

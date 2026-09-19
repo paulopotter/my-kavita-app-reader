@@ -48,6 +48,7 @@ export const configStyles = createStyles(({ colors, text, spacing, gutter, borde
       paddingHorizontal: gutter,
       paddingTop: gutter,
       paddingBottom: spacing[4],
+      gap: spacing[5],
     },
     subTitle: { flex: 1, fontSize: text.size[6], fontWeight: text.weight.bold, color: colors.text.title.primary },
 
