@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { Polygon } from 'react-native-svg';
 import { Select, type SelectProps } from './select.component';
 
 const OPTIONS = [
@@ -52,5 +53,45 @@ describe('Select', () => {
     fireEvent.press(getByText('None')); // open (trigger label is "None")
     fireEvent.press(getByText('Option A')); // pick a real one
     expect(onChange).toHaveBeenCalledWith('a');
+  });
+
+  describe('the swatch', () => {
+    const swatch = { accent: 'rgb(56, 189, 199)', surface: 'rgb(15, 26, 33)' } as const;
+
+    it('draws one sample per colour, above and below the diagonal', () => {
+      const { UNSAFE_getAllByType } = render(
+        <Select value="a" options={[{ id: 'a', label: 'Option A', swatch }]} onChange={jest.fn()} />,
+      );
+      const fills = UNSAFE_getAllByType(Polygon).map(p => p.props.fill);
+      expect(fills).toEqual([swatch.accent, swatch.surface]);
+    });
+
+    it('shows it on the closed trigger, so the current choice reads without opening', () => {
+      const { UNSAFE_queryAllByType } = render(
+        <Select value="a" options={[{ id: 'a', label: 'Option A', swatch }]} onChange={jest.fn()} />,
+      );
+      expect(UNSAFE_queryAllByType(Polygon).length).toBe(2);
+    });
+
+    // The Select stays dumb: a caller that has nothing to sample renders exactly as before.
+    it('draws nothing for an option without one', () => {
+      const { UNSAFE_queryAllByType, getByText } = render(
+        <Select value="a" options={OPTIONS} onChange={jest.fn()} />,
+      );
+      expect(UNSAFE_queryAllByType(Polygon)).toEqual([]);
+      expect(getByText('Option A')).toBeTruthy();
+    });
+
+    it('mixes options with and without one', () => {
+      const opts = [{ id: 'a', label: 'Option A', swatch }, { id: 'b', label: 'Option B' }];
+      const { UNSAFE_queryAllByType, getByText } = render(
+        <Select value="b" options={opts} onChange={jest.fn()} />,
+      );
+      // 'b' is selected and has no swatch, so the closed trigger draws none.
+      expect(UNSAFE_queryAllByType(Polygon)).toEqual([]);
+      fireEvent.press(getByText('Option B'));
+      // Open: only 'a' contributes a pair.
+      expect(UNSAFE_queryAllByType(Polygon).length).toBe(2);
+    });
   });
 });

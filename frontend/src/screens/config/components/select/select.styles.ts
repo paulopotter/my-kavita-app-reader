@@ -18,10 +18,19 @@ export const selectStyles = createStyles(({ colors, text, spacing, radius, alpha
 
     scrim: { flex: 1, backgroundColor: alpha(colors.surface.dim, 0.5), justifyContent: 'center', alignItems: 'center', padding: spacing[8] },
     sheet: { width: '100%', maxWidth: 320, backgroundColor: colors.surface.secondary, borderRadius: radius.large, overflow: 'hidden' },
-    option: { paddingHorizontal: spacing[6], paddingVertical: spacing[5] },
+    option: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[6], paddingVertical: spacing[5] },
     optionActive: { backgroundColor: colors.surface.tertiary },
-    optionTxt: { color: colors.text.emphasis, fontSize: text.size[3] },
+    optionTxt: { color: colors.text.emphasis, fontSize: text.size[3], flex: 1 },
     optionTxtActive: { color: colors.text.link.primary, fontWeight: text.weight.bold },
+    // Both identities are dark, and the swatch sits on a dark sheet — without a border the
+    // surface half would vanish into the background and the accent would read as a loose triangle.
+    swatch: {
+      marginRight: spacing[5],
+      borderRadius: radius.small,
+      borderWidth: border.small,
+      borderColor: colors.border.primary,
+      overflow: 'hidden',
+    },
     divider: { height: border.small, backgroundColor: colors.surface.tertiary },
 }));
 

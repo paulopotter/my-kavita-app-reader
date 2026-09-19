@@ -4,12 +4,16 @@ import { ChevronDown } from 'lucide-react-native';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { selectStyles } from './select.styles';
 import { icon } from '../../../../shared/theme';
+import { SelectSwatch, type SwatchColors } from './select.swatch';
 
 // A single-choice select: a trigger showing the current label, tap to open a sheet listing every
 // option one per row. No native picker dependency; scales to a long option list, unlike chips.
 export interface SelectOption {
   id: string | undefined;
   label: string;
+  // A two-colour sample drawn before the label. The Select stays dumb: it draws what it is given
+  // and never learns that these happen to be themes.
+  swatch?: SwatchColors;
 }
 
 export interface SelectProps {
@@ -37,6 +41,7 @@ export function Select({ value, options, placeholder = '—', onChange, disabled
         style={[styles.trigger, disabled && styles.triggerDisabled]}
         onPress={() => !disabled && setOpen(true)}
         disabled={disabled}>
+        {current?.swatch && <SelectSwatch {...current.swatch} />}
         <Text style={[styles.triggerTxt, !current && styles.triggerPlaceholder]} numberOfLines={1}>
           {current?.label ?? placeholder}
         </Text>
@@ -58,6 +63,7 @@ export function Select({ value, options, placeholder = '—', onChange, disabled
                         onChange(o.id);
                         setOpen(false);
                       }}>
+                      {o.swatch && <SelectSwatch {...o.swatch} />}
                       <Text style={[styles.optionTxt, active && styles.optionTxtActive]} numberOfLines={1}>
                         {o.label}
                       </Text>

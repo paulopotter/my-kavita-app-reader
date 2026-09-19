@@ -3,7 +3,7 @@ import { BackHandler, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n';
-import { type ThemeName, icon } from '../../shared/theme';
+import { type ThemeName, defaultThemeName, icon, themes } from '../../shared/theme';
 import { useTheme } from '../../shared/context';
 import { Select } from './components/select';
 import { LanguageToggle } from './components/language-toggle';
@@ -67,12 +67,24 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
   // A theme's display name is translatable, so it cannot be the registry key. An identity added
   // without a string yet falls back to its key rather than rendering an empty row.
   const themeLabels: Record<string, string> = useMemo(
-    () => ({ default: t.themeNameDefault, teal: t.themeNameTeal }),
+    () => ({ crimson: t.themeNameCrimson, teal: t.themeNameTeal }),
     [t],
   );
   const themeOptions = useMemo(
-    () => available.map(name => ({ id: name, label: themeLabels[name] ?? name })),
-    [available, themeLabels],
+    () =>
+      available.map(name => ({
+        id: name,
+        // The default is marked, not named: if the role moves to another identity, the label
+        // follows on its own.
+        label:
+          name === defaultThemeName
+            ? `${themeLabels[name] ?? name} - ${t.themeDefaultSuffix}`
+            : (themeLabels[name] ?? name),
+        // Read from the registry, not from useTheme(): a swatch samples an identity that is
+        // deliberately NOT the active one, so its colours cannot come through the style layer.
+        swatch: { accent: themes[name].button.primary, surface: themes[name].surface.primary },
+      })),
+    [available, themeLabels, t],
   );
 
   return (
