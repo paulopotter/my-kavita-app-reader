@@ -144,6 +144,20 @@ describe('theme picker', () => {
     expect(getByText(defaultLabel)).toBeTruthy();
   });
 
+  // Onyx has no lighter twin, but its floor is real black like any variant's — the suffix says
+  // what the palette IS, not that it has a parent.
+  it('marks onyx as OLED even though it has no lighter twin', () => {
+    const { getByText } = renderThemed();
+    fireEvent.press(getByText(defaultLabel));
+    expect(getByText(`${t.themeNameOnyx} - ${t.themeOledSuffix}`)).toBeTruthy();
+  });
+
+  it('composes a variant’s label from its parent, rather than duplicating the name', () => {
+    const { getByText } = renderThemed();
+    fireEvent.press(getByText(defaultLabel));
+    expect(getByText(`${t.themeNameWine} - ${t.themeOledSuffix}`)).toBeTruthy();
+  });
+
   it('lists every registered theme when opened', () => {
     const { getByText } = renderThemed();
     fireEvent.press(getByText(defaultLabel));

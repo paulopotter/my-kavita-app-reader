@@ -1,6 +1,12 @@
 import type { ThemeColors } from '../colors.types';
-import { crimsonColors } from './crimson';
-import { tealColors } from './teal';
+import { amberColors } from './amber';
+import { crimsonColors, crimsonOledColors } from './crimson';
+import { forestColors, forestOledColors } from './forest';
+import { onyxColors } from './onyx';
+import { sepiaColors } from './sepia';
+import { steelColors } from './steel';
+import { tealColors, tealOledColors } from './teal';
+import { wineColors, wineOledColors } from './wine';
 
 // The theme registry, and the one place that says which theme is active.
 //
@@ -10,9 +16,23 @@ import { tealColors } from './teal';
 //
 // `activeTheme` is a constant for now. Plan 028 later replaces it with a value resolved at runtime
 // (ThemeProvider + the user's stored preference); until then this is the single switch.
+// Order is what the picker shows, and it is mechanical so a script can maintain it: identities
+// alphabetical by key, each OLED variant pinned directly under its parent rather than sorting to
+// its own letter. By key and not by label, because the label is a translation — sorting by it
+// would reshuffle the list when the language changes.
 export const themes = {
-  teal: tealColors,
+  amber: amberColors,
   crimson: crimsonColors,
+  crimsonOled: crimsonOledColors,
+  forest: forestColors,
+  forestOled: forestOledColors,
+  onyx: onyxColors,
+  sepia: sepiaColors,
+  steel: steelColors,
+  teal: tealColors,
+  tealOled: tealOledColors,
+  wine: wineColors,
+  wineOled: wineOledColors,
 } as const;
 
 export type ThemeName = keyof typeof themes;

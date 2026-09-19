@@ -66,6 +66,96 @@ describe('token names', () => {
 // runs, so they cannot read a token — android/app/src/main/res/values/colors.xml holds a copy.
 // These are the values that file must carry; if the default role moves to another identity, this
 // test fails and says so, instead of the app booting with last identity's colours.
+// Readability is the one promise a palette cannot break: a theme may repaint anything, but not
+// into something that cannot be read. 7:1 is WCAG AAA for body text.
+// The picker shows the registry in its own order, and `generate-theme.js` inserts into it
+// automatically — which only works while the order stays mechanical.
+describe('the registry order', () => {
+  const keys = Object.keys(themes);
+  const identities = keys.filter(k => !k.endsWith('Oled'));
+
+  it('lists identities alphabetically by key', () => {
+    expect(identities).toEqual([...identities].sort());
+  });
+
+  // By key and not by label: the label is a translation, so sorting on it would reshuffle the
+  // list when the language changes.
+  it('pins each OLED variant directly under its parent', () => {
+    for (const [index, key] of keys.entries()) {
+      if (!key.endsWith('Oled')) {continue;}
+      expect(keys[index - 1]).toBe(key.slice(0, -4));
+    }
+  });
+
+  it('has a parent for every variant', () => {
+    for (const key of keys.filter(k => k.endsWith('Oled'))) {
+      expect(keys).toContain(key.slice(0, -4));
+    }
+  });
+});
+
+describe('legibility', () => {
+  const channel = (token: string): number[] => (token.match(/\d+/g) ?? []).map(Number);
+  const luminance = (token: string): number => {
+    const [r, g, b] = channel(token).map(v => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string): number => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  const named = Object.entries(themes);
+
+  // Two identities predate this rule and keep their colours by decision — see INHERITED below.
+  // Everything drawn since is held to AAA.
+  const INHERITED = ['teal', 'crimson'];
+  const floorFor = (name: string): number => (INHERITED.some(i => name.startsWith(i)) ? 4.5 : 7);
+
+  // The screen and the card are where prose is read, so both foregrounds clear AAA there.
+  // `surface.tertiary` is deliberately NOT in this list: it is the chip, the switch track, the
+  // cover placeholder — small raised shapes that carry a label at most, never a paragraph.
+  // Holding it to the same bar would mean lightening every secondary for no gain in reading.
+  it.each(named)('%s reads body copy on the screen and on a card', (name, palette) => {
+    for (const surface of [palette.surface.primary, palette.surface.secondary]) {
+      expect(contrast(palette.text.primary, surface)).toBeGreaterThanOrEqual(7);
+      expect(contrast(palette.text.secondary, surface)).toBeGreaterThanOrEqual(floorFor(name));
+    }
+  });
+
+  // On that raised surface the bar is AA, which is what a short label needs.
+  it.each(named)('%s keeps a label legible on a raised surface', (_name, palette) => {
+    expect(contrast(palette.text.primary, palette.surface.tertiary)).toBeGreaterThanOrEqual(7);
+    expect(contrast(palette.text.secondary, palette.surface.tertiary)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(named)('%s reads its heading and its label', (_name, palette) => {
+    expect(contrast(palette.text.title.primary, palette.surface.secondary)).toBeGreaterThanOrEqual(7);
+    expect(contrast(palette.text.label, palette.surface.secondary)).toBeGreaterThanOrEqual(7);
+  });
+
+  /**
+   * Teal and crimson are the two identities that predate this rule, and both keep their colours by
+   * an explicit decision rather than by oversight:
+   *
+   * - **crimson** is the app's original identity; its red accent reads 4.15 against the card. The
+   *   alternative was a lighter red that is no longer the colour the app shipped with.
+   * - **teal** was drawn to prove runtime switching, before there was a measured bar. Its
+   *   secondary text reads 6.30 and its cyan link 6.69 — both just under AAA, and both approved on
+   *   the device as they are.
+   *
+   * Their OLED variants inherit the same foregrounds and read slightly better, the floor being
+   * darker. Every identity drawn after this rule clears 7:1 with no exception.
+   */
+  it.each(named)('%s reads a link, or is one of the two inherited identities', (name, palette) => {
+    const ratio = contrast(palette.text.link.primary, palette.surface.secondary);
+    expect(ratio).toBeGreaterThanOrEqual(INHERITED.some(i => name.startsWith(i)) ? 4 : 7);
+  });
+});
+
 describe('the identity compiled into the APK', () => {
   it('states the hex colors.xml has to mirror', () => {
     const identity = themes[defaultThemeName];

@@ -20,8 +20,17 @@ export interface Strings {
   configMenuChapter: string;
   configMenuNotifications: string;
   configMenuTheme: string;
-  themeNameCrimson: string;
   themeNameTeal: string;
+  themeNameCrimson: string;
+  themeNameOnyx: string;
+  themeNameAmber: string;
+  themeNameSepia: string;
+  themeNameSteel: string;
+  themeNameWine: string;
+  themeNameForest: string;
+  // A variant that drops the identity's floor to real black, for OLED panels. Composed with the
+  // name — "Petróleo - OLED" — so the pair reads as one identity with two floors.
+  themeOledSuffix: string;
   // Marks whichever identity currently holds the default role — see themes/index.ts. No theme is
   // named "default", so the suffix travels with the label instead of with the name.
   themeDefaultSuffix: string;
@@ -345,8 +354,15 @@ const ptBR: Strings = {
   configMenuChapter: 'Página do mangá',
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
-  themeNameCrimson: 'Carmim',
   themeNameTeal: 'Petróleo',
+  themeNameCrimson: 'Carmim',
+  themeNameOnyx: 'Ônix',
+  themeNameAmber: 'Âmbar',
+  themeNameSepia: 'Sépia',
+  themeNameSteel: 'Aço',
+  themeNameWine: 'Vinho',
+  themeNameForest: 'Floresta',
+  themeOledSuffix: 'OLED',
   themeDefaultSuffix: 'padrão',
   configChapterSortGroupTitle: 'Ordenação de capítulos',
 
@@ -631,8 +647,15 @@ const en: Strings = {
   configMenuChapter: 'Manga page',
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
-  themeNameCrimson: 'Crimson',
   themeNameTeal: 'Teal',
+  themeNameCrimson: 'Crimson',
+  themeNameOnyx: 'Onyx',
+  themeNameAmber: 'Amber',
+  themeNameSepia: 'Sepia',
+  themeNameSteel: 'Steel',
+  themeNameWine: 'Wine',
+  themeNameForest: 'Forest',
+  themeOledSuffix: 'OLED',
   themeDefaultSuffix: 'default',
   configChapterSortGroupTitle: 'Chapter sort order',
 

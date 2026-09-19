@@ -142,3 +142,17 @@ export const crimsonColors: ThemeColors = {
     },
   },
 };
+
+// The same identity with its floor on real black: on an OLED panel an unlit pixel costs no power
+// and the contrast is absolute. Only the surfaces move, and the whole ladder moves together —
+// dropping just the background would widen the gap to the card, which reads as the card floating
+// rather than sitting on the screen.
+export const crimsonOledColors: ThemeColors = {
+  ...crimsonColors,
+  surface: {
+    ...crimsonColors.surface,
+    primary: 'rgb(0, 0, 0)',
+    secondary: 'rgb(12, 14, 30)',
+    tertiary: 'rgb(26, 33, 46)',
+  },
+};

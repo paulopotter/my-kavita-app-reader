@@ -19,6 +19,12 @@ import { ServerScreen } from './server';
 // Thin router: the Config menu + which sub-screen is open. All the real work is in each sub-screen
 // (server/reader/serie/debug), each its own folder on the current convention. 'setup' is not
 // routed here — see config.types.
+// Identities whose floor is real black without having a lighter twin. A variant registered as
+// `<parent>Oled` takes its parent's name automatically, so renaming an identity renames both rows
+// at once; onyx is just as much an OLED palette, and is listed here rather than given a parent it
+// does not have.
+const OLED_ONLY: string[] = ['onyx'];
+
 export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigScreenProps) {
   const [screen, setScreen] = useState<ConfigSubScreen>('menu');
   const goBack = () => setScreen('menu');
@@ -67,8 +73,26 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
   // A theme's display name is translatable, so it cannot be the registry key. An identity added
   // without a string yet falls back to its key rather than rendering an empty row.
   const themeLabels: Record<string, string> = useMemo(
-    () => ({ crimson: t.themeNameCrimson, teal: t.themeNameTeal }),
+    () => ({
+      teal: t.themeNameTeal,
+      crimson: t.themeNameCrimson,
+      onyx: t.themeNameOnyx,
+      amber: t.themeNameAmber,
+      sepia: t.themeNameSepia,
+      steel: t.themeNameSteel,
+      wine: t.themeNameWine,
+      forest: t.themeNameForest,
+    }),
     [t],
+  );
+  const labelOf = useMemo(
+    () =>
+      (name: string): string => {
+        const parent = name.endsWith('Oled') ? name.slice(0, -4) : null;
+        const base = themeLabels[parent ?? name] ?? parent ?? name;
+        return parent || OLED_ONLY.includes(name) ? `${base} - ${t.themeOledSuffix}` : base;
+      },
+    [themeLabels, t],
   );
   const themeOptions = useMemo(
     () =>
@@ -76,15 +100,12 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
         id: name,
         // The default is marked, not named: if the role moves to another identity, the label
         // follows on its own.
-        label:
-          name === defaultThemeName
-            ? `${themeLabels[name] ?? name} - ${t.themeDefaultSuffix}`
-            : (themeLabels[name] ?? name),
+        label: name === defaultThemeName ? `${labelOf(name)} - ${t.themeDefaultSuffix}` : labelOf(name),
         // Read from the registry, not from useTheme(): a swatch samples an identity that is
         // deliberately NOT the active one, so its colours cannot come through the style layer.
         swatch: { accent: themes[name].button.primary, surface: themes[name].surface.primary },
       })),
-    [available, themeLabels, t],
+    [available, labelOf, t],
   );
 
   return (

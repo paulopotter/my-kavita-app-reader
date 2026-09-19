@@ -2,9 +2,12 @@ import type { ThemeColors } from '../../colors.types';
 
 // A second identity, for proving the theme machinery works end to end.
 //
-// Deep teal surfaces with a cyan accent — deliberately far from the default's indigo/pink, so a
-// component that fails to repaint is obvious rather than subtle. Every foreground clears 7:1
-// against its surface (WCAG AAA for body text).
+// Deep teal surfaces with a cyan accent — deliberately far from crimson's indigo/pink, so a
+// component that fails to repaint is obvious rather than subtle.
+//
+// Drawn before there was a measured bar, and two pairs sit just under AAA: secondary text reads
+// 6.30 against the card and the cyan link 6.69. Both were approved on the device as they are, and
+// the themes test records them as inherited rather than pretending otherwise.
 export const tealColors: ThemeColors = {
   text: {
     primary: 'rgb(203, 220, 224)',
@@ -133,5 +136,19 @@ export const tealColors: ThemeColors = {
       primary: 'rgb(246, 173, 85)',
       secondary: 'rgb(148, 171, 178)',
     },
+  },
+};
+
+// The same identity with its floor on real black: on an OLED panel an unlit pixel costs no power
+// and the contrast is absolute. Only the surfaces move, and the whole ladder moves together —
+// dropping just the background would widen the gap to the card, which reads as the card floating
+// rather than sitting on the screen.
+export const tealOledColors: ThemeColors = {
+  ...tealColors,
+  surface: {
+    ...tealColors.surface,
+    primary: 'rgb(0, 0, 0)',
+    secondary: 'rgb(11, 19, 24)',
+    tertiary: 'rgb(19, 34, 42)',
   },
 };
