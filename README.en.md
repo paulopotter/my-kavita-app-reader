@@ -109,7 +109,6 @@ Anything not listed below works the moment you install the app.
   - **Other reading modes** - today only continuous scrolling; paged,
     horizontal and zoom are missing
   - **Home** - a landing page gathering what matters right now
-  - **Themes** - changing the app's colours
   - **Multiple servers at once** - today one server group is active at a time
 
 ### New-chapter notifications

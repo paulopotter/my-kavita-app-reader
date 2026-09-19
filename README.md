@@ -111,7 +111,6 @@ Tudo o que não está listado abaixo funciona assim que você instala o app.
   - **Outros modos de leitura** - hoje só rolagem contínua; faltam paginada,
     horizontal e zoom
   - **Home** - página inicial reunindo o que é relevante no momento
-  - **Temas** - troca das cores do app
   - **Múltiplos servidores ao mesmo tempo** - hoje um grupo de servidores
     ativo por vez
 
