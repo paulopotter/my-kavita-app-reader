@@ -112,9 +112,23 @@ export function useSearch(): UseSearchResult {
 
   // The history stores only identity (id/name/cover) — never the followed flag, which would be
   // stale the moment it was written. The flag is applied here, from the same live set.
+  // A history row is what was stored plus what has changed since: the followed flag and the
+  // catalogue's current progress, so the same series reads identically here and in the Library.
+  // The catalogue is only consulted when it is there — a row still renders while it loads or
+  // fails, which is why the history stores name and cover in the first place.
   const historyRows = useMemo(
-    () => history.map(item => ({ ...item, isFollowed: followedIds.has(item.seriesId) })),
-    [history, followedIds],
+    () =>
+      history.map(item => {
+        const card = cards.find(c => c.id === item.seriesId);
+        return {
+          ...item,
+          isFollowed: followedIds.has(item.seriesId),
+          progressFraction: card?.progressFraction ?? 0,
+          progressLabel: card?.progressLabel ?? '',
+          chapterCountLabel: card?.chapterCountLabel,
+        };
+      }),
+    [history, cards, followedIds],
   );
 
   const recordOpened = useCallback(

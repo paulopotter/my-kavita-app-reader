@@ -63,8 +63,10 @@ export function SearchScreen() {
     [toggleFollow, openSeries],
   );
 
-  // A history row reuses the same card, built from what was stored when it was opened — the
-  // catalogue isn't consulted, so a row still renders while the list is loading or failed.
+  // A history row reuses the same card. Name and cover come from what was stored when it was
+  // opened, so the row survives the catalogue being unavailable; the progress is filled in from
+  // the catalogue when it is there (see useSearch), which is what makes a row here read the same
+  // as the Library's.
   const renderHistory = useCallback(
     ({ item }: { item: SearchHistoryRow }) => (
       <View style={styles.historyRow}>
@@ -73,8 +75,9 @@ export function SearchScreen() {
             id={item.seriesId}
             name={item.name}
             coverUrl={item.coverUrl}
-            progressFraction={0}
-            progressLabel=""
+            progressFraction={item.progressFraction}
+            progressLabel={item.progressLabel}
+            chapterCountLabel={item.chapterCountLabel}
             isFollowed={item.isFollowed}
             onToggleFollow={toggleFollow}
             onPress={openSeries}

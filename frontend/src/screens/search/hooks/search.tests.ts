@@ -130,6 +130,38 @@ describe('useSearch — catalogue', () => {
     await waitFor(() => expect(result.current.history[0].isFollowed).toBe(true));
   });
 
+  it('a history row carries the catalogue\'s progress — so it reads like the Library\'s row', async () => {
+    // 'a' is in the catalogue with pages read 0 of 100; the history stored only id/name/cover.
+    mockHistoryList.mockResolvedValue([historyItem({ seriesId: 'a' })]);
+    const { result } = renderHook(() => useSearch());
+    await waitFor(() => expect(result.current.history).toHaveLength(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The same series, reached the other way round: searching for it yields the card the Library
+    // would render, and the history row must match it field for field.
+    act(() => result.current.setQuery('piece'));
+    const card = result.current.results.find(r => r.id === 'a');
+    const row = result.current.history[0];
+    expect(card).toBeDefined();
+    expect(row.progressFraction).toBe(card?.progressFraction);
+    expect(row.progressLabel).toBe(card?.progressLabel);
+    expect(row.chapterCountLabel).toBe(card?.chapterCountLabel);
+  });
+
+  it('a history row for a series the catalogue has not got still renders, without progress', async () => {
+    // The reason name/cover are stored at all: the row survives the catalogue being unavailable.
+    mockHistoryList.mockResolvedValue([historyItem({ seriesId: 'gone' })]);
+    const { result } = renderHook(() => useSearch());
+    await waitFor(() => expect(result.current.history).toHaveLength(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const row = result.current.history[0];
+    expect(row.name).toBe('Hist One');
+    expect(row.progressFraction).toBe(0);
+    expect(row.progressLabel).toBe('');
+    expect(row.chapterCountLabel).toBeUndefined();
+  });
+
   it('a history row for an unfollowed series stays unfollowed', async () => {
     mockGetAllIds.mockResolvedValue([]);
     mockHistoryList.mockResolvedValue([historyItem({ seriesId: 'h1' })]);

@@ -1,17 +1,17 @@
 import { createStyles } from '../../../../shared/theme';
-export const searchInputStyles = createStyles(({ colors, text }) => ({
+export const searchInputStyles = createStyles(({ colors, text, spacing, radius, border }) => ({
     root: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginHorizontal: 16,
-      marginTop: 12,
-      marginBottom: 8,
-      paddingHorizontal: 12,
+      gap: spacing[4],
+      marginHorizontal: spacing[6],
+      marginTop: spacing[5],
+      marginBottom: spacing[4],
+      paddingHorizontal: spacing[5],
       height: 44,
-      borderRadius: 10,
+      borderRadius: radius.medium,
       backgroundColor: colors.surface.secondary,
-      borderWidth: 1,
+      borderWidth: border.medium,
       borderColor: colors.border.primary,
     },
     input: {

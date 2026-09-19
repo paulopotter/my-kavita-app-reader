@@ -10,11 +10,16 @@ export interface SearchHistoryItem {
   openedAtEpochMs: number;
 }
 
-// A history item as the screen renders it: what was stored, plus the CURRENT followed flag. The
-// flag is never persisted — it changes independently of the history, so it's resolved at read
-// time from the live followed set.
+// A history item as the screen renders it: what was stored, plus everything that changes after
+// it was stored — the followed flag and the reading progress. None of it is persisted: it moves
+// independently of the history, so it is resolved at read time from the live followed set and
+// the catalogue already in hand. A row whose series the catalogue has not got (it is still
+// loading, or failed) keeps rendering, just without the progress.
 export interface SearchHistoryRow extends SearchHistoryItem {
   isFollowed: boolean;
+  progressFraction: number;
+  progressLabel: string;
+  chapterCountLabel?: string;
 }
 
 export interface UseSearchResult {
