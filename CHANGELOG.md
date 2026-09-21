@@ -10,6 +10,24 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: enriquecimento de metadados resolve uma obra pelo par provider + id em vez de adivinhar pelo título, e traz sinopse, gêneros, autor, títulos alternativos e ids externos.
+- feat: cache persistente por série para o enriquecimento — serve o que está guardado na hora e revalida em background quando envelhece.
+- fix: limite de requisições simultâneas ao servidor de enriquecimento; sem ele, abrir a biblioteca disparava uma por série e derrubava o servidor.
+- perf: a lista de capítulos deixa de construir um digest por capítulo, e as chamadas independentes do digest passam a correr em paralelo.
+- fix: um digest cujo enriquecimento ainda estava em voo deixa de ser servido do cache, que prendia a série em "buscando dados" até um pull-to-refresh.
+- fix: os campos novos do enriquecimento chegam ao app também pelo digest, não só pela ponte de enriquecimento.
+
+### Frontend
+
+- feat: a página da obra mostra autor e outros títulos vindos do servidor de enriquecimento, e avisa quando esse dado está a caminho, chegou ou falhou.
+- feat: Ajustes > Página do mangá escolhe qual servidor responde cada campo — um padrão geral mais exceções por campo, com o outro servidor cobrindo quando o escolhido não tem a resposta.
+- perf: a lista de capítulos aguenta séries de centenas de capítulos sem travar ao rolar.
+- fix: salvar a fonte de dados deixa de sobrescrever a preferência de ordenação de capítulos, que voltava para crescente sem aviso.
+- fix: `alert`, `warn` e `good` passam a ser três cores distintas em todos os temas; avisos de problema eram exibidos na cor do próprio tema.
+- fix: a barra de progresso do leitor no tema teal usa o ciano da identidade em vez de âmbar.
+
 ## [[2026.09.19.1953](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.19.1953)] - 2026-09-19
 
 Avisos do leitor adaptados ao idioma e tema do app, além de doze opções de cores escuras para a interface. / Reader warnings adapted to the app language and theme, plus twelve dark color options for the interface.
