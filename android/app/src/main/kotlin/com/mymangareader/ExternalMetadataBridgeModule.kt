@@ -25,6 +25,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Announced when a series' enrichment finished after the screen already rendered without it —
+// the screen re-reads and updates in place instead of waiting for the user's next visit.
+private const val EVENT_EXTERNAL_METADATA_RESOLVED = "externalMetadataResolved"
+
 // RN→Kotlin bridge for the :external-metadata-server module's ExternalMetadataServer facade —
 // one @ReactMethod per operation, same shape as ServerBridgeModule. Never adds logic of its own:
 // any validation/orchestration decision belongs in ExternalMetadataServer, not here. [server] is
@@ -41,6 +45,32 @@ class ExternalMetadataBridgeModule
         override fun getName(): String = "ExternalMetadataBridgeModule"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        init {
+            // Enrichment work that finished after the screen stopped waiting for it. The result is
+            // already cached, so this only tells RN "ask again" — the data itself travels the
+            // normal digest path, where the user's own source preferences are applied.
+            scope.launch {
+                externalMetadataServer.resolved.collect { event ->
+                    reactApplicationContext.emitEvent(
+                        EVENT_EXTERNAL_METADATA_RESOLVED,
+                        Arguments.createMap().apply {
+                            putString("seriesId", event.seriesId)
+                            putString("providerId", event.providerId)
+                            putBoolean("ok", event.ok)
+                        },
+                    )
+                }
+            }
+        }
+
+        // Required by RN's event-emitter contract: without both of these, constructing a
+        // NativeEventEmitter over this module warns and its listeners never receive anything.
+        @ReactMethod
+        fun addListener(eventName: String) = Unit
+
+        @ReactMethod
+        fun removeListeners(count: Int) = Unit
 
         // ── providers ────────────────────────────────────────────────────────
 
@@ -307,7 +337,8 @@ class ExternalMetadataBridgeModule
             promise: Promise,
         ) {
             scope.launch {
-                runCatching { externalMetadataServer.match.sync(ExternalMetadataSeriesRef(seriesId, seriesName), server).data }
+                val ref = ExternalMetadataSeriesRef(seriesId, activeProviderId(), seriesName)
+                runCatching { externalMetadataServer.match.sync(ref, server).data }
                     .resolveOrReject(promise, "MATCH_SYNC_ERROR") { it?.toWritableMap() }
             }
         }
@@ -320,7 +351,8 @@ class ExternalMetadataBridgeModule
             promise: Promise,
         ) {
             scope.launch {
-                runCatching { externalMetadataServer.match.syncByGroup(groupId, ExternalMetadataSeriesRef(seriesId, seriesName)).data }
+                val ref = ExternalMetadataSeriesRef(seriesId, activeProviderId(), seriesName)
+                runCatching { externalMetadataServer.match.syncByGroup(groupId, ref).data }
                     .resolveOrReject(promise, "MATCH_SYNC_ERROR") { it?.toWritableMap() }
             }
         }
@@ -337,7 +369,7 @@ class ExternalMetadataBridgeModule
                     externalMetadataServer.match
                         .syncByServerId(
                             kavitaServerGroupId,
-                            ExternalMetadataSeriesRef(seriesId, seriesName),
+                            ExternalMetadataSeriesRef(seriesId, activeProviderId(), seriesName),
                         ).data
                 }.resolveOrReject(promise, "MATCH_SYNC_ERROR") { it?.toWritableMap() }
             }
@@ -356,7 +388,7 @@ class ExternalMetadataBridgeModule
                         .syncByServerUrl(
                             server,
                             kavitaUrl,
-                            ExternalMetadataSeriesRef(seriesId, seriesName),
+                            ExternalMetadataSeriesRef(seriesId, activeProviderId(), seriesName),
                         ).data
                 }.resolveOrReject(promise, "MATCH_SYNC_ERROR") { it?.toWritableMap() }
             }
@@ -371,7 +403,7 @@ class ExternalMetadataBridgeModule
             promise: Promise,
         ) {
             scope.launch {
-                val series = seriesIds.toSeriesRefs(seriesNames)
+                val series = seriesIds.toSeriesRefs(seriesNames, activeProviderId())
                 runCatching { externalMetadataServer.matches.sync(series, server).data }
                     .resolveOrReject(promise, "MATCHES_SYNC_ERROR") { it.toMatchesWritableArray() }
             }
@@ -385,7 +417,7 @@ class ExternalMetadataBridgeModule
             promise: Promise,
         ) {
             scope.launch {
-                val series = seriesIds.toSeriesRefs(seriesNames)
+                val series = seriesIds.toSeriesRefs(seriesNames, activeProviderId())
                 runCatching { externalMetadataServer.matches.syncByGroup(groupId, series).data }
                     .resolveOrReject(promise, "MATCHES_SYNC_ERROR") { it.toMatchesWritableArray() }
             }
@@ -399,7 +431,7 @@ class ExternalMetadataBridgeModule
             promise: Promise,
         ) {
             scope.launch {
-                val series = seriesIds.toSeriesRefs(seriesNames)
+                val series = seriesIds.toSeriesRefs(seriesNames, activeProviderId())
                 runCatching { externalMetadataServer.matches.syncByServerId(kavitaServerGroupId, series).data }
                     .resolveOrReject(promise, "MATCHES_SYNC_ERROR") { it.toMatchesWritableArray() }
             }
@@ -413,13 +445,28 @@ class ExternalMetadataBridgeModule
             promise: Promise,
         ) {
             scope.launch {
-                val series = seriesIds.toSeriesRefs(seriesNames)
+                val series = seriesIds.toSeriesRefs(seriesNames, activeProviderId())
                 runCatching { externalMetadataServer.matches.syncByServerUrl(server, kavitaUrl, series).data }
                     .resolveOrReject(promise, "MATCHES_SYNC_ERROR") { it.toMatchesWritableArray() }
             }
         }
 
-        private fun ReadableArray.toSeriesRefs(names: ReadableArray): List<ExternalMetadataSeriesRef> = (0 until size()).map { ExternalMetadataSeriesRef(id = getString(it), name = names.getString(it)) }
+        // Which content provider the ids RN just handed us belong to. RN never passes this: a
+        // series id it holds came from :server in the first place, so which plugin produced it is
+        // something Kotlin already knows — sending it through JS would spread the value across
+        // bridge, service and hook for nothing.
+        //
+        // getActiveInfo() reads what the last resolution recorded and never hits the network, so
+        // it is null when no group is active or none has been resolved yet in this process. That
+        // case yields a blank providerId, and a provider-qualified lookup with a blank provider
+        // simply finds nothing — which lands on the same title fallback a 404 does. No extra
+        // path, no failure.
+        private suspend fun activeProviderId(): String = server.getActiveInfo()?.providerId.orEmpty()
+
+        private fun ReadableArray.toSeriesRefs(
+            names: ReadableArray,
+            providerId: String,
+        ): List<ExternalMetadataSeriesRef> = (0 until size()).map { ExternalMetadataSeriesRef(id = getString(it), providerId = providerId, name = names.getString(it)) }
 
         // ── mapping: ExternalMetadataServer data classes → WritableMap/WritableArray ────────────
 
@@ -524,6 +571,36 @@ class ExternalMetadataBridgeModule
                 totalChapters?.let { putInt("totalChapters", it) }
                 latestChapterLabel?.let { putString("latestChapterLabel", it) }
                 putBoolean("hasErrors", hasErrors)
+                putBoolean("abandoned", abandoned)
+                summary?.let { putString("summary", it) }
+                author?.let { putString("author", it) }
+                // Always sent, empty included: an empty list is a real answer ("the provider has
+                // none"), and RN reading `genres` as undefined would blur that into "not asked".
+                putArray("genres", Arguments.createArray().also { arr -> genres.forEach { arr.pushString(it) } })
+                putArray(
+                    "alternativeTitles",
+                    Arguments.createArray().also { arr ->
+                        alternativeTitles.forEach { title ->
+                            arr.pushMap(
+                                Arguments.createMap().apply {
+                                    putString("label", title.label)
+                                    putString("value", title.value)
+                                },
+                            )
+                        }
+                    },
+                )
+                externalIds?.let { ids ->
+                    putMap(
+                        "externalIds",
+                        Arguments.createMap().apply {
+                            ids.malId?.let { putInt("malId", it) }
+                            ids.anilistId?.let { putInt("anilistId", it) }
+                            ids.nexusId?.let { putInt("nexusId", it) }
+                            ids.onyxreaderId?.let { putInt("onyxreaderId", it) }
+                        },
+                    )
+                }
             }
 
         // Positional — index i is series[i]'s match, or a bridge-side null when ExternalMetadataMatch

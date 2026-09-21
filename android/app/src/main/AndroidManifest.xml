@@ -50,6 +50,88 @@
             from what is already here; when there is no change, the file is left
             untouched. `clearDeepLinkHosts` restores it to empty after producing an APK.
             -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data
+                android:scheme="http"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/series/.*" />
+            <data
+                android:scheme="http"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/series/.*/manga/.*" />
+            <data
+                android:scheme="http"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/library/.*/series/.*" />
+            <data
+                android:scheme="http"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/library/.*/series/.*/manga/.*" />
+            <data
+                android:scheme="http"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/series/.*" />
+            <data
+                android:scheme="http"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/series/.*/manga/.*" />
+            <data
+                android:scheme="http"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/library/.*/series/.*" />
+            <data
+                android:scheme="http"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/library/.*/series/.*/manga/.*" />
+        </intent-filter>
+        <intent-filter android:autoVerify="true">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data
+                android:scheme="https"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/series/.*" />
+            <data
+                android:scheme="https"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/series/.*/manga/.*" />
+            <data
+                android:scheme="https"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/library/.*/series/.*" />
+            <data
+                android:scheme="https"
+                android:host="mangas-ipa.paulofrauches.com.br"
+                android:pathPattern="/library/.*/series/.*/manga/.*" />
+            <data
+                android:scheme="https"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/series/.*" />
+            <data
+                android:scheme="https"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/series/.*/manga/.*" />
+            <data
+                android:scheme="https"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/library/.*/series/.*" />
+            <data
+                android:scheme="https"
+                android:host="192.168.68.63"
+                android:port="5150"
+                android:pathPattern="/library/.*/series/.*/manga/.*" />
+        </intent-filter>
         <!-- GENERATED_DEEP_LINK_HOSTS_END -->
 
             <!--

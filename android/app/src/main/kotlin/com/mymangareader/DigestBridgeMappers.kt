@@ -235,6 +235,10 @@ private fun ExternalMetadataActiveInfo.toWritableMap(): WritableMap =
         putInt("priority", priority)
     }
 
+// Mirrors ExternalMetadataBridgeModule's mapper of the same type — there are two, because a match
+// reaches RN either inside a digest (this one, what the serial page reads) or straight from the
+// enrichment bridge. A field added to only one of them is simply absent on the other path, which
+// is exactly how the descriptive fields below went missing from the serial page at first.
 private fun ExternalMetadataMatch.toWritableMap(): WritableMap =
     Arguments.createMap().apply {
         putString("seriesId", seriesId)
@@ -244,6 +248,36 @@ private fun ExternalMetadataMatch.toWritableMap(): WritableMap =
         totalChapters?.let { putInt("totalChapters", it) }
         latestChapterLabel?.let { putString("latestChapterLabel", it) }
         putBoolean("hasErrors", hasErrors)
+        putBoolean("abandoned", abandoned)
+        summary?.let { putString("summary", it) }
+        author?.let { putString("author", it) }
+        // Always sent, empty included: an empty list is a real answer ("the provider has none"),
+        // and RN reading `genres` as undefined would blur that into "not asked".
+        putArray("genres", Arguments.createArray().also { arr -> genres.forEach { arr.pushString(it) } })
+        putArray(
+            "alternativeTitles",
+            Arguments.createArray().also { arr ->
+                alternativeTitles.forEach { title ->
+                    arr.pushMap(
+                        Arguments.createMap().apply {
+                            putString("label", title.label)
+                            putString("value", title.value)
+                        },
+                    )
+                }
+            },
+        )
+        externalIds?.let { ids ->
+            putMap(
+                "externalIds",
+                Arguments.createMap().apply {
+                    ids.malId?.let { putInt("malId", it) }
+                    ids.anilistId?.let { putInt("anilistId", it) }
+                    ids.nexusId?.let { putInt("nexusId", it) }
+                    ids.onyxreaderId?.let { putInt("onyxreaderId", it) }
+                },
+            )
+        }
     }
 
 // Same 2-state {isSuccess, error} shape every other XDigest uses on the bridge. A Failure whose
