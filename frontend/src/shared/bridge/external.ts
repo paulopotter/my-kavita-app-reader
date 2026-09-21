@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 import type { ProviderInfo, UrlProbeResult } from './server';
 
 // Mirrors :external-metadata-server's ExternalMetadataServer (android/external-metadata-server)
@@ -40,6 +40,28 @@ export interface ExternalMetadataActiveInfo {
   priority: number;
 }
 
+export interface ExternalMetadataAlternativeTitle {
+  label: string;
+  value: string;
+}
+
+// Ids the enrichment provider knows this series by on other services. Every field is optional —
+// knowing one id says nothing about knowing the others.
+export interface ExternalMetadataExternalIds {
+  malId?: number;
+  anilistId?: number;
+  nexusId?: number;
+  onyxreaderId?: number;
+}
+
+// `slug` is the enrichment provider's own handle for the series — a lookup RESULT, never an
+// identity to store: it derives from the title, so it changes when a series is retitled. The
+// stable key is the content server's own id.
+//
+// Which fields arrive depends on the call: a single-series lookup fills everything the provider
+// knows, while the batch fills only what a listing carries (status, chapter counts, hasErrors).
+// So an absent descriptive field means "not answered by THIS call", never "the provider has
+// none" — don't read absence off a batch result.
 export interface ExternalMetadataMatch {
   seriesId: string;
   slug?: string;
@@ -48,6 +70,14 @@ export interface ExternalMetadataMatch {
   totalChapters?: number;
   latestChapterLabel?: string;
   hasErrors: boolean;
+  // Series the provider stopped tracking upstream — an editorial fact, not an error.
+  abandoned: boolean;
+  summary?: string;
+  author?: string;
+  // Always present, empty included: an empty list is a real answer, distinct from "not asked".
+  genres: string[];
+  alternativeTitles: ExternalMetadataAlternativeTitle[];
+  externalIds?: ExternalMetadataExternalIds;
 }
 
 interface ExternalMetadataBridgeModuleInterface {
@@ -143,3 +173,20 @@ interface ExternalMetadataBridgeModuleInterface {
 
 export const ExternalMetadataBridge: ExternalMetadataBridgeModuleInterface =
   NativeModules.ExternalMetadataBridgeModule;
+
+// Announced when a series' enrichment finished AFTER the screen already rendered without it —
+// the fetch outran the window the digest waits, or a stale entry was refreshed in the background.
+// Carries no data: the result is already cached, so a listener re-reads through the normal digest
+// path (where the user's own source preferences are applied) rather than taking data from here.
+export interface ExternalMetadataResolvedEvent {
+  seriesId: string;
+  providerId: string;
+  // false = the work finished and failed. The screen keeps what it has and says so.
+  ok: boolean;
+}
+
+export const EXTERNAL_METADATA_RESOLVED_EVENT = 'externalMetadataResolved';
+
+export const ExternalMetadataEmitter = new NativeEventEmitter(
+  NativeModules.ExternalMetadataBridgeModule,
+);

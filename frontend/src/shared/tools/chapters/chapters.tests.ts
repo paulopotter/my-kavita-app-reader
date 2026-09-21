@@ -518,6 +518,20 @@ describe('ChaptersTool.sort', () => {
       const result = await ChaptersTool.sort.get({ domain: 'global' });
       expect(result).toEqual({ mode: 'ASCENDING', progressPercent: 50 });
     });
+
+    // PreferencesManager identifies an entry by key alone, so another tool writing under the
+    // same key leaves a value of the wrong shape here. It must read as "nothing stored" —
+    // otherwise prefs.mode comes back undefined and every list silently reverts to ascending,
+    // with no error anywhere.
+    it.each([
+      ['a value another tool wrote', JSON.stringify('enrichment')],
+      ['malformed json', '{not json'],
+      ['an object without a mode', JSON.stringify({ progressPercent: 90 })],
+    ])('ignores %s and uses the default', async (_label, value) => {
+      mockPrefsGet.mockResolvedValue({ value });
+      const result = await ChaptersTool.sort.get({ domain: 'global' });
+      expect(result).toEqual({ mode: 'ASCENDING', progressPercent: 50 });
+    });
   });
 
   describe('get({ domain: "series" })', () => {

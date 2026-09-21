@@ -388,8 +388,24 @@ const DEFAULT_SORT_PREFS: ChapterSortPrefs = { mode: 'ASCENDING', progressPercen
 
 export type ChapterSortScope = { domain: 'global' } | { domain: 'series'; seriesId: string };
 
+// Anything that isn't a usable prefs object reads as "nothing stored", so the caller falls back
+// to DEFAULT_SORT_PREFS. Without this a stored value of the wrong shape — a string, a number,
+// malformed JSON — still passed the `entry ? …` check and produced prefs whose `mode` was
+// undefined, which silently reverted every list to ascending. (One real cause: another tool
+// writing under the same key, since PreferencesManager identifies an entry by key alone.)
 function readSortPrefs(key: string): Promise<ChapterSortPrefs | null> {
-  return PreferencesManager.get({ key }).then(entry => (entry ? JSON.parse(entry.value) : null));
+  return PreferencesManager.get({ key }).then(entry => {
+    if (!entry) {return null;}
+    const parsed = ((): unknown => {
+      try {
+        return JSON.parse(entry.value);
+      } catch {
+        return null;
+      }
+    })();
+    const isUsable = typeof parsed === 'object' && parsed !== null && typeof (parsed as ChapterSortPrefs).mode === 'string';
+    return isUsable ? (parsed as ChapterSortPrefs) : null;
+  });
 }
 
 // get()'s two overloads mirror the scope: 'global' always returns the plain prefs (there's no

@@ -1,6 +1,7 @@
 export * from './actions';
 export * from './chapters';
 export * from './date';
+export * from './metadata-sources';
 export * from './methods';
 export * from './navigation';
 export * from './reader';

@@ -4,12 +4,27 @@ import type { ContentEvent } from '../../managers/events';
 import { NotificationEvents } from '../../services/notifications';
 import { FollowedSeriesBridge } from '../../bridge';
 import type { Strings } from '../../i18n';
-import type { ChapterDigestSuccess, ImageDescriptor, SerialDigestSuccess, SerialResumePoint, ServerActiveInfo } from '../../bridge';
+import type {
+  ChapterDigestSuccess,
+  ExternalMetadataMatch,
+  ImageDescriptor,
+  SerialDigestSuccess,
+  SerialMetadata,
+  SerialResumePoint,
+  ServerActiveInfo,
+} from '../../bridge';
 
 // SerieChapter is re-exported from chapters/ (its actual home — ChapterTool.normalize) via
 // shared/tools/index.ts already; not re-exported again from here to avoid the ambiguous-export
 // combination TypeScript otherwise flags on `export * from './chapters'` + `export * from
 // './serials'` both naming it.
+
+import {
+  DEFAULT_METADATA_SOURCE_PREFERENCES,
+  MetadataSourcesTool,
+  type DisputedMetadataField,
+  type MetadataSourcePreferences,
+} from '../metadata-sources';
 
 // SerieTool — the normalizer for the "series" domain: turns SerialDigest (or any future raw
 // source) into a stable, canonical shape every screen/component reads the same way, regardless
@@ -64,6 +79,51 @@ export function serieEvents({ seriesId }: { seriesId: string }): SerieEventsCont
     ...events.opened({
       after: () => EventBus.emit(NotificationEvents.contentConsumed, { content: { seriesId } }),
     }),
+  };
+}
+
+// ── metadata: picking between the two servers ────────────────────────────────────────────────
+
+// The enrichment match this digest carries, or undefined when enrichment wasn't asked for, was
+// asked for and failed, or simply has no entry for this series. All three are the same thing
+// here: nothing to put on the other side of the dispute.
+function enrichmentOf(metadata?: SerialMetadata): ExternalMetadataMatch | undefined {
+  const external = metadata?.external;
+  return external?.isSuccess ? (external.match ?? undefined) : undefined;
+}
+
+// Where the two servers' answers for the same field get reconciled, once, for everyone. This is
+// the serial domain's own job — a screen resolving it would mean the Library and the serial page
+// could each decide differently about the very same field.
+//
+// The resulting `metadata` keeps the CONTENT server's shape (that's what components already
+// read); only the values may come from the other server. Fields only one server answers are left
+// exactly as they are — nothing to dispute.
+function resolveMetadata({
+  metadata,
+  preferences,
+}: {
+  metadata?: SerialMetadata;
+  preferences?: MetadataSourcePreferences;
+}): SerialMetadata | undefined {
+  const enrichment = enrichmentOf(metadata);
+  if (!metadata || !enrichment) {return metadata;}
+
+  const prefs = preferences ?? DEFAULT_METADATA_SOURCE_PREFERENCES;
+  const resolve = <T,>(field: DisputedMetadataField, fromEnrichment: T | undefined, fromContent: T | undefined) =>
+    MetadataSourcesTool.resolve({ field, preferences: prefs, fromEnrichment, fromContent });
+
+  return {
+    ...metadata,
+    description: resolve('summary', enrichment.summary, metadata.description),
+    // The enrichment server names genres as plain strings; the content server gives each an id.
+    // Normalizing to the content shape keeps every component reading one thing — the id falls
+    // back to the name, which is what a caller uses as a React key.
+    genres: resolve('genres', enrichment.genres?.map((name: string) => ({ id: name, name })), metadata.genres) ?? [],
+    publicationStatus: resolve('status', enrichment.status, metadata.publicationStatus),
+    // `otherNames` is the content server's counterpart of alternative titles, but it lives on the
+    // Serie itself rather than in metadata — so alternativeTitles stays uncontested here and is
+    // read straight off the match by whoever renders it.
   };
 }
 
@@ -238,7 +298,10 @@ export const SerieTool = {
     // Discards a chapter that failed to resolve (isSuccess: false) instead of surfacing it in
     // the canonical list — the screen never needs to know a specific chapter failed, at least
     // for now.
-    digest({ digest }: { digest: SerialDigestSuccess }): Serie {
+    // [metadataSourcePreferences] decides, per field, which server's answer wins when both have
+    // one (see resolveMetadata below). Optional: absent, the built-in default applies, which is
+    // exactly what the app does before the user ever visits that setting.
+    digest({ digest, metadataSourcePreferences }: { digest: SerialDigestSuccess; metadataSourcePreferences?: MetadataSourcePreferences }): Serie {
       return {
         id: digest.id,
         name: digest.name,
@@ -257,7 +320,7 @@ export const SerieTool = {
         // list-row digest (SerialsDigest). LibraryTool falls back to this when there's no chapters
         // block yet.
         pages: digest.pages,
-        metadata: digest.metadata,
+        metadata: resolveMetadata({ metadata: digest.metadata, preferences: metadataSourcePreferences }),
         resolvedAtEpochMs: digest.resolvedAtEpochMs,
         server: digest.server,
         events: serieEvents({ seriesId: digest.id }),

@@ -8,7 +8,8 @@ jest.mock('../../bridge/followed-series', () => ({
 import { SerieTool, type Serie } from './serial.tool';
 import type { Strings } from '../../i18n/strings';
 import { FollowedSeriesBridge } from '../../bridge/followed-series';
-import type { ChapterDigestSuccess, SerialDigestSuccess, ServerActiveInfo } from '../../bridge/digest';
+import type { ChapterDigestSuccess, SerialDigestSuccess, SerialMetadata, ServerActiveInfo } from '../../bridge/digest';
+import type { ExternalMetadataMatch } from '../../bridge/external';
 
 const mockToggle = FollowedSeriesBridge.toggle as jest.Mock;
 const mockIsFollowed = FollowedSeriesBridge.isFollowed as jest.Mock;
@@ -152,6 +153,109 @@ describe('SerieTool.normalize.digest', () => {
     const digest = makeSeriesDigest();
     const serie = SerieTool.normalize.digest({ digest });
     expect(serie.resumePoint).toBeUndefined();
+  });
+});
+
+// ── metadata: picking between the two servers ────────────────────────────────────────────────
+
+// A digest whose metadata carries BOTH sides of every disputed field, so a test only has to say
+// which one it expects to win.
+function makeContestedDigest(
+  over: { enrichment?: Partial<ExternalMetadataMatch>; content?: Partial<SerialMetadata> } = {},
+): SerialDigestSuccess {
+  const match: ExternalMetadataMatch = {
+    seriesId: 's1',
+    status: 'ongoing',
+    hasErrors: false,
+    abandoned: false,
+    genres: ['Enrichment Genre'],
+    alternativeTitles: [],
+    summary: 'Enrichment summary',
+    author: 'Enrichment Author',
+    ...over.enrichment,
+  };
+
+  return makeSeriesDigest({
+    metadata: {
+      description: 'Content description',
+      genres: [{ id: 'g1', name: 'Content Genre' }],
+      tags: [],
+      publicationStatus: 'COMPLETED',
+      external: { isSuccess: true, match, server: {} as never, resolvedAtEpochMs: 1 },
+      ...over.content,
+    } as never,
+  });
+}
+
+describe('SerieTool.normalize.digest — metadata source', () => {
+  it('prefers the enrichment server by default', () => {
+    const serie = SerieTool.normalize.digest({ digest: makeContestedDigest() });
+
+    expect(serie.metadata?.description).toBe('Enrichment summary');
+    expect(serie.metadata?.genres).toEqual([{ id: 'Enrichment Genre', name: 'Enrichment Genre' }]);
+    expect(serie.metadata?.publicationStatus).toBe('ongoing');
+  });
+
+  it('reads from the content server when that is the global preference', () => {
+    const serie = SerieTool.normalize.digest({
+      digest: makeContestedDigest(),
+      metadataSourcePreferences: { global: 'content', fields: {} },
+    });
+
+    expect(serie.metadata?.description).toBe('Content description');
+    expect(serie.metadata?.genres).toEqual([{ id: 'g1', name: 'Content Genre' }]);
+  });
+
+  // The mixed case: global on one server, one field pinned to the other.
+  it('lets a per-field choice disagree with the global', () => {
+    const serie = SerieTool.normalize.digest({
+      digest: makeContestedDigest(),
+      metadataSourcePreferences: { global: 'enrichment', fields: { genres: 'content' } },
+    });
+
+    expect(serie.metadata?.description).toBe('Enrichment summary');
+    expect(serie.metadata?.genres).toEqual([{ id: 'g1', name: 'Content Genre' }]);
+  });
+
+  it('falls back to the other server rather than rendering a blank', () => {
+    const serie = SerieTool.normalize.digest({
+      digest: makeContestedDigest({ enrichment: { summary: undefined, genres: [] } }),
+    });
+
+    expect(serie.metadata?.description).toBe('Content description');
+    expect(serie.metadata?.genres).toEqual([{ id: 'g1', name: 'Content Genre' }]);
+  });
+
+  it('leaves metadata untouched when there is no enrichment match to dispute with', () => {
+    const digest = makeSeriesDigest({
+      metadata: { description: 'Content description', genres: [], tags: [] } as never,
+    });
+
+    expect(SerieTool.normalize.digest({ digest }).metadata?.description).toBe('Content description');
+  });
+
+  // A failed enrichment lookup must not blank out what the content server did answer.
+  it('keeps the content server intact when enrichment failed', () => {
+    const digest = makeSeriesDigest({
+      metadata: {
+        description: 'Content description',
+        genres: [{ id: 'g1', name: 'Content Genre' }],
+        tags: [],
+        external: { isSuccess: false, error: { code: 'not_configured', message: 'x' } },
+      } as never,
+    });
+
+    const serie = SerieTool.normalize.digest({ digest });
+
+    expect(serie.metadata?.description).toBe('Content description');
+    expect(serie.metadata?.genres).toEqual([{ id: 'g1', name: 'Content Genre' }]);
+  });
+
+  // Tags are not a disputed field — the enrichment server has no counterpart for them.
+  it('passes uncontested fields straight through', () => {
+    const digest = makeContestedDigest({ content: { tags: [{ id: 't1', name: 'Content Tag' }] } });
+
+    expect(SerieTool.normalize.digest({ digest }).metadata?.tags).toEqual([{ id: 't1', name: 'Content Tag' }]);
   });
 });
 
