@@ -17,9 +17,43 @@ import kotlinx.serialization.Serializable
 // they already have on hand.
 data class ExternalMetadataSeriesRef(
     val id: String,
+    // Which content provider [id] belongs to — the `providerId` of the server group the series
+    // was read from (a ServerPluginRegistration.id like "kavita", declared in code, never typed
+    // by the user). Without it [id] is an id with no stated owner: today every id happens to come
+    // from the same provider, so matching works by unspoken agreement. A provider-qualified
+    // lookup is what lets a metadata provider answer "this exact series", and it's what keeps a
+    // second content provider from silently matching another provider's series of the same name.
+    val providerId: String,
     val name: String,
 )
 
+@Serializable
+data class ExternalMetadataAlternativeTitle(
+    val label: String,
+    val value: String,
+)
+
+// Whatever ids the metadata provider knows this series by, on OTHER services. Deliberately a
+// nested type rather than flattened into [ExternalMetadataMatch]: this set grows as a provider
+// learns new services, and flattening would grow the match's own surface every time. Every field
+// is nullable — a provider knowing one id says nothing about it knowing the others.
+@Serializable
+data class ExternalMetadataExternalIds(
+    val malId: Int? = null,
+    val anilistId: Int? = null,
+    val nexusId: Int? = null,
+    val onyxreaderId: Int? = null,
+)
+
+// [slug] is the metadata provider's own handle for this series. It is a RESULT of a lookup, never
+// an identity to store: it is derived from the title, so it changes when a series is retitled,
+// and nothing that persisted it would still match. The stable key is [seriesId] + the ref's
+// providerId.
+//
+// Field population depends on which call produced this match. The single-series lookup fills
+// everything the provider knows; the batch listing fills only what a listing carries (status,
+// chapter counts, hasErrors). So a null descriptive field means "not answered by THIS call",
+// never "the provider doesn't have it" — don't conclude absence from a batch result.
 @Serializable
 data class ExternalMetadataMatch(
     val seriesId: String,
@@ -29,6 +63,13 @@ data class ExternalMetadataMatch(
     val totalChapters: Int?,
     val latestChapterLabel: String?,
     val hasErrors: Boolean,
+    // Series the provider has stopped tracking upstream — not an error, a stated editorial fact.
+    val abandoned: Boolean = false,
+    val summary: String? = null,
+    val author: String? = null,
+    val genres: List<String> = emptyList(),
+    val alternativeTitles: List<ExternalMetadataAlternativeTitle> = emptyList(),
+    val externalIds: ExternalMetadataExternalIds? = null,
 )
 
 /**
@@ -78,10 +119,10 @@ interface ExternalMetadataPlugin {
 
     val auth: Auth
 
-    // Batch — the one real HTTP call today's providers make; fetchMatch (singular) is not
-    // implemented as "call this with a list of 1 and filter" — each provider decides its own
-    // shape for the single-series case (M3 today reuses the same underlying request, but the
-    // contract itself doesn't assume that forever).
+    // Batch — one listing request, matched locally. fetchMatch (singular) is not implemented as
+    // "call this with a list of 1 and filter": each provider decides its own shape for the
+    // single-series case, and a provider with a real per-series lookup uses it there (which is
+    // why the batch carries fewer fields — see ExternalMetadataMatch's own note).
     //
     // Positional result: result[i] corresponds to series[i], null meaning "no match found for
     // this one" — never a shorter list. Callers must never lose the series↔match correlation by
@@ -92,11 +133,10 @@ interface ExternalMetadataPlugin {
 
     companion object {
         // Same convention as ServerPlugin.DEFAULT_READ_PROTECTION_WINDOW_MS — a plugin
-        // implementation MAY memoize a read for up to this long when it has no real
-        // single-series endpoint and would otherwise re-fetch its entire listing on every
-        // fetchMatch() call (M3's real case: no "/manga/{id}" endpoint exists). Never a real
-        // cache (no persistence, no cross-instance sharing), just a guard against redundant
-        // full-listing requests fired back-to-back.
+        // implementation MAY memoize a read for up to this long when it would otherwise re-fetch
+        // a whole listing for a single series (the case when a per-series lookup finds nothing
+        // and the listing is the fallback). Never a real cache (no persistence, no cross-instance
+        // sharing), just a guard against redundant full-listing requests fired back-to-back.
         const val DEFAULT_READ_PROTECTION_WINDOW_MS = 3_000L
     }
 

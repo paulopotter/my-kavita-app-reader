@@ -29,6 +29,10 @@ import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -242,6 +246,10 @@ private class FakePlugin(
     var lastFetchMatchesSeries: List<ExternalMetadataSeriesRef>? = null
     var lastFetchMatchSeries: ExternalMetadataSeriesRef? = null
 
+    // Runs on every single-series fetch that actually reaches the plugin — lets a test count
+    // real calls (what the cache is meant to reduce), make one fail, or make one hang.
+    var onFetchMatch: (suspend () -> Unit)? = null
+
     override suspend fun fetchMatches(series: List<ExternalMetadataSeriesRef>): List<ExternalMetadataMatch?> {
         failFetchMatchesWith?.let {
             failFetchMatchesWith = null
@@ -257,6 +265,7 @@ private class FakePlugin(
             throw it
         }
         lastFetchMatchSeries = series
+        onFetchMatch?.invoke()
         return fakeMatch(series.id)
     }
 
@@ -383,7 +392,7 @@ class ExternalMetadataServerTest {
                 ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
                 RequestTool(OkHttpClient()),
                 Cache(FakeCacheDao()),
-            )
+            ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
     }
 
     private fun buildTestKavitaServer(): Server =
@@ -447,7 +456,7 @@ class ExternalMetadataServerTest {
                 ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
                 RequestTool(OkHttpClient()),
                 Cache(FakeCacheDao()),
-            )
+            ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
         val fields =
             withCreds.providers
                 .list()
@@ -693,6 +702,195 @@ class ExternalMetadataServerTest {
             assertNull(server.group(groupId).getActive())
         }
 
+    // ── match caching ────────────────────────────────────────────────────
+
+    // A server whose plugin counts how many times a single-series match actually reached it.
+    // resolvePlugin builds a fresh plugin instance per resolution, so the counter has to live
+    // out here rather than on any one instance.
+    private fun buildCountingServer(
+        counter: IntArray,
+        cache: Cache = Cache(FakeCacheDao()),
+        failWith: Throwable? = null,
+    ): ExternalMetadataServer =
+        ExternalMetadataServer(
+            groupDao,
+            urlDao,
+            mapOf(
+                "fake" to
+                    fakeRegistration(
+                        onFactory = { _, _, _, plugin ->
+                            plugin.onFetchMatch = {
+                                counter[0]++
+                                failWith?.let { throw it }
+                            }
+                        },
+                    ),
+            ),
+            ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+            RequestTool(OkHttpClient()),
+            cache,
+        ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
+
+    @Test
+    fun `a second match for the same series is served from cache, never reaching the plugin again`() =
+        runTest {
+            val calls = intArrayOf(0)
+            val cache = Cache(FakeCacheDao())
+            val counting = buildCountingServer(calls, cache)
+            val groupId = addHealthyGroup()
+            counting.setActiveGroup(groupId)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val series = ExternalMetadataSeriesRef("1", "kavita", "Series 1")
+            val first = counting.match.syncByGroup(groupId, series)
+            val second = counting.match.syncByGroup(groupId, series)
+
+            assertEquals(1, calls[0])
+            assertEquals(first.data?.seriesId, second.data?.seriesId)
+        }
+
+    // The same id on two different content providers is two different series — a cache that
+    // ignored providerId would serve one's answer for the other.
+    @Test
+    fun `the cache key separates the same series id on different providers`() =
+        runTest {
+            val calls = intArrayOf(0)
+            val counting = buildCountingServer(calls)
+            val groupId = addHealthyGroup()
+            counting.setActiveGroup(groupId)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            counting.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
+            counting.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "otherprovider", "Series 1"))
+
+            assertEquals(2, calls[0])
+        }
+
+    // force = the user asked for current data (pull-to-refresh), so whatever is stored is ignored.
+    @Test
+    fun `force bypasses the cache and asks the plugin again`() =
+        runTest {
+            val calls = intArrayOf(0)
+            val counting = buildCountingServer(calls)
+            val groupId = addHealthyGroup()
+            counting.setActiveGroup(groupId)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            val series = ExternalMetadataSeriesRef("1", "kavita", "Series 1")
+            counting.match.syncByGroup(groupId, series)
+            counting.match.syncByGroup(groupId, series, force = true)
+
+            assertEquals(2, calls[0])
+        }
+
+    // With nothing cached to fall back on, a provider failure must stay a failure: "couldn't ask"
+    // has to remain distinguishable from "asked, and there is no entry for this series".
+    // Measured on device: opening the library fired one request per series (94 at once) and the
+    // metadata server stopped answering any of them. The ceiling is what keeps a personal server
+    // reachable instead of being knocked over by the app itself.
+    @Test
+    fun `never has more enrichment requests in flight than the configured ceiling`() =
+        runTest {
+            val inFlight = java.util.concurrent.atomic.AtomicInteger(0)
+            val peak = java.util.concurrent.atomic.AtomicInteger(0)
+            val limited =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    plugin.onFetchMatch = {
+                                        val now = inFlight.incrementAndGet()
+                                        peak.updateAndGet { high -> maxOf(high, now) }
+                                        kotlinx.coroutines.delay(50)
+                                        inFlight.decrementAndGet()
+                                    }
+                                },
+                            ),
+                    ),
+                    ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                ).also {
+                    it.backgroundDispatcher = UnconfinedTestDispatcher(testScheduler)
+                    it.maxConcurrentMatchFetches = 2
+                }
+            val groupId = addHealthyGroup()
+            limited.setActiveGroup(groupId)
+            repeat(12) { mockServer.enqueue(MockResponse().setResponseCode(200)) }
+
+            // Forced reads so each one really reaches the plugin instead of being served a cached
+            // answer, and really waits for it.
+            coroutineScope {
+                (1..12).map { id ->
+                    async {
+                        runCatching {
+                            limited.match.syncByGroup(groupId, ExternalMetadataSeriesRef("$id", "kavita", "Series $id"), force = true)
+                        }
+                    }
+                }.awaitAll()
+            }
+
+            assertTrue("peak in flight was ${peak.get()}, expected at most 2", peak.get() <= 2)
+        }
+
+    @Test
+    fun `rejects a ceiling that would stop every request`() {
+        assertFailsWith<IllegalArgumentException> { server.maxConcurrentMatchFetches = 0 }
+    }
+
+    // Measured on device: an unbounded forced read held a pull-to-refresh for 85 seconds while
+    // the provider crawled. It now gives up waiting and reports itself as pending, exactly like a
+    // first open that outran its own (much shorter) window.
+    @Test
+    fun `a forced read stops waiting on a provider that never answers`() =
+        runTest {
+            val calls = intArrayOf(0)
+            val counting =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf(
+                        "fake" to
+                            fakeRegistration(
+                                onFactory = { _, _, _, plugin ->
+                                    plugin.onFetchMatch = {
+                                        calls[0]++
+                                        // Longer than any window this class defines.
+                                        kotlinx.coroutines.delay(10 * 60 * 1000L)
+                                    }
+                                },
+                            ),
+                    ),
+                    ActiveUrlSelector(OkHttpClient(), Cache(FakeCacheDao())),
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher(testScheduler) }
+            val groupId = addHealthyGroup()
+            counting.setActiveGroup(groupId)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            assertFailsWith<ExternalMetadataPendingException> {
+                counting.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "kavita", "Series 1"), force = true)
+            }
+        }
+
+    @Test
+    fun `a failure with nothing cached propagates instead of looking like an empty answer`() =
+        runTest {
+            val calls = intArrayOf(0)
+            val counting = buildCountingServer(calls, failWith = IOException("provider down"))
+            val groupId = addHealthyGroup()
+            counting.setActiveGroup(groupId)
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+
+            assertFailsWith<IOException> {
+                counting.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
+            }
+        }
+
     @Test
     fun `getActive and getActiveInfo reflect the url a match call resolved`() =
         runTest {
@@ -700,7 +898,7 @@ class ExternalMetadataServerTest {
             server.setActiveGroup(groupId)
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
+            server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
 
             assertEquals(baseUrl, server.getActive()?.url)
             assertEquals(groupId, server.getActiveInfo()?.groupId)
@@ -724,7 +922,7 @@ class ExternalMetadataServerTest {
     fun `match syncByGroup throws when the group doesn't exist`() =
         runTest {
             assertFailsWith<ExternalMetadataServerException> {
-                server.match.syncByGroup("missing", ExternalMetadataSeriesRef("1", "Series 1"))
+                server.match.syncByGroup("missing", ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
             }
         }
 
@@ -734,7 +932,7 @@ class ExternalMetadataServerTest {
             val groupId = addHealthyGroup()
             mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check
 
-            val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
 
             assertEquals("1", response.data?.seriesId)
         }
@@ -745,7 +943,7 @@ class ExternalMetadataServerTest {
             val groupId = addHealthyGroup()
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByGroup(groupId, ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
 
             assertEquals(groupId, response.serverInfo.groupId)
             assertEquals(baseUrl, response.serverInfo.url)
@@ -757,7 +955,7 @@ class ExternalMetadataServerTest {
     fun `matches syncByGroup throws when the group doesn't exist`() =
         runTest {
             assertFailsWith<ExternalMetadataServerException> {
-                server.matches.syncByGroup("missing", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+                server.matches.syncByGroup("missing", listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")))
             }
         }
 
@@ -767,7 +965,7 @@ class ExternalMetadataServerTest {
             val groupId = addHealthyGroup()
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.matches.syncByGroup(groupId, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            val response = server.matches.syncByGroup(groupId, listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")))
 
             assertEquals(listOf("1"), response.data.map { it?.seriesId })
         }
@@ -780,7 +978,7 @@ class ExternalMetadataServerTest {
             val linkedGroupId = addHealthyGroup(linkedServerGroupId = "kavita-group-1")
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.match.syncByServerId("kavita-group-1", ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByServerId("kavita-group-1", ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
 
             assertEquals(linkedGroupId, response.serverInfo.groupId)
         }
@@ -791,7 +989,7 @@ class ExternalMetadataServerTest {
             addHealthyGroup() // unlinked
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
 
             assertEquals("1", response.data?.seriesId)
         }
@@ -802,7 +1000,7 @@ class ExternalMetadataServerTest {
             addHealthyGroup(linkedServerGroupId = "kavita-group-1")
 
             assertFailsWith<ExternalMetadataServerException> {
-                server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "Series 1"))
+                server.match.syncByServerId("unknown-kavita-group", ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
             }
         }
 
@@ -812,7 +1010,7 @@ class ExternalMetadataServerTest {
             val linkedGroupId = addHealthyGroup(linkedServerGroupId = "kavita-group-1")
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.matches.syncByServerId("kavita-group-1", listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            val response = server.matches.syncByServerId("kavita-group-1", listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")))
 
             assertEquals(linkedGroupId, response.serverInfo.groupId)
         }
@@ -829,7 +1027,7 @@ class ExternalMetadataServerTest {
                 server.match.syncByServerUrl(
                     kavitaServer,
                     "http://unknown-kavita-url",
-                    ExternalMetadataSeriesRef("1", "Series 1"),
+                    ExternalMetadataSeriesRef("1", "kavita", "Series 1"),
                 )
 
             assertEquals("1", response.data?.seriesId)
@@ -843,7 +1041,7 @@ class ExternalMetadataServerTest {
             val linkedGroupId = addHealthyGroup(linkedServerGroupId = kavitaGroup.id)
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.match.syncByServerUrl(kavitaServer, "http://kavita.local", ExternalMetadataSeriesRef("1", "Series 1"))
+            val response = server.match.syncByServerUrl(kavitaServer, "http://kavita.local", ExternalMetadataSeriesRef("1", "kavita", "Series 1"))
 
             assertEquals(linkedGroupId, response.serverInfo.groupId)
         }
@@ -860,7 +1058,7 @@ class ExternalMetadataServerTest {
                 server.matches.syncByServerUrl(
                     kavitaServer,
                     "http://kavita.local",
-                    listOf(ExternalMetadataSeriesRef("1", "Series 1")),
+                    listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")),
                 )
 
             assertEquals(linkedGroupId, response.serverInfo.groupId)
@@ -872,7 +1070,7 @@ class ExternalMetadataServerTest {
     fun `match sync throws when nothing can be resolved (no active group, no kavita link, no unlinked group)`() =
         runTest {
             assertFailsWith<ExternalMetadataServerException> {
-                server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+                server.match.sync(ExternalMetadataSeriesRef("1", "kavita", "Series 1"), kavitaServer)
             }
         }
 
@@ -882,7 +1080,7 @@ class ExternalMetadataServerTest {
             addHealthyGroup() // unlinked
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+            val response = server.match.sync(ExternalMetadataSeriesRef("1", "kavita", "Series 1"), kavitaServer)
 
             assertEquals("1", response.data?.seriesId)
         }
@@ -898,7 +1096,7 @@ class ExternalMetadataServerTest {
             mockServer.enqueue(MockResponse().setResponseCode(200)) // level-1 health check
             mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the sync itself
 
-            val response = server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+            val response = server.match.sync(ExternalMetadataSeriesRef("1", "kavita", "Series 1"), kavitaServer)
 
             assertEquals(linkedGroupId, response.serverInfo.groupId)
             assertEquals(linkedGroupId, server.getActiveGroupId())
@@ -911,12 +1109,12 @@ class ExternalMetadataServerTest {
             mockServer.enqueue(MockResponse().setResponseCode(200)) // level-2 health check on first call
             mockServer.enqueue(MockResponse().setResponseCode(200)) // resolvePlugin's health check for the first sync
 
-            server.match.sync(ExternalMetadataSeriesRef("1", "Series 1"), kavitaServer)
+            server.match.sync(ExternalMetadataSeriesRef("1", "kavita", "Series 1"), kavitaServer)
             val activeAfterFirst = server.getActiveGroupId()
 
             // second call reuses activeGroupId — ActiveUrlSelector's own 15-min cache means no new
             // health check is even needed for the resolvePlugin call itself.
-            val response = server.match.sync(ExternalMetadataSeriesRef("2", "Series 2"), kavitaServer)
+            val response = server.match.sync(ExternalMetadataSeriesRef("2", "kavita", "Series 2"), kavitaServer)
 
             assertEquals(activeAfterFirst, server.getActiveGroupId())
             assertEquals("2", response.data?.seriesId)
@@ -928,7 +1126,7 @@ class ExternalMetadataServerTest {
             addHealthyGroup() // unlinked
             mockServer.enqueue(MockResponse().setResponseCode(200))
 
-            val response = server.matches.sync(listOf(ExternalMetadataSeriesRef("1", "Series 1")), kavitaServer)
+            val response = server.matches.sync(listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")), kavitaServer)
 
             assertEquals(listOf("1"), response.data.map { it?.seriesId })
         }
@@ -958,12 +1156,12 @@ class ExternalMetadataServerTest {
                     urlSelector,
                     RequestTool(OkHttpClient()),
                     Cache(FakeCacheDao()),
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
             val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
             retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 
             failNextFetchMatchesCall = true
-            val response = retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+            val response = retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")))
 
             assertEquals(listOf("1"), response.data.map { it?.seriesId })
             assertEquals(1, urlSelector.invalidateAndReselectCalls)
@@ -988,12 +1186,12 @@ class ExternalMetadataServerTest {
                     urlSelector,
                     RequestTool(OkHttpClient()),
                     Cache(FakeCacheDao()),
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
             val group = retryServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
             retryServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 
             assertFailsWith<IOException> {
-                retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "Series 1")))
+                retryServer.matches.syncByGroup(group.id, listOf(ExternalMetadataSeriesRef("1", "kavita", "Series 1")))
             }
             // exactly one retry attempt: the original call plus one reselect-and-retry, no more
             assertEquals(1, urlSelector.invalidateAndReselectCalls)
@@ -1013,7 +1211,7 @@ class ExternalMetadataServerTest {
                     urlSelector,
                     RequestTool(OkHttpClient()),
                     Cache(FakeCacheDao()),
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
             val group = validatingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
             validatingServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
 
@@ -1054,7 +1252,7 @@ class ExternalMetadataServerTest {
                     urlSelector,
                     RequestTool(OkHttpClient()),
                     Cache(FakeCacheDao()),
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
             val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/custom-health"))
 
             val result = testingServer.group(group.id).testUrl("http://typed:9000")
@@ -1081,7 +1279,7 @@ class ExternalMetadataServerTest {
                     urlSelector,
                     RequestTool(OkHttpClient()),
                     Cache(FakeCacheDao()),
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
             val group = testingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
 
             assertEquals(false, testingServer.group(group.id).testUrl("http://x").ok)

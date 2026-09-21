@@ -23,6 +23,14 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // An enrichment read that fails is logged rather than swallowed (see MATCH_LOG_TAG); without
+    // this, every unmocked android.util.Log call throws in a plain JVM unit test, turning the
+    // failure path into a different error than the one under test. Same reason :notifications
+    // sets it — returning defaults beats pulling in Robolectric just for logging.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

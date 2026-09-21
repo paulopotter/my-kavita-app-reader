@@ -14,13 +14,107 @@ import com.mymangareader.tools.network.RequestTool
 import com.mymangareader.tools.network.UrlCandidate
 import com.mymangareader.tools.network.UrlProbeResult
 import com.mymangareader.tools.network.UrlSelector
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import android.util.Log
+import androidx.annotation.VisibleForTesting
 import kotlinx.serialization.Serializable
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.serialization.encodeToString
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+
+// How long a first fetch may hold up the screen when nothing is cached. Kept short on purpose:
+// the wait is felt on every first open of a series, and outrunning it costs little now that
+// finishing late still reaches the screen (the fetch keeps running, fills the cache and announces
+// itself, so the page updates in place instead of waiting for the next visit).
+private const val MATCH_FIRST_FETCH_WINDOW_MS = 1_000L
+
+// The ceiling on a forced read (pull-to-refresh). Much longer than the unattended window — the
+// user asked for this and is watching — but still a ceiling: past it the refresh finishes in the
+// background and the screen says so, instead of holding its loading state indefinitely.
+// How many enrichment requests may be in flight at once, across every caller.
+//
+// Without a ceiling, opening the library fired one request per series — 94 at the same time,
+// measured on device — and a personal metadata server simply stopped answering any of them. The
+// resulting timeouts then made every screen pay its full wait window for nothing, so the app was
+// effectively strangling itself.
+//
+// 4 is the starting point, not a law: it keeps a small local server comfortable while still
+// overlapping enough work to stay quick. [maxConcurrentMatchFetches] changes it.
+private const val DEFAULT_MAX_CONCURRENT_MATCH_FETCHES = 4
+
+private const val MATCH_FORCED_FETCH_WINDOW_MS = 8_000L
+
+// Below this age a stored match is served as-is, with no background refresh: opening a series,
+// going back and opening it again must not fire a request every time.
+private const val MATCH_CACHE_FRESH_WINDOW_MS = 5 * 60 * 1000L
+
+// How long a resolved match survives, app restarts included. Enrichment metadata changes on the
+// order of a provider's scan (hours), never of a navigation, so a day-old answer is still a good
+// answer — and serving it instantly beats blocking the screen on a fresh round trip.
+private const val MATCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000L
+
+// One domain for every stored match, so the whole enrichment cache can be dropped in a single
+// call without touching anybody else's rows.
+private const val MATCH_CACHE_DOMAIN = "externalMetadata:match"
+
+// Enrichment is a best-effort layer: a provider being down must never surface as an error on a
+// screen that already rendered. It is logged rather than swallowed so a silent gap is still
+// diagnosable from the device log.
+private const val MATCH_LOG_TAG = "MMR-ExternalMetadata"
+
+private val matchJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+// "No match for this series" is a real, cacheable answer — worth storing precisely because it is
+// the case that otherwise costs the most (a per-series miss falls back to scanning a full
+// listing). A bare null could not be told apart from "nothing stored", hence the wrapper.
+@Serializable
+private data class StoredMatch(
+    val match: ExternalMetadataMatch?,
+)
+
+// Keyed by the plugin that produced it plus the provider-qualified series identity: two providers
+// may legitimately answer differently for the same series, and the same id means different series
+// on different content providers.
+private fun matchCacheKey(
+    pluginId: String,
+    series: ExternalMetadataSeriesRef,
+) = "externalMetadata:match:$pluginId:${series.providerId}:${series.id}"
+
+// Announced when enrichment work that outlived a caller's wait has finished. Carries no match:
+// the result is already in the cache, so a listener re-reads through the normal path rather than
+// being handed data through a second channel. [ok] false means the work finished and failed.
+data class ExternalMetadataResolvedEvent(
+    val seriesId: String,
+    val providerId: String,
+    val ok: Boolean,
+)
+
+// A first fetch that outran its window. Not a failure: the work is still running and will fill
+// the cache, so the next read answers instantly. Distinct from a real error so a caller can say
+// "still loading" instead of "this went wrong".
+class ExternalMetadataPendingException :
+    Exception("External metadata is still being fetched")
+
+// Distinguishes "the fetch produced null" from "the fetch didn't finish in time" through
+// withTimeoutOrNull, which uses null itself to signal the timeout.
+private data class Optional<T>(
+    val value: T,
+)
 
 class ExternalMetadataServerException(
     message: String,
@@ -152,6 +246,43 @@ class ExternalMetadataServer
         private val requestTool: RequestTool,
         private val cache: Cache,
     ) {
+        // Where enrichment work that outlives a call runs. A settable property rather than a
+        // constructor parameter because Hilt ignores Kotlin defaults and would demand a binding
+        // for CoroutineDispatcher across the whole app; only tests ever assign it, to replace the
+        // real dispatcher with their own scheduler (the first-fetch window is a real timeout, and
+        // a real dispatcher fires it instantly against a test's virtual clock).
+        @VisibleForTesting
+        var backgroundDispatcher: CoroutineDispatcher = Dispatchers.IO
+            set(value) {
+                field = value
+                backgroundScope = CoroutineScope(SupervisorJob() + value)
+            }
+
+        // Ceiling on concurrent enrichment requests (see DEFAULT_MAX_CONCURRENT_MATCH_FETCHES).
+        // Settable so the limit can be tuned without a rebuild — assigning it swaps the semaphore,
+        // which only affects requests that start afterwards; ones already in flight finish under
+        // the old limit.
+        var maxConcurrentMatchFetches: Int = DEFAULT_MAX_CONCURRENT_MATCH_FETCHES
+            set(value) {
+                require(value > 0) { "maxConcurrentMatchFetches must be positive" }
+                field = value
+                fetchSemaphore = Semaphore(value)
+            }
+
+        private var fetchSemaphore = Semaphore(DEFAULT_MAX_CONCURRENT_MATCH_FETCHES)
+
+        // Background work that finished after its caller stopped waiting announces itself here.
+        // A Flow rather than a direct RN emit: this module knows nothing about React, so the app
+        // layer collects this and turns it into a device event — the same shape ActiveUrlWatcher
+        // already uses. extraBufferCapacity so an emit never suspends the work that produced it.
+        private val _resolved = MutableSharedFlow<ExternalMetadataResolvedEvent>(extraBufferCapacity = 32)
+        val resolved: SharedFlow<ExternalMetadataResolvedEvent> = _resolved
+
+        // Outlives any single call on purpose: a background refresh (and a first fetch that
+        // outran its window) must keep running after the caller already got its answer, so the
+        // cache is warm next time. SupervisorJob so one failed refresh never cancels the others.
+        private var backgroundScope = CoroutineScope(SupervisorJob() + backgroundDispatcher)
+
         private val activeMutex = Mutex()
         private var activeGroupId: String? = null
 
@@ -295,23 +426,29 @@ class ExternalMetadataServer
                 override suspend fun sync(
                     series: ExternalMetadataSeriesRef,
                     server: Server,
-                ): ExternalMetadataResponse<ExternalMetadataMatch?> = syncActive(server) { it.fetchMatch(series) }
+                    force: Boolean,
+                ): ExternalMetadataResponse<ExternalMetadataMatch?> =
+                    syncActive(server) { plugin -> cachedMatch(plugin, series, force) { plugin.fetchMatch(series) } }
 
                 override suspend fun syncByGroup(
                     groupId: String,
                     series: ExternalMetadataSeriesRef,
-                ): ExternalMetadataResponse<ExternalMetadataMatch?> = envelopedFor(groupId) { withUrlRetry(groupId) { it.fetchMatch(series) } }
+                    force: Boolean,
+                ): ExternalMetadataResponse<ExternalMetadataMatch?> =
+                    envelopedFor(groupId) { withUrlRetry(groupId) { plugin -> cachedMatch(plugin, series, force) { plugin.fetchMatch(series) } } }
 
                 override suspend fun syncByServerId(
                     kavitaServerGroupId: String,
                     series: ExternalMetadataSeriesRef,
-                ): ExternalMetadataResponse<ExternalMetadataMatch?> = syncByGroup(resolveGroupIdByServerId(kavitaServerGroupId), series)
+                    force: Boolean,
+                ): ExternalMetadataResponse<ExternalMetadataMatch?> = syncByGroup(resolveGroupIdByServerId(kavitaServerGroupId), series, force)
 
                 override suspend fun syncByServerUrl(
                     server: Server,
                     kavitaUrl: String,
                     series: ExternalMetadataSeriesRef,
-                ): ExternalMetadataResponse<ExternalMetadataMatch?> = syncByGroup(resolveGroupIdByServerUrl(server, kavitaUrl), series)
+                    force: Boolean,
+                ): ExternalMetadataResponse<ExternalMetadataMatch?> = syncByGroup(resolveGroupIdByServerUrl(server, kavitaUrl), series, force)
             }
 
         val matches: Matches =
@@ -422,6 +559,149 @@ class ExternalMetadataServer
         }
 
         private suspend fun firstUnlinkedGroupId(): String? = externalMetadataGroupDao.getAll().firstOrNull { it.linkedServerGroupId == null }?.id
+
+        // Reading a single-series match never blocks the screen for long. This call sits on the
+        // critical path of opening a series (buildSerialDigest waits for it before rendering), so
+        // the policy is:
+        //
+        //   fresh cache          → serve it, touch no network
+        //   stale cache          → serve it now, refresh in the background for next time
+        //   no cache             → start the fetch, wait only MATCH_FIRST_FETCH_WINDOW_MS for it;
+        //                          if it answers in time it goes out with this response, otherwise
+        //                          the digest goes out without it and the fetch keeps running so
+        //                          the next open finds it cached
+        //   force               → ignore what is stored, fetch, and wait for the real answer
+        //
+        // The cache lives here rather than in a plugin on purpose: caching is policy, and the
+        // plugin layer only translates one provider's API. Kotlin fetches and stores; what the
+        // data then means is RN's decision.
+        //
+        // The batch (matches) deliberately stays out of this: it is one request answering many
+        // series, so it never pays the per-series round trip this protects against, and its rows
+        // carry fewer fields (see ExternalMetadataMatch's note) — letting them land under these
+        // keys would overwrite a rich single-series answer with a thin one.
+        private suspend fun cachedMatch(
+            plugin: ExternalMetadataPlugin,
+            series: ExternalMetadataSeriesRef,
+            force: Boolean,
+            fetch: suspend () -> ExternalMetadataMatch?,
+        ): ExternalMetadataMatch? {
+            val key = matchCacheKey(plugin.id, series)
+            val stored = if (force) null else readStoredMatch(key)
+
+            if (stored != null) {
+                if (stored.isStale) refreshInBackground(series, key, fetch)
+                return stored.match
+            }
+
+            // Whether anyone is still waiting on this fetch. Flipped the moment the window
+            // elapses, so the coroutine below knows if its result arrived in time to be returned
+            // normally or has to announce itself instead.
+            val awaited = AtomicBoolean(true)
+
+            val inFlight =
+                backgroundScope.async {
+                    runCatching { withFetchPermit { fetch() }.also { storeMatch(key, it) } }
+                        .onFailure { Log.w(MATCH_LOG_TAG, "fetch failed for $key: ${it.message}") }
+                        // Only announce a result nobody is waiting for any more: one that lands
+                        // inside the window is returned to its caller, and announcing it too
+                        // would tell the screen to refresh for data it already has.
+                        .also { result -> if (!awaited.get()) announceResolved(series, ok = result.isSuccess) }
+                        .getOrThrow()
+                }
+
+            // A forced read is the user asking for current data, so it waits far longer than an
+            // unattended open — but not forever. An earlier version awaited with no ceiling at
+            // all, and a slow provider held a pull-to-refresh for 85 seconds on device with the
+            // screen stuck in its loading state. Past this, the fetch keeps running into the
+            // cache and the refresh reports itself as pending, exactly like a first open that
+            // outran its own window.
+            //
+            // A failure still propagates: with nothing cached to fall back on, "couldn't ask"
+            // must stay distinguishable from "asked, and the provider has no entry" (the caller
+            // turns the former into a Failure digest, the latter into a Success with no match).
+            if (force) {
+                return withTimeoutOrNull(MATCH_FORCED_FETCH_WINDOW_MS) { Optional(inFlight.await()) }?.value
+                    ?: throw ExternalMetadataPendingException()
+            }
+
+            // Not cancelled on timeout: the point is that it finishes and populates the cache, so
+            // the next open of this series is instant. Time spent queued behind the concurrency
+            // limit counts against this window, which is the intended trade: the screen opens
+            // without enrichment rather than waiting its turn, and the queued work still lands in
+            // the cache and announces itself when it finishes. Outrunning the window is reported as its
+            // own exception rather than as null — "still coming" and "the provider has no entry
+            // for this series" look identical otherwise, and only the first one is worth telling
+            // the user about.
+            val inTime = withTimeoutOrNull(MATCH_FIRST_FETCH_WINDOW_MS) { Optional(inFlight.await()) }
+            if (inTime != null) return inTime.value
+
+            awaited.set(false)
+            throw ExternalMetadataPendingException()
+        }
+
+        private data class StoredMatchEntry(
+            val match: ExternalMetadataMatch?,
+            val isStale: Boolean,
+        )
+
+        // An entry whose value no longer parses (an older stored shape, a truncated write) counts
+        // as no entry at all: the live fetch is always available as the answer.
+        private suspend fun readStoredMatch(key: String): StoredMatchEntry? {
+            val entry = cache.persistent.get(key)?.takeUnless { it.isExpired } ?: return null
+            val stored = runCatching { matchJson.decodeFromString<StoredMatch>(entry.value) }.getOrNull() ?: return null
+            return StoredMatchEntry(
+                match = stored.match,
+                isStale = System.currentTimeMillis() - entry.cachedAtEpochMs >= MATCH_CACHE_FRESH_WINDOW_MS,
+            )
+        }
+
+        // Fire-and-forget refresh of an entry that is still usable but no longer fresh. Failures
+        // are swallowed by design: the caller already has a good-enough answer, and a provider
+        // being down must never turn into an error on a screen that already rendered.
+        private fun refreshInBackground(
+            series: ExternalMetadataSeriesRef,
+            key: String,
+            fetch: suspend () -> ExternalMetadataMatch?,
+        ) {
+            backgroundScope.launch {
+                val result = runCatching { storeMatch(key, withFetchPermit { fetch() }) }
+                result.onFailure { Log.w(MATCH_LOG_TAG, "background refresh failed for $key: ${it.message}") }
+                // The caller was served stale data and has moved on, so whatever this found is
+                // only reachable by announcing it.
+                announceResolved(series, ok = result.isSuccess)
+            }
+        }
+
+        // Every enrichment request passes through here, so the ceiling holds across all callers —
+        // a library opening 94 series at once queues instead of firing 94 requests. The permit
+        // covers only the request itself: the cache read above and the write below stay outside
+        // it, so a slow provider never blocks work that doesn't touch the network.
+        private suspend fun <T> withFetchPermit(block: suspend () -> T): T = fetchSemaphore.withPermit { block() }
+
+        private fun announceResolved(
+            series: ExternalMetadataSeriesRef,
+            ok: Boolean,
+        ) {
+            _resolved.tryEmit(
+                ExternalMetadataResolvedEvent(seriesId = series.id, providerId = series.providerId, ok = ok),
+            )
+        }
+
+        // A write failure never fails the read — the value is already in hand either way.
+        private suspend fun storeMatch(
+            key: String,
+            match: ExternalMetadataMatch?,
+        ) {
+            runCatching {
+                cache.persistent.put(
+                    key = key,
+                    value = matchJson.encodeToString(StoredMatch(match)),
+                    domain = MATCH_CACHE_DOMAIN,
+                    ttlMs = MATCH_CACHE_TTL_MS,
+                )
+            }
+        }
 
         // Shared by match/matches — runs [action] (already wrapped in withUrlRetry by the caller) and
         // wraps its result in a ExternalMetadataResponse using whatever resolvePlugin just recorded
@@ -566,26 +846,34 @@ class ExternalMetadataServer
             suspend fun getActive(): ExternalMetadataUrlInfo?
         }
 
+        // [force] = the user explicitly asked for current data (a pull-to-refresh), so whatever is
+        // stored is ignored and the call waits for the real answer. Left out (the default), a read
+        // is served from cache when possible and only waits a short window when nothing is stored
+        // — see cachedMatch for the full policy.
         interface Match {
             suspend fun sync(
                 series: ExternalMetadataSeriesRef,
                 server: Server,
+                force: Boolean = false,
             ): ExternalMetadataResponse<ExternalMetadataMatch?>
 
             suspend fun syncByGroup(
                 groupId: String,
                 series: ExternalMetadataSeriesRef,
+                force: Boolean = false,
             ): ExternalMetadataResponse<ExternalMetadataMatch?>
 
             suspend fun syncByServerId(
                 kavitaServerGroupId: String,
                 series: ExternalMetadataSeriesRef,
+                force: Boolean = false,
             ): ExternalMetadataResponse<ExternalMetadataMatch?>
 
             suspend fun syncByServerUrl(
                 server: Server,
                 kavitaUrl: String,
                 series: ExternalMetadataSeriesRef,
+                force: Boolean = false,
             ): ExternalMetadataResponse<ExternalMetadataMatch?>
         }
 

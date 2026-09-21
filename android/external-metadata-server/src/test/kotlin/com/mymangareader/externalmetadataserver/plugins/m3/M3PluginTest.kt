@@ -155,7 +155,7 @@ class M3PluginTest {
                 ),
             )
 
-            val matches = plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "42", name = "Different Name")))
+            val matches = plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "42", providerId = "kavita", name = "Different Name")))
 
             assertEquals(1, matches.size)
             assertEquals("42", matches.single()?.seriesId)
@@ -172,7 +172,7 @@ class M3PluginTest {
                 ),
             )
 
-            val matches = plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", name = "attack on titan")))
+            val matches = plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "attack on titan")))
 
             assertEquals(1, matches.size)
             assertEquals("completed", matches.single()?.status)
@@ -183,7 +183,7 @@ class M3PluginTest {
         runTest {
             server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
 
-            val matches = plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", name = "Unmatched Series")))
+            val matches = plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "Unmatched Series")))
 
             assertEquals(1, matches.size)
             assertNull(matches.single())
@@ -201,8 +201,8 @@ class M3PluginTest {
             val matches =
                 plugin.fetchMatches(
                     listOf(
-                        ExternalMetadataSeriesRef(id = "1", name = "Unmatched Series"),
-                        ExternalMetadataSeriesRef(id = "42", name = "Different Name"),
+                        ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "Unmatched Series"),
+                        ExternalMetadataSeriesRef(id = "42", providerId = "kavita", name = "Different Name"),
                     ),
                 )
 
@@ -217,7 +217,7 @@ class M3PluginTest {
             server.enqueue(MockResponse().setResponseCode(500))
 
             assertFailsWith<M3PluginException> {
-                plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", name = "X")))
+                plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "X")))
             }
         }
 
@@ -233,75 +233,195 @@ class M3PluginTest {
             assertEquals("GET", recorded.method)
         }
 
-    // ── fetchMatch (singular) ────────────────────────────────────────────
+    // ── fetchMatch (singular) — provider-qualified route ─────────────────
+
+    // The rich payload the per-series route answers with; the listing carries none of the
+    // descriptive fields.
+    private val detailBody =
+        """
+        {"slug":"some-manga","title":"Some Manga","status":"ongoing","abandoned":false,
+         "summary":"A summary.","genres":["Ação","Aventura"],"author":null,
+         "alternative_titles":[{"label":"romaji","value":"Sono Manga"}],
+         "known_chapters_total":65,"downloaded_chapters_count":60,"has_errors":false,
+         "external_ids":{"mal_id":null,"anilist_id":null,"nexus_id":3741,"kavita_series_id":116}}
+        """.trimIndent()
 
     @Test
-    fun `fetchMatch matches by kavitaId when present`() =
+    fun `fetchMatch requests the provider-qualified path`() =
         runTest {
-            server.enqueue(
-                MockResponse().setResponseCode(200).setBody(
-                    """[{"title":"Some Manga","status":"ongoing","has_errors":false,"kavita_id":42}]""",
-                ),
-            )
+            server.enqueue(MockResponse().setResponseCode(200).setBody(detailBody))
 
-            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "42", name = "Different Name"))
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga"))
 
-            assertEquals("42", match?.seriesId)
-            assertEquals("ongoing", match?.status)
+            val recorded = server.takeRequest()
+            assertEquals("/manga/by-id/kavita/116", recorded.path)
+            assertEquals("GET", recorded.method)
         }
 
     @Test
-    fun `fetchMatch returns null when nothing matches`() =
+    fun `fetchMatch maps the rich fields the per-series route carries`() =
         runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody(detailBody))
+
+            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga"))
+
+            assertEquals("116", match?.seriesId)
+            assertEquals("some-manga", match?.slug)
+            assertEquals("ongoing", match?.status)
+            assertEquals("A summary.", match?.summary)
+            assertEquals(listOf("Ação", "Aventura"), match?.genres)
+            assertNull(match?.author)
+            assertEquals(false, match?.abandoned)
+            assertEquals(1, match?.alternativeTitles?.size)
+            assertEquals("romaji", match?.alternativeTitles?.single()?.label)
+            assertEquals("Sono Manga", match?.alternativeTitles?.single()?.value)
+            assertEquals(3741, match?.externalIds?.nexusId)
+            assertNull(match?.externalIds?.malId)
+            assertEquals(65, match?.totalChapters)
+            assertEquals(60, match?.downloadedChapters)
+        }
+
+    @Test
+    fun `fetchMatch carries abandoned when the provider states it`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """{"title":"Dropped","status":"ongoing","abandoned":true,"has_errors":false}""",
+                ),
+            )
+
+            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "7", providerId = "kavita", name = "Dropped"))
+
+            assertEquals(true, match?.abandoned)
+        }
+
+    @Test
+    fun `fetchMatch uses the providerId it was given, not a hardcoded one`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody(detailBody))
+
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "9", providerId = "someotherprovider", name = "X"))
+
+            assertEquals("/manga/by-id/someotherprovider/9", server.takeRequest().path)
+        }
+
+    // ── fetchMatch — 404 fallback to the listing ─────────────────────────
+
+    @Test
+    fun `fetchMatch falls back to a normalized title match on the listing when the route answers 404`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(404))
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"title":"Attack on Titan!","status":"completed","has_errors":false}]""",
+                ),
+            )
+
+            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "attack on titan"))
+
+            assertEquals("completed", match?.status)
+            assertEquals("1", match?.seriesId)
+            assertEquals(2, server.requestCount)
+        }
+
+    @Test
+    fun `a match from the listing fallback carries no descriptive fields`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(404))
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"title":"Some Manga","status":"ongoing","has_errors":false}]""",
+                ),
+            )
+
+            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "Some Manga"))
+
+            assertNull(match?.summary)
+            assertEquals(emptyList<String>(), match?.genres)
+        }
+
+    @Test
+    fun `fetchMatch returns null when neither the route nor the listing knows the series`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(404))
             server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
 
-            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", name = "Unmatched Series"))
+            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "Unmatched Series"))
 
             assertNull(match)
         }
 
+    // A blank providerId is what the bridge sends when no content group has been resolved yet in
+    // this process — the lookup simply finds nothing and the title fallback takes over.
     @Test
-    fun `fetchMatch throws on a non-200 response`() =
+    fun `fetchMatch still resolves through the listing when the providerId is blank`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(404))
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"title":"Some Manga","status":"ongoing","has_errors":false}]""",
+                ),
+            )
+
+            val match = plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "", name = "Some Manga"))
+
+            assertEquals("ongoing", match?.status)
+        }
+
+    @Test
+    fun `fetchMatch throws on a non-200, non-404 response`() =
         runTest {
             server.enqueue(MockResponse().setResponseCode(500))
 
             assertFailsWith<M3PluginException> {
-                plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", name = "X"))
+                plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "X"))
             }
         }
 
-    // ── fetchMatch memoization (no single-series endpoint on M3 — see fetchAllManga's doc) ──
+    // ── memoization ──────────────────────────────────────────────────────
 
     @Test
-    fun `fetchMatch reuses the same manga listing across calls within the protection window`() =
+    fun `fetchMatch memoizes the per-series lookup across calls`() =
         runTest {
-            server.enqueue(
-                MockResponse().setResponseCode(200).setBody(
-                    """[{"title":"Manga A","status":"ongoing","has_errors":false,"kavita_id":1}]""",
-                ),
-            )
+            server.enqueue(MockResponse().setResponseCode(200).setBody(detailBody))
 
-            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", name = "Manga A"))
-            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", name = "Manga A"))
-            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", name = "Manga A"))
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga"))
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga"))
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga"))
 
-            // only one HTTP call, even though fetchMatch was called 3 times — MockWebServer has just
-            // one response enqueued, so a 2nd/3rd real request would fail this test outright.
+            // Only one HTTP call — a 2nd real request would find no enqueued response and fail.
             assertEquals(1, server.requestCount)
         }
 
+    // A 404 is a real answer ("not indexed under this id"), so it is memoized too — otherwise
+    // every repeated open of an unindexed series would re-ask the route AND re-scan the listing.
     @Test
-    fun `fetchMatches and fetchMatch share the same memoized listing`() =
+    fun `fetchMatch memoizes a 404 instead of re-asking the route`() =
         runTest {
+            server.enqueue(MockResponse().setResponseCode(404))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""[]"""))
+
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "Unmatched"))
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", providerId = "kavita", name = "Unmatched"))
+
+            // One 404 + one listing, both memoized — not four requests.
+            assertEquals(2, server.requestCount)
+        }
+
+    @Test
+    fun `a per-series lookup and the listing are memoized under separate keys`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody(detailBody))
             server.enqueue(
                 MockResponse().setResponseCode(200).setBody(
-                    """[{"title":"Manga A","status":"ongoing","has_errors":false,"kavita_id":1}]""",
+                    """[{"title":"Some Manga","status":"ongoing","has_errors":false,"kavita_id":116}]""",
                 ),
             )
 
-            plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "1", name = "Manga A")))
-            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "1", name = "Manga A"))
+            plugin.fetchMatch(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga"))
+            plugin.fetchMatches(listOf(ExternalMetadataSeriesRef(id = "116", providerId = "kavita", name = "Some Manga")))
 
-            assertEquals(1, server.requestCount)
+            // The per-series route does not satisfy a listing call, nor the other way round.
+            assertEquals(2, server.requestCount)
         }
 }
