@@ -13,7 +13,7 @@ import type { ConfigScreenProps, ConfigSubScreen } from './config.types';
 import { DebugScreen } from './debug';
 import { NotificationsScreen } from './notifications';
 import { ReaderPrefsScreen } from './reader';
-import { SerieSortScreen } from './serie';
+import { SerialsSortScreen } from './serials';
 import { ServerScreen } from './server';
 
 // Thin router: the Config menu + which sub-screen is open. All the real work is in each sub-screen
@@ -51,8 +51,8 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
       return <ServerScreen onBack={goBack} onServerCleared={onServerCleared} />;
     case 'reader':
       return <ReaderPrefsScreen onBack={goBack} />;
-    case 'serie':
-      return <SerieSortScreen onBack={goBack} />;
+    case 'serials':
+      return <SerialsSortScreen onBack={goBack} />;
     case 'notifications':
       return <NotificationsScreen onBack={goBack} />;
     case 'debug':
@@ -124,8 +124,8 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
       </TouchableOpacity>
       <View style={[styles.divider, styles.dividerInset]} />
 
-      <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('serie')}>
-        <Text style={styles.menuRowLabel}>{t.configMenuChapter}</Text>
+      <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('serials')}>
+        <Text style={styles.menuRowLabel}>{t.configMenuSerials}</Text>
         <ChevronRight size={icon.size[5]} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={[styles.divider, styles.dividerInset]} />

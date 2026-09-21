@@ -1,2 +1,2 @@
-export * from './serie.hooks';
-export * from './serie.screen';
+export * from './serials.hooks';
+export * from './serials.screen';

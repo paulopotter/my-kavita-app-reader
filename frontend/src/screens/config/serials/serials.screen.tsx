@@ -1,29 +1,70 @@
-import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { BackHandler, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 // Config deliberately reaches into the screen it configures — ChapterSortFields is the exact same
 // fields the SerieScreen sort modal shows, only the save scope differs (global here, per-series
 // there). It lives in screens/serie/, not shared/, because config + that one screen are its only
 // callers; promote it to shared/ if a third screen ever needs it.
 import { ChapterSortFields } from '../../../screens/serie/components/chapter-sort';
 import { useStrings } from '../../../shared/i18n';
-import { BackChevron } from '../components';
+import type { Strings } from '../../../shared/i18n';
+import { BackChevron, Select } from '../components';
+import {
+  DISPUTED_METADATA_FIELDS,
+  type DisputedMetadataField,
+  type MetadataSourceChoice,
+  type MetadataSourcePreferences,
+} from '../../../shared/tools/metadata-sources';
 
-import { useSerieSort } from './serie.hooks';
-import { useStyles } from '../../../shared/context';
+import { useMetadataSources, useSerialsSort } from './serials.hooks';
+import { ChevronRight } from 'lucide-react-native';
+import { icon } from '../../../shared/theme';
+import { useStyles, useTheme } from '../../../shared/context';
 import { configStyles as makeChrome } from '../config.styles';
+import { serialsStyles } from './serials.styles';
 
-// Global chapter-sort settings. Folder named after the real series screen (screens/serie/) — this
-// is that screen's config, scoped inside screens/config/.
-export function SerieSortScreen({ onBack }: { onBack: () => void }) {
+// Everything the serial page can be configured with. Folder named after the domain it configures
+// (serials), scoped inside screens/config/.
+//
+// The per-field picker is a page of its own, reached from the row below it — and it is local
+// state rather than a ConfigSubScreen of its own, so that going back from it lands here instead
+// of jumping all the way out to the Config menu (which is what the router's own back does).
+export function SerialsSortScreen({ onBack }: { onBack: () => void }) {
   const chrome = useStyles(makeChrome);
+  const styles = useStyles(serialsStyles);
+  const { colors } = useTheme();
   const t = useStrings();
-  const { loading, mode, fixedThreshold, progressPercent, change } = useSerieSort();
+  const { loading, mode, fixedThreshold, progressPercent, change } = useSerialsSort();
+  const sources = useMetadataSources();
+  const [showFields, setShowFields] = useState(false);
+
+  // While the sub-page is open, back closes it instead of leaving this screen. Registered here
+  // and not in the router because the router knows nothing about a page nested inside a
+  // sub-screen — and this listener, added later, runs before the router's own.
+  useEffect(() => {
+    if (!showFields) {return;}
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setShowFields(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [showFields]);
+
+  if (showFields) {
+    return (
+      <MetadataFieldsPage
+        preferences={sources.preferences}
+        onChangeField={sources.changeField}
+        onBack={() => setShowFields(false)}
+        t={t}
+      />
+    );
+  }
 
   return (
     <View style={chrome.root}>
       <View style={chrome.subHeader}>
         <BackChevron onPress={onBack} />
-        <Text style={chrome.subTitle}>{t.configMenuChapter}</Text>
+        <Text style={chrome.subTitle}>{t.configMenuSerials}</Text>
       </View>
 
       {!loading && (
@@ -36,8 +77,105 @@ export function SerieSortScreen({ onBack }: { onBack: () => void }) {
             t={t}
             onChange={change}
           />
+
+          <Text style={chrome.section}>{t.configMetadataSourceGroupTitle}</Text>
+          {/* One line: what it is, which side is picked, and a way into the per-field page. The
+              toggle decides for every field at once (and, per the tool's own rule, clears
+              whatever was set per field); the chevron opens the exceptions. */}
+          <View style={styles.sourceRow}>
+            <Text style={styles.sourceLabel}>{t.configMetadataSourceRowLabel}</Text>
+            {/* Content on one side, enrichment on the other, the picked side filled in — a
+                two-value choice reads faster as a toggle than as a dropdown. */}
+            <View style={styles.toggle}>
+              {(['content', 'enrichment'] as const).map(source => {
+                const active = sources.preferences.global === source;
+                return (
+                  <TouchableOpacity
+                    key={source}
+                    onPress={() => sources.changeGlobal(source)}
+                    style={[styles.toggleSide, active && styles.toggleSideActive]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}>
+                    <Text style={[styles.toggleText, active && styles.toggleTextActive]} numberOfLines={1}>
+                      {source === 'content' ? t.configMetadataSourceContentShort : t.configMetadataSourceEnrichmentShort}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity onPress={() => setShowFields(true)} hitSlop={8} accessibilityRole="button">
+              <ChevronRight size={icon.size[5]} color={colors.icon.secondary} />
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       )}
     </View>
   );
+}
+
+// One row per disputed field. The list comes from the domain (DISPUTED_METADATA_FIELDS), never
+// from a copy kept here — so a field added to the resolver shows up on this page on its own.
+function MetadataFieldsPage({
+  preferences,
+  onChangeField,
+  onBack,
+  t,
+}: {
+  preferences: MetadataSourcePreferences;
+  onChangeField: (args: { field: DisputedMetadataField; choice: MetadataSourceChoice }) => void;
+  onBack: () => void;
+  t: Strings;
+}) {
+  const chrome = useStyles(makeChrome);
+  const styles = useStyles(serialsStyles);
+
+  return (
+    <View style={chrome.root}>
+      <View style={chrome.subHeader}>
+        <BackChevron onPress={onBack} />
+        <Text style={chrome.subTitle}>{t.configMetadataSourceFieldsTitle}</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={chrome.scroll}>
+        <Text style={styles.hint}>{t.configMetadataSourceFieldsHint}</Text>
+        {DISPUTED_METADATA_FIELDS.map(field => (
+          <View key={field} style={styles.field}>
+            <Text style={styles.fieldLabel}>{fieldLabel(field, t)}</Text>
+            <Select
+              value={preferences.fields[field] ?? 'inherit'}
+              options={fieldOptions(t)}
+              placeholder={t.configMetadataSourceInherit}
+              onChange={id => onChangeField({ field, choice: (id ?? 'inherit') as MetadataSourceChoice })}
+            />
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const sourceOptions = (t: Strings) => [
+  { id: 'enrichment', label: t.configMetadataSourceEnrichment },
+  { id: 'content', label: t.configMetadataSourceContent },
+];
+
+// 'inherit' is first because it is the default state of every field.
+const fieldOptions = (t: Strings) => [{ id: 'inherit', label: t.configMetadataSourceInherit }, ...sourceOptions(t)];
+
+// Field labels live here rather than on the domain constant: the domain names a field, the screen
+// decides how to say it, and only the screen has `t`.
+function fieldLabel(field: DisputedMetadataField, t: Strings): string {
+  switch (field) {
+    case 'summary':
+      return t.configMetadataFieldSummary;
+    case 'genres':
+      return t.configMetadataFieldGenres;
+    case 'author':
+      return t.configMetadataFieldAuthor;
+    case 'status':
+      return t.configMetadataFieldStatus;
+    case 'alternativeTitles':
+      return t.configMetadataFieldAlternativeTitles;
+  }
 }

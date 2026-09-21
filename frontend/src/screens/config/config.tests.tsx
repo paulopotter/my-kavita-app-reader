@@ -26,7 +26,7 @@ jest.mock('../../shared/managers/preferences', () => ({
 }));
 jest.mock('./server', () => ({ ServerScreen: (p: { onBack?: () => void }) => stub('server')(p) }));
 jest.mock('./reader', () => ({ ReaderPrefsScreen: (p: { onBack?: () => void }) => stub('reader')(p) }));
-jest.mock('./serie', () => ({ SerieSortScreen: (p: { onBack?: () => void }) => stub('serie')(p) }));
+jest.mock('./serials', () => ({ SerialsSortScreen: (p: { onBack?: () => void }) => stub('serials')(p) }));
 jest.mock('./debug', () => ({ DebugScreen: (p: { onBack?: () => void }) => stub('debug')(p) }));
 
 // AppVersions owns the debug-unlock tap gesture; stub it with a button that fires onDebugUnlocked.
@@ -73,7 +73,7 @@ describe('ConfigScreen router', () => {
     expect(getByText(t.configTitle)).toBeTruthy();
     expect(getByText(t.configMenuServer)).toBeTruthy();
     expect(getByText(t.configMenuReading)).toBeTruthy();
-    expect(getByText(t.configMenuChapter)).toBeTruthy();
+    expect(getByText(t.configMenuSerials)).toBeTruthy();
     expect(queryByText('Debug')).toBeNull(); // locked by default
   });
 

@@ -2,7 +2,7 @@
 // a folder under screens/config/. 'setup' is intentionally NOT here — the onboarding screen is
 // reached only by the splash redirect (no server/auth) or a data wipe, never by navigating the
 // Config menu.
-export type ConfigSubScreen = 'menu' | 'server' | 'reader' | 'serie' | 'notifications' | 'debug';
+export type ConfigSubScreen = 'menu' | 'server' | 'reader' | 'serials' | 'notifications' | 'debug';
 
 export interface ConfigScreenProps {
   // Config lives inside a tab; the tab host needs to know when a hardware-back should pop the

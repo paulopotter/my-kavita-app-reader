@@ -4,6 +4,6 @@ export * from './config.screen';
 export * from './config.types';
 export * from './debug';
 export * from './reader';
-export * from './serie';
+export * from './serials';
 export * from './server';
 export * from './setup';
