@@ -15,11 +15,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, Check, Settings2, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
 import { Routes } from '../../navigation/routes';
 import type { NavOrigin } from '../../navigation/routes';
+import type { Strings } from '../../shared/i18n';
 import { useStrings } from '../../shared/i18n';
 import { FollowStar } from '../../shared/components/follow-star';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
 import { SelectionBottomBar } from '../../shared/components/selection-bottom-bar';
-import { ChapterListItem, ChapterSortFields, Header, sortModeLabel } from './components';
+import { FreshnessBanner } from '../../shared/components';
+import type { FreshnessBannerVariant } from '../../shared/components';
+import { CHAPTER_ROW_HEIGHT, ChapterListItem, ChapterSortFields, Header, sortModeLabel } from './components';
 import { useSerie } from './hooks';
 import { serieStyles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
@@ -36,6 +39,10 @@ type RouteParams = {
 // serie.screen.tsx — zero domain logic. Everything it does with data comes straight from
 // useSerie(); it only orchestrates NAVIGATION and local visual-only state (sort modal
 // visibility, scroll-to-top button), neither of which useSerie needs to know about.
+// Module scope so it is the same function across renders — an inline `item => item.id` is a new
+// reference each time, which makes FlatList redo work it could otherwise skip.
+const chapterKey = (item: SerieChapter) => item.id;
+
 export function SerieScreen() {
   const { colors } = useTheme();
   const styles = useStyles(serieStyles);
@@ -62,6 +69,9 @@ export function SerieScreen() {
     continueChapter,
     readCount,
     actionLabel,
+    headerDetails,
+    enrichmentGap,
+    enrichmentOutcome,
     isFollowed,
     sortMode,
     sortFixedThreshold,
@@ -89,6 +99,9 @@ export function SerieScreen() {
     onHeaderLayout,
   } = useSerie({ seriesId, origin });
 
+  const enrichmentBanner = enrichmentBannerFor({ gap: enrichmentGap, outcome: enrichmentOutcome, t });
+
+
   function handleBack() {
     if (selectionMode) {
       exitSelectionMode();
@@ -110,15 +123,51 @@ export function SerieScreen() {
     }, [selectionMode, exitSelectionMode]),
   );
 
-  function handleChapterPress(chapter: SerieChapter) {
-    if (selectionMode) {
-      onChapterClick(chapter.id);
-      return;
-    }
-    // seriesName is a fast-path hint so the reader's top bar doesn't flash empty while it would
-    // otherwise fetch the name — the reader falls back to fetching it when opened without this.
-    navigation.navigate(Routes.READER, { seriesId, chapterId: chapter.id, origin, seriesName: serie?.name });
-  }
+  // Takes the id, not the chapter, and is a stable reference: every row holds on to this, and a
+  // handler rebuilt on each render would re-render all of them (see ChapterListItem's memo note).
+  const handleChapterPress = useCallback(
+    (chapterId: string) => {
+      if (selectionMode) {
+        onChapterClick(chapterId);
+        return;
+      }
+      // seriesName is a fast-path hint so the reader's top bar doesn't flash empty while it
+      // would otherwise fetch the name — the reader falls back to fetching it when opened
+      // without this.
+      navigation.navigate(Routes.READER, { seriesId, chapterId, origin, seriesName: serie?.name });
+    },
+    [selectionMode, onChapterClick, navigation, seriesId, origin, serie?.name],
+  );
+
+  // Every chapter row is the same height, and that height is known without measuring anything —
+  // it is the sum of the row's own tokens (see CHAPTER_ROW_HEIGHT). Handing it to FlatList lets
+  // the list place every row directly instead of measuring them one by one, which is the
+  // expensive part of scrolling a long series.
+  const getItemLayout = useCallback(
+    (_: ArrayLike<SerieChapter> | null | undefined, index: number) => ({
+      length: CHAPTER_ROW_HEIGHT,
+      offset: CHAPTER_ROW_HEIGHT * index,
+      index,
+    }),
+    [],
+  );
+
+  // Stable renderItem: an inline arrow here would be a new function on every render, which makes
+  // FlatList re-render every row regardless of the row component's own memoization.
+  const renderChapter = useCallback(
+    ({ item, index }: { item: SerieChapter; index: number }) => (
+      <ChapterListItem
+        chapter={item}
+        title={ChapterTool.format.title(item, t)}
+        index={index}
+        selectionMode={selectionMode}
+        selected={selectedIds.has(item.id)}
+        onPress={handleChapterPress}
+        onLongPress={onChapterLongPress}
+      />
+    ),
+    [t, selectionMode, selectedIds, handleChapterPress, onChapterLongPress],
+  );
 
   function handleActionPress() {
     const target = continueChapter ?? chapters[0];
@@ -176,10 +225,28 @@ export function SerieScreen() {
         />
       </View>
 
+      {/* Between the nav bar and the page content: what the enrichment server contributed, or
+          did not. The outcome of a fetch that finished late wins over the "still fetching" note
+          it replaces — otherwise the page would keep claiming to be waiting for something that
+          already arrived. */}
+      {enrichmentBanner && <FreshnessBanner variant={enrichmentBanner.variant} text={enrichmentBanner.text} />}
+
       <FlatList
         ref={listRef}
         data={chapters}
-        keyExtractor={item => item.id}
+        keyExtractor={chapterKey}
+        // Virtualization budget, tuned for the long series this screen has to survive (900+
+        // chapters measured on device). The defaults render far more rows than a phone screen
+        // shows and keep them mounted, which is what made one list update take ~10s.
+        //
+        // initialNumToRender covers roughly the first screenful; windowSize keeps one screen
+        // above and below mounted; maxToRenderPerBatch caps how much is added per scroll tick so
+        // a fast fling stays responsive instead of stalling on a huge batch.
+        initialNumToRender={20}
+        maxToRenderPerBatch={20}
+        windowSize={5}
+        removeClippedSubviews
+        getItemLayout={getItemLayout}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -194,7 +261,15 @@ export function SerieScreen() {
         scrollEventThrottle={100}
         ListHeaderComponent={
           <View onLayout={onHeaderLayout}>
-            {serie && <Header serie={serie} actionLabel={actionLabel} onActionPress={handleActionPress} t={t} />}
+            {serie && (
+              <Header
+                serie={serie}
+                actionLabel={actionLabel}
+                onActionPress={handleActionPress}
+                details={headerDetails}
+                t={t}
+              />
+            )}
             <View style={styles.sortBar}>
               <Text style={styles.chapterCount}>
                 {readCount}/{chapters.length}
@@ -205,17 +280,7 @@ export function SerieScreen() {
             </View>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <ChapterListItem
-            chapter={item}
-            title={ChapterTool.format.title(item, t)}
-            index={index}
-            selectionMode={selectionMode}
-            selected={selectedIds.has(item.id)}
-            onPress={() => handleChapterPress(item)}
-            onLongPress={() => onChapterLongPress(item.id)}
-          />
-        )}
+        renderItem={renderChapter}
       />
 
       {showScrollTop && !selectionMode && (
@@ -293,4 +358,22 @@ export function SerieScreen() {
       </Modal>
     </View>
   );
+}
+
+// The one banner the serial page shows about enrichment, in precedence order: an outcome the
+// user has not seen yet, then the fact that data is still missing. null = nothing to say.
+function enrichmentBannerFor({
+  gap,
+  outcome,
+  t,
+}: {
+  gap: 'pending' | 'failed' | undefined;
+  outcome: 'updated' | 'failed' | null;
+  t: Strings;
+}): { variant: FreshnessBannerVariant; text: string } | null {
+  if (outcome === 'updated') {return { variant: 'confirmed', text: t.seriesDetailEnrichmentUpdated };}
+  if (outcome === 'failed') {return { variant: 'bad', text: t.seriesDetailEnrichmentUpdateFailed };}
+  if (gap === 'pending') {return { variant: 'stale', text: t.seriesDetailEnrichmentPending };}
+  if (gap === 'failed') {return { variant: 'bad', text: t.seriesDetailEnrichmentFailed };}
+  return null;
 }

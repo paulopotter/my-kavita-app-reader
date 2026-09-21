@@ -7,8 +7,21 @@ jest.mock('@react-navigation/native', () => ({
   useFocusEffect: () => {},
 }));
 
+// The native emitter that announces enrichment finishing after the page rendered. Captured here
+// so a test can fire one on demand — there is no real native side under Jest.
+const enrichmentListeners: ((event: unknown) => void)[] = [];
+jest.mock('../../../shared/bridge', () => ({
+  EXTERNAL_METADATA_RESOLVED_EVENT: 'externalMetadataResolved',
+  ExternalMetadataEmitter: {
+    addListener: (_name: string, cb: (event: unknown) => void) => {
+      enrichmentListeners.push(cb);
+      return { remove: () => enrichmentListeners.splice(enrichmentListeners.indexOf(cb), 1) };
+    },
+  },
+}));
+
 jest.mock('../../../shared', () => ({
-  SerialService: { get: jest.fn() },
+  SerialService: { get: jest.fn(), getWithMetadataSourcePreferences: jest.fn() },
   SerieTool: {
     normalize: { digest: jest.fn(), card: jest.fn() },
     isFollowed: jest.fn(),
@@ -46,7 +59,13 @@ import { EventBus } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { getStrings } from '../../../shared/i18n/strings';
 
+// useSerie loads through getWithMetadataSourcePreferences (digest + the preference that decides
+// how to read it). Tests still drive the digest alone through mockGet, and this adapts it to the
+// pair the hook expects — the preference itself is exercised in the tool's own tests, not here.
 const mockGet = SerialService.get as jest.Mock;
+(SerialService.getWithMetadataSourcePreferences as jest.Mock).mockImplementation((args: unknown) =>
+  Promise.resolve(mockGet(args)).then(digest => ({ digest, metadataSourcePreferences: { global: 'enrichment', fields: {} } })),
+);
 const mockNormalize = SerieTool.normalize.digest as jest.Mock;
 const mockIsFollowed = SerieTool.isFollowed as jest.Mock;
 const mockToggleFollow = SerieTool.toggleFollow as jest.Mock;
@@ -95,7 +114,10 @@ describe('useSerie', () => {
     const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockGet).toHaveBeenCalledWith({ seriesId: 's1', force: false });
-    expect(mockNormalize).toHaveBeenCalledWith({ digest: digestSuccess });
+    expect(mockNormalize).toHaveBeenCalledWith({
+      digest: digestSuccess,
+      metadataSourcePreferences: { global: 'enrichment', fields: {} },
+    });
     expect(result.current.serie).toBe(serie);
     expect(result.current.error).toBeNull();
   });
@@ -471,6 +493,228 @@ describe('useSerie — continueChapter (derived via SerieTool.resolveResumeChapt
       await result.current.markRead({ chapterId: 'c2' });
     });
     expect(result.current.continueChapter?.id).toBe('c3');
+  });
+});
+
+describe('useSerie — enrichment gap', () => {
+  // The banner reports what the enrichment server could not provide. A serie whose external
+  // block says nothing (or says "not configured") is a normal page, not a problem to announce.
+  function serieWithExternal(external: unknown) {
+    return { ...serie, metadata: { description: '', genres: [], tags: [], external } };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGet.mockResolvedValue(digestSuccess);
+    mockIsFollowed.mockResolvedValue(false);
+    mockSortGet.mockResolvedValue({ mode: 'ASCENDING', progressPercent: 50 });
+  });
+
+  it('reports no gap when enrichment answered', async () => {
+    mockNormalize.mockReturnValue(serieWithExternal({ isSuccess: true, match: null }));
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.enrichmentGap).toBeUndefined();
+  });
+
+  it('reports no gap when no enrichment server is configured', async () => {
+    mockNormalize.mockReturnValue(
+      serieWithExternal({ isSuccess: false, error: { code: 'not_configured', message: 'none' } }),
+    );
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Never asked for, so nothing is missing — announcing it would nag about a setup the user
+    // deliberately does not have.
+    expect(result.current.enrichmentGap).toBeUndefined();
+  });
+
+  it('reports a pending gap while the fetch is still running', async () => {
+    mockNormalize.mockReturnValue(serieWithExternal({ isSuccess: false, error: { code: 'pending', message: 'x' } }));
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.enrichmentGap).toBe('pending');
+  });
+
+  it('reports a failed gap when the provider could not be reached', async () => {
+    mockNormalize.mockReturnValue(serieWithExternal({ isSuccess: false, error: { code: 'io', message: 'down' } }));
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.enrichmentGap).toBe('failed');
+  });
+
+  it('reports no gap when the serie carries no metadata at all', async () => {
+    mockNormalize.mockReturnValue(serie);
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.enrichmentGap).toBeUndefined();
+  });
+});
+
+describe('useSerie — header details', () => {
+  function serieWithMatch(match: Record<string, unknown>) {
+    return { ...serie, metadata: { description: '', genres: [], tags: [], external: { isSuccess: true, match } } };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGet.mockResolvedValue(digestSuccess);
+    mockIsFollowed.mockResolvedValue(false);
+    mockSortGet.mockResolvedValue({ mode: 'ASCENDING', progressPercent: 50 });
+  });
+
+  it('joins the alternative titles the enrichment server answered', async () => {
+    mockNormalize.mockReturnValue(
+      serieWithMatch({
+        alternativeTitles: [
+          { label: 'romaji', value: 'Sono Manga' },
+          { label: 'english', value: 'That Manga' },
+        ],
+      }),
+    );
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.headerDetails?.alternativeTitles).toEqual(['Sono Manga', 'That Manga']);
+  });
+
+  it('leaves the row out when there are no alternative titles', async () => {
+    mockNormalize.mockReturnValue(serieWithMatch({ alternativeTitles: [] }));
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.headerDetails?.alternativeTitles).toBeUndefined();
+  });
+
+  it('carries the author and the abandoned flag', async () => {
+    mockNormalize.mockReturnValue(serieWithMatch({ author: 'Oda', abandoned: true, alternativeTitles: [] }));
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.headerDetails?.author).toBe('Oda');
+    expect(result.current.headerDetails?.abandoned).toBe(true);
+  });
+
+  it('reports no details at all when the provider has no entry', async () => {
+    mockNormalize.mockReturnValue({ ...serie, metadata: { description: '', genres: [], tags: [], external: { isSuccess: true, match: null } } });
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.headerDetails).toBeUndefined();
+  });
+});
+
+describe('useSerie — enrichment arriving late', () => {
+  function fireResolved(event: { seriesId: string; providerId?: string; ok: boolean }) {
+    act(() => {
+      enrichmentListeners.forEach(cb => cb({ providerId: 'kavita', ...event }));
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGet.mockResolvedValue(digestSuccess);
+    mockNormalize.mockReturnValue(serie);
+    mockIsFollowed.mockResolvedValue(false);
+    mockSortGet.mockResolvedValue({ mode: 'ASCENDING', progressPercent: 50 });
+  });
+
+  it('re-reads the series when its enrichment finishes late', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsBefore = mockGet.mock.calls.length;
+
+    fireResolved({ seriesId: 's1', ok: true });
+
+    await waitFor(() => expect(mockGet.mock.calls.length).toBeGreaterThan(callsBefore));
+    await waitFor(() => expect(result.current.enrichmentOutcome).toBe('updated'));
+  });
+
+  // Every open series listens on the same native channel, so the id is what makes an event ours.
+  it('ignores an event for a different series', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsBefore = mockGet.mock.calls.length;
+
+    fireResolved({ seriesId: 'other', ok: true });
+
+    expect(mockGet.mock.calls.length).toBe(callsBefore);
+    expect(result.current.enrichmentOutcome).toBeNull();
+  });
+
+  it('reports a failure without re-reading, since there is nothing new to read', async () => {
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsBefore = mockGet.mock.calls.length;
+
+    fireResolved({ seriesId: 's1', ok: false });
+
+    await waitFor(() => expect(result.current.enrichmentOutcome).toBe('failed'));
+    expect(mockGet.mock.calls.length).toBe(callsBefore);
+  });
+
+  // Seen on device: the banner went amber → green → amber. The green note retires on a timer,
+  // while the amber one comes back from state — so a reload that itself reports `pending` after
+  // the data already arrived made the page contradict itself.
+  it('stops reporting a gap once enrichment has arrived, even if a later read is still pending', async () => {
+    const pendingSerie = {
+      ...serie,
+      metadata: { description: '', genres: [], tags: [], external: { isSuccess: false, error: { code: 'pending', message: 'x' } } },
+    };
+    mockNormalize.mockReturnValue(pendingSerie);
+
+    const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.enrichmentGap).toBe('pending');
+
+    fireResolved({ seriesId: 's1', ok: true });
+    await waitFor(() => expect(result.current.enrichmentOutcome).toBe('updated'));
+
+    // The reload still came back pending — but the user already saw it arrive.
+    expect(result.current.enrichmentGap).toBeUndefined();
+  });
+
+  it('retires the success note on its own', async () => {
+    jest.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      fireResolved({ seriesId: 's1', ok: true });
+      await waitFor(() => expect(result.current.enrichmentOutcome).toBe('updated'));
+
+      act(() => {
+        jest.advanceTimersByTime(2_000);
+      });
+
+      expect(result.current.enrichmentOutcome).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // A failure is not self-retiring: it describes a state that is still true.
+  it('keeps the failure note up', async () => {
+    jest.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      fireResolved({ seriesId: 's1', ok: false });
+      await waitFor(() => expect(result.current.enrichmentOutcome).toBe('failed'));
+
+      act(() => {
+        jest.advanceTimersByTime(10_000);
+      });
+
+      expect(result.current.enrichmentOutcome).toBe('failed');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

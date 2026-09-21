@@ -19,16 +19,35 @@ interface Props {
 
 // Dumb: only decides how to render the data it's given (zebra striping by index, checkbox when
 // in selection mode) — no fetching, no domain logic.
-export function ChapterListItem({ chapter, title, index, selectionMode, selected, onPress, onLongPress }: Props) {
+//
+// Memoized because a long series renders hundreds of these: without it, every list update
+// re-rendered all of them, which RN itself flagged on device ("large list that is slow to
+// update", 10s for one update on a 914-chapter series).
+//
+// Memoization only holds while the props stay referentially stable, so the press handlers take
+// the chapter id rather than being wrapped in a closure by the caller — a `() => onPress(id)`
+// built inside renderItem is a new function on every render and would defeat this entirely.
+export const ChapterListItem = React.memo(function ChapterListItem({
+  chapter,
+  title,
+  index,
+  selectionMode,
+  selected,
+  onPress,
+  onLongPress,
+}: Props) {
   const styles = useStyles(chapterListItemStyles);
   const isRead = chapter.readStatus === 'READ';
   const isZebra = index % 2 === 1;
 
+  const handlePress = React.useCallback(() => onPress(chapter.id), [onPress, chapter.id]);
+  const handleLongPress = React.useCallback(() => onLongPress(chapter.id), [onLongPress, chapter.id]);
+
   return (
     <TouchableOpacity
       style={[styles.root, isZebra && styles.zebra, isRead && styles.read, selected && styles.selected]}
-      onPress={() => onPress(chapter.id)}
-      onLongPress={() => onLongPress(chapter.id)}
+      onPress={handlePress}
+      onLongPress={handleLongPress}
       activeOpacity={0.7}>
       <View style={styles.checkbox}>
         {selectionMode && <View style={[styles.checkboxBox, selected && styles.checkboxBoxChecked]} />}
@@ -38,4 +57,4 @@ export function ChapterListItem({ chapter, title, index, selectionMode, selected
       </Text>
     </TouchableOpacity>
   );
-}
+});

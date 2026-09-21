@@ -67,6 +67,54 @@ describe('Header', () => {
   });
 
   // ── description clamping ("read more" / "read less") ───────────────────────
+  describe('enrichment details', () => {
+    it('renders a row per detail the enrichment server answered', () => {
+      const { getByText } = render(
+        <Header
+          serie={makeSerie()}
+          actionLabel="x"
+          onActionPress={jest.fn()}
+          details={{ author: 'Oda', alternativeTitles: ['ワンピース', 'One Piece'] }}
+          t={t}
+        />,
+      );
+
+      expect(getByText(t.seriesDetailAuthorLabel)).toBeTruthy();
+      expect(getByText('Oda')).toBeTruthy();
+      expect(getByText(t.seriesDetailAlternativeTitlesLabel)).toBeTruthy();
+      expect(getByText('• ワンピース')).toBeTruthy();
+      expect(getByText('• One Piece')).toBeTruthy();
+    });
+
+    // A field the enrichment server had nothing for leaves no empty row behind.
+    it('omits the row for a detail that is absent', () => {
+      const { queryByText } = render(
+        <Header serie={makeSerie()} actionLabel="x" onActionPress={jest.fn()} details={{ author: 'Oda' }} t={t} />,
+      );
+
+      expect(queryByText(t.seriesDetailAlternativeTitlesLabel)).toBeNull();
+    });
+
+    it('renders nothing extra when there are no details at all', () => {
+      const { queryByText } = render(<Header serie={makeSerie()} actionLabel="x" onActionPress={jest.fn()} t={t} />);
+
+      expect(queryByText(t.seriesDetailAuthorLabel)).toBeNull();
+      expect(queryByText(t.seriesDetailAbandonedLabel)).toBeNull();
+    });
+
+    it('shows the abandoned badge only when the series is marked abandoned', () => {
+      const { getByText } = render(
+        <Header serie={makeSerie()} actionLabel="x" onActionPress={jest.fn()} details={{ abandoned: true }} t={t} />,
+      );
+      expect(getByText(t.seriesDetailAbandonedLabel)).toBeTruthy();
+
+      const { queryByText } = render(
+        <Header serie={makeSerie()} actionLabel="x" onActionPress={jest.fn()} details={{ abandoned: false }} t={t} />,
+      );
+      expect(queryByText(t.seriesDetailAbandonedLabel)).toBeNull();
+    });
+  });
+
   describe('description clamping', () => {
     it('the "read more" toggle stays disabled (a tap does nothing) when the description fits within the clamp', () => {
       const serie = makeSerie({ metadata: { description: 'Short description', genres: [], tags: [] } });

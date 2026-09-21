@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import type { HeaderDetails } from '../components';
 import { ChapterTool, ChaptersTool, SerialService, SerieTool, createBackAction, useAction } from '../../../shared';
 import type { ChapterMarkUpdate, ChapterSortPrefs, Serie, SerieChapter } from '../../../shared';
+import {
+  EXTERNAL_METADATA_RESOLVED_EVENT,
+  ExternalMetadataEmitter,
+  type ExternalMetadataResolvedEvent,
+} from '../../../shared/bridge';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/serials';
@@ -60,6 +66,10 @@ function sortChapters(chapters: SerieChapter[], mode: ChapterSortMode, fixedThre
 // uses async/await — every asynchronous method here is a plain function returning a .then()/
 // .catch() chain, so whoever calls it (this hook internally, or the screen) decides whether it
 // needs to wait on the result at all.
+// How long the "enrichment updated" note stays up. It confirms something already visible on
+// screen, so it only needs to be long enough to read.
+const ENRICHMENT_UPDATED_NOTE_MS = 1_500;
+
 export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavOrigin }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -109,14 +119,14 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
       if (isRefresh) {setRefreshing(true);}
       else {setLoading(true);}
       setError(null);
-      return SerialService.get({ seriesId, force: isRefresh })
-        .then(digest => {
+      return SerialService.getWithMetadataSourcePreferences({ seriesId, force: isRefresh })
+        .then(({ digest, metadataSourcePreferences }) => {
           if (!digest.isSuccess) {throw new Error(digest.error.message ?? 'unknown error');}
           // Announce the fresh digest for the app-wide SeriesDigestIndex (Library reads it so a
           // series opened here shows real chapter counts / publication status without the
           // Library refetching it). Fire-and-forget — this screen doesn't care who listens.
           EventBus.emit(SerieEvents.digestResolved, serieDigestResolvedPayload(digest));
-          return SerieTool.normalize.digest({ digest });
+          return SerieTool.normalize.digest({ digest, metadataSourcePreferences });
         })
         .then(normalized => {
           // Re-apply any not-yet-confirmed optimistic mark on top of this fresh digest — a
@@ -169,6 +179,49 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
 
   useEffect(triggerLoad, [triggerLoad]);
   useFocusEffect(triggerLoad);
+
+  // How the enrichment fetch that outlived our wait ended. Separate from `enrichmentGap` (which
+  // describes what the digest came back with): this is the outcome the user is told about after
+  // the fact, and it clears itself once seen.
+  const [enrichmentOutcome, setEnrichmentOutcome] = useState<'updated' | 'failed' | null>(null);
+  // Whether this series' enrichment has already landed once. State, not a ref: the gap below is
+  // derived from it, and a ref mutation would not recompute. Reset per series, so opening a
+  // different one starts over.
+  const [enrichmentSettled, setEnrichmentSettled] = useState(false);
+  useEffect(() => {
+    setEnrichmentSettled(false);
+  }, [seriesId]);
+
+  // Enrichment that finished after this screen already rendered. The payload carries no data on
+  // purpose — the result is in the cache, so re-reading through load() applies the same
+  // normalization and source preferences any other read would.
+  useEffect(() => {
+    const sub = ExternalMetadataEmitter.addListener(
+      EXTERNAL_METADATA_RESOLVED_EVENT,
+      (event: ExternalMetadataResolvedEvent) => {
+          if (event.seriesId !== seriesId) {return;}
+        if (!event.ok) {
+          setEnrichmentOutcome('failed');
+          return;
+        }
+        // Enrichment for this series has finished, so from here on "still fetching" is stale
+        // news: the reload below may itself outrun the digest's own wait window and report
+        // `pending` again, and without this the banner went amber → green → amber as the green
+        // note retired on a timer while the amber one came back from state.
+        setEnrichmentSettled(true);
+        load().then(() => setEnrichmentOutcome('updated'));
+      },
+    );
+    return () => sub.remove();
+  }, [seriesId, load]);
+
+  // The success note is a confirmation of something already visible on screen, so it retires on
+  // its own rather than sitting there as noise. A failure stays until the next load replaces it.
+  useEffect(() => {
+    if (enrichmentOutcome !== 'updated') {return;}
+    const timer = setTimeout(() => setEnrichmentOutcome(null), ENRICHMENT_UPDATED_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [enrichmentOutcome]);
 
   const refresh = useCallback(() => load(true), [load]);
 
@@ -248,6 +301,42 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
     // The button clamps this to one line with an ellipsis (see header.component.tsx).
     return t.seriesDetailContinueReading.replace('{0}', ChapterTool.format.title(continueChapter, t));
   }, [serie, readCount, continueChapter, t]);
+
+  // The facts only the enrichment server answers, formatted here so the header stays dumb. Each
+  // one is undefined when that server said nothing, and its row is simply not rendered.
+  //
+  // Read straight off the match rather than through the field resolver: none of these is a
+  // disputed field — the content server has no counterpart to any of them, so there is nothing
+  // to choose between (see DISPUTED_METADATA_FIELDS).
+  const headerDetails = useMemo((): HeaderDetails | undefined => {
+    const external = serie?.metadata?.external;
+    const match = external?.isSuccess ? external.match : null;
+    if (!match) {return undefined;}
+
+    return {
+      author: match.author ?? undefined,
+      // Handed over as a list, not a joined string: the header renders one line per title, and
+      // joining here would decide presentation on the hook's behalf.
+      alternativeTitles: match.alternativeTitles?.length ? match.alternativeTitles.map(title => title.value) : undefined,
+      abandoned: match.abandoned,
+    };
+  }, [serie]);
+
+  // Whether the enrichment server's data is missing from what is on screen, and why. undefined
+  // means there is nothing to say: either it answered, or it was never asked (no group
+  // configured), which is a normal setup rather than a problem worth a banner.
+  const enrichmentGap = useMemo((): 'pending' | 'failed' | undefined => {
+    const external = serie?.metadata?.external;
+    if (!external || external.isSuccess) {return undefined;}
+    // Once this series' enrichment has arrived, a later `pending` is a fresh background read,
+    // not something the user is waiting on — announcing it again would contradict the "updated"
+    // note they just saw.
+    if (enrichmentSettled) {return undefined;}
+    // A provider that isn't set up at all is not a failure to report — the user never asked for
+    // enrichment in the first place.
+    if (external.error.code === 'not_configured') {return undefined;}
+    return external.error.code === 'pending' ? 'pending' : 'failed';
+  }, [serie, enrichmentSettled]);
 
   // The one place a ChapterMarkUpdate (optimistic, confirmed, or reverted — see
   // ChapterTool.mark's own doc) is applied to local state, same channel regardless of which
@@ -429,6 +518,9 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
     continueChapter,
     readCount,
     actionLabel,
+    headerDetails,
+    enrichmentGap,
+    enrichmentOutcome,
     isFollowed,
     sortMode,
     sortFixedThreshold,

@@ -6,12 +6,22 @@ import type { Strings } from '../../../../shared/i18n';
 import { headerStyles } from './header.styles';
 import { useStyles } from '../../../../shared/context';
 
+// The facts only the enrichment server answers, already resolved and formatted by the caller.
+// Each one is absent when that server had nothing to say, and the row simply isn't rendered —
+// this component never decides which server a value came from.
+export interface HeaderDetails {
+  author?: string;
+  alternativeTitles?: string[];
+  abandoned?: boolean;
+}
+
 interface Props {
   serie: Serie;
   // Action-button label, composed by the caller (useSerie) — this dumb component never derives
   // "start" vs. "continue ch. N" vs. "reread" itself.
   actionLabel: string;
   onActionPress: () => void;
+  details?: HeaderDetails;
   t: Strings;
 }
 
@@ -21,7 +31,7 @@ interface Props {
 const DESCRIPTION_CLAMP_LINES = 6;
 
 // Dumb: renders the data it's given (cover, name, description, chips) and fires onActionPress.
-export function Header({ serie, actionLabel, onActionPress, t }: Props) {
+export function Header({ serie, actionLabel, onActionPress, details, t }: Props) {
   const styles = useStyles(headerStyles);
   const tags = [...(serie.metadata?.genres ?? []), ...(serie.metadata?.tags ?? [])];
   const [expanded, setExpanded] = useState(false);
@@ -29,6 +39,12 @@ export function Header({ serie, actionLabel, onActionPress, t }: Props) {
   // the unclamped text out once (onTextLayout below), so the "read more" toggle doesn't render
   // (falsely) for a description that already fits.
   const [overflowing, setOverflowing] = useState(false);
+
+  // "label: value" lines under the title, in a fixed order. Each is present only when the
+  // enrichment server actually answered it — a missing one leaves no gap behind.
+  const detailRows = [{ label: t.seriesDetailAuthorLabel, value: details?.author }].filter(
+    (row): row is { label: string; value: string } => Boolean(row.value),
+  );
 
   const handleDescriptionLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
     if (!expanded && e.nativeEvent.lines.length > DESCRIPTION_CLAMP_LINES) {
@@ -44,6 +60,30 @@ export function Header({ serie, actionLabel, onActionPress, t }: Props) {
           <Text style={styles.name} numberOfLines={3}>
             {serie.name}
           </Text>
+
+          {detailRows.map(row => (
+            <View key={row.label} style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{row.label}</Text>
+              <Text style={styles.detailValue} numberOfLines={2}>
+                {row.value}
+              </Text>
+            </View>
+          ))}
+          {details?.alternativeTitles?.length ? (
+            <View style={styles.detailBlock}>
+              <Text style={styles.detailLabel}>{t.seriesDetailAlternativeTitlesLabel}</Text>
+              {details.alternativeTitles.map(title => (
+                <Text key={title} style={styles.detailListItem} numberOfLines={2}>
+                  {`\u2022 ${title}`}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          {details?.abandoned ? (
+            <View style={styles.abandonedBadge}>
+              <Text style={styles.abandonedBadgeText}>{t.seriesDetailAbandonedLabel}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 

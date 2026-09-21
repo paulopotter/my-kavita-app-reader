@@ -25,7 +25,7 @@ export function sortModeLabel(
     case 'AUTO_FIXED':
       return t.seriesDetailSortAutoFixed.replace('{0}', String(fixedThreshold ?? 0));
     case 'AUTO_PROGRESS':
-      return t.seriesDetailSortAutoProgress.replace('{0}', String(progressPercent));
+      return t.seriesDetailSortAutoProgress.replace('{0}', String(progressPercent ?? 50));
   }
 }
 

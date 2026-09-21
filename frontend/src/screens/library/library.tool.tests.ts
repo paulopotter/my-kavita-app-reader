@@ -25,7 +25,17 @@ function serie(over: Partial<Serie> = {}): Serie {
 }
 
 function match(over: Partial<ExternalMetadataMatch> = {}): ExternalMetadataMatch {
-  return { seriesId: 's1', status: 'ongoing', downloadedChapters: 12, totalChapters: 40, hasErrors: false, ...over };
+  return {
+    seriesId: 's1',
+    status: 'ongoing',
+    downloadedChapters: 12,
+    totalChapters: 40,
+    hasErrors: false,
+    abandoned: false,
+    genres: [],
+    alternativeTitles: [],
+    ...over,
+  };
 }
 
 const t = {
