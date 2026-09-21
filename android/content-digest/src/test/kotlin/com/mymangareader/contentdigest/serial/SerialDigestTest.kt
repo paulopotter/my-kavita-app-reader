@@ -33,6 +33,7 @@ import com.mymangareader.tools.network.ActiveUrlSelector
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -535,7 +536,7 @@ class SerialDigestTest {
                     ),
                 )
 
-            val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = true)) as SerialDigest.Success
             val list = digest.chapters!!.list.map { it as ChapterDigest.Success }
 
             fun neighborId(neighbor: com.mymangareader.contentdigest.chapter.ChapterNeighborDigest?) = (neighbor as? com.mymangareader.contentdigest.chapter.ChapterNeighborDigest.Success)?.id
@@ -726,7 +727,7 @@ class SerialDigestTest {
                 )
             plugin.chapterIdsThatFailGet = setOf("ch2")
 
-            val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = true)) as SerialDigest.Success
 
             assertEquals(SerialFields.ChaptersStatus.PARTIAL, digest.chapters?.status)
             val results = digest.chapters?.list?.map { it::class.simpleName }
@@ -743,7 +744,7 @@ class SerialDigestTest {
                 )
             plugin.chapterIdsThatFailGet = setOf("ch1")
 
-            val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = true)) as SerialDigest.Success
 
             assertEquals(SerialFields.ChaptersStatus.ERROR, digest.chapters?.status)
         }
@@ -762,7 +763,7 @@ class SerialDigestTest {
                 )
             plugin.chapterIdsThatFailGet = setOf("ch2")
 
-            val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = true)) as SerialDigest.Success
             val list = digest.chapters!!.list
 
             assertTrue(list[0] is ChapterDigest.Success)
@@ -797,7 +798,7 @@ class SerialDigestTest {
                 ActiveUrlSelector(OkHttpClient(), cache),
                 RequestTool(OkHttpClient()),
                 cache,
-            )
+            ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
         val group =
             externalMetadataServer.groups.add(
                 NewExternalMetadataGroup("Fake M3", "fake-m3", "{}", "/health", linkedServerGroupId),
@@ -864,7 +865,7 @@ class SerialDigestTest {
                     ActiveUrlSelector(OkHttpClient(), cache),
                     RequestTool(OkHttpClient()),
                     cache,
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
             val explicitGroup = externalMetadataServer.groups.add(NewExternalMetadataGroup("Explicit", "fake-m3", "{}", "/health"))
             mockServer.enqueue(MockResponse().setResponseCode(200))
             externalMetadataServer.group(explicitGroup.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 0))
@@ -900,7 +901,7 @@ class SerialDigestTest {
                     ActiveUrlSelector(OkHttpClient(), cache),
                     RequestTool(OkHttpClient()),
                     cache,
-                )
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
 
             val digest =
                 buildSerialDigest(
@@ -946,6 +947,131 @@ class SerialDigestTest {
 
             assertEquals(first.name, second.name)
             assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
+        }
+
+    // ── the chapter list's two paths ─────────────────────────────────────
+    //
+    // full=false (the serial page) builds the list straight from chapters.list(); full=true (the
+    // reader's own request) builds a real per-chapter digest. The list-only path exists because
+    // the per-chapter one costs a Room read+write per chapter, which measured as the bulk of the
+    // whole build on a long series.
+
+    @Test
+    fun `the list path carries what a chapter row renders`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", decimalNumber = 1.0),
+                        fakeChapter("ch2", decimalNumber = 2.0),
+                    ),
+                )
+
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+            val first = digest.chapters?.list?.first() as ChapterDigest.Success
+
+            assertEquals("ch1", first.id)
+            assertEquals(1, first.number)
+            assertEquals(2, digest.chapters?.total)
+        }
+
+    @Test
+    fun `the list path sorts by decimal number and numbers sequentially`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch2", decimalNumber = 2.0),
+                        fakeChapter("ch1", decimalNumber = 1.0),
+                    ),
+                )
+
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+            val list = digest.chapters?.list?.filterIsInstance<ChapterDigest.Success>().orEmpty()
+
+            assertEquals(listOf("ch1", "ch2"), list.map { it.id })
+            assertEquals(listOf(1, 2), list.map { it.number })
+        }
+
+    // A label belongs to a chapter that is actually special; carrying it on an ordinary one makes
+    // the list render a special's name where a chapter title should be.
+    @Test
+    fun `the list path keeps a special label only on a special chapter`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", decimalNumber = 1.0).copy(isSpecial = false, specialLabel = "Omake"),
+                        fakeChapter("sp", decimalNumber = 2.0).copy(isSpecial = true, specialLabel = "Omake"),
+                    ),
+                )
+
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+            val list = digest.chapters?.list?.filterIsInstance<ChapterDigest.Success>().orEmpty()
+
+            assertNull(list[0].specialLabel)
+            assertEquals("Omake", list[1].specialLabel)
+        }
+
+    // Page detail is what the per-chapter digest pays for, so the list path leaves it unfetched —
+    // the shape ChapterFields.Pages already documents for full=false (null, never "zero pages").
+    @Test
+    fun `the list path leaves page detail unfetched`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0)))
+
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+            val first = digest.chapters?.list?.first() as ChapterDigest.Success
+
+            assertNull(first.pages.status)
+            assertNull(first.pages.total)
+            assertTrue(first.pages.list.isEmpty())
+        }
+
+    // Neighbours belong to the reader, which requests each chapter with full=true; nothing on the
+    // serial page reads them.
+    @Test
+    fun `the list path attaches no neighbours`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", decimalNumber = 1.0),
+                        fakeChapter("ch2", decimalNumber = 2.0),
+                    ),
+                )
+
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+            val list = digest.chapters?.list?.filterIsInstance<ChapterDigest.Success>().orEmpty()
+
+            assertNull(list[0].nextChapter)
+            assertNull(list[1].prevChapter)
+        }
+
+    // readCount/resumePoint drive the action button and the "N/M read" line, so they must mean
+    // the same thing on both paths.
+    @Test
+    fun `the list path derives read status and resume point the same way the full path does`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", decimalNumber = 1.0).copy(pageCount = 10, pagesRead = 10),
+                        fakeChapter("ch2", decimalNumber = 2.0).copy(pageCount = 10, pagesRead = 0),
+                    ),
+                )
+
+            val digest = buildSerialDigest(server, "s1", cache, SerialDigestOptions(full = false)) as SerialDigest.Success
+
+            assertEquals(1, digest.chapters?.readCount)
+            assertEquals("ch2", digest.chapters?.resumePoint?.stoppedAtChapterId)
+            assertEquals(SerialFields.ResumePointStatus.UNREAD, digest.chapters?.resumePoint?.status)
         }
 
     @Test

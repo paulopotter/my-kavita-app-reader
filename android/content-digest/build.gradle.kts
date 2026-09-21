@@ -21,6 +21,14 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // The digest builders carry a commented-out diagnostic log (see buildSerialDigest); without
+    // this, re-enabling it would make every unmocked android.util.Log call throw in a plain JVM
+    // unit test. Kept so that switching the log back on stays a one-line change. Same reason
+    // :notifications sets it.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

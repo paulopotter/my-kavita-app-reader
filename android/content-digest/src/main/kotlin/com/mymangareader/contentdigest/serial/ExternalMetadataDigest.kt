@@ -3,6 +3,7 @@ package com.mymangareader.contentdigest.serial
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataActiveInfo
+import com.mymangareader.externalmetadataserver.ExternalMetadataPendingException
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataMatch
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
@@ -32,6 +33,13 @@ sealed interface ExternalMetadataDigest {
 
 private const val NOT_CONFIGURED_ERROR_CODE = "not_configured"
 
+// The enrichment fetch was still running when the digest had to answer. Not an error: the work
+// continues in the background and the next read is served from cache. Kept apart from a real
+// failure so the UI can say "still coming" rather than "something went wrong".
+// Internal, not private: buildSerialDigest also reads it, to refuse serving a cached digest whose
+// enrichment was still in flight when it was written (see its own note).
+internal const val PENDING_ERROR_CODE = "pending"
+
 // Standalone builder, same shape as buildChapterDigest/buildPageDigest — has its own callers
 // beyond SerialDigest (the RN bridge can call this directly, without building a whole
 // SerialDigest, when it only needs the external-metadata part). [externalMetadataServer] is
@@ -44,6 +52,9 @@ suspend fun buildExternalMetadataDigest(
     groupId: String?,
     kavitaServerGroupId: String,
     series: ExternalMetadataSeriesRef,
+    // Carries the caller's own "the user asked for fresh data" intent down to the enrichment
+    // read, so a pull-to-refresh refreshes this too instead of being served whatever was stored.
+    force: Boolean = false,
 ): ExternalMetadataDigest {
     return try {
         if (externalMetadataServer.groups.list().isEmpty()) {
@@ -54,15 +65,17 @@ suspend fun buildExternalMetadataDigest(
 
         val response =
             if (groupId != null) {
-                externalMetadataServer.match.syncByGroup(groupId, series)
+                externalMetadataServer.match.syncByGroup(groupId, series, force)
             } else {
-                externalMetadataServer.match.syncByServerId(kavitaServerGroupId, series)
+                externalMetadataServer.match.syncByServerId(kavitaServerGroupId, series, force)
             }
         ExternalMetadataDigest.Success(
             match = response.data,
             server = response.serverInfo,
             resolvedAtEpochMs = response.resolvedAtEpochMs,
         )
+    } catch (e: ExternalMetadataPendingException) {
+        ExternalMetadataDigest.Failure(ErrorDigest(code = PENDING_ERROR_CODE, message = e.message))
     } catch (e: Exception) {
         ExternalMetadataDigest.Failure(e.toErrorDigest())
     }

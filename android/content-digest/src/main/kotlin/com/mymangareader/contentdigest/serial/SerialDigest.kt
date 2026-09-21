@@ -261,7 +261,15 @@ suspend fun buildSerialDigest(
             // — so treat "no chapters block" as a miss: DON'T return here, fall through to the
             // synchronous fetch below (which also rewrites the cache, making a later mount a
             // complete hit). `full=true`'s own richer per-page shape is a separate variant here.
-            val incomplete = digest.chapters == null
+            // Enrichment that hadn't arrived yet when this entry was written is provisional in
+            // exactly the same way: the fetch it was waiting on has long since finished into the
+            // enrichment cache, but serving this entry would keep reporting "still fetching"
+            // forever, since nothing here would ever re-ask. Observed on device as one series
+            // stuck on the amber banner, which only a pull-to-refresh (force, which skips this
+            // cache) could clear.
+            val enrichmentPending =
+                (digest.metadata?.external as? ExternalMetadataDigest.Failure)?.error?.code == PENDING_ERROR_CODE
+            val incomplete = digest.chapters == null || enrichmentPending
             if (!incomplete) {
                 if (cached.isExpired) {
                     serialDigestBackgroundScope.launch {
@@ -352,6 +360,16 @@ private suspend fun fetchSerialDigest(
     var serverInfo: ServerActiveInfo? = null
     var resolvedAtEpochMs: Long? = null
 
+    // DIAGNOSTIC (serial page latency) — kept commented, not deleted: it is what attributed the
+    // slow serial page to a specific leg instead of a guess, and it is the first thing to re-enable
+    // if that timing regresses. What it measured, on device:
+    //   - the per-chapter digest dominated a long series (2.5s of a 4s build), which is why
+    //     full=false now builds the list straight from chapters.list()
+    //   - enrichment then became the visible cost, which is why it is capped, cached and limited
+    //   - the three remaining legs were sequential, which is why they now run together
+    // Re-enable by uncommenting these four marks and the Log.i below.
+    // val tStart = System.currentTimeMillis()
+
     val plugin: SerialData
     val coverImage: ImageDescriptor
     try {
@@ -368,49 +386,79 @@ private suspend fun fetchSerialDigest(
         return SerialDigest.Failure(e.toErrorDigest())
     }
 
-    val externalMetadata: ExternalMetadataDigest? =
-        if (options.includeExternalMetadata) {
-            buildExternalMetadataDigest(
-                externalMetadataServer =
-                    requireNotNull(options.externalMetadataServer) {
-                        "includeExternalMetadata=true requires a non-null externalMetadataServer"
-                    },
-                groupId = options.externalMetadataGroupId,
-                kavitaServerGroupId = serverInfo.groupId,
-                series = ExternalMetadataSeriesRef(id = plugin.id, name = plugin.name),
-            )
-        } else {
-            null
+    // val tSerial = System.currentTimeMillis()
+
+    // The three remaining legs are independent of each other — enrichment asks another server
+    // entirely, and metadata and the chapter list are separate Kavita endpoints that only needed
+    // the series call above. Running them concurrently makes this build cost about as much as its
+    // slowest leg instead of the sum of all three.
+    val parallel =
+        coroutineScope {
+            val externalDeferred =
+                async {
+                    if (options.includeExternalMetadata) {
+                        buildExternalMetadataDigest(
+                            externalMetadataServer =
+                                requireNotNull(options.externalMetadataServer) {
+                                    "includeExternalMetadata=true requires a non-null externalMetadataServer"
+                                },
+                            groupId = options.externalMetadataGroupId,
+                            kavitaServerGroupId = serverInfo.groupId,
+                            // providerId comes from the same serverInfo this digest was resolved
+                            // against — the series id and the provider it belongs to always
+                            // travel together.
+                            series = ExternalMetadataSeriesRef(id = plugin.id, providerId = serverInfo.providerId, name = plugin.name),
+                            force = force,
+                        )
+                    } else {
+                        null
+                    }
+                }
+
+            val rawMetadataDeferred =
+                async {
+                    runCatching {
+                        server
+                            .serial(seriesId)
+                            .getMetadata()
+                            .data
+                    }.getOrNull()
+                }
+
+            val chaptersDeferred =
+                async {
+                    runCatching {
+                        val rawChapters =
+                            server
+                                .serial(seriesId)
+                                .chapters
+                                .list()
+                                .data
+                        // full=false is the chapter LIST (the serial page): it renders a title, a
+                        // number and a read status, all of which chapters.list() already carries,
+                        // so it skips the per-chapter digest entirely. full=true is the reader's
+                        // own request, which does need every chapter's pages and neighbours.
+                        if (full) {
+                            buildChaptersBlock(server, seriesId, cache, rawChapters, full, force)
+                        } else {
+                            buildLightChaptersBlock(server, seriesId, rawChapters)
+                        }
+                    }.getOrNull()
+                }
+
+            Triple(externalDeferred.await(), rawMetadataDeferred.await(), chaptersDeferred.await())
         }
 
-    val metadata: SerialFields.Metadata? =
-        try {
-            server
-                .serial(seriesId)
-                .getMetadata()
-                .data
-                .toDigestMetadata(externalMetadata)
-        } catch (e: Exception) {
-            null
-        }
+    val externalMetadata: ExternalMetadataDigest? = parallel.first
+    val metadata: SerialFields.Metadata? = parallel.second?.toDigestMetadata(externalMetadata)
+    val chapters: SerialFields.Chapters? = parallel.third
 
-    val chapters: SerialFields.Chapters? =
-        try {
-            buildChaptersBlock(
-                server,
-                seriesId,
-                cache,
-                server
-                    .serial(seriesId)
-                    .chapters
-                    .list()
-                    .data,
-                full,
-                force,
-            )
-        } catch (e: Exception) {
-            null
-        }
+    // val tChapters = System.currentTimeMillis()
+    // Log.i(
+    //     "MMR-DIAG",
+    //     "serialDigest $seriesId force=$force total=${tChapters - tStart}ms " +
+    //         "serial=${tSerial - tStart} parallel=${tChapters - tSerial} (${chapters?.list?.size ?: 0} chapters)",
+    // )
 
     return SerialDigest.Success(
         id = plugin.id,
@@ -445,6 +493,93 @@ private suspend fun fetchSerialDigest(
 // supersedes the decimalNumber-truncated fallback buildChapterDigest used when built in
 // isolation) and prevChapter/nextChapter (from the already-built neighbors, converted to
 // ChapterNeighborDigest — no additional network calls).
+// Builds the chapter block WITHOUT going through buildChapterDigest per chapter.
+//
+// Why this exists: buildChapterDigest reads and writes Room for every chapter it builds, so a
+// series with 900 chapters paid ~1800 database round trips before the screen could render — and
+// measured on device, that was the bulk of the whole serial digest (2.5s of a 4s build). The
+// chapter list only renders a title, a number and a read status, and every one of those already
+// arrives in chapters.list()'s own response; the heavy per-chapter digest is what the READER
+// needs, and it asks for it one chapter at a time when a chapter is actually opened.
+//
+// The result is the same SerialFields.Chapters shape, so nothing downstream changes: what is
+// missing from each entry is the per-chapter pages block and the prev/next neighbors, neither of
+// which any list row reads (the reader builds its own, with full=true).
+private suspend fun buildLightChaptersBlock(
+    server: Server,
+    seriesId: String,
+    rawChapters: List<PluginChapter>,
+): SerialFields.Chapters {
+    val sorted = rawChapters.sortedBy { it.decimalNumber ?: Double.MAX_VALUE }
+
+    val list =
+        sorted.mapIndexed { index, raw ->
+            // No network: :server assembles a chapter's cover URL locally (see its README), so
+            // this stays a local call even inside a long loop.
+            val coverImage = server.serial(seriesId).chapter(raw.id).getCoverImage()
+            ChapterDigest.Success(
+                id = raw.id,
+                seriesId = seriesId,
+                decimalNumber = raw.decimalNumber,
+                // 1-indexed position in this sorted list — the same value buildChaptersBlock's
+                // own second pass assigns on the full path, and something only the series can
+                // resolve (buildChapterDigest, seeing one chapter in isolation, cannot).
+                number = index + 1,
+                // A label only means anything on a chapter that is actually special — same
+                // condition buildChapterDigest applies.
+                specialLabel = raw.specialLabel.takeIf { raw.isSpecial == true },
+                isSpecial = raw.isSpecial,
+                title = raw.title,
+                createdUtc = raw.createdUtc,
+                coverImage = coverImage,
+                readStatus = readStatusOf(raw),
+                // Page-level detail deliberately unfetched — exactly the "full=false" shape
+                // ChapterFields.Pages already documents: status/total/dimensions null means "not
+                // checked", never "zero pages". count/readCount are carried anyway because
+                // chapters.list() hands them over for free.
+                pages =
+                    ChapterFields.Pages(
+                        fileFormat = raw.fileFormat,
+                        status = null,
+                        count = raw.pageCount,
+                        readCount = raw.pagesRead,
+                        total = null,
+                        totalWidthPx = null,
+                        totalHeightPx = null,
+                        resumePoint = null,
+                        list = emptyList(),
+                    ),
+                prevChapter = null,
+                nextChapter = null,
+                resolvedAtEpochMs = coverImage.resolvedAtEpochMs,
+                server = coverImage.server,
+            )
+        }
+
+    val readCount = if (list.isNotEmpty()) list.count { it.readStatus == ChapterFields.ReadStatus.READ } else null
+
+    return SerialFields.Chapters(
+        status = SerialFields.ChaptersStatus.SUCCESS,
+        readCount = readCount,
+        total = list.size,
+        resumePoint = buildResumePoint(list),
+        list = list,
+    )
+}
+
+// Same derivation buildChapterDigest uses — both read it off the very same chapters.list()
+// fields, so a chapter's status never depends on which path built it.
+private fun readStatusOf(raw: PluginChapter): ChapterFields.ReadStatus {
+    val count = raw.pageCount
+    val readCount = raw.pagesRead
+    return when {
+        count == null || readCount == null -> ChapterFields.ReadStatus.UNREAD
+        readCount == 0 -> ChapterFields.ReadStatus.UNREAD
+        readCount >= count -> ChapterFields.ReadStatus.READ
+        else -> ChapterFields.ReadStatus.IN_PROGRESS
+    }
+}
+
 private suspend fun buildChaptersBlock(
     server: Server,
     seriesId: String,
