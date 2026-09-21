@@ -102,8 +102,8 @@ export const sepiaColors: ThemeColors = {
   },
 
   banner: {
-    alert: 'rgb(214, 180, 130)',
-    notice: 'rgb(214, 180, 130)',
+    alert: 'rgb(198, 92, 76)',
+    warn: 'rgb(214, 172, 96)',
     good: 'rgb(140, 190, 130)',
   },
 

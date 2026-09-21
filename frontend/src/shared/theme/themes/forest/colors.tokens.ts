@@ -103,8 +103,8 @@ export const forestColors: ThemeColors = {
   },
 
   banner: {
-    alert: 'rgb(94, 200, 130)',
-    notice: 'rgb(94, 200, 130)',
+    alert: 'rgb(216, 90, 82)',
+    warn: 'rgb(226, 184, 80)',
     good: 'rgb(120, 210, 140)',
   },
 

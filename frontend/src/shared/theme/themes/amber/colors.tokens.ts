@@ -103,8 +103,8 @@ export const amberColors: ThemeColors = {
   },
 
   banner: {
-    alert: 'rgb(240, 165, 60)',
-    notice: 'rgb(240, 165, 60)',
+    alert: 'rgb(224, 82, 72)',
+    warn: 'rgb(240, 180, 70)',
     good: 'rgb(120, 190, 120)',
   },
 

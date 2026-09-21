@@ -104,8 +104,8 @@ export const onyxColors: ThemeColors = {
   },
 
   banner: {
-    alert: 'rgb(120, 200, 255)',
-    notice: 'rgb(120, 200, 255)',
+    alert: 'rgb(228, 88, 88)',
+    warn: 'rgb(232, 186, 82)',
     good: 'rgb(74, 190, 110)',
   },
 

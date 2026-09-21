@@ -106,8 +106,8 @@ export const tealColors: ThemeColors = {
   },
 
   banner: {
-    alert: 'rgb(56, 189, 199)',
-    notice: 'rgb(56, 189, 199)',
+    alert: 'rgb(226, 86, 92)',
+    warn: 'rgb(232, 182, 76)',
     good: 'rgb(46, 160, 67)',
   },
 
@@ -133,7 +133,9 @@ export const tealColors: ThemeColors = {
     secondary: 'rgb(240, 248, 250)',
 
     reading: {
-      primary: 'rgb(246, 173, 85)',
+      // The identity's own cyan, not the amber this started as — the reader's progress is this
+      // theme's accent, the same colour its buttons and links use.
+      primary: 'rgb(56, 189, 199)',
       secondary: 'rgb(148, 171, 178)',
     },
   },

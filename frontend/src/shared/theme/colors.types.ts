@@ -222,10 +222,10 @@ export interface BadgeColors {
  * Distinct from `TextColors.message`, which is text rather than a surface.
  */
 export interface BannerColors {
-  /** Needs attention: the app is offline. */
+  /** Something is wrong and the user should act: offline, a server that cannot be reached. */
   alert: RgbColor;
-  /** Worth knowing: the data on screen may be out of date. */
-  notice: RgbColor;
+  /** Worth knowing, nothing broken: data that may be out of date, or still on its way. */
+  warn: RgbColor;
   /** All good: the data was just refreshed. */
   good: RgbColor;
 }

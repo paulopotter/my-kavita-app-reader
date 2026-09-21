@@ -17,7 +17,7 @@ export interface Strings {
   configLanguageEn: string;
   configMenuServer: string;
   configMenuReading: string;
-  configMenuChapter: string;
+  configMenuSerials: string;
   configMenuNotifications: string;
   configMenuTheme: string;
   themeNameTeal: string;
@@ -34,6 +34,23 @@ export interface Strings {
   // Marks whichever identity currently holds the default role — see themes/index.ts. No theme is
   // named "default", so the suffix travels with the label instead of with the name.
   themeDefaultSuffix: string;
+  // Which server answers each piece of a series' metadata. Named by role, never by provider: the
+  // app has a content server (serves the pages) and an enrichment server (adds metadata).
+  configMetadataSourceGroupTitle: string;
+  configMetadataSourceRowLabel: string;
+  configMetadataSourceEnrichment: string;
+  configMetadataSourceContent: string;
+  // Short forms, for the two-sided toggle where the full names would not fit.
+  configMetadataSourceEnrichmentShort: string;
+  configMetadataSourceContentShort: string;
+  configMetadataSourceFieldsTitle: string;
+  configMetadataSourceFieldsHint: string;
+  configMetadataSourceInherit: string;
+  configMetadataFieldSummary: string;
+  configMetadataFieldGenres: string;
+  configMetadataFieldAuthor: string;
+  configMetadataFieldStatus: string;
+  configMetadataFieldAlternativeTitles: string;
   configChapterSortGroupTitle: string;
 
   // ── Server form ─────────────────────────────────────────────────────────
@@ -174,6 +191,16 @@ export interface Strings {
   seriesDetailContinueReading: string;
   seriesDetailRereadFromStart: string;
   seriesDetailChaptersRead: string;
+  // Shown when the enrichment server's data is missing from the page — 'Pending' while it is
+  // still being fetched, 'Failed' when it could not be reached at all.
+  seriesDetailEnrichmentPending: string;
+  // Outcome of a fetch that finished after the page had already rendered without it.
+  seriesDetailEnrichmentUpdated: string;
+  seriesDetailEnrichmentUpdateFailed: string;
+  seriesDetailEnrichmentFailed: string;
+  seriesDetailAuthorLabel: string;
+  seriesDetailAlternativeTitlesLabel: string;
+  seriesDetailAbandonedLabel: string;
   seriesDetailDescriptionReadMore: string;
   seriesDetailDescriptionReadLess: string;
   seriesDetailChapterNumberLabel: string;
@@ -351,7 +378,7 @@ const ptBR: Strings = {
   configLanguageEn: 'English',
   configMenuServer: 'Servidor',
   configMenuReading: 'Preferências de leitura',
-  configMenuChapter: 'Página do mangá',
+  configMenuSerials: 'Página do mangá',
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
   themeNameTeal: 'Petróleo',
@@ -364,6 +391,20 @@ const ptBR: Strings = {
   themeNameForest: 'Floresta',
   themeOledSuffix: 'OLED',
   themeDefaultSuffix: 'padrão',
+  configMetadataSourceGroupTitle: 'Fonte dos dados',
+  configMetadataSourceRowLabel: 'Servidor principal',
+  configMetadataSourceEnrichment: 'Servidor de enriquecimento',
+  configMetadataSourceContent: 'Servidor de conteúdo',
+  configMetadataSourceEnrichmentShort: 'Enriquecimento',
+  configMetadataSourceContentShort: 'Conteúdo',
+  configMetadataSourceFieldsTitle: 'Campos individuais',
+  configMetadataSourceFieldsHint: 'Escolha um servidor por campo. Se o escolhido não tiver o dado, o outro é usado.',
+  configMetadataSourceInherit: 'Seguir o principal',
+  configMetadataFieldSummary: 'Sinopse',
+  configMetadataFieldGenres: 'Gêneros',
+  configMetadataFieldAuthor: 'Autor',
+  configMetadataFieldStatus: 'Status',
+  configMetadataFieldAlternativeTitles: 'Outros títulos',
   configChapterSortGroupTitle: 'Ordenação de capítulos',
 
   serverFormUrlLabel: 'URL do servidor',
@@ -486,6 +527,13 @@ const ptBR: Strings = {
   seriesDetailContinueReading: 'Continuar lendo - {0}',
   seriesDetailRereadFromStart: 'Reler',
   seriesDetailChaptersRead: '{0}/{1} lidos',
+  seriesDetailEnrichmentPending: 'Buscando dados complementares...',
+  seriesDetailEnrichmentUpdated: 'Dados complementares atualizados',
+  seriesDetailEnrichmentUpdateFailed: 'Não foi possível atualizar os dados complementares',
+  seriesDetailEnrichmentFailed: 'Dados incompletos — servidor de enriquecimento indisponível',
+  seriesDetailAuthorLabel: 'Autor',
+  seriesDetailAlternativeTitlesLabel: 'Outros títulos',
+  seriesDetailAbandonedLabel: 'Abandonado pela fonte',
   seriesDetailDescriptionReadMore: 'Ler mais',
   seriesDetailDescriptionReadLess: 'Ler menos',
   seriesDetailChapterNumberLabel: 'Capítulo {0}',
@@ -644,7 +692,7 @@ const en: Strings = {
   configLanguageEn: 'English',
   configMenuServer: 'Server',
   configMenuReading: 'Reading preferences',
-  configMenuChapter: 'Manga page',
+  configMenuSerials: 'Manga page',
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
   themeNameTeal: 'Teal',
@@ -657,6 +705,20 @@ const en: Strings = {
   themeNameForest: 'Forest',
   themeOledSuffix: 'OLED',
   themeDefaultSuffix: 'default',
+  configMetadataSourceGroupTitle: 'Data source',
+  configMetadataSourceRowLabel: 'Primary server',
+  configMetadataSourceEnrichment: 'Enrichment server',
+  configMetadataSourceContent: 'Content server',
+  configMetadataSourceEnrichmentShort: 'Enrichment',
+  configMetadataSourceContentShort: 'Content',
+  configMetadataSourceFieldsTitle: 'Individual fields',
+  configMetadataSourceFieldsHint: 'Pick a server per field. If it has no answer, the other one is used.',
+  configMetadataSourceInherit: 'Follow the primary',
+  configMetadataFieldSummary: 'Summary',
+  configMetadataFieldGenres: 'Genres',
+  configMetadataFieldAuthor: 'Author',
+  configMetadataFieldStatus: 'Status',
+  configMetadataFieldAlternativeTitles: 'Other titles',
   configChapterSortGroupTitle: 'Chapter sort order',
 
   serverFormUrlLabel: 'Server URL',
@@ -779,6 +841,13 @@ const en: Strings = {
   seriesDetailContinueReading: 'Continue reading - {0}',
   seriesDetailRereadFromStart: 'Reread',
   seriesDetailChaptersRead: '{0}/{1} read',
+  seriesDetailEnrichmentPending: 'Fetching additional data...',
+  seriesDetailEnrichmentUpdated: 'Additional data updated',
+  seriesDetailEnrichmentUpdateFailed: 'Could not update the additional data',
+  seriesDetailEnrichmentFailed: 'Incomplete data — enrichment server unavailable',
+  seriesDetailAuthorLabel: 'Author',
+  seriesDetailAlternativeTitlesLabel: 'Other titles',
+  seriesDetailAbandonedLabel: 'Dropped by the source',
   seriesDetailDescriptionReadMore: 'Read more',
   seriesDetailDescriptionReadLess: 'Read less',
   seriesDetailChapterNumberLabel: 'Chapter {0}',

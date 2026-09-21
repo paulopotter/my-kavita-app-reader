@@ -103,8 +103,8 @@ export const steelColors: ThemeColors = {
   },
 
   banner: {
-    alert: 'rgb(150, 180, 220)',
-    notice: 'rgb(150, 180, 220)',
+    alert: 'rgb(220, 96, 96)',
+    warn: 'rgb(226, 182, 88)',
     good: 'rgb(120, 195, 140)',
   },
 

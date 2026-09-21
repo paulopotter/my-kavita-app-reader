@@ -111,7 +111,7 @@ export const crimsonColors: ThemeColors = {
 
   banner: {
     alert: 'rgb(233, 69, 96)',
-    notice: 'rgb(233, 69, 96)',
+    warn: 'rgb(240, 176, 68)',
     good: 'rgb(46, 160, 67)',
   },
 

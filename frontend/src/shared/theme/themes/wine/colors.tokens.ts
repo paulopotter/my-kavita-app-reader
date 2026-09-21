@@ -104,7 +104,7 @@ export const wineColors: ThemeColors = {
 
   banner: {
     alert: 'rgb(255, 136, 156)',
-    notice: 'rgb(255, 136, 156)',
+    warn: 'rgb(238, 188, 96)',
     good: 'rgb(130, 200, 140)',
   },
 
