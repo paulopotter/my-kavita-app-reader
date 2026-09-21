@@ -1,11 +1,15 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { freshnessBannerStyles } from './freshness-banner.styles';
-import { useStyles } from '../../../../shared/context';
+import { useStyles } from '../../context';
 
-// Dumb component: one pre-assembled string + a variant. All wording / date formatting is done in
-// the screen (from the hook's bannerState + DateTool + Strings); this only renders.
-export type FreshnessBannerVariant = 'stale' | 'offline' | 'confirmed';
+// Dumb component: one pre-assembled string + a variant. All wording / date formatting is done by
+// the caller (from its own state + DateTool + Strings); this only renders.
+//
+// Shared rather than owned by one screen: the Library reports how fresh its listing is, and the
+// serial page reports when enrichment data is missing — same strip, same variants, so it lives
+// where both can reach it.
+export type FreshnessBannerVariant = 'stale' | 'offline' | 'confirmed' | 'bad';
 
 export interface FreshnessBannerProps {
   variant: FreshnessBannerVariant;

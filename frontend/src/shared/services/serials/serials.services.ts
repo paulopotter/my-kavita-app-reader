@@ -1,5 +1,6 @@
 import { DigestBridge, ExternalMetadataBridge, ServerBridge } from '../../bridge';
 import type { ExternalMetadataMatch, PluginChapter, SerialData, SerialDigest, SerialsDigest } from '../../bridge';
+import { MetadataSourcesTool, type MetadataSourcePreferences } from '../../tools/metadata-sources';
 import { Methods } from '../../tools/methods';
 
 // Layer 4 — SerialsService (plural) is the batch namespace. get() is the list counterpart of
@@ -100,6 +101,24 @@ export const SerialsService = {
 export const SerialService = {
   get({ seriesId, force }: { seriesId: string; force?: boolean }): Promise<SerialDigest> {
     return DigestBridge.getSerialDigest(seriesId, { full: false, force });
+  },
+  // The digest and the preference that decides how to read it, fetched together. Both are real
+  // async reads (one bridge call, one PreferencesManager call) and both are needed before a
+  // digest can be normalized, so asking for them separately would just mean two waits — and
+  // would leave every caller re-deriving the same pairing.
+  getWithMetadataSourcePreferences({
+    seriesId,
+    force,
+  }: {
+    seriesId: string;
+    force?: boolean;
+  }): Promise<{ digest: SerialDigest; metadataSourcePreferences: MetadataSourcePreferences }> {
+    return Promise.all([
+      // includeExternalMetadata is what actually asks for enrichment — it defaults to false on
+      // the native side, which is why the serial page showed none of it before this call existed.
+      DigestBridge.getSerialDigest(seriesId, { full: false, force, includeExternalMetadata: true }),
+      MetadataSourcesTool.preferences.get(),
+    ]).then(([digest, metadataSourcePreferences]) => ({ digest, metadataSourcePreferences }));
   },
   getFull({ seriesId, force }: { seriesId: string; force?: boolean }): Promise<SerialDigest> {
     return DigestBridge.getSerialDigest(seriesId, { full: true, force });
