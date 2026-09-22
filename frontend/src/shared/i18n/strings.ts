@@ -213,6 +213,16 @@ export interface Strings {
   seriesDetailSelectionMarkUnread: string;
   seriesDetailSelectionSelectAll: string;
   seriesDetailSelectionInvert: string;
+  seriesDetailSelectionRange: string;
+  seriesDetailRangeTitle: string;
+  seriesDetailRangeFromLabel: string;
+  seriesDetailRangeToLabel: string;
+  seriesDetailRangeCancel: string;
+  seriesDetailRangeApply: string;
+  seriesDetailRangeInvalid: string;
+  seriesDetailChapterMenuLabel: string;
+  seriesDetailChapterMenuSort: string;
+  seriesDetailChapterMenuRange: string;
   seriesDetailSortConfigTitle: string;
   seriesDetailSortConfigFixedThresholdLabel: string;
   seriesDetailSortConfigFixedThresholdHint: string;
@@ -546,6 +556,16 @@ const ptBR: Strings = {
   seriesDetailSelectionMarkUnread: 'Marcar como não lido',
   seriesDetailSelectionSelectAll: 'Selecionar tudo',
   seriesDetailSelectionInvert: 'Inverter seleção',
+  seriesDetailSelectionRange: 'Selecionar intervalo',
+  seriesDetailRangeTitle: 'Selecionar intervalo de capítulos',
+  seriesDetailRangeFromLabel: 'De',
+  seriesDetailRangeToLabel: 'Até',
+  seriesDetailRangeCancel: 'Cancelar',
+  seriesDetailRangeApply: 'Selecionar',
+  seriesDetailRangeInvalid: 'Informe um intervalo válido',
+  seriesDetailChapterMenuLabel: 'Opções da lista de capítulos',
+  seriesDetailChapterMenuSort: 'Ordenação',
+  seriesDetailChapterMenuRange: 'Selecionar intervalo',
   seriesDetailSortConfigTitle: 'Ordenação de capítulos',
   seriesDetailSortConfigFixedThresholdLabel: 'Capítulo limiar',
   seriesDetailSortConfigFixedThresholdHint: 'Decrescente a partir deste capítulo',
@@ -860,6 +880,16 @@ const en: Strings = {
   seriesDetailSelectionMarkUnread: 'Mark as unread',
   seriesDetailSelectionSelectAll: 'Select all',
   seriesDetailSelectionInvert: 'Invert selection',
+  seriesDetailSelectionRange: 'Select range',
+  seriesDetailRangeTitle: 'Select chapter range',
+  seriesDetailRangeFromLabel: 'From',
+  seriesDetailRangeToLabel: 'To',
+  seriesDetailRangeCancel: 'Cancel',
+  seriesDetailRangeApply: 'Select',
+  seriesDetailRangeInvalid: 'Enter a valid range',
+  seriesDetailChapterMenuLabel: 'Chapter list options',
+  seriesDetailChapterMenuSort: 'Sort order',
+  seriesDetailChapterMenuRange: 'Select range',
   seriesDetailSortConfigTitle: 'Chapter sort order',
   seriesDetailSortConfigFixedThresholdLabel: 'Threshold chapter',
   seriesDetailSortConfigFixedThresholdHint: 'Descending from this chapter onward',

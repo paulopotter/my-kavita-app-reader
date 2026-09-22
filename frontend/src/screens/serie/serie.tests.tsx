@@ -1,11 +1,20 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { ChevronUp } from 'lucide-react-native';
+import { View } from 'react-native';
 import { getStrings } from '../../shared/i18n/strings';
 import { NavigationTool } from '../../shared/tools/navigation';
 import { chapterEvents, serieEvents, type ActionContract, type Serie, type SerieChapter } from '../../shared';
 
 const t = getStrings('pt-BR');
+
+// The ⋮ chapter menu button measures its own on-screen position (View.measureInWindow) before
+// opening, to anchor the menu under it (see serie.screen.tsx's openChapterMenu). RNTL's test
+// renderer never actually lays anything out, so the real method never calls its callback —
+// this stands in with a fixed, arbitrary-but-valid measurement so the menu can open in tests.
+jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(function (this: unknown, cb: any) {
+  cb(300, 100, 24, 24);
+});
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -38,6 +47,7 @@ const mockOnChapterLongPress = jest.fn();
 const mockOnChapterClick = jest.fn();
 const mockSelectAll = jest.fn();
 const mockInvertSelection = jest.fn();
+const mockSelectRange = jest.fn();
 const mockExitSelectionMode = jest.fn();
 const mockMarkSelectedRead = jest.fn();
 const mockMarkSelectedUnread = jest.fn();
@@ -119,6 +129,7 @@ beforeEach(() => {
     onChapterClick: mockOnChapterClick,
     selectAll: mockSelectAll,
     invertSelection: mockInvertSelection,
+    selectRange: mockSelectRange,
     exitSelectionMode: mockExitSelectionMode,
     markSelectedRead: mockMarkSelectedRead,
     markSelectedUnread: mockMarkSelectedUnread,
@@ -128,6 +139,18 @@ beforeEach(() => {
     onHeaderLayout: jest.fn(),
   };
 });
+
+// Opens the ⋮ chapter menu and taps the given item, landing on whichever modal it opens
+// (seriesDetailChapterMenuSort → sort config, seriesDetailChapterMenuRange → range picker).
+// Both the sort config modal and the range modal are reached exclusively through this menu now.
+function openChapterMenuAndSelect(item: 'sort' | 'range') {
+  mockSerieState.loading = false;
+  mockSerieState.serie = makeSerie();
+  const utils = render(<SerieScreen />);
+  fireEvent.press(utils.getByLabelText(t.seriesDetailChapterMenuLabel));
+  fireEvent.press(utils.getByText(item === 'sort' ? t.seriesDetailChapterMenuSort : t.seriesDetailChapterMenuRange));
+  return utils;
+}
 
 describe('SerieScreen', () => {
   it('mounts without crashing while loading', () => {
@@ -256,12 +279,8 @@ describe('SerieScreen', () => {
     expect(mockToggleFollow).toHaveBeenCalledTimes(1);
   });
 
-  it('opens the sort config modal from the settings button', () => {
-    mockSerieState.loading = false;
-    mockSerieState.serie = makeSerie();
-    const { getByText, UNSAFE_getAllByType } = render(<SerieScreen />);
-    const TouchableOpacity = require('react-native').TouchableOpacity;
-    fireEvent.press(UNSAFE_getAllByType(TouchableOpacity)[2]);
+  it('opens the sort config modal from the chapter menu', () => {
+    const { getByText } = openChapterMenuAndSelect('sort');
     expect(getByText(t.seriesDetailSortConfigTitle)).toBeTruthy();
   });
 
@@ -339,11 +358,7 @@ describe('SerieScreen', () => {
   });
 
   it('saves sort prefs and closes the sort modal on Save', () => {
-    mockSerieState.loading = false;
-    mockSerieState.serie = makeSerie();
-    const { getByText, UNSAFE_getAllByType, queryByText } = render(<SerieScreen />);
-    const TouchableOpacity = require('react-native').TouchableOpacity;
-    fireEvent.press(UNSAFE_getAllByType(TouchableOpacity)[2]);
+    const { getByText, queryByText } = openChapterMenuAndSelect('sort');
     expect(getByText(t.seriesDetailSortConfigTitle)).toBeTruthy();
     fireEvent.press(getByText(t.seriesDetailSortConfigSave));
     expect(mockUpdateSortPrefs).toHaveBeenCalledWith({ mode: 'ASCENDING', fixedThreshold: undefined, progressPercent: 50 });
@@ -351,23 +366,15 @@ describe('SerieScreen', () => {
   });
 
   it('closes the modal via cancel without saving', () => {
-    mockSerieState.loading = false;
-    mockSerieState.serie = makeSerie();
-    const { getByText, UNSAFE_getAllByType, queryByText } = render(<SerieScreen />);
-    const TouchableOpacity = require('react-native').TouchableOpacity;
-    fireEvent.press(UNSAFE_getAllByType(TouchableOpacity)[2]);
+    const { getByText, queryByText } = openChapterMenuAndSelect('sort');
     fireEvent.press(getByText(t.seriesDetailSortConfigCancel));
     expect(mockUpdateSortPrefs).not.toHaveBeenCalled();
     expect(queryByText(t.seriesDetailSortConfigTitle)).toBeNull();
   });
 
   it('resets sort prefs and closes the modal when a series override exists', () => {
-    mockSerieState.loading = false;
-    mockSerieState.serie = makeSerie();
     mockSerieState.hasSeriesSortOverride = true;
-    const { getByText, UNSAFE_getAllByType, queryByText } = render(<SerieScreen />);
-    const TouchableOpacity = require('react-native').TouchableOpacity;
-    fireEvent.press(UNSAFE_getAllByType(TouchableOpacity)[2]);
+    const { getByText, queryByText } = openChapterMenuAndSelect('sort');
     fireEvent.press(getByText(t.seriesDetailSortConfigReset));
     expect(mockResetSortPrefs).toHaveBeenCalledTimes(1);
     expect(queryByText(t.seriesDetailSortConfigTitle)).toBeNull();
@@ -404,5 +411,68 @@ describe('SerieScreen', () => {
     }
     fireEvent.press(node);
     expect(mockHideScrollTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('anchors the chapter menu card under the measured position of its own ⋮ button', () => {
+    // measureInWindow is mocked at module scope to call back with (x=300, y=100, width=24,
+    // height=24) — the card should land right under that (top = y + height) and flush with its
+    // right edge (right = screenWidth - (x + width); RNTL's default test window is 750 wide).
+    mockSerieState.loading = false;
+    mockSerieState.serie = makeSerie();
+    const { getByLabelText, UNSAFE_getAllByType } = render(<SerieScreen />);
+    fireEvent.press(getByLabelText(t.seriesDetailChapterMenuLabel));
+    // ChapterMenu's card is the only View in the tree whose style carries the measured anchor
+    // (an inline { top, right } merged alongside the shared card style array/object).
+    const flatStyles = UNSAFE_getAllByType(View).map(n => [].concat(n.props.style).filter(Boolean));
+    const anchored = flatStyles.find(styles => styles.some((s: any) => s.top === 124 && s.right === 426));
+    expect(anchored).toBeTruthy();
+  });
+
+  describe('chapter range modal', () => {
+    function openRangeModal() {
+      return openChapterMenuAndSelect('range');
+    }
+
+    it('opens the range modal from the chapter menu', () => {
+      const { getByText } = openRangeModal();
+      expect(getByText(t.seriesDetailRangeTitle)).toBeTruthy();
+    });
+
+    it('closes the modal via cancel without calling selectRange', () => {
+      const { getByText, queryByText } = openRangeModal();
+      fireEvent.press(getByText(t.seriesDetailRangeCancel));
+      expect(mockSelectRange).not.toHaveBeenCalled();
+      expect(queryByText(t.seriesDetailRangeTitle)).toBeNull();
+    });
+
+    it('shows the invalid message and does not close when applied with an incomplete range', () => {
+      const { getByText, queryByText } = openRangeModal();
+      fireEvent.press(getByText(t.seriesDetailRangeApply));
+      expect(mockSelectRange).not.toHaveBeenCalled();
+      expect(getByText(t.seriesDetailRangeInvalid)).toBeTruthy();
+      expect(queryByText(t.seriesDetailRangeTitle)).toBeTruthy();
+    });
+
+    it('shows the invalid message when selectRange finds nothing to select', () => {
+      mockSelectRange.mockReturnValue(false);
+      const { getByText, getAllByDisplayValue } = openRangeModal();
+      const [fromInput, toInput] = getAllByDisplayValue('');
+      fireEvent.changeText(fromInput, '100');
+      fireEvent.changeText(toInput, '200');
+      fireEvent.press(getByText(t.seriesDetailRangeApply));
+      expect(mockSelectRange).toHaveBeenCalledWith({ from: 100, to: 200 });
+      expect(getByText(t.seriesDetailRangeInvalid)).toBeTruthy();
+    });
+
+    it('calls selectRange and closes the modal when applied with a valid range', () => {
+      mockSelectRange.mockReturnValue(true);
+      const { getByText, queryByText, getAllByDisplayValue } = openRangeModal();
+      const [fromInput, toInput] = getAllByDisplayValue('');
+      fireEvent.changeText(fromInput, '5');
+      fireEvent.changeText(toInput, '10');
+      fireEvent.press(getByText(t.seriesDetailRangeApply));
+      expect(mockSelectRange).toHaveBeenCalledWith({ from: 5, to: 10 });
+      expect(queryByText(t.seriesDetailRangeTitle)).toBeNull();
+    });
   });
 });

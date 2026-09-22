@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
+  Dimensions,
   FlatList,
   Modal,
   Pressable,
@@ -12,7 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Check, Settings2, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
+import { ArrowLeft, Check, EllipsisVertical, Shuffle, SquareCheckBig, X } from 'lucide-react-native';
 import { Routes } from '../../navigation/routes';
 import type { NavOrigin } from '../../navigation/routes';
 import type { Strings } from '../../shared/i18n';
@@ -22,7 +23,7 @@ import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button'
 import { SelectionBottomBar } from '../../shared/components/selection-bottom-bar';
 import { FreshnessBanner } from '../../shared/components';
 import type { FreshnessBannerVariant } from '../../shared/components';
-import { CHAPTER_ROW_HEIGHT, ChapterListItem, ChapterSortFields, Header, sortModeLabel } from './components';
+import { CHAPTER_ROW_HEIGHT, ChapterListItem, ChapterMenu, ChapterRangeFields, ChapterSortFields, Header, sortModeLabel } from './components';
 import { useSerie } from './hooks';
 import { serieStyles } from './serie.styles';
 import type { SerieChapter } from '../../shared';
@@ -60,6 +61,14 @@ export function SerieScreen() {
   });
   const listRef = useRef<FlatList>(null);
 
+  const [rangeModalVisible, setRangeModalVisible] = useState(false);
+  const [rangeInvalid, setRangeInvalid] = useState(false);
+  const pendingRangeRef = useRef<{ from: number | undefined; to: number | undefined }>({ from: undefined, to: undefined });
+
+  const [chapterMenuVisible, setChapterMenuVisible] = useState(false);
+  const [chapterMenuAnchor, setChapterMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const chapterMenuButtonRef = useRef<View>(null);
+
   const {
     loading,
     refreshing,
@@ -90,6 +99,7 @@ export function SerieScreen() {
     onChapterClick,
     selectAll,
     invertSelection,
+    selectRange,
     exitSelectionMode,
     markSelectedRead,
     markSelectedUnread,
@@ -175,6 +185,19 @@ export function SerieScreen() {
     navigation.navigate(Routes.READER, { seriesId, chapterId: target.id, origin, seriesName: serie?.name });
   }
 
+  // Measures the ⋮ button's own on-screen position before opening the menu, so the card renders
+  // right under it instead of at a guessed fixed offset (the button sits inside the FlatList's
+  // scrolling header, so its position changes with scroll — a fixed anchor was wrong as soon as
+  // the list moved). right = distance from the screen's right edge, matching the card's own
+  // `right`-based positioning.
+  function openChapterMenu() {
+    chapterMenuButtonRef.current?.measureInWindow((x, y, width, height) => {
+      const screenWidth = Dimensions.get('window').width;
+      setChapterMenuAnchor({ top: y + height, right: screenWidth - (x + width) });
+      setChapterMenuVisible(true);
+    });
+  }
+
   if (loading && chapters.length === 0 && !serie) {
     return (
       <View style={styles.center}>
@@ -209,20 +232,7 @@ export function SerieScreen() {
         <TouchableOpacity style={styles.starButton} onPress={toggleFollow} activeOpacity={0.8} accessibilityRole="button">
           <FollowStar active={isFollowed} size={icon.size[6]} color={colors.icon.secondary} activeColor={colors.icon.following} />
         </TouchableOpacity>
-        <IconButton
-          icon={Settings2}
-          glyph="arrow"
-          size={icon.size[6]}
-          color={colors.icon.secondary}
-          onPress={() => {
-            pendingSortRef.current = {
-              mode: sortMode,
-              fixedThreshold: sortFixedThreshold,
-              progressPercent: sortProgressPercent,
-            };
-            setSortConfigVisible(true);
-          }}
-        />
+        <View style={styles.topBarSideSpacer} />
       </View>
 
       {/* Between the nav bar and the page content: what the enrichment server contributed, or
@@ -271,12 +281,26 @@ export function SerieScreen() {
               />
             )}
             <View style={styles.sortBar}>
-              <Text style={styles.chapterCount}>
-                {readCount}/{chapters.length}
-              </Text>
+              <View style={styles.sortBarSide}>
+                <Text style={styles.chapterCount}>
+                  {readCount}/{chapters.length}
+                </Text>
+              </View>
               <TouchableOpacity style={styles.sortToggle} onPress={toggleSortOrder}>
                 <Text style={styles.sortToggleText}>{sortModeLabel(sortMode, sortFixedThreshold, sortProgressPercent, t)}</Text>
               </TouchableOpacity>
+              <View style={styles.sortBarSideRight}>
+                <View ref={chapterMenuButtonRef} collapsable={false}>
+                  <IconButton
+                    icon={EllipsisVertical}
+                    glyph="arrow"
+                    size={icon.size[6]}
+                    color={colors.icon.secondary}
+                    onPress={openChapterMenu}
+                    accessibilityLabel={t.seriesDetailChapterMenuLabel}
+                  />
+                </View>
+              </View>
             </View>
           </View>
         }
@@ -302,6 +326,26 @@ export function SerieScreen() {
           ]}
         />
       )}
+
+      <ChapterMenu
+        visible={chapterMenuVisible}
+        anchor={chapterMenuAnchor}
+        t={t}
+        onClose={() => setChapterMenuVisible(false)}
+        onSelectSort={() => {
+          pendingSortRef.current = {
+            mode: sortMode,
+            fixedThreshold: sortFixedThreshold,
+            progressPercent: sortProgressPercent,
+          };
+          setSortConfigVisible(true);
+        }}
+        onSelectRange={() => {
+          pendingRangeRef.current = { from: undefined, to: undefined };
+          setRangeInvalid(false);
+          setRangeModalVisible(true);
+        }}
+      />
 
       <Modal
         visible={sortConfigVisible}
@@ -351,6 +395,49 @@ export function SerieScreen() {
                   setSortConfigVisible(false);
                 }}>
                 <Text style={styles.sortModalBtnLabelPrimary}>{t.seriesDetailSortConfigSave}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={rangeModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setRangeModalVisible(false)}>
+        <Pressable style={styles.sortModalBackdrop} onPress={() => setRangeModalVisible(false)}>
+          <Pressable style={styles.sortModalCard} onPress={() => {}}>
+            <Text style={styles.sortModalTitle}>{t.seriesDetailRangeTitle}</Text>
+
+            <ChapterRangeFields
+              t={t}
+              onChange={(from, to) => {
+                pendingRangeRef.current = { from, to };
+                setRangeInvalid(false);
+              }}
+            />
+
+            {rangeInvalid && <Text style={styles.rangeModalErrorText}>{t.seriesDetailRangeInvalid}</Text>}
+
+            <View style={styles.sortModalActions}>
+              <Pressable
+                style={[styles.sortModalBtn, styles.sortModalBtnSecondary]}
+                onPress={() => setRangeModalVisible(false)}>
+                <Text style={styles.sortModalBtnLabelSecondary}>{t.seriesDetailRangeCancel}</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.sortModalBtn, styles.sortModalBtnPrimary]}
+                onPress={() => {
+                  const { from, to } = pendingRangeRef.current;
+                  if (from == null || to == null || !selectRange({ from, to })) {
+                    setRangeInvalid(true);
+                    return;
+                  }
+                  setRangeModalVisible(false);
+                }}>
+                <Text style={styles.sortModalBtnLabelPrimary}>{t.seriesDetailRangeApply}</Text>
               </Pressable>
             </View>
           </Pressable>

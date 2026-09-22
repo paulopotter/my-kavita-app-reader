@@ -1,6 +1,6 @@
 import { createStyles } from '../../shared/theme';
 
-export const serieStyles = createStyles(({ colors, text, line, spacing, radius, border, gutter, alpha }) => ({
+export const serieStyles = createStyles(({ colors, text, line, spacing, radius, border, gutter, icon, alpha }) => ({
     root: { flex: 1, backgroundColor: colors.surface.primary },
     center: {
       flex: 1,
@@ -21,15 +21,23 @@ export const serieStyles = createStyles(({ colors, text, line, spacing, radius, 
       paddingVertical: spacing[4],
     },
     starButton: { alignItems: 'center', justifyContent: 'center' },
+    // Balances the back button on the opposite side so the star (the topBar's only other
+    // content) lands truly centered under justifyContent: 'space-between' — same footprint as
+    // the back IconButton's icon, invisible otherwise.
+    topBarSideSpacer: { width: icon.size[6], height: icon.size[6] },
     sortBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       paddingHorizontal: gutter,
       paddingVertical: spacing[4],
       borderBottomWidth: border.small,
       borderBottomColor: colors.border.primary,
     },
+    // Three equal-flex columns (count / sort label / menu) instead of space-between — the sort
+    // label needs to sit truly centered between the other two regardless of how wide either one
+    // is, which space-between can't give a middle item (it only spaces the edges).
+    sortBarSide: { flex: 1 },
+    sortBarSideRight: { flex: 1, alignItems: 'flex-end' },
     chapterCount: { color: colors.text.secondary, fontSize: text.size[2] },
     sortToggle: { paddingHorizontal: spacing[2], paddingVertical: spacing[2] },
     sortToggleText: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
@@ -60,5 +68,7 @@ export const serieStyles = createStyles(({ colors, text, line, spacing, radius, 
     sortModalBtnSecondary: { backgroundColor: 'transparent', borderWidth: border.medium, borderColor: alpha(colors.border.secondary, 0.2) },
     sortModalBtnLabelPrimary: { color: colors.text.button.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
     sortModalBtnLabelSecondary: { color: alpha(colors.text.button.secondary, 0.8), fontSize: text.size[3], fontWeight: text.weight.bold },
+
+    rangeModalErrorText: { color: colors.text.message.bad, fontSize: text.size[2] },
 }));
 

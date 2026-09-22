@@ -1097,6 +1097,68 @@ describe('useSerie — selection mode', () => {
     expect(mockMarkReadMany).not.toHaveBeenCalled();
   });
 
+  describe('selectRange', () => {
+    it('selects every chapter whose number falls within [from, to] and enters selection mode', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      let applied = false;
+      act(() => {
+        applied = result.current.selectRange({ from: 1, to: 2 });
+      });
+      expect(applied).toBe(true);
+      expect(result.current.selectionMode).toBe(true);
+      expect(result.current.selectedIds).toEqual(new Set(['c1', 'c2']));
+    });
+
+    it('accepts from/to reversed (to < from)', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.selectRange({ from: 2, to: 1 }));
+      expect(result.current.selectedIds).toEqual(new Set(['c1', 'c2']));
+    });
+
+    it('narrows to only the chapters inside the bounds', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        chapters: [
+          { id: 'c1', number: 1, title: 'Chapter 1', readStatus: 'UNREAD' },
+          { id: 'c2', number: 2, title: 'Chapter 2', readStatus: 'UNREAD' },
+          { id: 'c3', number: 3, title: 'Chapter 3', readStatus: 'UNREAD' },
+        ],
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.selectRange({ from: 2, to: 3 }));
+      expect(result.current.selectedIds).toEqual(new Set(['c2', 'c3']));
+    });
+
+    it('uses decimalNumber over number when present (e.g. 5.5)', async () => {
+      mockNormalize.mockReturnValue({
+        ...serie,
+        chapters: [
+          { id: 'c1', number: 5, decimalNumber: 5.5, title: 'Chapter 5.5', readStatus: 'UNREAD' },
+          { id: 'c2', number: 6, title: 'Chapter 6', readStatus: 'UNREAD' },
+        ],
+      });
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      act(() => result.current.selectRange({ from: 6, to: 6 }));
+      expect(result.current.selectedIds).toEqual(new Set(['c2']));
+    });
+
+    it('returns false and leaves selection mode untouched when nothing matches', async () => {
+      const { result } = renderHook(() => useSerie({ seriesId: 's1', origin: 'LIBRARY' }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      let applied = true;
+      act(() => {
+        applied = result.current.selectRange({ from: 100, to: 200 });
+      });
+      expect(applied).toBe(false);
+      expect(result.current.selectionMode).toBe(false);
+      expect(result.current.selectedIds.size).toBe(0);
+    });
+  });
+
   // applyMarkUpdates (the onUpdateMany channel) folds the whole batch into ONE setSerie/.map()
   // pass instead of one per chapter — marking a large selection was calling the per-id
   // applyMarkUpdate once per chapter, each one re-copying the WHOLE chapters array, which is what

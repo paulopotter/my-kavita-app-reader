@@ -448,6 +448,27 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
     setSelectedIds(current => new Set(chapters.filter(c => !current.has(c.id)).map(c => c.id)));
   }, [chapters]);
 
+  // Range selection — same chapterNumberComparator's number source (decimalNumber, falling back
+  // to number) so "chapter 5 to 10" matches whatever the list itself considers between those
+  // bounds, regardless of current sort order. Lands the user in the existing selection mode/bar
+  // rather than marking directly, so they can review or adjust before committing.
+  const selectRange = useCallback(
+    ({ from, to }: { from: number; to: number }) => {
+      const [lower, upper] = from <= to ? [from, to] : [to, from];
+      const ids = chapters
+        .filter(c => {
+          const n = c.decimalNumber ?? c.number;
+          return n != null && n >= lower && n <= upper;
+        })
+        .map(c => c.id);
+      if (ids.length === 0) {return false;}
+      setSelectionMode(true);
+      setSelectedIds(new Set(ids));
+      return true;
+    },
+    [chapters],
+  );
+
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false);
     setSelectedIds(new Set());
@@ -542,6 +563,7 @@ export function useSerie({ seriesId, origin }: { seriesId: string; origin?: NavO
     onChapterClick,
     selectAll,
     invertSelection,
+    selectRange,
     exitSelectionMode,
     markSelectedRead,
     markSelectedUnread,
