@@ -130,7 +130,9 @@ export const steelColors: ThemeColors = {
     secondary: 'rgb(230, 235, 242)',
 
     reading: {
-      primary: 'rgb(242, 185, 115)',
+      // The identity's own blue, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(150, 180, 220)',
       secondary: 'rgb(170, 178, 190)',
     },
   },

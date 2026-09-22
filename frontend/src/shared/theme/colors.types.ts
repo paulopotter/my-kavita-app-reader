@@ -273,7 +273,9 @@ export interface ProgressColors {
   /** The part not yet filled — the groove behind the fill. */
   secondary: RgbColor;
 
-  /** The reader's own progress, which is gold rather than the theme's colour. */
+  /** The reader's own progress — each theme's own accent (same as button.primary), unless the
+   *  user has overridden it with another theme's accent (see ReaderPrefs.progressColorOverride,
+   *  resolved by ThemeProvider). */
   reading: {
     /** The thin side bar, and the dot for the page being read. */
     primary: RgbColor;

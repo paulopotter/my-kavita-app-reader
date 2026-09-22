@@ -12,16 +12,39 @@ jest.mock('../../managers/preferences', () => ({
 const mockGet = PreferencesManager.get as jest.Mock;
 const mockPut = PreferencesManager.put as jest.Mock;
 
+// Both the theme choice (key 'theme') and the progress-colour override (ReaderPrefs, key
+// 'reader'/variant 'progressColorOverride') go through this same mocked PreferencesManager.get —
+// tests that only care about one pin the other to null explicitly, so a coincidental match
+// between the two doesn't silently pass a test that isn't actually exercising it.
+function mockPreferences({ theme, progressOverride }: { theme?: string; progressOverride?: string } = {}) {
+  mockGet.mockImplementation(({ key, variant }: { key: string; variant?: string }) => {
+    if (key === 'theme') {return Promise.resolve(theme ? { value: theme, updatedAtEpochMs: 1 } : null);}
+    if (key === 'reader' && variant === 'progressColorOverride') {
+      return Promise.resolve(progressOverride ? { value: progressOverride, updatedAtEpochMs: 1 } : null);
+    }
+    return Promise.resolve(null);
+  });
+}
+
 function Probe() {
-  const { themeName, colors, available, ready, setTheme } = useTheme();
+  const { themeName, colors, available, ready, setTheme, progressColorOverride, setProgressColorOverride } =
+    useTheme();
   return (
     <>
       <Text testID="name">{themeName}</Text>
       <Text testID="surface">{colors.surface.primary}</Text>
+      <Text testID="progressReadingPrimary">{colors.progress.reading.primary}</Text>
+      <Text testID="progressOverride">{progressColorOverride ?? ''}</Text>
       <Text testID="available">{available.join(',')}</Text>
       <Text testID="ready">{String(ready)}</Text>
       <Text testID="switch" onPress={() => setTheme(defaultThemeName)}>
         switch
+      </Text>
+      <Text testID="setOverrideCrimson" onPress={() => setProgressColorOverride('crimson')}>
+        set override
+      </Text>
+      <Text testID="clearOverride" onPress={() => setProgressColorOverride(undefined)}>
+        clear override
       </Text>
     </>
   );
@@ -37,7 +60,7 @@ const setup = () =>
 describe('ThemeProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGet.mockResolvedValue(null);
+    mockPreferences();
     mockPut.mockResolvedValue({});
   });
 
@@ -49,16 +72,16 @@ describe('ThemeProvider', () => {
   });
 
   it('restores the stored theme at boot', async () => {
-    mockGet.mockResolvedValue({ value: defaultThemeName, updatedAtEpochMs: 1 });
+    mockPreferences({ theme: 'crimson' });
     const { getByTestId } = setup();
     await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
-    expect(getByTestId('name').props.children).toBe(defaultThemeName);
+    expect(getByTestId('name').props.children).toBe('crimson');
     expect(mockGet).toHaveBeenCalledWith({ key: 'theme' });
   });
 
   // A theme removed between releases must not leave the app unpainted.
   it('falls back to the default when the stored theme no longer exists', async () => {
-    mockGet.mockResolvedValue({ value: 'a-theme-that-was-deleted', updatedAtEpochMs: 1 });
+    mockPreferences({ theme: 'a-theme-that-was-deleted' });
     const { getByTestId } = setup();
     await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
     expect(getByTestId('name').props.children).toBe(defaultThemeName);
@@ -100,5 +123,75 @@ describe('ThemeProvider', () => {
     const { getByTestId } = setup();
     await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
     expect(getByTestId('name').props.children).toBe(defaultThemeName);
+  });
+});
+
+describe('ThemeProvider — progress-colour override', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPreferences();
+    mockPut.mockResolvedValue({});
+  });
+
+  it('uses the active theme\'s own progress colour when nothing is overridden', async () => {
+    const { getByTestId } = setup();
+    await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
+    expect(getByTestId('progressOverride').props.children).toBe('');
+    expect(getByTestId('progressReadingPrimary').props.children).toBe(
+      themes[defaultThemeName].progress.reading.primary,
+    );
+  });
+
+  it('restores a stored override and applies its colour', async () => {
+    mockPreferences({ progressOverride: 'crimson' });
+    const { getByTestId } = setup();
+    await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
+    expect(getByTestId('progressOverride').props.children).toBe('crimson');
+    expect(getByTestId('progressReadingPrimary').props.children).toBe(themes.crimson.progress.reading.primary);
+  });
+
+  it('setting an override repaints immediately and persists it under ReaderPrefs', async () => {
+    const { getByTestId } = setup();
+    await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
+    await act(async () => {
+      getByTestId('setOverrideCrimson').props.onPress();
+    });
+    expect(getByTestId('progressReadingPrimary').props.children).toBe(themes.crimson.progress.reading.primary);
+    expect(mockPut).toHaveBeenCalledWith({
+      key: 'reader',
+      value: 'crimson',
+      domain: 'readerPrefs',
+      variant: 'progressColorOverride',
+    });
+  });
+
+  it('clearing the override falls back to the active theme\'s own colour', async () => {
+    mockPreferences({ progressOverride: 'crimson' });
+    const { getByTestId } = setup();
+    await waitFor(() => expect(getByTestId('progressOverride').props.children).toBe('crimson'));
+    await act(async () => {
+      getByTestId('clearOverride').props.onPress();
+    });
+    expect(getByTestId('progressOverride').props.children).toBe('');
+    expect(getByTestId('progressReadingPrimary').props.children).toBe(
+      themes[defaultThemeName].progress.reading.primary,
+    );
+  });
+
+  it('an override does not touch any other token (e.g. surface stays the active theme\'s own)', async () => {
+    mockPreferences({ progressOverride: 'crimson' });
+    const { getByTestId } = setup();
+    await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
+    expect(getByTestId('surface').props.children).toBe(themes[defaultThemeName].surface.primary);
+  });
+
+  it('an unrecognized stored override does not crash and leaves the active theme\'s colour in place', async () => {
+    mockPreferences({ progressOverride: 'a-theme-that-was-deleted' });
+    const { getByTestId } = setup();
+    await waitFor(() => expect(getByTestId('ready').props.children).toBe('true'));
+    expect(getByTestId('progressOverride').props.children).toBe('');
+    expect(getByTestId('progressReadingPrimary').props.children).toBe(
+      themes[defaultThemeName].progress.reading.primary,
+    );
   });
 });

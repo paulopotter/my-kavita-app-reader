@@ -24,6 +24,7 @@ import { windowToWebtoonBlocks } from './modes/webtoon.adapter';
 import { readerStyles } from './reader.styles';
 import { useTheme, useStyles } from '../../shared/context';
 import { icon } from '../../shared/theme';
+import { ReaderPrefs, type ProgressBarPosition } from '../../shared/tools/reader';
 
 type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin; seriesName?: string };
@@ -44,6 +45,17 @@ export function ReaderScreen() {
 
   const [chapterPickerVisible, setChapterPickerVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [progressBarPosition, setProgressBarPosition] = useState<ProgressBarPosition | undefined>(undefined);
+
+  // Re-read whenever the settings modal closes — it's the only place this preference changes,
+  // and re-fetching there (rather than threading a live callback through the modal) keeps this
+  // screen from needing to know the modal's internal update mechanics.
+  useEffect(() => {
+    if (settingsVisible) {return;}
+    ReaderPrefs.getProgressBarPosition()
+      .then(setProgressBarPosition)
+      .catch(() => {});
+  }, [settingsVisible]);
 
   const handleBack = useCallback(() => realize(reader.backAction)(), [realize, reader.backAction]);
 
@@ -163,6 +175,7 @@ export function ReaderScreen() {
         <ReaderThinProgressBar
           fraction={progressBarFraction(reader.chapterFraction)}
           pageFraction={reader.scrollFraction}
+          position={progressBarPosition}
         />
       )}
       <ReaderTopBar

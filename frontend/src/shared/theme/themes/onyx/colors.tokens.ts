@@ -131,7 +131,9 @@ export const onyxColors: ThemeColors = {
     secondary: 'rgb(235, 235, 235)',
 
     reading: {
-      primary: 'rgb(246, 173, 85)',
+      // The identity's own blue, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(120, 200, 255)',
       secondary: 'rgb(160, 160, 160)',
     },
   },

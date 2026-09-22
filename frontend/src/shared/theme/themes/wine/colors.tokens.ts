@@ -130,7 +130,9 @@ export const wineColors: ThemeColors = {
     secondary: 'rgb(242, 228, 232)',
 
     reading: {
-      primary: 'rgb(246, 190, 120)',
+      // The identity's own pink, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(255, 136, 156)',
       secondary: 'rgb(196, 166, 174)',
     },
   },

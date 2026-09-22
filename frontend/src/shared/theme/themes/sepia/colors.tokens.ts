@@ -129,7 +129,9 @@ export const sepiaColors: ThemeColors = {
     secondary: 'rgb(238, 232, 222)',
 
     reading: {
-      primary: 'rgb(240, 200, 140)',
+      // The identity's own tan, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(214, 180, 130)',
       secondary: 'rgb(190, 178, 162)',
     },
   },

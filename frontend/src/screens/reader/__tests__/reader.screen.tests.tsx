@@ -32,9 +32,16 @@ jest.mock('../hooks/reader.hooks', () => ({ useReader: () => mockReaderState }))
 // have to stub the native PreferencesManager bridge just to render the screen.
 jest.mock('../../config/reader/reader.hooks', () => ({
   useReaderPrefs: () => ({
-    prefs: { keepScreenOnDuringReading: false, immersiveModeDuringReading: false },
+    prefs: { keepScreenOnDuringReading: false, immersiveModeDuringReading: false, progressBarPosition: undefined },
     update: jest.fn(),
   }),
+}));
+
+// The screen reads the progress-bar edge directly (not through useReaderPrefs) to hand it to
+// ReaderThinProgressBar — mocked the same way, for the same reason (no native bridge in tests).
+const mockGetProgressBarPosition = jest.fn().mockResolvedValue(undefined);
+jest.mock('../../../shared/tools/reader', () => ({
+  ReaderPrefs: { getProgressBarPosition: () => mockGetProgressBarPosition() },
 }));
 
 import { ReaderScreen } from '../reader.screen';
@@ -232,6 +239,26 @@ describe('ReaderScreen V2 — page indicator', () => {
     mockReaderState.overlayVisible = true;
     const { queryByText } = render(<ReaderScreen />);
     expect(queryByText(/^\d+ de \d+$/)).toBeNull();
+  });
+});
+
+describe('ReaderScreen V2 — progress bar position', () => {
+  it('defaults to the vertical/right bar when nothing is stored', async () => {
+    mockGetProgressBarPosition.mockResolvedValue(undefined);
+    withWindow([entry()], 0);
+    const { findByTestId } = render(<ReaderScreen />);
+    const fill = await findByTestId('reader-thin-progress-fill');
+    expect(fill.props.style[1].height).toBeDefined();
+    expect(fill.props.style[1].width).toBeUndefined();
+  });
+
+  it('passes a stored edge through to ReaderThinProgressBar', async () => {
+    mockGetProgressBarPosition.mockResolvedValue('top');
+    withWindow([entry()], 0);
+    const { findByTestId } = render(<ReaderScreen />);
+    const fill = await findByTestId('reader-thin-progress-fill');
+    expect(fill.props.style[1].width).toBeDefined();
+    expect(fill.props.style[1].height).toBeUndefined();
   });
 });
 

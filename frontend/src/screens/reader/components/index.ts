@@ -2,6 +2,7 @@ export * from './reader-chapter-picker';
 export * from './reader-offline-banner';
 export * from './reader-overlay-footer';
 export * from './reader-page-list-view';
+export * from './reader-progress-indicator-fields';
 export * from './reader-settings-modal';
 export * from './reader-side-progress-bar';
 export * from './reader-thin-progress-bar';

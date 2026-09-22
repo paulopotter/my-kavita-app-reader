@@ -256,6 +256,13 @@ export interface Strings {
   readerChapterPickerTitle: string;
   readerSettingsButtonLabel: string;
   readerSettingsCloseButtonLabel: string;
+  readerProgressColorLabel: string;
+  readerProgressColorDefault: string;
+  readerProgressPositionLabel: string;
+  readerProgressPositionLeft: string;
+  readerProgressPositionRight: string;
+  readerProgressPositionTop: string;
+  readerProgressPositionBottom: string;
 
   // ── Errors ───────────────────────────────────────────────────────────────
   errorApiKeyEmpty: string;
@@ -598,6 +605,13 @@ const ptBR: Strings = {
   readerChapterPickerTitle: 'Capítulos',
   readerSettingsButtonLabel: 'Ajustes de leitura',
   readerSettingsCloseButtonLabel: 'Fechar',
+  readerProgressColorLabel: 'Cor do progresso de leitura',
+  readerProgressColorDefault: 'Padrão do tema',
+  readerProgressPositionLabel: 'Posição do indicador de progresso',
+  readerProgressPositionLeft: 'Esquerda',
+  readerProgressPositionRight: 'Direita',
+  readerProgressPositionTop: 'Topo',
+  readerProgressPositionBottom: 'Rodapé',
 
   errorApiKeyEmpty: 'A API key não pode estar vazia',
   errorDbVersionMismatch: 'Versão do banco incompatível',
@@ -927,6 +941,13 @@ const en: Strings = {
   readerChapterPickerTitle: 'Chapters',
   readerSettingsButtonLabel: 'Reading settings',
   readerSettingsCloseButtonLabel: 'Close',
+  readerProgressColorLabel: 'Reading progress colour',
+  readerProgressColorDefault: 'Theme default',
+  readerProgressPositionLabel: 'Progress indicator position',
+  readerProgressPositionLeft: 'Left',
+  readerProgressPositionRight: 'Right',
+  readerProgressPositionTop: 'Top',
+  readerProgressPositionBottom: 'Bottom',
 
   errorApiKeyEmpty: 'API key cannot be empty',
   errorDbVersionMismatch: 'Database version mismatch',

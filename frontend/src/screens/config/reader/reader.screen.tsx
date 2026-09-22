@@ -2,6 +2,12 @@ import React, { useMemo } from 'react';
 import { Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme, useStyles } from '../../../shared/context';
 import { useStrings } from '../../../shared/i18n';
+// Config deliberately reaches into the screen it configures — ReaderProgressIndicatorFields is
+// the exact same fields the Reader's own overlay settings modal shows, only reached from a
+// different screen. It lives in screens/reader/, not shared/, because config + the Reader screen
+// are its only two callers; promote it to shared/ if a third screen ever needs it (same
+// precedent as ChapterSortFields in screens/serie/, imported by screens/config/serials/).
+import { ReaderProgressIndicatorFields } from '../../reader/components/reader-progress-indicator-fields';
 import { BackChevron } from '../components';
 
 import { useReaderPrefs } from './reader.hooks';
@@ -55,6 +61,12 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
               />
             </TouchableOpacity>
             <View style={chrome.divider} />
+
+            <ReaderProgressIndicatorFields
+              t={t}
+              position={prefs.progressBarPosition}
+              onChangePosition={value => update({ progressBarPosition: value })}
+            />
           </>
         )}
       </View>

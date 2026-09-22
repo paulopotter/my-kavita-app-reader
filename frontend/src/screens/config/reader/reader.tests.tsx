@@ -12,12 +12,16 @@ const mockGetKeepScreenOn = jest.fn();
 const mockSetKeepScreenOn = jest.fn();
 const mockGetImmersiveMode = jest.fn();
 const mockSetImmersiveMode = jest.fn();
+const mockGetProgressBarPosition = jest.fn();
+const mockSetProgressBarPosition = jest.fn();
 jest.mock('../../../shared/tools/reader', () => ({
   ReaderPrefs: {
     getKeepScreenOn: (...a: unknown[]) => mockGetKeepScreenOn(...a),
     setKeepScreenOn: (...a: unknown[]) => mockSetKeepScreenOn(...a),
     getImmersiveMode: (...a: unknown[]) => mockGetImmersiveMode(...a),
     setImmersiveMode: (...a: unknown[]) => mockSetImmersiveMode(...a),
+    getProgressBarPosition: (...a: unknown[]) => mockGetProgressBarPosition(...a),
+    setProgressBarPosition: (...a: unknown[]) => mockSetProgressBarPosition(...a),
   },
 }));
 
@@ -26,13 +30,15 @@ import { useReaderPrefs } from './reader.hooks';
 import { ReaderPrefsScreen } from './reader.screen';
 
 const t = getStrings('en');
-// Stored state: keep-screen-on OFF, immersive ON.
+// Stored state: keep-screen-on OFF, immersive ON, no progress-bar edge chosen.
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetKeepScreenOn.mockResolvedValue(false);
   mockGetImmersiveMode.mockResolvedValue(true);
+  mockGetProgressBarPosition.mockResolvedValue(undefined);
   mockSetKeepScreenOn.mockResolvedValue(undefined);
   mockSetImmersiveMode.mockResolvedValue(undefined);
+  mockSetProgressBarPosition.mockResolvedValue(undefined);
 });
 
 describe('useReaderPrefs', () => {
@@ -42,6 +48,7 @@ describe('useReaderPrefs', () => {
       expect(result.current.prefs).toEqual({
         keepScreenOnDuringReading: false,
         immersiveModeDuringReading: true,
+        progressBarPosition: undefined,
       }),
     );
   });
@@ -55,9 +62,24 @@ describe('useReaderPrefs', () => {
     expect(result.current.prefs).toEqual({
       keepScreenOnDuringReading: true,
       immersiveModeDuringReading: true,
+      progressBarPosition: undefined,
     });
     expect(mockSetKeepScreenOn).toHaveBeenCalledWith(true);
     expect(mockSetImmersiveMode).not.toHaveBeenCalled();
+    expect(mockSetProgressBarPosition).not.toHaveBeenCalled();
+  });
+
+  it('update() persists progressBarPosition, including clearing it to undefined', async () => {
+    const { result } = renderHook(() => useReaderPrefs());
+    await waitFor(() => expect(result.current.prefs).not.toBeNull());
+
+    act(() => result.current.update({ progressBarPosition: 'top' }));
+    expect(result.current.prefs?.progressBarPosition).toBe('top');
+    expect(mockSetProgressBarPosition).toHaveBeenCalledWith('top');
+
+    act(() => result.current.update({ progressBarPosition: undefined }));
+    expect(result.current.prefs?.progressBarPosition).toBeUndefined();
+    expect(mockSetProgressBarPosition).toHaveBeenCalledWith(undefined);
   });
 
   it('update() is a no-op on state before prefs have loaded, but still persists', () => {

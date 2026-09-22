@@ -137,7 +137,9 @@ export const crimsonColors: ThemeColors = {
     secondary: 'rgb(255, 255, 255)',
 
     reading: {
-      primary: 'rgb(255, 193, 7)',
+      // The identity's own pink/red, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(233, 69, 96)',
       secondary: 'rgb(160, 174, 192)',
     },
   },

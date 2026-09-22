@@ -130,7 +130,9 @@ export const forestColors: ThemeColors = {
     secondary: 'rgb(228, 240, 232)',
 
     reading: {
-      primary: 'rgb(246, 190, 110)',
+      // The identity's own green, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(94, 200, 130)',
       secondary: 'rgb(158, 183, 168)',
     },
   },

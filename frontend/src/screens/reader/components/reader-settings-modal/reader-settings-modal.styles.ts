@@ -27,4 +27,6 @@ export const readerSettingsModalStyles = createStyles(({ colors, text, spacing, 
     label: { flex: 1, color: colors.text.label, fontSize: text.size[3], marginRight: spacing[5] },
     closeBtn: { alignSelf: 'flex-end', paddingVertical: spacing[3], paddingHorizontal: spacing[5], marginTop: spacing[3] },
     closeBtnText: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
+
+    scrollContent: { gap: spacing[4] },
 }));

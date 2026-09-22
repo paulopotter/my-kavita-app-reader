@@ -130,7 +130,9 @@ export const amberColors: ThemeColors = {
     secondary: 'rgb(240, 232, 220)',
 
     reading: {
-      primary: 'rgb(250, 200, 120)',
+      // The identity's own amber, not a generic gold — the reader's progress is this theme's
+      // accent, the same colour its buttons and links use.
+      primary: 'rgb(240, 165, 60)',
       secondary: 'rgb(187, 172, 152)',
     },
   },
