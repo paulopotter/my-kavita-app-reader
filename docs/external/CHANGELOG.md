@@ -10,6 +10,47 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.09.22.0136](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.22.0136)] - 2026-09-22
+
+Informações detalhadas sobre as obras carregam mais rápido com dados salvos no celular e a tela de leitura ficou mais fluida. / Detailed manga information loads faster with data saved on your phone and the reading screen became much smoother.
+
+
+### **Backend** - `1.5.0`
+
+**[pt-BR]**
+- As informações dos mangás agora são encontradas com precisão exata pelo código da obra e não mais por adivinhação pelo título.
+- O aplicativo guarda as informações dos mangás no celular para abrir tudo instantaneamente enquanto atualiza os dados em segundo plano.
+- O sistema de consultas foi limitado para evitar excesso de pedidos simultâneos que antes conseguiam derrubar o servidor.
+- A lista de capítulos carrega de forma muito mais rápida ao executar verificações simultâneas em vez de uma por uma.
+- O carregamento incompleto que travava os dados antigos foi corrigido para que as informações atualizadas apareçam sem precisar atualizar a tela manualmente.
+- Os novos detalhes das obras agora também aparecem corretamente na listagem geral do sistema.
+
+**[en]**
+- Manga details are now found with exact precision using the work's ID rather than guessing by title.
+- The app stores manga information locally on your device to open everything instantly while refreshing data in the background.
+- Request limits were introduced to prevent a surge of simultaneous queries from crashing the server.
+- The chapter list loads much faster by running checks concurrently instead of sequentially.
+- Incomplete loading that used to trap old data has been fixed so updated information appears without requiring a manual refresh.
+- New metadata fields now correctly appear in the system's general listing as well.
+
+### **Frontend** - `1.5.0`
+
+**[pt-BR]**
+- A tela do mangá exibe o autor e outros títulos vindos do servidor, avisando o status do carregamento em tempo real.
+- As configurações avançadas permitem escolher qual servidor responde cada campo, aceitando regras gerais e exceções personalizadas.
+- A rolagem da lista de capítulos foi otimizada para aguentar séries com centenas de episódios sem travamentos.
+- Salvar a fonte de dados favorita não altera mais a sua preferência de ordenação de capítulos que antes voltava para o modo crescente.
+- Os avisos de erro, alerta e sucesso ganharam cores distintas em todos os temas visuais do aplicativo.
+- A barra de progresso do leitor no tema verde-azulado passou a usar a cor ciano correta em vez de âmbar.
+
+**[en]**
+- The manga screen displays authors and alternative titles fetched from the server, indicating loading status in real time.
+- Advanced settings allow you to choose which server answers each field, supporting general rules and customized exceptions.
+- Chapter list scrolling was optimized to handle series with hundreds of episodes without lagging.
+- Saving your preferred data source no longer resets your chapter sorting preference back to ascending order.
+- Error, warning, and success notices now feature distinct colors across all visual themes in the app.
+- The reader progress bar in the teal theme now displays the correct cyan color instead of amber.
+
 ## [[2026.09.19.1953](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.19.1953)] - 2026-09-19
 
 Avisos do leitor adaptados ao idioma e tema do app, além de doze opções de cores escuras para a interface. / Reader warnings adapted to the app language and theme, plus twelve dark color options for the interface.
