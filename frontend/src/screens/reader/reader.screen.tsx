@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
@@ -8,9 +8,11 @@ import { buildPageLoadingNode, buildPageErrorNode } from './reader-sdu';
 import { useAction } from '../../shared/tools/actions';
 import { ChapterTool } from '../../shared/tools/chapters';
 import {
+  ReaderChapterPicker,
   ReaderOfflineBanner,
   ReaderOverlayFooter,
   ReaderPageListView,
+  ReaderSettingsModal,
   ReaderSideProgressBar,
   ReaderThinProgressBar,
   ReaderTopBar,
@@ -39,6 +41,9 @@ export function ReaderScreen() {
 
   const reader = useReader(seriesId, chapterId, seriesName);
   const { realize } = useAction();
+
+  const [chapterPickerVisible, setChapterPickerVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const handleBack = useCallback(() => realize(reader.backAction)(), [realize, reader.backAction]);
 
@@ -115,6 +120,13 @@ export function ReaderScreen() {
   const scrollToChapterId = reader.scrollRequest?.chapterId ?? null;
   const scrollToPageIndex = reader.scrollRequest?.page ?? -1;
 
+  // 1-indexed for display — undefined for a single-page (or not-yet-loaded) chapter, where a
+  // "1 de 1" indicator says nothing the user doesn't already see.
+  const pageIndicatorText =
+    curr.pageUrls.length > 1
+      ? t.readerPageIndicator.replace('{0}', String(reader.currentVisiblePage + 1)).replace('{1}', String(curr.pageUrls.length))
+      : undefined;
+
   // [Reader v2][diag] Task 029/030/031 debug — descomente ao investigar troca de capítulo.
   // console.log(
   //   `[Reader v2][diag] render blocks=[${blocks.map(b => `${b.chapterId}:${b.pageUrls.length}p`).join(',')}] focus=${curr.id} chFrac=${reader.chapterFraction.toFixed(3)} page=${reader.currentVisiblePage} scrollReq=${scrollToChapterId ?? 'null'}:${scrollToPageIndex}`,
@@ -156,6 +168,7 @@ export function ReaderScreen() {
       <ReaderTopBar
         seriesName={reader.seriesName}
         chapterTitle={ChapterTool.format.title(curr, t)}
+        pageIndicatorText={pageIndicatorText}
         onBack={handleBack}
         visible={reader.overlayVisible}
       />
@@ -169,8 +182,23 @@ export function ReaderScreen() {
         hasNext={reader.hasNextChapter}
         visible={reader.overlayVisible}
       />
-      <ReaderOverlayFooter visible={reader.overlayVisible} />
+      <ReaderOverlayFooter
+        visible={reader.overlayVisible}
+        t={t}
+        onSelectChapter={() => setChapterPickerVisible(true)}
+        onOpenSettings={() => setSettingsVisible(true)}
+      />
       <ReaderOfflineBanner visible={reader.offline} t={t} />
+
+      <ReaderChapterPicker
+        visible={chapterPickerVisible}
+        chapters={reader.order}
+        focusedChapterId={curr.id}
+        t={t}
+        onClose={() => setChapterPickerVisible(false)}
+        onSelect={reader.goToChapter}
+      />
+      <ReaderSettingsModal visible={settingsVisible} t={t} onClose={() => setSettingsVisible(false)} />
     </View>
   );
 }

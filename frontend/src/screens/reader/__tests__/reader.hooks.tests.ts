@@ -242,6 +242,27 @@ describe('useReader V2 — chapter navigation', () => {
     expect(mockGetFull).not.toHaveBeenCalled();
   });
 
+  it('goToChapter jumps to ANY chapter of the series, not just the adjacent one (the overlay picker)', async () => {
+    mockGetFull.mockImplementation(({ chapterId }: { chapterId: string }) =>
+      Promise.resolve(
+        chapterId === 'c1'
+          ? chapterDigest('c1', 1, { next: 'c2' })
+          : chapterDigest('c5', 5, { prev: 'c4' }),
+      ),
+    );
+    const { result } = renderHook(() => useReader('s1', 'c1'));
+    await waitFor(() => expect(result.current.window!.entries[result.current.window!.focusedIndex].chapter.id).toBe('c1'));
+    mockGetFull.mockClear();
+
+    act(() => result.current.goToChapter('c5'));
+
+    await waitFor(() => expect(mockGetFull).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c5', force: undefined }));
+    await waitFor(() =>
+      expect(result.current.window!.entries[result.current.window!.focusedIndex].chapter.id).toBe('c5'),
+    );
+    expect(result.current.currentVisiblePage).toBe(0); // starts at the top, same as an arrow reload
+  });
+
   it('a native-scroll report for the focused chapter is a position-only update, not a focus move', async () => {
     mockGetFull.mockResolvedValue(chapterDigest('c3', 3, { prev: 'c2', next: 'c4', pageCount: 10 }));
     const { result } = renderHook(() => useReader('s1', 'c3'));
@@ -335,6 +356,7 @@ describe('useReader V2 — cross-screen mark', () => {
     ).toBe(true);
   });
 });
+
 
 describe('useReader V2 — series name', () => {
   it('uses the hint without waiting on a fetch', async () => {

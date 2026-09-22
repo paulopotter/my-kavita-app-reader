@@ -9,12 +9,16 @@ import { IconButton } from '../../../../shared/components/icon-button';
 interface Props {
   seriesName: string;
   chapterTitle: string;
+  // 1-indexed for display (currentPage is 0-indexed internally) — undefined pageIndicatorText
+  // means the caller decided there's nothing worth showing (e.g. a chapter with 0/1 pages).
+  pageIndicatorText?: string;
   onBack: () => void;
   visible: boolean;
 }
 
-// Dumb: renders the series name + chapter title it's given and fires onBack.
-export function ReaderTopBar({ seriesName, chapterTitle, onBack, visible }: Props) {
+// Dumb: renders the series name + chapter title + optional page indicator it's given, and fires
+// onBack.
+export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBack, visible }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(readerTopBarStyles);
   if (!visible) {return null;}
@@ -31,9 +35,16 @@ export function ReaderTopBar({ seriesName, chapterTitle, onBack, visible }: Prop
         alignStroke
       />
       <View style={styles.titles}>
-        <Text style={styles.seriesName} numberOfLines={1}>
-          {seriesName}
-        </Text>
+        <View style={styles.titlesRow}>
+          <Text style={styles.seriesName} numberOfLines={1}>
+            {seriesName}
+          </Text>
+          {pageIndicatorText != null && (
+            <Text style={styles.pageIndicator} numberOfLines={1}>
+              {pageIndicatorText}
+            </Text>
+          )}
+        </View>
         <Text style={styles.chapterTitle} numberOfLines={1}>
           {chapterTitle}
         </Text>

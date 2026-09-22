@@ -21,10 +21,21 @@ const mockOnNativePosition = jest.fn();
 const mockHandleScrollRequestHandled = jest.fn();
 const mockLoadChapter = jest.fn();
 const mockGoToAdjacent = jest.fn();
+const mockGoToChapter = jest.fn();
 
 let mockReaderState: any;
 
 jest.mock('../hooks/reader.hooks', () => ({ useReader: () => mockReaderState }));
+
+// ReaderSettingsModal (rendered by the screen, always mounted so its own Modal visibility can
+// toggle) reuses Ajustes > Reading's own hook verbatim — mocked here so this suite doesn't also
+// have to stub the native PreferencesManager bridge just to render the screen.
+jest.mock('../../config/reader/reader.hooks', () => ({
+  useReaderPrefs: () => ({
+    prefs: { keepScreenOnDuringReading: false, immersiveModeDuringReading: false },
+    update: jest.fn(),
+  }),
+}));
 
 import { ReaderScreen } from '../reader.screen';
 
@@ -73,6 +84,7 @@ beforeEach(() => {
     handleScrollRequestHandled: mockHandleScrollRequestHandled,
     loadChapter: mockLoadChapter,
     goToAdjacent: mockGoToAdjacent,
+    goToChapter: mockGoToChapter,
   };
 });
 
@@ -203,5 +215,53 @@ describe('ReaderScreen V2 — back button', () => {
     const { TouchableOpacity } = require('react-native');
     fireEvent.press(UNSAFE_getAllByType(TouchableOpacity)[0]);
     expect(mockRealize).toHaveBeenCalledWith(mockReaderState.backAction);
+  });
+});
+
+describe('ReaderScreen V2 — page indicator', () => {
+  it('shows "current de total" (1-indexed) for a multi-page chapter', () => {
+    withWindow([entry({ id: 'c1', pageUrls: ['u0', 'u1', 'u2'] })], 0);
+    mockReaderState.overlayVisible = true;
+    mockReaderState.currentVisiblePage = 1;
+    const { getByText } = render(<ReaderScreen />);
+    expect(getByText('2 de 3')).toBeTruthy();
+  });
+
+  it('shows no page indicator for a single-page chapter', () => {
+    withWindow([entry({ id: 'c1', pageUrls: ['u0'] })], 0);
+    mockReaderState.overlayVisible = true;
+    const { queryByText } = render(<ReaderScreen />);
+    expect(queryByText(/^\d+ de \d+$/)).toBeNull();
+  });
+});
+
+describe('ReaderScreen V2 — footer quick actions', () => {
+  it('opens the chapter picker from the footer and jumps via goToChapter on selection', () => {
+    withWindow(
+      [entry({ id: 'c1', number: 1, title: 'Sem título' }), entry({ id: 'c2', number: 2, title: 'Sem título' })],
+      0,
+    );
+    mockReaderState.overlayVisible = true;
+    mockReaderState.order = [
+      { id: 'c1', seriesId: 's1', number: 1, title: 'Sem título', readStatus: 'UNREAD' },
+      { id: 'c2', seriesId: 's1', number: 2, title: 'Sem título', readStatus: 'UNREAD' },
+    ];
+    const { getByText } = render(<ReaderScreen />);
+
+    fireEvent.press(getByText('Selecionar capítulo'));
+    expect(getByText('Capítulos')).toBeTruthy(); // the picker sheet opened
+
+    fireEvent.press(getByText('2. Sem título'));
+    expect(mockGoToChapter).toHaveBeenCalledWith('c2');
+  });
+
+  it('opens the settings modal from the footer', () => {
+    withWindow([entry()], 0);
+    mockReaderState.overlayVisible = true;
+    const { getByText, getAllByText } = render(<ReaderScreen />);
+    fireEvent.press(getByText('Ajustes de leitura'));
+    // The modal's own title repeats the button's label — asserting there are now two confirms
+    // it actually opened (the footer button is still on screen too).
+    expect(getAllByText('Ajustes de leitura').length).toBe(2);
   });
 });

@@ -6,7 +6,18 @@ import { Platform, StatusBar } from 'react-native';
 export const STATUS_BAR_GAP = 6;
 export const statusBarHeight = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
 
-export const readerTopBarStyles = createStyles(({ colors, text, spacing, alpha }) => ({
+export const readerTopBarStyles = createStyles(({ colors, text, spacing, alpha }) => {
+  // A text shadow (native to RN, no gradient lib needed) — legible over any page image behind
+  // it, whereas the scrim alone (below) wasn't enough contrast for the series name's lighter/
+  // smaller text on a bright manga page. `surface.dim` is this theme's own darkest/dimming
+  // token, same source every other overlay scrim on this screen already uses — not a new color.
+  const TEXT_SHADOW = {
+    textShadowColor: alpha(colors.surface.dim, 0.85),
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  };
+
+  return {
     root: {
       position: 'absolute',
       top: 0,
@@ -16,7 +27,9 @@ export const readerTopBarStyles = createStyles(({ colors, text, spacing, alpha }
       alignItems: 'stretch',
       paddingBottom: spacing[4],
       paddingHorizontal: spacing[6],
-      backgroundColor: alpha(colors.surface.dim, 0.5),
+      // Raised from 0.5 — the series name (lighter, smaller text) was unreadable over a bright
+      // page image at the previous opacity.
+      backgroundColor: alpha(colors.surface.dim, 0.78),
     },
     backButton: {
       justifyContent: 'center',
@@ -27,7 +40,10 @@ export const readerTopBarStyles = createStyles(({ colors, text, spacing, alpha }
       justifyContent: 'space-between',
       paddingTop: spacing[2],
     },
-    seriesName: { color: colors.text.secondary, fontSize: text.size[2] },
-    chapterTitle: { color: colors.text.title.primary, fontSize: text.size[5], fontWeight: text.weight.bold, alignSelf: 'flex-start' },
-}));
+    titlesRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[3] },
+    seriesName: { color: colors.text.secondary, fontSize: text.size[2], ...TEXT_SHADOW },
+    chapterTitle: { color: colors.text.title.primary, fontSize: text.size[5], fontWeight: text.weight.bold, alignSelf: 'flex-start', ...TEXT_SHADOW },
+    pageIndicator: { color: colors.text.secondary, fontSize: text.size[2], ...TEXT_SHADOW },
+  };
+});
 

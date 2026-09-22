@@ -250,6 +250,12 @@ export interface Strings {
   readerNextChapterLabel: string;
   readerNoNextChapter: string;
   readerNoPrevChapter: string;
+  // "{0} de {1}" — current page / total pages, shown in the top bar.
+  readerPageIndicator: string;
+  readerChapterPickerButtonLabel: string;
+  readerChapterPickerTitle: string;
+  readerSettingsButtonLabel: string;
+  readerSettingsCloseButtonLabel: string;
 
   // ── Errors ───────────────────────────────────────────────────────────────
   errorApiKeyEmpty: string;
@@ -587,6 +593,11 @@ const ptBR: Strings = {
   readerNextChapterLabel: 'Próximo:',
   readerNoNextChapter: 'Não há próximo capítulo',
   readerNoPrevChapter: 'Não há capítulo anterior',
+  readerPageIndicator: '{0} de {1}',
+  readerChapterPickerButtonLabel: 'Selecionar capítulo',
+  readerChapterPickerTitle: 'Capítulos',
+  readerSettingsButtonLabel: 'Ajustes de leitura',
+  readerSettingsCloseButtonLabel: 'Fechar',
 
   errorApiKeyEmpty: 'A API key não pode estar vazia',
   errorDbVersionMismatch: 'Versão do banco incompatível',
@@ -911,6 +922,11 @@ const en: Strings = {
   readerNextChapterLabel: 'Next:',
   readerNoNextChapter: 'No next chapter',
   readerNoPrevChapter: 'No previous chapter',
+  readerPageIndicator: '{0} of {1}',
+  readerChapterPickerButtonLabel: 'Select chapter',
+  readerChapterPickerTitle: 'Chapters',
+  readerSettingsButtonLabel: 'Reading settings',
+  readerSettingsCloseButtonLabel: 'Close',
 
   errorApiKeyEmpty: 'API key cannot be empty',
   errorDbVersionMismatch: 'Database version mismatch',

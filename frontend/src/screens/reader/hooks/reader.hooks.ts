@@ -473,6 +473,18 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
   const goToNextChapterManual = useCallback(() => goToAdjacent('next'), [goToAdjacent]);
   const goToPrevChapterManual = useCallback(() => goToAdjacent('prev'), [goToAdjacent]);
 
+  // Jump to ANY chapter of the series, not just the adjacent one — the overlay footer's chapter
+  // picker uses this. Same "location.replace" flow as goToAdjacent (openChapter handles the
+  // flush-outgoing-progress / WINDOW_READY / nativeListKey remount); the only difference is the
+  // target isn't derived from the current focus, it's whatever the picker chose. A no-op if
+  // asked to jump to the chapter already open (openChapter itself skips the outgoing flush then).
+  const goToChapter = useCallback(
+    (targetChapterId: string) => {
+      openChapter(targetChapterId, { startAtBeginning: true });
+    },
+    [openChapter],
+  );
+
   const overscrollArmedRef = useRef(true);
   const overscrollTriggerPx = PixelRatio.getPixelSizeForLayoutSize(OVERSCROLL_TRIGGER_DP);
   const handleScroll = useCallback(
@@ -721,6 +733,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     goToAdjacent,
     goToNextChapterManual,
     goToPrevChapterManual,
+    goToChapter,
     loadChapter,
     handleScroll,
     handleScrollEndDrag,
