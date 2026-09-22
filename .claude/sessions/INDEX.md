@@ -2,9 +2,7 @@
 
 ## Em andamento
 
-| Plan | Description |
-|------|-------------|
-| [024 — Storage Footprint & Resource Hygiene](active/024-storage-footprint/README.md) | 5 tasks — pending. Novo módulo `:storage` (Layer 2) para medir e recuperar espaço: medição real por fonte (páginas Coil / cache Room / resto) antes de escolher números, teto de cache configurável pelo usuário substituindo o `READER_DISK_CACHE_MAX_BYTES` fixo de 500 MB, purga do `:cache` (que já existe e nunca é chamada) ligada na splash, e tela `config/storage/` com uso por fonte + limpeza manual. Sem job periódico, sem `WorkManager`, sem telemetria |
+Nenhum plano ativo.
 
 ## Concluídos
 
@@ -37,4 +35,5 @@
 | [021](backlog/items/021-estrutura-de-testes.md) | Revisão da estrutura de arquivos de teste (convenção única, hook+screen num arquivo) | 035 |
 | [022](backlog/items/022-aposentar-ui-preferences-room.md) | Aposentar `ui_preferences` (Room); keep-screen-on / immersive vão para `:preferences` | 035 |
 | [023](backlog/items/023-library-cache-offline-fallback.md) | Library lê o cache local quando o servidor está inacessível | — |
+| [024](backlog/items/024-storage-footprint.md) | Storage Footprint & Resource Hygiene — módulo `:storage`, teto de cache configurável, purga na splash, tela de uso | — |
 | [025](backlog/items/025-aviso-de-nova-versao-nativa.md) | Aviso in-app (informativo, não bloqueante) de que há APK novo — consome o `lastKotlinVersion` já publicado | — |
