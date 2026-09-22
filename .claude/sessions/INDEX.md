@@ -23,17 +23,22 @@ Nenhum plano ativo.
 | # | Item | Depends on |
 |---|------|------------|
 | [005](backlog/items/005-home-screen.md) | Home Screen | 001, 003 |
-| [009](backlog/items/009-search-screen.md) | Search Screen | 003 |
-| [011](backlog/items/011-bff-plugin.md) | BFF Plugin | 001, 012 |
 | [012](backlog/items/012-js-side-db.md) | JS-Side Database | 001 |
 | [013](backlog/items/013-additional-ci-steps.md) | Activate CI placeholders | each row has its own deps |
 | [014](backlog/items/014-additional-skills.md) | Additional Claude skills/agents | 001 + first screens |
-| [015](backlog/items/015-telemetria-interna-debug.md) | Telemetria interna (painel debug) | 010 |
+| [015](backlog/items/015-telemetria-interna-debug.md) | Telemetria interna (painel debug) — FPS, memória, latência; a tela de debug atual não cobre nada disso | 010 |
+| [016](backlog/items/016-criptografia-credenciais.md) | Criptografia de credenciais de servidor | 001 |
 | [016](backlog/items/016-migration-rollback-strategy.md) | Estratégia de rollback de migrations Room | 001 |
+| [017](backlog/items/017-cache-cascata-referencia.md) | Cache em cascata (Series/Chapter referenciam Page/Chapter por key) | — |
 | [019](backlog/items/019-multiplos-servidores.md) | Múltiplos servidores (grupos) ativos | 017 |
 | [020](backlog/items/020-ota-download-sob-demanda.md) | OTA download sob demanda (botão "baixar" no highly_recommended) | 038 |
 | [021](backlog/items/021-estrutura-de-testes.md) | Revisão da estrutura de arquivos de teste (convenção única, hook+screen num arquivo) | 035 |
-| [022](backlog/items/022-aposentar-ui-preferences-room.md) | Aposentar `ui_preferences` (Room); keep-screen-on / immersive vão para `:preferences` | 035 |
 | [023](backlog/items/023-library-cache-offline-fallback.md) | Library lê o cache local quando o servidor está inacessível | — |
 | [024](backlog/items/024-storage-footprint.md) | Storage Footprint & Resource Hygiene — módulo `:storage`, teto de cache configurável, purga na splash, tela de uso | — |
 | [025](backlog/items/025-aviso-de-nova-versao-nativa.md) | Aviso in-app (informativo, não bloqueante) de que há APK novo — consome o `lastKotlinVersion` já publicado | — |
+| [026](backlog/items/026-modos-de-leitura-e-zoom.md) | Modos de leitura (paginada, horizontal) e zoom | 007 |
+| [027](backlog/items/027-env-como-default-e-gate-de-feature.md) | `.env` como valor padrão e gate de feature | — |
+
+> Dois itens carregam o número 016 (criptografia de credenciais e rollback de migrations) — são
+> assuntos distintos que nasceram com o mesmo número. O 017 aqui é cache em cascata, sem relação
+> com o plano 017 já concluído.
