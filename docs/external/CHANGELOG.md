@@ -10,6 +10,35 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.09.25.0053](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.25.0053)] - 2026-09-25
+
+Nova seleção de capítulos em massa, ajustes rápidos no leitor e mais opções visuais para a sua biblioteca. / New bulk chapter selection, quick reader adjustments, and more visual options for your library.
+
+
+### **Backend** - `1.5.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
+
+### **Frontend** - `1.6.0`
+
+**[pt-BR]**
+- Seleção de intervalo de capítulos na tela da série para marcar vários como lidos de uma vez.
+- Seleção rápida de capítulo e ajustes de leitura direto no overlay do leitor, com cabeçalho mais legível.
+- Cor e posição da barra de progresso de leitura agora são configuráveis, com opção de restaurar o padrão do tema.
+- Filtro por status de leitura (não lido, lendo, lido) na Biblioteca e em Seguindo.
+- Todo ícone tocável do app agora mostra seu nome como dica ao ser pressionado e segurado.
+
+**[en]**
+- Chapter range selection on the series screen to mark multiple chapters as read at once.
+- Quick chapter selection and reading adjustments directly within the reader overlay, featuring a more readable header.
+- Color and position of the reading progress bar are now customizable, with an option to restore the default theme settings.
+- Filter by reading status (unread, reading, read) in the Library and Following tabs.
+- Every tappable icon in the app now displays its name as a tooltip when pressed and held.
+
 ## [[2026.09.22.0136](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.22.0136)] - 2026-09-22
 
 Informações detalhadas sobre as obras carregam mais rápido com dados salvos no celular e a tela de leitura ficou mais fluida. / Detailed manga information loads faster with data saved on your phone and the reading screen became much smoother.
