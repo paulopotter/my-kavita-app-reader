@@ -8,6 +8,7 @@ import { ChapterSortFields } from '../../../screens/serie/components/chapter-sor
 import { useStrings } from '../../../shared/i18n';
 import type { Strings } from '../../../shared/i18n';
 import { BackChevron, Select } from '../components';
+import { IconButton } from '../../../shared/components/icon-button';
 import {
   DISPUTED_METADATA_FIELDS,
   type DisputedMetadataField,
@@ -104,9 +105,14 @@ export function SerialsSortScreen({ onBack }: { onBack: () => void }) {
                 );
               })}
             </View>
-            <TouchableOpacity onPress={() => setShowFields(true)} hitSlop={8} accessibilityRole="button">
-              <ChevronRight size={icon.size[5]} color={colors.icon.secondary} />
-            </TouchableOpacity>
+            <IconButton
+              icon={ChevronRight}
+              glyph="chevron"
+              size={icon.size[5]}
+              color={colors.icon.secondary}
+              onPress={() => setShowFields(true)}
+              accessibilityLabel={t.configMetadataSourceFieldsTitle}
+            />
           </View>
         </ScrollView>
       )}

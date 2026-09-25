@@ -6,6 +6,7 @@ import { useTheme, useStyles } from '../../../../shared/context';
 import { Row } from '../row';
 import { groupCardStyles } from './group-card.styles';
 import { icon } from '../../../../shared/theme';
+import { IconButton } from '../../../../shared/components/icon-button';
 
 // One server section: the header (name + a "more" menu), the masked credential rows the provider declares,
 // and the URL list with its add / test buttons. Dumb — every action is a prop the screen wires
@@ -44,6 +45,7 @@ export interface GroupCardProps {
     testConnection?: string;
     testing?: string;
     connectionOk?: string;
+    moreOptions: string;
   };
 }
 
@@ -75,9 +77,14 @@ export function GroupCard({
             {name}
           </Text>
         </View>
-        <TouchableOpacity onPress={onGroupMenu} hitSlop={8}>
-          <MoreHorizontal size={icon.size[5]} color={colors.icon.secondary} />
-        </TouchableOpacity>
+        <IconButton
+          icon={MoreHorizontal}
+          glyph="circle"
+          size={icon.size[5]}
+          color={colors.icon.secondary}
+          onPress={onGroupMenu}
+          accessibilityLabel={strings.moreOptions}
+        />
       </View>
 
       <View style={styles.body}>
@@ -105,6 +112,7 @@ export function GroupCard({
               secondary={subline}
               trailing={`P${u.priority}`}
               onMenu={() => onUrlMenu(u.id)}
+              menuLabel={strings.moreOptions}
             />
           );
         })}

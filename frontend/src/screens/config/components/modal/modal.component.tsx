@@ -8,6 +8,7 @@ import { useTheme, useStyles } from '../../../../shared/context';
 import { UrlTool } from '../../../../shared/tools/url';
 import { modalStyles } from './modal.styles';
 import { icon } from '../../../../shared/theme';
+import { IconButton } from '../../../../shared/components/icon-button';
 
 // Shared shape for a provider's credential values, keyed by ProviderCredentialField.name — used
 // by both config/server and config/notifications (whichever provider's group this modal is
@@ -70,9 +71,14 @@ export function ServerModal({
             <Text style={styles.title}>
               {mode === 'add' ? t.serverModalNewTitle : t.serverModalEditTitle}
             </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={icon.size[4]} color={colors.icon.secondary} />
-            </TouchableOpacity>
+            <IconButton
+              icon={X}
+              glyph="cross"
+              size={icon.size[4]}
+              color={colors.icon.secondary}
+              onPress={onClose}
+              accessibilityLabel={t.commonCloseLabel}
+            />
           </View>
 
           <Text style={styles.label}>{t.serverModalProviderLabel}</Text>

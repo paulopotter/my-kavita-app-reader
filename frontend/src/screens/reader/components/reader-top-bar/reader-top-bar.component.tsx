@@ -13,12 +13,13 @@ interface Props {
   // means the caller decided there's nothing worth showing (e.g. a chapter with 0/1 pages).
   pageIndicatorText?: string;
   onBack: () => void;
+  backLabel: string;
   visible: boolean;
 }
 
 // Dumb: renders the series name + chapter title + optional page indicator it's given, and fires
 // onBack.
-export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBack, visible }: Props) {
+export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBack, backLabel, visible }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(readerTopBarStyles);
   if (!visible) {return null;}
@@ -31,6 +32,7 @@ export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBa
         size={icon.size[9]}
         color={colors.icon.primary}
         onPress={onBack}
+        accessibilityLabel={backLabel}
         style={styles.backButton}
         alignStroke
       />

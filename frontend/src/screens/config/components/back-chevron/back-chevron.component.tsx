@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '../../../../shared/context';
 import { IconButton } from '../../../../shared/components/icon-button';
 import { icon } from '../../../../shared/theme';
+import { useStrings } from '../../../../shared/i18n';
 
 export interface BackChevronProps {
   onPress?: () => void;
@@ -12,6 +13,7 @@ export interface BackChevronProps {
 // is what keeps the chevron's stroke on the same line as the title and the content below it.
 export function BackChevron({ onPress }: BackChevronProps) {
   const { colors } = useTheme();
+  const t = useStrings();
   return (
     <IconButton
       icon={ChevronLeft}
@@ -19,6 +21,7 @@ export function BackChevron({ onPress }: BackChevronProps) {
       size={icon.size[9]}
       color={colors.icon.button.secondary}
       onPress={onPress}
+      accessibilityLabel={t.commonBackLabel}
       alignStroke
     />
   );

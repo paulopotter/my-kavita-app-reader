@@ -7,6 +7,7 @@ const props = (over: Partial<RowProps> = {}): RowProps => ({
   active: false,
   primary: 'http://host',
   onMenu: jest.fn(),
+  menuLabel: 'More options',
   ...over,
 });
 

@@ -227,9 +227,15 @@ export function SerieScreen() {
           size={icon.size[6]}
           color={colors.icon.primary}
           onPress={handleBack}
+          accessibilityLabel={t.seriesDetailBackLabel}
           alignStroke
         />
-        <TouchableOpacity style={styles.starButton} onPress={toggleFollow} activeOpacity={0.8} accessibilityRole="button">
+        <TouchableOpacity
+          style={styles.starButton}
+          onPress={toggleFollow}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={isFollowed ? t.seriesDetailUnfollowLabel : t.seriesDetailFollowLabel}>
           <FollowStar active={isFollowed} size={icon.size[6]} color={colors.icon.secondary} activeColor={colors.icon.following} />
         </TouchableOpacity>
         <View style={styles.topBarSideSpacer} />
@@ -313,6 +319,7 @@ export function SerieScreen() {
             listRef.current?.scrollToOffset({ offset: 0, animated: true });
             hideScrollTop();
           }}
+          accessibilityLabel={t.commonScrollToTopLabel}
         />
       )}
 

@@ -25,6 +25,7 @@ import { readerStyles } from './reader.styles';
 import { useTheme, useStyles } from '../../shared/context';
 import { icon } from '../../shared/theme';
 import { ReaderPrefs, type ProgressBarPosition } from '../../shared/tools/reader';
+import { IconButton } from '../../shared/components/icon-button';
 
 type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin; seriesName?: string };
@@ -111,9 +112,15 @@ export function ReaderScreen() {
           <Pressable style={styles.button} onPress={() => reader.loadChapter(chapterId)}>
             <Text style={styles.buttonText}>{t.readerRetry}</Text>
           </Pressable>
-          <Pressable style={styles.buttonSecondary} onPress={handleBack}>
-            <ArrowLeft size={icon.size[4]} color={colors.icon.primary} />
-          </Pressable>
+          <IconButton
+            icon={ArrowLeft}
+            glyph="arrow"
+            size={icon.size[4]}
+            color={colors.icon.primary}
+            onPress={handleBack}
+            accessibilityLabel={t.commonBackLabel}
+            style={styles.buttonSecondary}
+          />
         </View>
       );
     }
@@ -183,6 +190,7 @@ export function ReaderScreen() {
         chapterTitle={ChapterTool.format.title(curr, t)}
         pageIndicatorText={pageIndicatorText}
         onBack={handleBack}
+        backLabel={t.commonBackLabel}
         visible={reader.overlayVisible}
       />
       <ReaderSideProgressBar
@@ -193,6 +201,8 @@ export function ReaderScreen() {
         onNextChapter={() => reader.goToAdjacent('next')}
         hasPrev={reader.hasPrevChapter}
         hasNext={reader.hasNextChapter}
+        prevChapterLabel={t.readerPrevChapterButtonLabel}
+        nextChapterLabel={t.readerNextChapterButtonLabel}
         visible={reader.overlayVisible}
       />
       <ReaderOverlayFooter

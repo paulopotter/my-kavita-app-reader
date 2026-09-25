@@ -16,6 +16,8 @@ function setup(over: Partial<React.ComponentProps<typeof ReaderSideProgressBar>>
       onNextChapter={onNextChapter}
       hasPrev
       hasNext
+      prevChapterLabel="Capítulo anterior"
+      nextChapterLabel="Próximo capítulo"
       visible
       {...over}
     />,
@@ -47,17 +49,17 @@ describe('ReaderSideProgressBar', () => {
   });
 
   it('arrows call their callbacks when enabled', () => {
-    const { getByTestId, onPrevChapter, onNextChapter } = setup();
-    fireEvent.press(getByTestId('side-bar-prev'));
-    fireEvent.press(getByTestId('side-bar-next'));
+    const { getByLabelText, onPrevChapter, onNextChapter } = setup();
+    fireEvent.press(getByLabelText('Capítulo anterior'));
+    fireEvent.press(getByLabelText('Próximo capítulo'));
     expect(onPrevChapter).toHaveBeenCalledTimes(1);
     expect(onNextChapter).toHaveBeenCalledTimes(1);
   });
 
   it('disabled arrows do not call their callbacks even if pressed', () => {
-    const { getByTestId, onPrevChapter, onNextChapter } = setup({ hasPrev: false, hasNext: false });
-    fireEvent.press(getByTestId('side-bar-prev'));
-    fireEvent.press(getByTestId('side-bar-next'));
+    const { getByLabelText, onPrevChapter, onNextChapter } = setup({ hasPrev: false, hasNext: false });
+    fireEvent.press(getByLabelText('Capítulo anterior'));
+    fireEvent.press(getByLabelText('Próximo capítulo'));
     expect(onPrevChapter).not.toHaveBeenCalled();
     expect(onNextChapter).not.toHaveBeenCalled();
   });

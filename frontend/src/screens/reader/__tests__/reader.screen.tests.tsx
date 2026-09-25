@@ -171,9 +171,9 @@ describe('ReaderScreen V2 — overlay wiring', () => {
   it('arrows call goToAdjacent with the right direction', () => {
     withWindow([entry({ id: 'c1' }), entry({ id: 'c2' }), entry({ id: 'c3' })], 1);
     mockReaderState.overlayVisible = true;
-    const { getByTestId } = render(<ReaderScreen />);
-    fireEvent.press(getByTestId('side-bar-prev'));
-    fireEvent.press(getByTestId('side-bar-next'));
+    const { getByLabelText } = render(<ReaderScreen />);
+    fireEvent.press(getByLabelText('Capítulo anterior'));
+    fireEvent.press(getByLabelText('Próximo capítulo'));
     expect(mockGoToAdjacent).toHaveBeenNthCalledWith(1, 'prev');
     expect(mockGoToAdjacent).toHaveBeenNthCalledWith(2, 'next');
   });
@@ -183,10 +183,10 @@ describe('ReaderScreen V2 — overlay wiring', () => {
     mockReaderState.overlayVisible = true;
     mockReaderState.hasPrevChapter = false; // c1 is the first chapter of the series
     mockReaderState.hasNextChapter = true;
-    const { getByTestId } = render(<ReaderScreen />);
-    fireEvent.press(getByTestId('side-bar-prev'));
+    const { getByLabelText } = render(<ReaderScreen />);
+    fireEvent.press(getByLabelText('Capítulo anterior'));
     expect(mockGoToAdjacent).not.toHaveBeenCalled(); // disabled
-    fireEvent.press(getByTestId('side-bar-next'));
+    fireEvent.press(getByLabelText('Próximo capítulo'));
     expect(mockGoToAdjacent).toHaveBeenCalledWith('next');
   });
 

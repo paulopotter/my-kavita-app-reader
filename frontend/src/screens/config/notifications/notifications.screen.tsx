@@ -20,6 +20,7 @@ import {
 import { notificationsStyles } from './notifications.styles';
 import { configStyles as makeChrome } from '../config.styles';
 import { icon } from '../../../shared/theme';
+import { IconButton } from '../../../shared/components/icon-button';
 
 // A Switch row whose entire line (label included) is a toggle target — tapping anywhere on the
 // row flips the value, not just the Switch thumb. Applied to every simple toggle in this screen;
@@ -179,19 +180,33 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
             <View style={styles.retentionRow}>
               <Text style={styles.retentionLabel}>{t.notificationsRetentionLabel}</Text>
               <View style={styles.retentionStepper}>
-                <TouchableOpacity
+                <IconButton
+                  icon={Minus}
+                  glyph="arrow"
+                  size={icon.size[3]}
+                  color={
+                    prefs.retentionDays <= RETENTION_MIN_DAYS ? colors.icon.tertiary : colors.icon.button.secondary
+                  }
+                  onPress={() => {
+                    if (prefs.retentionDays > RETENTION_MIN_DAYS) {prefs.setRetentionDays(prefs.retentionDays - 1);}
+                  }}
+                  accessibilityLabel={t.notificationsRetentionDecreaseLabel}
                   style={styles.stepperBtn}
-                  onPress={() => prefs.setRetentionDays(prefs.retentionDays - 1)}
-                  disabled={prefs.retentionDays <= RETENTION_MIN_DAYS}>
-                  <Minus size={icon.size[3]} color={colors.icon.button.secondary} />
-                </TouchableOpacity>
+                />
                 <Text style={styles.retentionValue}>{`${prefs.retentionDays} ${t.notificationsRetentionDaysSuffix}`}</Text>
-                <TouchableOpacity
+                <IconButton
+                  icon={Plus}
+                  glyph="arrow"
+                  size={icon.size[3]}
+                  color={
+                    prefs.retentionDays >= RETENTION_MAX_DAYS ? colors.icon.tertiary : colors.icon.button.secondary
+                  }
+                  onPress={() => {
+                    if (prefs.retentionDays < RETENTION_MAX_DAYS) {prefs.setRetentionDays(prefs.retentionDays + 1);}
+                  }}
+                  accessibilityLabel={t.notificationsRetentionIncreaseLabel}
                   style={styles.stepperBtn}
-                  onPress={() => prefs.setRetentionDays(prefs.retentionDays + 1)}
-                  disabled={prefs.retentionDays >= RETENTION_MAX_DAYS}>
-                  <Plus size={icon.size[3]} color={colors.icon.button.secondary} />
-                </TouchableOpacity>
+                />
               </View>
             </View>
 
@@ -233,6 +248,7 @@ export function NotificationsScreen({ onBack }: { onBack: () => void }) {
                   testConnection: t.setupTestConnection,
                   testing: t.setupTesting,
                   connectionOk: t.setupConnectionOk,
+                  moreOptions: t.commonMoreOptionsLabel,
                 }}
               />
             )}

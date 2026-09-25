@@ -8,6 +8,7 @@ import { UrlTool } from '../../../../shared/tools/url';
 import { Select } from '../select';
 import { urlModalStyles } from './url-modal.styles';
 import { icon } from '../../../../shared/theme';
+import { IconButton } from '../../../../shared/components/icon-button';
 
 // The "link this URL to a server" section — only rendered for a metadata-server URL. The screen
 // passes the list of servers (already just one today) + a resolver for a picked server's URLs.
@@ -99,9 +100,14 @@ export function UrlModal({
         <View style={styles.card}>
           <View style={styles.header}>
             <Text style={styles.title}>{mode === 'add' ? t.urlModalNewTitle : t.urlModalEditTitle}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={icon.size[4]} color={colors.icon.secondary} />
-            </TouchableOpacity>
+            <IconButton
+              icon={X}
+              glyph="cross"
+              size={icon.size[4]}
+              color={colors.icon.secondary}
+              onPress={onClose}
+              accessibilityLabel={t.commonCloseLabel}
+            />
           </View>
 
           <Text style={styles.label}>{t.urlModalUrlLabel}</Text>

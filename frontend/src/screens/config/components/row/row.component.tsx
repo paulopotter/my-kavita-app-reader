@@ -1,9 +1,10 @@
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Circle, CornerDownRight, MoreHorizontal } from 'lucide-react-native';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { rowStyles } from './row.styles';
 import { icon } from '../../../../shared/theme';
+import { IconButton } from '../../../../shared/components/icon-button';
 
 // A single configured item — a Kavita URL, the API key, or a BFF server. Dumb: an activity dot,
 // a primary line, an optional secondary line, and a "more" menu that calls props.onMenu. The
@@ -17,9 +18,10 @@ export interface RowProps {
   // A small dim label right before the menu button (e.g. a URL's priority: "P0").
   trailing?: string;
   onMenu: () => void;
+  menuLabel: string;
 }
 
-export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMenu }: RowProps) {
+export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMenu, menuLabel }: RowProps) {
   const { colors } = useTheme();
   const styles = useStyles(rowStyles);
   const dotTint = active ? colors.icon.status.good : colors.icon.status.off;
@@ -42,9 +44,14 @@ export function Row({ active, primary, secondary, secondaryEmpty, trailing, onMe
         )}
       </View>
       {trailing != null && <Text style={styles.trailing}>{trailing}</Text>}
-      <TouchableOpacity onPress={onMenu} hitSlop={8}>
-        <MoreHorizontal size={icon.size[5]} color={colors.icon.secondary} />
-      </TouchableOpacity>
+      <IconButton
+        icon={MoreHorizontal}
+        glyph="circle"
+        size={icon.size[5]}
+        color={colors.icon.secondary}
+        onPress={onMenu}
+        accessibilityLabel={menuLabel}
+      />
     </View>
   );
 }

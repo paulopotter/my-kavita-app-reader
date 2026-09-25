@@ -7,6 +7,7 @@ import { useTheme, useStyles } from '../../../../../shared/context';
 import { Select } from '../../../components/select';
 import { groupModalStyles } from './group-modal.styles';
 import { icon } from '../../../../../shared/theme';
+import { IconButton } from '../../../../../shared/components/icon-button';
 
 // Add / edit a notification group (a :notifications group, ntfy provider only for now — no
 // provider picker like config/server has, since there's only the one). `servers` is the Kavita
@@ -55,9 +56,14 @@ export function GroupModal({
             <Text style={styles.title}>
               {mode === 'add' ? t.notificationsGroupModalNewTitle : t.notificationsGroupModalEditTitle}
             </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <X size={icon.size[4]} color={colors.icon.secondary} />
-            </TouchableOpacity>
+            <IconButton
+              icon={X}
+              glyph="cross"
+              size={icon.size[4]}
+              color={colors.icon.secondary}
+              onPress={onClose}
+              accessibilityLabel={t.commonCloseLabel}
+            />
           </View>
 
           <Text style={styles.label}>{t.notificationsGroupModalNameLabel}</Text>

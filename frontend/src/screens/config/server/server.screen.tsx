@@ -176,6 +176,7 @@ function ServerSection({
             testConnection: t.setupTestConnection,
             testing: t.setupTesting,
             connectionOk: t.setupConnectionOk,
+            moreOptions: t.commonMoreOptionsLabel,
           }}
         />
       )}

@@ -5,7 +5,7 @@ import { ReaderTopBar } from './reader-top-bar.component';
 function setup(over: Partial<React.ComponentProps<typeof ReaderTopBar>> = {}) {
   const onBack = jest.fn();
   const utils = render(
-    <ReaderTopBar seriesName="One Piece" chapterTitle="Capítulo 1" onBack={onBack} visible {...over} />,
+    <ReaderTopBar seriesName="One Piece" chapterTitle="Capítulo 1" onBack={onBack} backLabel="Voltar" visible {...over} />,
   );
   return { ...utils, onBack };
 }

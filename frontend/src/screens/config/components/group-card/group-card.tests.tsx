@@ -16,6 +16,7 @@ const strings = {
   testConnection: 'Test connection',
   testing: 'Testing…',
   connectionOk: 'Connected',
+  moreOptions: 'More options',
 };
 
 const props = (over: Partial<GroupCardProps> = {}): GroupCardProps => ({

@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { readerSideProgressBarStyles } from './reader-side-progress-bar.styles';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { icon } from '../../../../shared/theme';
+import { IconButton } from '../../../../shared/components/icon-button';
 
 interface Props {
   totalPages: number;
@@ -13,6 +14,8 @@ interface Props {
   onNextChapter: () => void;
   hasPrev: boolean;
   hasNext: boolean;
+  prevChapterLabel: string;
+  nextChapterLabel: string;
   visible: boolean;
 }
 
@@ -25,6 +28,8 @@ export function ReaderSideProgressBar({
   onNextChapter,
   hasPrev,
   hasNext,
+  prevChapterLabel,
+  nextChapterLabel,
   visible,
 }: Props) {
   const { colors } = useTheme();
@@ -33,15 +38,17 @@ export function ReaderSideProgressBar({
 
   return (
     <View style={styles.root}>
-      <TouchableOpacity
-        testID="side-bar-prev"
-        style={styles.arrowButton}
-        disabled={!hasPrev}
+      <IconButton
+        icon={ChevronUp}
+        glyph="chevron"
+        size={icon.size[4]}
+        color={hasPrev ? colors.icon.primary : colors.icon.tertiary}
         onPress={() => {
           if (hasPrev) {onPrevChapter();}
-        }}>
-        <ChevronUp size={icon.size[4]} color={hasPrev ? colors.icon.primary : colors.icon.tertiary} />
-      </TouchableOpacity>
+        }}
+        accessibilityLabel={prevChapterLabel}
+        style={styles.arrowButton}
+      />
       <View style={styles.dots}>
         {Array.from({ length: totalPages }, (_, index) => (
           <TouchableOpacity
@@ -59,15 +66,17 @@ export function ReaderSideProgressBar({
           </TouchableOpacity>
         ))}
       </View>
-      <TouchableOpacity
-        testID="side-bar-next"
-        style={styles.arrowButton}
-        disabled={!hasNext}
+      <IconButton
+        icon={ChevronDown}
+        glyph="chevron"
+        size={icon.size[4]}
+        color={hasNext ? colors.icon.primary : colors.icon.tertiary}
         onPress={() => {
           if (hasNext) {onNextChapter();}
-        }}>
-        <ChevronDown size={icon.size[4]} color={hasNext ? colors.icon.primary : colors.icon.tertiary} />
-      </TouchableOpacity>
+        }}
+        accessibilityLabel={nextChapterLabel}
+        style={styles.arrowButton}
+      />
     </View>
   );
 }
