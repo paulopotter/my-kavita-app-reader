@@ -10,6 +10,14 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Frontend
+
+- feat: seleção de intervalo de capítulos na tela da série para marcar vários como lidos de uma vez.
+- feat: seleção rápida de capítulo e ajustes de leitura direto no overlay do leitor, com cabeçalho mais legível.
+- feat: cor e posição da barra de progresso de leitura agora são configuráveis, com opção de restaurar o padrão do tema.
+- feat: filtro por status de leitura (não lido, lendo, lido) na Biblioteca e em Seguindo.
+- feat: todo ícone tocável do app agora mostra seu nome como dica ao ser pressionado e segurado.
+
 ## [[2026.09.22.0136](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.22.0136)] - 2026-09-22
 
 Informações detalhadas sobre as obras carregam mais rápido com dados salvos no celular e a tela de leitura ficou mais fluida. / Detailed manga information loads faster with data saved on your phone and the reading screen became much smoother.
