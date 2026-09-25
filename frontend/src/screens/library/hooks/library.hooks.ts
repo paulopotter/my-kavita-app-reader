@@ -741,6 +741,10 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
     error: state.error,
     bannerState,
     data,
+    // The raw list BEFORE `filter` — the screen needs this to tell "the library is genuinely
+    // empty" (unfilteredCount === 0) apart from "a filter matched nothing" (data.length === 0 but
+    // unfilteredCount > 0), which call for different empty-state messages.
+    unfilteredCount: state.data.length,
     paddedData,
     viewMode,
     sortMode: state.sortMode,

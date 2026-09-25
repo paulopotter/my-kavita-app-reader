@@ -314,6 +314,17 @@ describe('useLibrary — Following filter', () => {
     act(() => handler(['a', 'b']));
     expect(result.current.data.map(e => e.id).sort()).toEqual(['a', 'b']);
   });
+
+  // unfilteredCount lets a screen tell "the raw list is genuinely empty" apart from "a filter
+  // matched nothing" — both cases end with data.length === 0, but only the first needs a
+  // different empty-state message and the filter itself hidden.
+  it('unfilteredCount reflects the raw list even when the filter matches nothing', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('a'), serialData('b')]));
+    mockGetAllIds.mockResolvedValue([]); // nobody followed
+    const { result } = renderHook(() => useLibrary({ filter: e => e.isFollowed, prefsKey: 'following' }));
+    await waitFor(() => expect(result.current.unfilteredCount).toBe(2));
+    expect(result.current.data).toHaveLength(0);
+  });
 });
 
 describe('useLibrary — cross-screen events', () => {

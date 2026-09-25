@@ -22,8 +22,7 @@ export const libraryStyles = createStyles(({ colors, text, spacing, radius, bord
       borderBottomColor: colors.border.primary,
     },
     countTxt: { color: colors.text.secondary, fontSize: text.size[2], flex: 1 },
-    sortBtn: { paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
-    sortBtnTxt: { color: colors.text.link.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
+    sortBtn: { marginLeft: spacing[4], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
     viewToggleBtn: { marginLeft: spacing[4], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
 
     content: { flex: 1 },

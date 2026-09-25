@@ -1,22 +1,23 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LayoutGrid, LayoutList } from 'lucide-react-native';
+import { ArrowDownAZ, ClockArrowDown, LayoutGrid, LayoutList, ListFilter } from 'lucide-react-native';
 import { ScrollToTopButton } from '../../shared/components/scroll-to-top-button';
+import { IconButton } from '../../shared/components/icon-button';
 import { useStrings } from '../../shared/i18n';
 import type { Strings } from '../../shared/i18n';
 import { NavOrigin, Routes } from '../../navigation/routes';
 import { SerieTool } from '../../shared/tools/serials';
 import { DateTool } from '../../shared/tools/date';
-import type { LibraryEntry } from './library.tool';
+import { LibraryTool, type LibraryEntry } from './library.tool';
 import { Card, CardList } from '../../shared/components';
-import { AlphabetIndex } from './components';
+import { AlphabetIndex, LibraryFilterMenu } from './components';
 import { FreshnessBanner } from '../../shared/components';
 import type { FreshnessBannerVariant } from '../../shared/components';
 import { useLibrary, type LibraryBannerState } from './hooks';
 import { libraryStyles } from './library.styles';
-import type { LibraryMode } from './library.types';
+import type { LibraryMode, LibraryReadStatusFilter } from './library.types';
 import { useTheme, useStyles } from '../../shared/context';
 import { icon } from '../../shared/theme';
 
@@ -39,9 +40,19 @@ export function LibraryScreen() {
   const mode = resolveMode((route.params as { mode?: string } | undefined)?.mode);
   const isFollowing = mode === 'following';
 
+  // Session-only, resets on unmount (leaving the tab) — see LibraryReadStatusFilter's own doc.
+  const [activeReadStatusFilters, setActiveReadStatusFilters] = useState<Set<LibraryReadStatusFilter>>(
+    () => new Set(),
+  );
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+
+  // Composes with the following-only filter (isFollowed) rather than replacing it — both narrow
+  // the same list independently. Adding a future filter (e.g. publication status) is another
+  // `&&` clause here, not a rewrite of this shape.
   const filter = useMemo(
-    () => (isFollowing ? (entry: LibraryEntry) => entry.isFollowed : undefined),
-    [isFollowing],
+    () => (entry: LibraryEntry) =>
+      (!isFollowing || entry.isFollowed) && LibraryTool.matchesReadStatus(entry, activeReadStatusFilters),
+    [isFollowing, activeReadStatusFilters],
   );
 
   const {
@@ -50,6 +61,7 @@ export function LibraryScreen() {
     error,
     bannerState,
     data,
+    unfilteredCount,
     paddedData,
     viewMode,
     sortMode,
@@ -81,6 +93,24 @@ export function LibraryScreen() {
   const toggleFollow = useCallback((seriesId: string) => {
     SerieTool.toggleFollow({ seriesId });
   }, []);
+
+  // No position measurement needed — the filter sheet spans the screen's own width (a bottom
+  // sheet, not a small popover anchored under the button), so there's no per-button coordinate to
+  // get wrong. This also sidesteps a device bug the previous popover had: measuring the button's
+  // on-screen position inside its own onPress could race the native touch-feedback pass and read
+  // a stale/zeroed layout, landing the popover at the screen's left edge instead of under it.
+  const openFilterMenu = useCallback(() => setFilterMenuVisible(true), []);
+
+  const toggleReadStatusFilter = useCallback((value: LibraryReadStatusFilter) => {
+    setActiveReadStatusFilters(current => {
+      const next = new Set(current);
+      if (next.has(value)) {next.delete(value);}
+      else {next.add(value);}
+      return next;
+    });
+  }, []);
+
+  const clearReadStatusFilters = useCallback(() => setActiveReadStatusFilters(new Set()), []);
 
   const renderGridItem = useCallback(
     ({ item }: { item: LibraryEntry | null }) =>
@@ -144,7 +174,7 @@ export function LibraryScreen() {
     );
   }
 
-  if (!loading && data.length === 0) {
+  if (!loading && unfilteredCount === 0) {
     return (
       <View style={styles.center}>
         <Text style={styles.message}>{emptyText}</Text>
@@ -152,8 +182,17 @@ export function LibraryScreen() {
     );
   }
 
+  // Distinct from the empty-library case above: there IS data, a filter just matched nothing —
+  // the topBar (and the filter button in it) stays reachable so the user can change/clear it,
+  // unlike the true-empty state, which renders nothing else.
+  const filterMatchedNothing = !loading && data.length === 0;
+
   const alphabetEntries = Array.from(alphabetIndex.entries());
   const banner = freshnessBanner(bannerState, t);
+
+  const sortLabel = sortMode === 'RECENTLY_UPDATED' ? t.librarySortRecentlyUpdated : t.librarySortAlphabetical;
+  // Describes where the toggle takes you, not the current mode — same convention as sortLabel.
+  const viewToggleLabel = viewMode === 'GRID' ? t.libraryViewList : t.libraryViewGrid;
 
   return (
     <View style={styles.root}>
@@ -161,71 +200,107 @@ export function LibraryScreen() {
         <Text style={styles.countTxt}>
           {data.length} {t.librarySeriesCount}
         </Text>
-        <TouchableOpacity style={styles.sortBtn} onPress={toggleSortMode}>
-          <Text style={styles.sortBtnTxt}>
-            {sortMode === 'RECENTLY_UPDATED' ? t.librarySortRecentlyUpdated : t.librarySortAlphabetical}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.viewToggleBtn} onPress={toggleViewMode}>
-          {viewMode === 'GRID' ? <LayoutList size={icon.size[4]} color={colors.icon.secondary} /> : <LayoutGrid size={icon.size[4]} color={colors.icon.secondary} />}
-        </TouchableOpacity>
+        <IconButton
+          icon={ListFilter}
+          glyph="arrow"
+          size={icon.size[5]}
+          color={activeReadStatusFilters.size > 0 ? colors.icon.primary : colors.icon.secondary}
+          onPress={openFilterMenu}
+          accessibilityLabel={t.libraryFilterButtonLabel}
+        />
+        <IconButton
+          icon={sortMode === 'RECENTLY_UPDATED' ? ClockArrowDown : ArrowDownAZ}
+          glyph="arrow"
+          size={icon.size[5]}
+          color={colors.text.link.primary}
+          onPress={toggleSortMode}
+          accessibilityLabel={sortLabel}
+          style={styles.sortBtn}
+        />
+        <IconButton
+          icon={viewMode === 'GRID' ? LayoutList : LayoutGrid}
+          glyph="arrow"
+          size={icon.size[4]}
+          color={colors.icon.secondary}
+          onPress={toggleViewMode}
+          accessibilityLabel={viewToggleLabel}
+          style={styles.viewToggleBtn}
+        />
       </View>
 
-      {banner && <FreshnessBanner variant={banner.variant} text={banner.text} />}
+      <LibraryFilterMenu
+        visible={filterMenuVisible}
+        active={activeReadStatusFilters}
+        t={t}
+        onClose={() => setFilterMenuVisible(false)}
+        onToggle={toggleReadStatusFilter}
+        onClear={clearReadStatusFilters}
+      />
 
-      <View style={styles.content}>
-        <FlatList
-          ref={listRef}
-          data={paddedData as (LibraryEntry | null)[]}
-          keyExtractor={keyExtractor as (item: LibraryEntry | null, idx: number) => string}
-          numColumns={viewMode === 'GRID' ? 2 : 1}
-          key={viewMode}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              // `tintColor` is iOS-only; Android draws the spinner with `colors`, so both are set.
-              tintColor={colors.icon.primary}
-              colors={[colors.icon.primary]}
-              progressBackgroundColor={colors.surface.secondary}
+      {filterMatchedNothing ? (
+        <View style={styles.center}>
+          <Text style={styles.message}>{t.libraryFilterNoResults}</Text>
+        </View>
+      ) : (
+        <>
+          {banner && <FreshnessBanner variant={banner.variant} text={banner.text} />}
+
+          <View style={styles.content}>
+            <FlatList
+              ref={listRef}
+              data={paddedData as (LibraryEntry | null)[]}
+              keyExtractor={keyExtractor as (item: LibraryEntry | null, idx: number) => string}
+              numColumns={viewMode === 'GRID' ? 2 : 1}
+              key={viewMode}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={refresh}
+                  // `tintColor` is iOS-only; Android draws the spinner with `colors`, so both are set.
+                  tintColor={colors.icon.primary}
+                  colors={[colors.icon.primary]}
+                  progressBackgroundColor={colors.surface.secondary}
+                />
+              }
+              renderItem={viewMode === 'GRID' ? renderGridItem : (renderListItem as never)}
+              contentContainerStyle={
+                viewMode === 'GRID'
+                  ? styles.gridList
+                  : alphabetEntries.length > 0
+                    ? styles.listListWithIndex
+                    : styles.listList
+              }
+              onScroll={handleScroll}
+              scrollEventThrottle={100}
+              onScrollToIndexFailed={onScrollToIndexFailed}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              // A re-order re-mounts nothing (stable keys) and the rows are React.memo'd, so the cost
+              // is FlatList diffing 119 items. These caps keep the work per frame bounded.
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={7}
+              removeClippedSubviews
             />
-          }
-          renderItem={viewMode === 'GRID' ? renderGridItem : (renderListItem as never)}
-          contentContainerStyle={
-            viewMode === 'GRID'
-              ? styles.gridList
-              : alphabetEntries.length > 0
-                ? styles.listListWithIndex
-                : styles.listList
-          }
-          onScroll={handleScroll}
-          scrollEventThrottle={100}
-          onScrollToIndexFailed={onScrollToIndexFailed}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          // A re-order re-mounts nothing (stable keys) and the rows are React.memo'd, so the cost
-          // is FlatList diffing 119 items. These caps keep the work per frame bounded.
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          windowSize={7}
-          removeClippedSubviews
-        />
 
-        <AlphabetIndex
-          entries={alphabetEntries}
-          onJump={idx => listRef.current?.scrollToIndex({ index: idx, animated: false })}
-        />
+            <AlphabetIndex
+              entries={alphabetEntries}
+              onJump={idx => listRef.current?.scrollToIndex({ index: idx, animated: false })}
+            />
 
-        {showScrollTop && (
-          <ScrollToTopButton
-            right={36}
-            onPress={() => {
-              listRef.current?.scrollToOffset({ offset: 0, animated: true });
-              hideScrollTop();
-            }}
-          />
-        )}
-      </View>
+            {showScrollTop && (
+              <ScrollToTopButton
+                right={36}
+                onPress={() => {
+                  listRef.current?.scrollToOffset({ offset: 0, animated: true });
+                  hideScrollTop();
+                }}
+                accessibilityLabel={t.commonScrollToTopLabel}
+              />
+            )}
+          </View>
+        </>
+      )}
     </View>
   );
 }

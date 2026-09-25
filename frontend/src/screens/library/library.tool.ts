@@ -2,6 +2,7 @@ import type { ExternalMetadataMatch } from '../../shared/bridge';
 import type { Strings } from '../../shared/i18n';
 import { SerieTool, type Serie, type SerialCard } from '../../shared/tools/serials';
 import type { SeriesDigestIndexEntry } from '../../shared/managers/store';
+import type { LibraryReadStatusFilter } from './library.types';
 
 // LibraryTool — the screen-local tool for the Library/Following screen. It takes what
 // library.hooks.ts already fetched — Serie[] (already normalized by SerieTool), the positional
@@ -55,5 +56,14 @@ export const LibraryTool = {
         },
       });
     });
+  },
+
+  // An empty selection means "no filter" (every entry passes) — the caller never has to special-
+  // case "nothing chosen yet" itself. Client-side, off readStatus (already present on every
+  // entry, unlike publicationStatus which can still be pending lazy enrichment for a card not
+  // yet scrolled into view) — see docs/data-freshness.md for why publication filtering would
+  // need a server-side pass instead of this same pattern.
+  matchesReadStatus(entry: LibraryEntry, active: ReadonlySet<LibraryReadStatusFilter>): boolean {
+    return active.size === 0 || active.has(entry.readStatus);
   },
 };

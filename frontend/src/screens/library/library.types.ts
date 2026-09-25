@@ -5,6 +5,11 @@ export type { LibraryEntry };
 export type LibraryViewMode = 'GRID' | 'LIST';
 export type LibrarySortMode = 'RECENTLY_UPDATED' | 'ALPHABETICAL';
 
+// Same values as SerialCard.readStatus — a chip per value, multi-select (empty set = no filter,
+// show everything). Session-only by design: resets when the screen unmounts (leaving the tab),
+// never persisted — see LibraryPrefs for what IS persisted (view/sort).
+export type LibraryReadStatusFilter = 'UNREAD' | 'IN_PROGRESS' | 'READ';
+
 // Which tab the shared LibraryScreen is rendering, from the route param `mode`. Also scopes the
 // persisted view/sort preferences and the navigation origin — the Library tab and the Following
 // tab keep independent layout choices.

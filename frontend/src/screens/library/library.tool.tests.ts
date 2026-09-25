@@ -1,4 +1,4 @@
-import { LibraryTool } from './library.tool';
+import { LibraryTool, type LibraryEntry } from './library.tool';
 import type { ExternalMetadataMatch } from '../../shared/bridge/external';
 import { serieEvents, type Serie } from '../../shared/tools/serials';
 import type { SeriesDigestIndexEntry } from '../../shared/managers/store';
@@ -144,5 +144,28 @@ describe('LibraryTool.normalize', () => {
     });
     expect(out[0].downloadedChapters).toBe(5);
     expect(out[1].downloadedChapters).toBeUndefined();
+  });
+});
+
+describe('LibraryTool.matchesReadStatus', () => {
+  // matchesReadStatus only ever reads entry.readStatus, so a real full LibraryEntry (via
+  // normalize()/one()) isn't needed — this builds just enough of one directly.
+  const withStatus = (readStatus: 'UNREAD' | 'IN_PROGRESS' | 'READ') => ({ readStatus }) as LibraryEntry;
+
+  it('an empty selection means no filter — every entry passes', () => {
+    expect(LibraryTool.matchesReadStatus(withStatus('UNREAD'), new Set())).toBe(true);
+    expect(LibraryTool.matchesReadStatus(withStatus('READ'), new Set())).toBe(true);
+  });
+
+  it('passes an entry whose readStatus is in the active set', () => {
+    expect(LibraryTool.matchesReadStatus(withStatus('IN_PROGRESS'), new Set(['IN_PROGRESS']))).toBe(true);
+  });
+
+  it('rejects an entry whose readStatus is not in the active set', () => {
+    expect(LibraryTool.matchesReadStatus(withStatus('READ'), new Set(['UNREAD', 'IN_PROGRESS']))).toBe(false);
+  });
+
+  it('passes when multiple statuses are active and the entry matches one of them', () => {
+    expect(LibraryTool.matchesReadStatus(withStatus('READ'), new Set(['READ', 'UNREAD']))).toBe(true);
   });
 });

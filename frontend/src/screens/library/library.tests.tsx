@@ -28,6 +28,7 @@ const mockHookState: {
   error: string | null;
   bannerState: LibraryBannerState;
   data: LibraryEntry[];
+  unfilteredCount: number;
   paddedData: (LibraryEntry | null)[];
   viewMode: 'GRID' | 'LIST';
   sortMode: 'RECENTLY_UPDATED' | 'ALPHABETICAL';
@@ -39,6 +40,7 @@ const mockHookState: {
   error: null,
   bannerState: { kind: 'none' },
   data: [],
+  unfilteredCount: -1, // UNSET_UNFILTERED_COUNT — see the mock below
   paddedData: [],
   viewMode: 'GRID',
   sortMode: 'RECENTLY_UPDATED',
@@ -51,9 +53,16 @@ const mockToggleViewMode = jest.fn();
 const mockHandleScroll = jest.fn();
 const mockHideScrollTop = jest.fn();
 
+// unfilteredCount defaults to data.length unless a test overrides it (to exercise the
+// filter-matched-nothing branch, where data.length === 0 but unfilteredCount > 0).
+const UNSET_UNFILTERED_COUNT = -1;
 jest.mock('./hooks', () => ({
   useLibrary: () => ({
     ...mockHookState,
+    unfilteredCount:
+      mockHookState.unfilteredCount === UNSET_UNFILTERED_COUNT
+        ? mockHookState.data.length
+        : mockHookState.unfilteredCount,
     refresh: mockRefresh,
     toggleSortMode: mockToggleSortMode,
     toggleViewMode: mockToggleViewMode,
@@ -89,6 +98,7 @@ beforeEach(() => {
     error: null,
     bannerState: { kind: 'none' },
     data: [],
+    unfilteredCount: UNSET_UNFILTERED_COUNT,
     paddedData: [],
     viewMode: 'GRID',
     sortMode: 'RECENTLY_UPDATED',
@@ -203,8 +213,9 @@ describe('LibraryScreen', () => {
     const e = entry();
     mockHookState.data = [e];
     mockHookState.paddedData = [e, null];
-    const { getByText, UNSAFE_getByType } = render(<LibraryScreen />);
-    fireEvent.press(getByText(t.librarySortRecentlyUpdated));
+    const { getByLabelText, UNSAFE_getByType } = render(<LibraryScreen />);
+    // The sort button is icon-only now; its accessibilityLabel carries the current mode's name.
+    fireEvent.press(getByLabelText(t.librarySortRecentlyUpdated));
     expect(mockToggleSortMode).toHaveBeenCalled();
     // GRID mode shows the LayoutList icon (tap it to switch to LIST) — see library.screen.tsx.
     fireEvent.press(UNSAFE_getByType(LayoutList).parent);
@@ -262,5 +273,40 @@ describe('LibraryScreen', () => {
     // topBar has 2 touchables (sort, view); then the card, then its star.
     fireEvent.press(touchables[touchables.length - 1]);
     expect(mockToggleFollow).toHaveBeenCalledWith({ seriesId: 's3' });
+  });
+
+  describe('read-status filter', () => {
+    it('opens the filter menu from the topBar button', () => {
+      const e = entry({ id: 's4' });
+      mockHookState.data = [e];
+      mockHookState.paddedData = [e, null];
+      const { getByLabelText, getByText } = render(<LibraryScreen />);
+      fireEvent.press(getByLabelText(t.libraryFilterButtonLabel));
+      expect(getByText(t.libraryFilterMenuTitle)).toBeTruthy();
+    });
+
+    it('shows the "no results" message (not the generic empty state) when a filter matches nothing but the library has data', () => {
+      mockHookState.data = [];
+      mockHookState.unfilteredCount = 1; // library has series; the filter just matched none of them
+      const { getByText, queryByText } = render(<LibraryScreen />);
+      expect(getByText(t.libraryFilterNoResults)).toBeTruthy();
+      expect(queryByText(t.libraryEmpty)).toBeNull();
+    });
+
+    it('the filter button and menu stay reachable when a filter matches nothing', () => {
+      mockHookState.data = [];
+      mockHookState.unfilteredCount = 1;
+      const { getByLabelText, getByText } = render(<LibraryScreen />);
+      fireEvent.press(getByLabelText(t.libraryFilterButtonLabel));
+      expect(getByText(t.libraryFilterMenuTitle)).toBeTruthy();
+    });
+
+    it('shows the genuine empty-library message when there is no data at all, filter or not', () => {
+      mockHookState.data = [];
+      mockHookState.unfilteredCount = 0;
+      const { getByText, queryByText } = render(<LibraryScreen />);
+      expect(getByText(t.libraryEmpty)).toBeTruthy();
+      expect(queryByText(t.libraryFilterNoResults)).toBeNull();
+    });
   });
 });

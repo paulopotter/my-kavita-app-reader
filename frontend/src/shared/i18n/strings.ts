@@ -1,6 +1,12 @@
 export type Language = 'pt-BR' | 'en';
 
 export interface Strings {
+  // ── Common (shared across screens) ──────────────────────────────────────
+  commonBackLabel: string;
+  commonCloseLabel: string;
+  commonMoreOptionsLabel: string;
+  commonScrollToTopLabel: string;
+
   // ── Config screen ────────────────────────────────────────────────────────
   configTitle: string;
   configLoadError: string;
@@ -98,6 +104,10 @@ export interface Strings {
   libraryViewGrid: string;
   libraryViewList: string;
   librarySeriesCount: string;
+  libraryFilterButtonLabel: string;
+  libraryFilterMenuTitle: string;
+  libraryFilterClearAll: string;
+  libraryFilterNoResults: string;
 
   // ── Following screen ─────────────────────────────────────────────────────
   followingEmpty: string;
@@ -220,6 +230,9 @@ export interface Strings {
   seriesDetailRangeCancel: string;
   seriesDetailRangeApply: string;
   seriesDetailRangeInvalid: string;
+  seriesDetailBackLabel: string;
+  seriesDetailFollowLabel: string;
+  seriesDetailUnfollowLabel: string;
   seriesDetailChapterMenuLabel: string;
   seriesDetailChapterMenuSort: string;
   seriesDetailChapterMenuRange: string;
@@ -255,6 +268,8 @@ export interface Strings {
   readerChapterPickerButtonLabel: string;
   readerChapterPickerTitle: string;
   readerSettingsButtonLabel: string;
+  readerPrevChapterButtonLabel: string;
+  readerNextChapterButtonLabel: string;
   readerSettingsCloseButtonLabel: string;
   readerProgressColorLabel: string;
   readerProgressColorDefault: string;
@@ -330,6 +345,8 @@ export interface Strings {
   notificationsCollapseSerialChaptersNotification: string;
   notificationsRetentionLabel: string;
   notificationsRetentionDaysSuffix: string;
+  notificationsRetentionDecreaseLabel: string;
+  notificationsRetentionIncreaseLabel: string;
   notificationsGroupsTitle: string;
   notificationsAddGroup: string;
   notificationsGroupModalNewTitle: string;
@@ -386,6 +403,11 @@ export interface Strings {
 }
 
 const ptBR: Strings = {
+  commonBackLabel: 'Voltar',
+  commonCloseLabel: 'Fechar',
+  commonMoreOptionsLabel: 'Mais opções',
+  commonScrollToTopLabel: 'Voltar ao topo',
+
   configTitle: 'Configurações',
   configLoadError: 'Erro ao carregar',
   configKavitaServers: 'Servidores Kavita',
@@ -470,6 +492,10 @@ const ptBR: Strings = {
   libraryViewGrid: 'Grade',
   libraryViewList: 'Lista',
   librarySeriesCount: 'séries',
+  libraryFilterButtonLabel: 'Filtrar',
+  libraryFilterMenuTitle: 'Filtrar por status de leitura',
+  libraryFilterClearAll: 'Limpar filtro',
+  libraryFilterNoResults: 'Nenhuma série encontrada com esse filtro',
 
   followingEmpty: 'Nenhuma série seguida. Marque séries na Biblioteca para vê-las aqui.',
 
@@ -576,6 +602,9 @@ const ptBR: Strings = {
   seriesDetailRangeCancel: 'Cancelar',
   seriesDetailRangeApply: 'Selecionar',
   seriesDetailRangeInvalid: 'Informe um intervalo válido',
+  seriesDetailBackLabel: 'Voltar',
+  seriesDetailFollowLabel: 'Seguir série',
+  seriesDetailUnfollowLabel: 'Deixar de seguir série',
   seriesDetailChapterMenuLabel: 'Opções da lista de capítulos',
   seriesDetailChapterMenuSort: 'Ordenação',
   seriesDetailChapterMenuRange: 'Selecionar intervalo',
@@ -604,6 +633,8 @@ const ptBR: Strings = {
   readerChapterPickerButtonLabel: 'Selecionar capítulo',
   readerChapterPickerTitle: 'Capítulos',
   readerSettingsButtonLabel: 'Ajustes de leitura',
+  readerPrevChapterButtonLabel: 'Capítulo anterior',
+  readerNextChapterButtonLabel: 'Próximo capítulo',
   readerSettingsCloseButtonLabel: 'Fechar',
   readerProgressColorLabel: 'Cor do progresso de leitura',
   readerProgressColorDefault: 'Padrão do tema',
@@ -674,6 +705,8 @@ const ptBR: Strings = {
   notificationsCollapseSerialChaptersNotification: 'Agrupar capítulos próximos da mesma série no histórico',
   notificationsRetentionLabel: 'Manter histórico por',
   notificationsRetentionDaysSuffix: 'dias',
+  notificationsRetentionDecreaseLabel: 'Diminuir dias de retenção',
+  notificationsRetentionIncreaseLabel: 'Aumentar dias de retenção',
   notificationsGroupsTitle: 'Servidores de notificação',
   notificationsAddGroup: '+ Adicionar servidor de notificação',
   notificationsGroupModalNewTitle: 'Novo servidor de notificação',
@@ -722,6 +755,11 @@ const ptBR: Strings = {
 };
 
 const en: Strings = {
+  commonBackLabel: 'Back',
+  commonCloseLabel: 'Close',
+  commonMoreOptionsLabel: 'More options',
+  commonScrollToTopLabel: 'Scroll to top',
+
   configTitle: 'Settings',
   configLoadError: 'Load error',
   configKavitaServers: 'Kavita Servers',
@@ -806,6 +844,10 @@ const en: Strings = {
   libraryViewGrid: 'Grid',
   libraryViewList: 'List',
   librarySeriesCount: 'series',
+  libraryFilterButtonLabel: 'Filter',
+  libraryFilterMenuTitle: 'Filter by reading status',
+  libraryFilterClearAll: 'Clear filter',
+  libraryFilterNoResults: 'No series match this filter',
 
   followingEmpty: 'No series followed. Star series in the Library to see them here.',
 
@@ -912,6 +954,9 @@ const en: Strings = {
   seriesDetailRangeCancel: 'Cancel',
   seriesDetailRangeApply: 'Select',
   seriesDetailRangeInvalid: 'Enter a valid range',
+  seriesDetailBackLabel: 'Back',
+  seriesDetailFollowLabel: 'Follow series',
+  seriesDetailUnfollowLabel: 'Unfollow series',
   seriesDetailChapterMenuLabel: 'Chapter list options',
   seriesDetailChapterMenuSort: 'Sort order',
   seriesDetailChapterMenuRange: 'Select range',
@@ -940,6 +985,8 @@ const en: Strings = {
   readerChapterPickerButtonLabel: 'Select chapter',
   readerChapterPickerTitle: 'Chapters',
   readerSettingsButtonLabel: 'Reading settings',
+  readerPrevChapterButtonLabel: 'Previous chapter',
+  readerNextChapterButtonLabel: 'Next chapter',
   readerSettingsCloseButtonLabel: 'Close',
   readerProgressColorLabel: 'Reading progress colour',
   readerProgressColorDefault: 'Theme default',
@@ -1010,6 +1057,8 @@ const en: Strings = {
   notificationsCollapseSerialChaptersNotification: 'Collapse nearby chapters of the same serial in history',
   notificationsRetentionLabel: 'Keep history for',
   notificationsRetentionDaysSuffix: 'days',
+  notificationsRetentionDecreaseLabel: 'Decrease retention days',
+  notificationsRetentionIncreaseLabel: 'Increase retention days',
   notificationsGroupsTitle: 'Notification servers',
   notificationsAddGroup: '+ Add notification server',
   notificationsGroupModalNewTitle: 'New notification server',
