@@ -189,6 +189,14 @@ class MainApplication :
         applicationScope.launch {
             notificationRetentionPurge.purge()
         }
+        // Re-applies the page-size budget picked in the debug menu (see ReaderFlagsBridgeModule).
+        applicationScope.launch {
+            runCatching {
+                preferences.get(ReaderFlagsBridgeModule.PAGE_BUDGET_PREF_KEY)?.let { stored ->
+                    ReaderDebugFlags.parsePageBudgetMb(stored.value)?.let { ReaderDebugFlags.pageBudgetMb = it }
+                }
+            }
+        }
         // Drops digests (and the page images they point to) nobody has read recently: a day for a
         // series that is not followed, three days for a followed one. A short delay keeps the
         // sweep's database work out of the way of the boot itself.

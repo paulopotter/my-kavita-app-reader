@@ -254,6 +254,10 @@ export interface Strings {
   // chapter. The "…WithCode" variant carries {code} for a decode failure worth reporting.
   readerPageError: string;
   readerPageErrorWithCode: string;
+
+  // ── Debug menu — reader page size ───────────────────────────────────────
+  debugPageBudgetTitle: string;
+  debugPageBudgetHint: string;
   readerOffline: string;
   readerEndOfChapter: string;
   // Same message as readerEndOfChapter, but WITHOUT the {0} placeholder — the footer now renders
@@ -623,6 +627,9 @@ const ptBR: Strings = {
   readerRetry: 'Tentar novamente',
   readerPageError: 'Falha ao carregar página',
   readerPageErrorWithCode: 'Falha ao carregar página ({code})',
+  debugPageBudgetTitle: 'Tamanho máximo da página',
+  debugPageBudgetHint:
+    'Páginas altas são reduzidas para caber neste tamanho. Menor = mais fluido, maior = mais nítido. Vale para páginas carregadas depois da troca.',
   readerOffline: 'Sem conexão',
   readerEndOfChapter: 'Fim do capítulo {0}',
   readerEndOfChapterPrefix: 'Fim do capítulo',
@@ -975,6 +982,9 @@ const en: Strings = {
   readerRetry: 'Retry',
   readerPageError: 'Failed to load page',
   readerPageErrorWithCode: 'Failed to load page ({code})',
+  debugPageBudgetTitle: 'Maximum page size',
+  debugPageBudgetHint:
+    'Tall pages are scaled down to fit this size. Smaller = smoother, larger = sharper. Applies to pages loaded after the change.',
   readerOffline: 'No connection',
   readerEndOfChapter: 'End of chapter {0}',
   readerEndOfChapterPrefix: 'End of chapter',

@@ -96,10 +96,56 @@ import {
   serverServiceSteps,
   serverSteps,
 } from './debug.steps';
-import { useDebugIds } from './debug.hooks';
+import { useDebugIds, usePageBudget } from './debug.hooks';
 import { DebugScreen } from './debug.screen';
 
-beforeEach(() => jest.clearAllMocks());
+const mockBudget = { get: jest.fn(), set: jest.fn() };
+jest.mock('../../../shared/services/reader-flags', () => ({
+  ReaderFlagsService: { pageBudget: { get: (...a: unknown[]) => mockBudget.get(...a), set: (...a: unknown[]) => mockBudget.set(...a) } },
+}));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockBudget.get.mockResolvedValue(48);
+  mockBudget.set.mockImplementation(({ mb }: { mb: number }) => Promise.resolve(mb));
+});
+
+describe('usePageBudget', () => {
+  it('loads the current budget and offers the picker options', async () => {
+    const { result } = renderHook(() => usePageBudget());
+    expect(result.current.value).toBeNull();
+    await waitFor(() => expect(result.current.value).toBe(48));
+    expect(result.current.options).toEqual([32, 48, 64, 80]);
+  });
+
+  it('select shows the new value at once and settles on what native applied', async () => {
+    mockBudget.set.mockResolvedValue(64);
+    const { result } = renderHook(() => usePageBudget());
+    await waitFor(() => expect(result.current.value).toBe(48));
+    await act(async () => {
+      result.current.select(64);
+    });
+    expect(mockBudget.set).toHaveBeenCalledWith({ mb: 64 });
+    await waitFor(() => expect(result.current.value).toBe(64));
+  });
+
+  it('a failed write re-reads the real value from native', async () => {
+    const { result } = renderHook(() => usePageBudget());
+    await waitFor(() => expect(result.current.value).toBe(48));
+    mockBudget.set.mockRejectedValue(new Error('boom'));
+    await act(async () => {
+      result.current.select(80);
+    });
+    await waitFor(() => expect(result.current.value).toBe(48));
+  });
+
+  it('keeps the value null when the first read fails', async () => {
+    mockBudget.get.mockRejectedValue(new Error('no native'));
+    const { result } = renderHook(() => usePageBudget());
+    await act(async () => {});
+    expect(result.current.value).toBeNull();
+  });
+});
 
 describe('runStep', () => {
   it('marks ok with the returned detail', async () => {
@@ -262,6 +308,12 @@ describe('DebugScreen', () => {
     expect(UNSAFE_getByType(ChevronLeft)).toBeTruthy();
     fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it('renders the page size picker with the current value selected', async () => {
+    const { getByText, getByLabelText } = render(<DebugScreen onBack={jest.fn()} />);
+    await waitFor(() => expect(getByLabelText('48 MB').props.accessibilityState).toEqual({ selected: true }));
+    expect(getByText('64 MB')).toBeTruthy();
   });
 
   it('renders the section run buttons', async () => {

@@ -3,8 +3,10 @@ import { ScrollView, Text, View } from 'react-native';
 import { useStyles } from '../../../shared/context';
 import { BackChevron } from '../components';
 
+import { PageBudget } from './components/page-budget';
 import { Section } from './components/section';
-import { useDebugIds } from './debug.hooks';
+import { useDebugIds, usePageBudget } from './debug.hooks';
+import { useStrings } from '../../../shared/i18n';
 import { configStyles as makeChrome } from '../config.styles';
 import {
   chapterSteps,
@@ -24,6 +26,8 @@ import {
 // Config menu by tapping the version footer.
 export function DebugScreen({ onBack }: { onBack: () => void }) {
   const chrome = useStyles(makeChrome);
+  const t = useStrings();
+  const pageBudget = usePageBudget();
   const {
     groupId,
     setGroupId,
@@ -51,6 +55,14 @@ export function DebugScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={chrome.scroll}>
+        <PageBudget
+          title={t.debugPageBudgetTitle}
+          hint={t.debugPageBudgetHint}
+          value={pageBudget.value}
+          options={pageBudget.options}
+          onSelect={pageBudget.select}
+        />
+
         <Section
           title="Server"
           idLabel="groupId"

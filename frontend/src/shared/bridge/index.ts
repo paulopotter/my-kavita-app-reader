@@ -4,6 +4,7 @@ export * from './db-validator';
 export * from './digest';
 export * from './external';
 export * from './followed-series';
+export * from './reader-flags';
 export * from './network';
 export * from './notifications';
 export * from './page';

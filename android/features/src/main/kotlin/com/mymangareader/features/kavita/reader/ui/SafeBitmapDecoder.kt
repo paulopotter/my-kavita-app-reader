@@ -42,17 +42,17 @@ import java.nio.ByteBuffer
 //   to avoid never applies to this path.
 private const val TILE_HEIGHT_PX = 2048
 
-// Final stitched bitmap is capped at this many bytes (ARGB_8888). Android's RecordingCanvas refuses
-// to draw a bitmap above ~100MB ("Canvas: trying to draw too large(N bytes) bitmap", a FATAL crash
-// on the main thread, not catchable at decode time) — confirmed on-device with 1450x27604 PNG
-// webtoon strips (152MB each). Staying well under leaves headroom for several pages in memory.
+// The final stitched/scaled bitmap is capped at ReaderDebugFlags.pageBudgetBytes (default 48MB).
+// Android's RecordingCanvas refuses to draw a bitmap above ~100MB ("Canvas: trying to draw too
+// large(N bytes) bitmap", a FATAL crash on the main thread, not catchable at decode time) —
+// confirmed on-device with 1450x27604 PNG webtoon strips (152MB each).
 //
-// 48MB, not just "under 100MB": on-device logs with 80MB pages showed `Davey! duration=700-1550ms`
+// 48MB and not just "under 100MB": on-device logs with 80MB pages showed `Davey! duration=700-1550ms`
 // on the RenderThread and 30-138 skipped frames WHILE SCROLLING with no decode running — each page's
 // texture is that big, two or three visible at once exceed the GPU resource cache, and the
 // textures get re-uploaded as the list moves. At 48MB a 1500px-wide strip lands at ~1050px wide,
-// about the width of a 1080px screen, so there is almost nothing to lose visually.
-private const val MAX_OUTPUT_BYTES = 48L * 1024 * 1024
+// about the width of a 1080px screen. It is adjustable from the debug menu to trade quality for
+// smoothness on a given device.
 
 // Decodes above this estimated size (ARGB_8888) are "heavy": a tall PNG strip is decoded in a dozen
 // region passes and each pass re-inflates the PNG from the top, so it burns a core for seconds.
@@ -72,7 +72,7 @@ private fun fullBytesOf(
     height: Int,
 ): Long = width.toLong() * height * 4
 
-// Shrink factor that keeps the stitched/scaled bitmap within MAX_OUTPUT_BYTES (1f = no shrink).
+// Shrink factor that keeps the stitched/scaled bitmap within ReaderDebugFlags.pageBudgetBytes (1f = no shrink).
 private fun outputScaleFor(
     width: Int,
     height: Int,
@@ -94,7 +94,7 @@ class SafeBitmapDecoder(
     private val cacheKey: String?,
     // Injectable only so tests can exercise the downscale with small images; production always uses
     // the default.
-    private val maxOutputBytes: Long = MAX_OUTPUT_BYTES,
+    private val maxOutputBytes: Long = ReaderDebugFlags.pageBudgetBytes,
 ) : Decoder {
     override suspend fun decode(): DecodeResult? {
         // PagePreloader and the real on-screen SubcomposeAsyncImage can both request the same

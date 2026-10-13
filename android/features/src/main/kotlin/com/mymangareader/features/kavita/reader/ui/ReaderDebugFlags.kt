@@ -14,6 +14,25 @@ package com.mymangareader.features.kavita.reader.ui
 object ReaderDebugFlags {
     var verboseScrollLogging: Boolean = false
 
+    const val DEFAULT_PAGE_BUDGET_MB = 48
+    const val MIN_PAGE_BUDGET_MB = 16
+    const val MAX_PAGE_BUDGET_MB = 96 // Android refuses to draw a bitmap above ~100MB
+
+    // Largest decoded page bitmap SafeBitmapDecoder produces (taller pages are scaled down to fit).
+    // Read at every decode, so changing it from the debug menu applies to pages decoded afterwards —
+    // no rebuild; pages already in the image cache keep the size they were decoded at. Always kept
+    // inside [MIN_PAGE_BUDGET_MB, MAX_PAGE_BUDGET_MB], whatever is stored or sent.
+    @Volatile
+    var pageBudgetMb: Int = DEFAULT_PAGE_BUDGET_MB
+        set(value) {
+            field = value.coerceIn(MIN_PAGE_BUDGET_MB, MAX_PAGE_BUDGET_MB)
+        }
+
+    val pageBudgetBytes: Long get() = pageBudgetMb * 1024L * 1024L
+
+    // A stored preference value → MB, or null when it isn't a usable number.
+    fun parsePageBudgetMb(raw: String?): Int? = raw?.trim()?.toIntOrNull()
+
     // inline so the message lambda is inlined at the call site instead of allocated as a
     // Function0 object on every invocation — this runs on the scroll hot path, so a non-inline
     // version would allocate-then-discard a closure per tick even with the flag off.
