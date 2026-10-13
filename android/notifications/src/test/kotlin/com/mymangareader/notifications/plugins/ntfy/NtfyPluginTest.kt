@@ -2,6 +2,10 @@ package com.mymangareader.notifications.plugins.ntfy
 
 import com.mymangareader.notifications.plugins.ConnectionState
 import com.mymangareader.notifications.plugins.NotificationUrl
+import com.mymangareader.notifications.plugins.RawNotificationEvent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -27,6 +31,15 @@ class NtfyPluginTest {
     @After
     fun tearDown() {
         server.shutdown()
+    }
+
+    // Subscribes BEFORE connecting. The plugin's event flow has no replay, and these servers send their
+    // message right in onOpen — collecting only after connect() returned raced it: when the message
+    // won, the event was gone and first() waited out its timeout (the flaky failure this fixes).
+    private fun CoroutineScope.firstEventWhileConnecting(plugin: NtfyPlugin): RawNotificationEvent {
+        val first = async(start = CoroutineStart.UNDISPATCHED) { plugin.events.first() }
+        runBlocking { plugin.connect(testUrl()) }
+        return runBlocking { withTimeout(5_000) { first.await() } }
     }
 
     private fun testUrl() = NotificationUrl(url = server.url("/").toString(), topic = "my-topic", timeoutMs = 5_000)
@@ -83,9 +96,7 @@ class NtfyPluginTest {
                 ),
             )
             val plugin = NtfyPlugin()
-            plugin.connect(testUrl())
-
-            val first = withTimeout(5_000) { plugin.events.first() }
+            val first = firstEventWhileConnecting(plugin)
 
             assertEquals("A", first.seriesName)
 
@@ -113,9 +124,7 @@ class NtfyPluginTest {
                 ),
             )
             val plugin = NtfyPlugin()
-            plugin.connect(testUrl())
-
-            val first = withTimeout(5_000) { plugin.events.first() }
+            val first = firstEventWhileConnecting(plugin)
 
             assertEquals("A", first.seriesName)
 
@@ -141,11 +150,10 @@ class NtfyPluginTest {
                 ),
             )
             val plugin = NtfyPlugin()
-            plugin.connect(testUrl())
 
             // Only the real "message" frame should ever surface as an event — if "open" produced
             // one, this would return it first instead.
-            val first = withTimeout(5_000) { plugin.events.first() }
+            val first = firstEventWhileConnecting(plugin)
             assertEquals("A", first.seriesName)
 
             plugin.disconnect()
@@ -170,9 +178,7 @@ class NtfyPluginTest {
                 ),
             )
             val plugin = NtfyPlugin()
-            plugin.connect(testUrl())
-
-            val first = withTimeout(5_000) { plugin.events.first() }
+            val first = firstEventWhileConnecting(plugin)
             assertEquals("A", first.seriesName)
 
             plugin.disconnect()

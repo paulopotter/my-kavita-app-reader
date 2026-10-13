@@ -21,6 +21,7 @@ import com.mymangareader.tools.locale.AppLocale
 import com.mymangareader.tools.network.NetworkAvailability
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -140,11 +141,11 @@ class NotificationConnectionService : Service() {
 
         val url = resolveUrlWithRetry(group.id) ?: return // gate turned this off mid-retry — already STOPPED
         Log.i(TAG, "connectAndObserve() — group=${group.id} (${group.name}) providerId=${group.providerId} url=${url.url} topic=${url.topic}")
-        plugin.connect(url)
-
+        // Subscribe BEFORE connecting: the plugin's event flow has no replay, so a message that arrives
+        // between connect() returning and a later-launched collector starting was simply lost.
         // Children of this connection's job: cancelled together when a newer start() replaces it.
         coroutineScope {
-            launch {
+            launch(start = CoroutineStart.UNDISPATCHED) {
                 plugin.connectionState.collect { state ->
                     Log.d(TAG, "connectionState changed -> $state")
                     updateStatus(
@@ -156,9 +157,10 @@ class NotificationConnectionService : Service() {
                     )
                 }
             }
-            launch {
+            launch(start = CoroutineStart.UNDISPATCHED) {
                 plugin.events.collect { rawEvent -> eventPipeline.handle(rawEvent) }
             }
+            plugin.connect(url)
         }
     }
 
