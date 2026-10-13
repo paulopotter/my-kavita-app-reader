@@ -254,7 +254,7 @@ class MainApplication :
             .memoryCache {
                 MemoryCache
                     .Builder(this)
-                    .maxSizePercent(READER_MEMORY_CACHE_PERCENT)
+                    .maxSizeBytes(READER_MEMORY_CACHE_BYTES)
                     .build()
             }
             // Coil's default disk cache is 2% of free disk space, which on a nearly-full device
@@ -288,7 +288,12 @@ class MainApplication :
 
     companion object {
         private const val READER_DISK_CACHE_MAX_BYTES = 500L * 1024 * 1024
-        private const val READER_MEMORY_CACHE_PERCENT = 0.15
+        // An absolute size, not a percentage: 15% of this app's ~256MB memory class was ~38MB, SMALLER
+        // than one decoded webtoon page (up to 48MB, see SafeBitmapDecoder.MAX_OUTPUT_BYTES) — and
+        // Coil never stores an entry larger than the whole cache. So no page stayed in memory at all:
+        // scrolling back re-decoded it (2-5s of black placeholder), seen as the same page decoded 2-3x
+        // in on-device logs. Room for three such pages; cleared in onTrimMemory once the UI is hidden.
+        private const val READER_MEMORY_CACHE_BYTES = 160 * 1024 * 1024
         private const val STABLE_BOOT_DELAY_MS = 5_000L
     }
 }
