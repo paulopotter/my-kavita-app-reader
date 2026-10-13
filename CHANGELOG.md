@@ -10,6 +10,23 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- fix: o app não fecha mais ao abrir obras com páginas muito altas (o Android recusava desenhar imagens acima de ~100 MB).
+- perf: páginas muito altas decodificam cerca de 8 vezes mais rápido e com tamanho limitado, o que elimina as travadas na rolagem.
+- fix: voltar para uma página já vista não a decodifica de novo (o cache de imagens em memória agora comporta ao menos três páginas) e ele é liberado quando o app sai da tela.
+- feat: limpeza automática do cache ao abrir o app: obras fora do Seguindo guardam o cache por 24 horas e as do Seguindo, por 3 dias; as imagens saem junto.
+- fix: as imagens das páginas passam a ser guardadas pelo caminho e não pelo endereço completo: trocar entre rede local e DNS não baixa tudo de novo, e a chave de API deixa de aparecer no cache e nos logs.
+- fix: as URLs de páginas já em cache passam a apontar para o endereço do servidor que está ativo agora, e não para o de quando foram salvas.
+- fix: o endereço da rede local volta a ser usado em até 1 minuto depois de uma falha (antes ficava 15 minutos no endereço público).
+- fix: "Testar conexão" passa a atualizar de fato o servidor ativo exibido nas configurações.
+- fix: a tela da obra não mostra mais capítulos desatualizados em relação à Biblioteca (capítulo novo ou lido em outro lugar).
+- fix: o servidor de enriquecimento fora do ar não trava mais a abertura da obra (prazo de 2 segundos).
+- fix: o serviço de notificações abria uma conexão nova a cada início, vazando memória, e notificações que chegavam logo ao conectar podiam se perder.
+- fix: a mensagem de erro de página não mostra mais o texto `{code}` cru quando a falha é de rede.
+- feat: log de diagnóstico local com erros, exceções não tratadas, motivo do fechamento do app e uso de memória; nada sai do aparelho e chaves e senhas são mascaradas.
+- fix: os hosts de deep link só são injetados ao gerar o APK e não ficam mais no manifest versionado.
+
 ## [[2026.09.25.0053](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.25.0053)] - 2026-09-25
 
 Nova seleção de capítulos em massa, ajustes rápidos no leitor e mais opções visuais para a sua biblioteca. / New bulk chapter selection, quick reader adjustments, and more visual options for your library.
