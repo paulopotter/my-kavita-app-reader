@@ -97,8 +97,8 @@ class SduNodeTest {
     }
 
     @Test
-    fun `a text node keeps its placeholder when there is nothing to substitute`() {
-        // A network failure has no code to show, so the token stays — the wording is still legible.
+    fun `a text node drops its placeholder and parentheses when there is nothing to substitute`() {
+        // A network failure has no code to show — the raw token must never reach the screen.
         composeRule.setContent {
             SduNodeView(
                 node = SduNode.TextNode(text = "Falha ({code})", placeholder = "{code}"),
@@ -107,7 +107,15 @@ class SduNodeTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Falha ({code})").assertExists()
+        composeRule.onNodeWithText("Falha").assertExists()
+    }
+
+    @Test
+    fun `resolvePlaceholder handles bare tokens and leaves text without one alone`() {
+        org.junit.Assert.assertEquals("Erro 5", resolvePlaceholder("Erro {code}", "{code}", "5"))
+        org.junit.Assert.assertEquals("Erro", resolvePlaceholder("Erro {code}", "{code}", null))
+        org.junit.Assert.assertEquals("Falha ao carregar página", resolvePlaceholder("Falha ao carregar página ({code})", "{code}", null))
+        org.junit.Assert.assertEquals("Fim", resolvePlaceholder("Fim", null, null))
     }
 
     @Test

@@ -85,8 +85,8 @@ export function ReaderScreen() {
   const pageErrorNode = useMemo(
     () =>
       buildPageErrorNode({
-        // The WithCode wording always: Kotlin substitutes {code} only for a decode failure and
-        // leaves the token in place otherwise — see buildPageErrorNode.
+        // The WithCode wording always: Kotlin substitutes {code} for a decode failure and drops it
+        // (with its parentheses) otherwise — see resolvePlaceholder in SduNode.kt.
         message: t.readerPageErrorWithCode,
         retryLabel: t.readerRetry,
         tokens: {

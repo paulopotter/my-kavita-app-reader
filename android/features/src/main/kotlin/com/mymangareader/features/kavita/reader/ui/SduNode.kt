@@ -140,12 +140,7 @@ fun SduNodeView(
         }
         is SduNode.TextNode ->
             Text(
-                text =
-                    if (node.placeholder != null && substitution != null) {
-                        node.text.replace(node.placeholder, substitution)
-                    } else {
-                        node.text
-                    },
+                text = resolvePlaceholder(node.text, node.placeholder, substitution),
                 color = parseColorOrNull(node.color) ?: Color.White,
                 fontSize = node.fontSizeSp.sp,
                 fontWeight = if (node.bold) FontWeight.SemiBold else FontWeight.Normal,
@@ -191,4 +186,20 @@ private fun SduNode.Container.Align.toRowAlignment(): Alignment.Vertical =
         SduNode.Container.Align.START -> Alignment.Top
         SduNode.Container.Align.CENTER -> Alignment.CenterVertically
         SduNode.Container.Align.END -> Alignment.Bottom
+    }
+
+/**
+ * Fills [placeholder] with [substitution] inside [text]. With nothing to substitute (a network
+ * failure carries no code) the placeholder is dropped together with its wrapping parentheses and
+ * leading space, so the user never sees a raw "{code}" — "Falha ({code})" becomes "Falha".
+ */
+internal fun resolvePlaceholder(
+    text: String,
+    placeholder: String?,
+    substitution: String?,
+): String =
+    when {
+        placeholder == null -> text
+        substitution != null -> text.replace(placeholder, substitution)
+        else -> text.replace(Regex("""\s*\(\s*${Regex.escape(placeholder)}\s*\)|\s*${Regex.escape(placeholder)}"""), "")
     }
