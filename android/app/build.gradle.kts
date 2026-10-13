@@ -292,6 +292,16 @@ val generateDeepLinkHosts by tasks.registering {
     inputs.file(localPropertiesFile).optional()
     outputs.file(manifestFile)
 
+    // Only when this build actually packages an APK. Unit tests/compile (make coverage, the
+    // pre-commit hook) also trigger the pre*Build tasks, but never the assemble* task that runs
+    // clearDeepLinkHosts afterwards — so injecting there left personal hosts in the working tree.
+    onlyIf {
+        gradle.taskGraph.allTasks.any {
+            // Exact top-level names: AGP's internal bundleDebugClasses & co. also run for unit tests.
+            Regex("^(assemble|install)[A-Z]\\w*$|^bundle(Debug|Release)$").matches(it.name)
+        }
+    }
+
     doLast {
         val hosts = readDeepLinkHostsFromLocalProperties(localPropertiesFile)
         writeDeepLinkHostsBlock(manifestFile, hosts)
