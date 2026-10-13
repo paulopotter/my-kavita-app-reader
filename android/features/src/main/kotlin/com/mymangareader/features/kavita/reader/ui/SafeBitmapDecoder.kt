@@ -46,7 +46,43 @@ private const val TILE_HEIGHT_PX = 2048
 // to draw a bitmap above ~100MB ("Canvas: trying to draw too large(N bytes) bitmap", a FATAL crash
 // on the main thread, not catchable at decode time) — confirmed on-device with 1450x27604 PNG
 // webtoon strips (152MB each). Staying well under leaves headroom for several pages in memory.
-private const val MAX_OUTPUT_BYTES = 80L * 1024 * 1024
+//
+// 48MB, not just "under 100MB": on-device logs with 80MB pages showed `Davey! duration=700-1550ms`
+// on the RenderThread and 30-138 skipped frames WHILE SCROLLING with no decode running — each page's
+// texture is that big, two or three visible at once exceed the GPU resource cache, and the
+// textures get re-uploaded as the list moves. At 48MB a 1500px-wide strip lands at ~1050px wide,
+// about the width of a 1080px screen, so there is almost nothing to lose visually.
+private const val MAX_OUTPUT_BYTES = 48L * 1024 * 1024
+
+// Decodes above this estimated size (ARGB_8888) are "heavy": a tall PNG strip is decoded in a dozen
+// region passes and each pass re-inflates the PNG from the top, so it burns a core for seconds.
+// With the preloader's window plus the visible pages, five of these were observed starting within
+// 250ms of each other — every core busy, GC thrashing, UI at ~1fps. Heavy decodes now queue on this
+// gate (fair, so pages are served in request order) and run at background thread priority so the UI
+// and gesture threads keep getting CPU.
+private const val HEAVY_DECODE_BYTES = 16L * 1024 * 1024
+
+// Largest full-size PNG decoded in one piece before scaling down (it briefly holds the full-size
+// bitmap AND the scaled one). Anything bigger takes the tiled path. Heavy decodes run one at a time,
+// so this transient peak never doubles up.
+private const val WHOLE_DECODE_MAX_BYTES = 200L * 1024 * 1024
+
+private fun fullBytesOf(
+    width: Int,
+    height: Int,
+): Long = width.toLong() * height * 4
+
+// Shrink factor that keeps the stitched/scaled bitmap within MAX_OUTPUT_BYTES (1f = no shrink).
+private fun outputScaleFor(
+    width: Int,
+    height: Int,
+    maxOutputBytes: Long,
+): Float {
+    val full = fullBytesOf(width, height)
+    return if (full <= maxOutputBytes) 1f else Math.sqrt(maxOutputBytes.toDouble() / full).toFloat()
+}
+private const val MAX_CONCURRENT_HEAVY_DECODES = 1
+private val heavyDecodeGate = java.util.concurrent.Semaphore(MAX_CONCURRENT_HEAVY_DECODES, true)
 
 /**
  * Coil decoder that avoids asking the platform to decode very tall images in one shot: tiles via
@@ -56,6 +92,9 @@ private const val MAX_OUTPUT_BYTES = 80L * 1024 * 1024
 class SafeBitmapDecoder(
     private val source: ImageSource,
     private val cacheKey: String?,
+    // Injectable only so tests can exercise the downscale with small images; production always uses
+    // the default.
+    private val maxOutputBytes: Long = MAX_OUTPUT_BYTES,
 ) : Decoder {
     override suspend fun decode(): DecodeResult? {
         // PagePreloader and the real on-screen SubcomposeAsyncImage can both request the same
@@ -125,12 +164,46 @@ class SafeBitmapDecoder(
             val realMimeType = bounds.outMimeType
             ReaderDebugFlags.d("CoilDiagnostic") { "decodeNow realMimeType=$realMimeType cacheKey=$cacheKey" }
 
-            if (realMimeType == "image/avif") {
-                decodeAvif(bytes, originalWidth, originalHeight)
-            } else {
-                decodeTiled(bytes, originalWidth, originalHeight)
+            withHeavyDecodeGate(originalWidth.toLong() * originalHeight * 4) {
+                when {
+                    realMimeType == "image/avif" -> decodeAvif(bytes, originalWidth, originalHeight)
+                    // PNG can't be read by region: each BitmapRegionDecoder pass re-inflates the file
+                    // from the top, so a 14-tile strip took 2.6-5.8s on device. One decode + one scale
+                    // is a fraction of that. Falls back to the tiled path if it can't allocate.
+                    realMimeType == "image/png" && fullBytesOf(originalWidth, originalHeight) <= WHOLE_DECODE_MAX_BYTES ->
+                        decodeWholeScaled(bytes, originalWidth, originalHeight) ?: decodeTiled(bytes, originalWidth, originalHeight)
+                    else -> decodeTiled(bytes, originalWidth, originalHeight)
+                }
             }
         }
+
+    private inline fun <T> withHeavyDecodeGate(
+        estimatedBytes: Long,
+        block: () -> T,
+    ): T {
+        if (estimatedBytes < HEAVY_DECODE_BYTES) return block()
+        val startedWaiting = System.nanoTime()
+        heavyDecodeGate.acquire() // interruptible: a cancelled request leaves the queue
+        val previousPriority = android.os.Process.getThreadPriority(android.os.Process.myTid())
+        try {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            android.util.Log.i(
+                "CoilDiagnostic",
+                "heavy decode start waited=${(System.nanoTime() - startedWaiting) / 1_000_000}ms " +
+                    "est=${estimatedBytes / (1024 * 1024)}MB cacheKey=$cacheKey",
+            )
+            val t0 = System.nanoTime()
+            return block().also {
+                android.util.Log.i(
+                    "CoilDiagnostic",
+                    "heavy decode done took=${(System.nanoTime() - t0) / 1_000_000}ms cacheKey=$cacheKey",
+                )
+            }
+        } finally {
+            android.os.Process.setThreadPriority(previousPriority)
+            heavyDecodeGate.release()
+        }
+    }
 
     // AVIF is encoded with the AV1 video codec, so both BitmapFactory and ImageDecoder always route
     // it through MediaCodec — there is no software-only AVIF path in the public Android SDK, and no
@@ -167,6 +240,39 @@ class SafeBitmapDecoder(
         }
     }
 
+    private fun decodeWholeScaled(
+        bytes: ByteArray,
+        originalWidth: Int,
+        originalHeight: Int,
+    ): DecodeResult? {
+        val scale = outputScaleFor(originalWidth, originalHeight, maxOutputBytes)
+        val full =
+            try {
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options())
+            } catch (t: Throwable) {
+                android.util.Log.e("CoilDiagnostic", "decodeWholeScaled decode THREW cacheKey=$cacheKey", t)
+                null
+            } ?: return null
+        if (scale >= 1f) {
+            return DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, full), isSampled = false)
+        }
+        val outWidth = maxOf(1, Math.round(originalWidth * scale))
+        val outHeight = maxOf(1, Math.round(originalHeight * scale))
+        return try {
+            val scaled = Bitmap.createScaledBitmap(full, outWidth, outHeight, true)
+            android.util.Log.i(
+                "CoilDiagnostic",
+                "decodeWholeScaled ${originalWidth}x$originalHeight -> ${outWidth}x$outHeight cacheKey=$cacheKey",
+            )
+            DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, scaled), isSampled = true)
+        } catch (t: Throwable) {
+            android.util.Log.e("CoilDiagnostic", "decodeWholeScaled scale THREW cacheKey=$cacheKey", t)
+            null
+        } finally {
+            full.recycle()
+        }
+    }
+
     private fun decodeTiled(
         bytes: ByteArray,
         originalWidth: Int,
@@ -190,9 +296,7 @@ class SafeBitmapDecoder(
         }
 
         try {
-            val fullBytes = originalWidth.toLong() * originalHeight * 4
-            val scale =
-                if (fullBytes <= MAX_OUTPUT_BYTES) 1f else Math.sqrt(MAX_OUTPUT_BYTES.toDouble() / fullBytes).toFloat()
+            val scale = outputScaleFor(originalWidth, originalHeight, maxOutputBytes)
             val outWidth = maxOf(1, Math.round(originalWidth * scale))
             val outHeight = maxOf(1, Math.round(originalHeight * scale))
             if (scale < 1f) {
