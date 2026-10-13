@@ -269,7 +269,7 @@ suspend fun buildSerialDigest(
             // cache) could clear.
             val enrichmentPending =
                 (digest.metadata?.external as? ExternalMetadataDigest.Failure)?.error?.code == PENDING_ERROR_CODE
-            val incomplete = digest.chapters == null || enrichmentPending
+            val incomplete = digest.chapters == null || enrichmentPending || listRowContradicts(cache, seriesId, key, cached, digest)
             if (!incomplete) {
                 if (cached.isExpired) {
                     serialDigestBackgroundScope.launch {
@@ -292,6 +292,29 @@ suspend fun buildSerialDigest(
             variant = "full:external",
         )
     return fresh.copy(cache = descriptor)
+}
+
+// The series screen reads its own variant ("<id>:false:true": with enrichment) while the Library's
+// list refresh only ever merges into the default one ("<id>:false:false"). So a chapter added or
+// read elsewhere shows up in the list row at once, but the series screen kept serving its own older
+// chapters block — "all read" there while the Library (fresh) said otherwise — until the 15-minute
+// TTL and then still served it once more before the background refresh landed. Only a manual
+// pull-to-refresh fixed it. The list row is the newest thing the app knows without a network call,
+// so when it is NEWER than this entry and states a different progress (series pages or the
+// last-chapter-added date), this entry is stale. A purely local comparison: no extra request.
+private suspend fun listRowContradicts(
+    cache: Cache,
+    seriesId: String,
+    key: String,
+    cached: CacheEntry,
+    digest: SerialDigest.Success,
+): Boolean {
+    val listKey = serialsListCacheKey(seriesId)
+    if (key == listKey) return false
+    val listEntry = cache.persistent.get(listKey, variant = SERIAL_CACHE_VARIANT) ?: return false
+    if (listEntry.cachedAtEpochMs <= cached.cachedAtEpochMs) return false
+    val row = runCatching { serialDigestJson.decodeFromString<SerialDigest.Success>(listEntry.value) }.getOrNull() ?: return false
+    return row.pages != digest.pages || row.lastUpdatesUTC?.chapterAdded != digest.lastUpdatesUTC?.chapterAdded
 }
 
 // Patches one chapter's readStatus in-place inside every cached variant of this series (full x

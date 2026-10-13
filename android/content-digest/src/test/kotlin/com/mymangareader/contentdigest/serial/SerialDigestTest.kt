@@ -845,6 +845,35 @@ class SerialDigestTest {
         }
 
     @Test
+    fun `an enrichment server that never answers its health check does not hold the series back`() =
+        runTest {
+            activateGroup()
+            val kavitaGroupId = server.getActiveGroupId()!!
+            val externalPlugin = FakeExternalMetadataPlugin(Result.success(null))
+            val externalMetadataServer = buildTestExternalMetadataServer(externalPlugin, linkedServerGroupId = kavitaGroupId)
+            // From here on every probe hangs: no response at all (the Kavita URL is already cached).
+            mockServer.dispatcher =
+                object : okhttp3.mockwebserver.Dispatcher() {
+                    override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest) =
+                        MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE)
+                }
+
+            val digest =
+                buildSerialDigest(
+                    server,
+                    "s1",
+                    cache,
+                    SerialDigestOptions(includeExternalMetadata = true, externalMetadataServer = externalMetadataServer),
+                ) as SerialDigest.Success
+
+            // The series itself is intact...
+            assertEquals("s1", digest.id)
+            // ...and enrichment is reported as still pending (not as a hard failure).
+            val external = digest.metadata?.external as ExternalMetadataDigest.Failure
+            assertEquals("pending", external.error.code)
+        }
+
+    @Test
     fun `externalMetadataGroupId override uses syncByGroup instead of resolving by server`() =
         runTest {
             activateGroup()
@@ -1105,12 +1134,14 @@ private fun fakePluginSerial(
     id: String,
     name: String = "Series $id",
     lastChapterAddedUtc: String? = null,
+    pagesRead: Int = 0,
+    totalPages: Int = 0,
 ) = PluginSerial(
     id = id,
     name = name,
     coverUrl = "http://cover/$id",
-    pagesRead = 0,
-    totalPages = 0,
+    pagesRead = pagesRead,
+    totalPages = totalPages,
     libraryId = "1",
     libraryName = "Library",
     lastFolderScannedUtc = null,
@@ -1288,5 +1319,35 @@ class SerialsDigestTest {
             val onDisk = cache.persistent.get("s1:false:false", variant = "full:external")!!.value
             assertTrue(onDisk.contains("\"name\":\"Renamed\""))
             assertTrue(onDisk.contains("\"chapters\""))
+        }
+
+    @Test
+    fun `the series screen variant is re-fetched when a newer list row contradicts its progress`() =
+        runTest {
+            activateGroup()
+            // The series screen's own variant (enrichment on) cached while everything was read.
+            val options = SerialDigestOptions(includeExternalMetadata = false, full = true)
+            plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", 1.0, pagesRead = 10, pageCount = 10)))
+            plugin.serialResult = Result.success(fakePluginSerial("s1", pagesRead = 10, totalPages = 10))
+            val before = buildSerialDigest(server, "s1", cache, options) as SerialDigest.Success
+            assertEquals(1, before.chapters?.total)
+
+            // A chapter is added server-side; the Library's list refresh sees 10/20 and merges it into
+            // the default-variant entry only.
+            kotlinx.coroutines.delay(5)
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", pagesRead = 10, totalPages = 20)))
+            buildSerialsDigest(server, cache, force = true)
+            plugin.serialResult = Result.success(fakePluginSerial("s1", pagesRead = 10, totalPages = 20))
+            plugin.chaptersListResult =
+                Result.success(
+                    listOf(
+                        fakeChapter("ch1", 1.0, pagesRead = 10, pageCount = 10),
+                        fakeChapter("ch2", 2.0, pagesRead = 0, pageCount = 10),
+                    ),
+                )
+
+            val after = buildSerialDigest(server, "s1", cache, options) as SerialDigest.Success
+
+            assertEquals(2, after.chapters?.total)
         }
 }

@@ -1,5 +1,11 @@
 package com.mymangareader.contentdigest.serial
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.externalmetadataserver.ExternalMetadataActiveInfo
@@ -40,6 +46,18 @@ private const val NOT_CONFIGURED_ERROR_CODE = "not_configured"
 // enrichment was still in flight when it was written (see its own note).
 internal const val PENDING_ERROR_CODE = "pending"
 
+// The enrichment leg runs in parallel with the Kavita legs of a series build, and the build waits
+// for the slowest. The server itself already caps the FETCH (1s first open, 8s forced), but picking
+// the enrichment URL — a health check per candidate, each up to its own timeout, plus a retry —
+// happens BEFORE that window opens. With the enrichment server down, opening a series sat through
+// those checks even though the series, chapters and read progress (what the app is actually for)
+// were ready. Whatever the enrichment leg is still doing at this deadline is reported as "pending"
+// and left to finish in the background; it never holds the screen. Forced reads get longer, but
+// still bounded, matching the server's own forced window plus its URL resolution.
+private val externalLegScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+private const val EXTERNAL_LEG_BUDGET_MS = 2_000L
+private const val EXTERNAL_LEG_FORCED_BUDGET_MS = 10_000L
+
 // Standalone builder, same shape as buildChapterDigest/buildPageDigest — has its own callers
 // beyond SerialDigest (the RN bridge can call this directly, without building a whole
 // SerialDigest, when it only needs the external-metadata part). [externalMetadataServer] is
@@ -63,12 +81,26 @@ suspend fun buildExternalMetadataDigest(
             )
         }
 
-        val response =
-            if (groupId != null) {
-                externalMetadataServer.match.syncByGroup(groupId, series, force)
-            } else {
-                externalMetadataServer.match.syncByServerId(kavitaServerGroupId, series, force)
+        val budgetMs = if (force) EXTERNAL_LEG_FORCED_BUDGET_MS else EXTERNAL_LEG_BUDGET_MS
+        // Run in its own scope and only AWAIT it with a deadline: the URL health check is a blocking
+        // OkHttp call, which a plain withTimeout around it cannot interrupt — it would only return
+        // once that call's own timeout expired, i.e. the deadline would never hold. Awaiting is
+        // cancellable, and the abandoned work simply finishes (or fails) in the background.
+        val inFlight =
+            externalLegScope.async {
+                if (groupId != null) {
+                    externalMetadataServer.match.syncByGroup(groupId, series, force)
+                } else {
+                    externalMetadataServer.match.syncByServerId(kavitaServerGroupId, series, force)
+                }
             }
+        val response =
+            // Default dispatcher on purpose: the deadline is wall-clock time, never a scheduler's
+            // virtual clock that may be fast-forwarded while the real work is still running.
+            withContext(Dispatchers.Default) { withTimeoutOrNull(budgetMs) { inFlight.await() } }
+                ?: return ExternalMetadataDigest.Failure(
+                ErrorDigest(code = PENDING_ERROR_CODE, message = "External metadata server did not answer within ${budgetMs}ms"),
+            )
         ExternalMetadataDigest.Success(
             match = response.data,
             server = response.serverInfo,

@@ -650,6 +650,37 @@ class ChapterDigestTest {
         }
 
     @Test
+    fun `a fresh knownChapter whose progress contradicts the cached digest is not served from the cache`() =
+        runTest {
+            activateGroup()
+            // Cached while the chapter was fully read.
+            val read = baseChapter(pagesRead = 10, pageCount = 10)
+            val first = buildChapterDigest(server, "s1", "c1", cache, knownChapter = read) as ChapterDigest.Success
+            assertEquals(ChapterFields.ReadStatus.READ, first.readStatus)
+
+            // The series just fetched chapters.list(): the same chapter is now unread (marked
+            // elsewhere). A plain cache hit would keep saying READ.
+            val unread = baseChapter(pagesRead = 0, pageCount = 10)
+            val second = buildChapterDigest(server, "s1", "c1", cache, knownChapter = unread) as ChapterDigest.Success
+
+            assertEquals(ChapterFields.ReadStatus.UNREAD, second.readStatus)
+        }
+
+    @Test
+    fun `a knownChapter that agrees with the cached digest still hits the cache`() =
+        runTest {
+            activateGroup()
+            val known = baseChapter(pagesRead = 3, pageCount = 10)
+            buildChapterDigest(server, "s1", "c1", cache, knownChapter = known)
+            val progressCallsBefore = plugin.chapterGetCallCount
+
+            val again = buildChapterDigest(server, "s1", "c1", cache, knownChapter = known) as ChapterDigest.Success
+
+            assertEquals(ChapterFields.ReadStatus.IN_PROGRESS, again.readStatus)
+            assertEquals(progressCallsBefore, plugin.chapterGetCallCount)
+        }
+
+    @Test
     fun `an incomplete knownChapter (one field missing) falls back to chapter get entirely`() =
         runTest {
             activateGroup()

@@ -202,18 +202,24 @@ suspend fun buildChapterDigest(
                 chapterDigestJson
                     .decodeFromString<ChapterDigest.Success>(cached.value)
                     .copy(cache = cached.toChapterCacheDescriptor(key))
-            val merged =
-                if (prevChapter == null && nextChapter == null) {
-                    cachedDigest
-                } else {
-                    cachedDigest.copy(prevChapter = prevChapter, nextChapter = nextChapter)
+            // A caller holding a FRESH list row (knownChapter — the series just fetched
+            // chapters.list()) that disagrees with this entry's reading progress knows the cached
+            // digest is stale: serving it showed "all read" on the series screen while the Library
+            // (fresh) said otherwise, until a manual pull-to-refresh. Fall through to a real fetch.
+            if (!cachedProgressDisagrees(cachedDigest, knownChapter)) {
+                val merged =
+                    if (prevChapter == null && nextChapter == null) {
+                        cachedDigest
+                    } else {
+                        cachedDigest.copy(prevChapter = prevChapter, nextChapter = nextChapter)
+                    }
+                if (cached.isExpired) {
+                    chapterDigestBackgroundScope.launch {
+                        buildChapterDigest(server, seriesId, chapterId, cache, knownChapter, prevChapter, nextChapter, full, force = true)
+                    }
                 }
-            if (cached.isExpired) {
-                chapterDigestBackgroundScope.launch {
-                    buildChapterDigest(server, seriesId, chapterId, cache, knownChapter, prevChapter, nextChapter, full, force = true)
-                }
+                return merged
             }
-            return merged
         }
     }
 
@@ -245,6 +251,25 @@ suspend fun buildChapterDigest(
             variant = "full",
         )
     return toPersist.copy(cache = descriptor)
+}
+
+// True only when [known] states a progress and the cached digest contradicts it. No known row (a
+// direct getChapterDigest call) → nothing to compare against → the cache stands, as before.
+internal fun cachedProgressDisagrees(
+    cached: ChapterDigest.Success,
+    known: PluginChapter?,
+): Boolean {
+    if (known == null) return false
+    val knownRead = known.pagesRead
+    val knownCount = known.pageCount
+    if (knownRead == null || knownCount == null) return false
+    val knownStatus =
+        when {
+            knownRead == 0 -> ChapterFields.ReadStatus.UNREAD
+            knownRead >= knownCount -> ChapterFields.ReadStatus.READ
+            else -> ChapterFields.ReadStatus.IN_PROGRESS
+        }
+    return cached.readStatus != knownStatus || cached.pages.readCount != knownRead || cached.pages.count != knownCount
 }
 
 // Patches readStatus in-place on whichever cached variant(s) of this chapter exist (full=true
