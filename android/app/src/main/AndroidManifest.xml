@@ -68,6 +68,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Shares the diagnostics log export (DiagnosticsBridgeModule) without exposing any other file. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.diagnostics"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/diagnostics_file_paths" />
+        </provider>
+
         <service
             android:name=".NotificationConnectionService"
             android:exported="false"

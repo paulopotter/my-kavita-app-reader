@@ -96,7 +96,7 @@ import {
   serverServiceSteps,
   serverSteps,
 } from './debug.steps';
-import { useDebugIds, usePageBudget } from './debug.hooks';
+import { formatBytes, useDebugIds, useDiagnosticsLog, usePageBudget } from './debug.hooks';
 import { DebugScreen } from './debug.screen';
 
 const mockBudget = { get: jest.fn(), set: jest.fn() };
@@ -104,10 +104,64 @@ jest.mock('../../../shared/services/reader-flags', () => ({
   ReaderFlagsService: { pageBudget: { get: (...a: unknown[]) => mockBudget.get(...a), set: (...a: unknown[]) => mockBudget.set(...a) } },
 }));
 
+const mockDiag = { info: jest.fn(), export: jest.fn(), clear: jest.fn() };
+jest.mock('../../../shared/services/diagnostics', () => ({
+  DiagnosticsService: { log: { info: (...a: unknown[]) => mockDiag.info(...a), export: (...a: unknown[]) => mockDiag.export(...a), clear: (...a: unknown[]) => mockDiag.clear(...a) } },
+}));
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockDiag.info.mockResolvedValue({ path: '/p/app.log', sizeBytes: 2048, adbCommand: 'adb pull /p/app.log' });
+  mockDiag.export.mockResolvedValue(undefined);
+  mockDiag.clear.mockResolvedValue(undefined);
   mockBudget.get.mockResolvedValue(48);
   mockBudget.set.mockImplementation(({ mb }: { mb: number }) => Promise.resolve(mb));
+});
+
+describe('formatBytes', () => {
+  it('picks a readable unit', () => {
+    expect(formatBytes(512)).toBe('512 B');
+    expect(formatBytes(2048)).toBe('2.0 KB');
+    expect(formatBytes(3 * 1024 * 1024)).toBe('3.00 MB');
+  });
+});
+
+describe('useDiagnosticsLog', () => {
+  it('loads the size and the adb command', async () => {
+    const { result } = renderHook(() => useDiagnosticsLog());
+    await waitFor(() => expect(result.current.info).toEqual({ sizeLabel: '2.0 KB', adbCommand: 'adb pull /p/app.log' }));
+  });
+
+  it('stays empty when the native side cannot answer', async () => {
+    mockDiag.info.mockRejectedValue(new Error('no native'));
+    const { result } = renderHook(() => useDiagnosticsLog());
+    await act(async () => {});
+    expect(result.current.info).toBeNull();
+  });
+
+  it('export runs the action and then refreshes the size', async () => {
+    const { result } = renderHook(() => useDiagnosticsLog());
+    await waitFor(() => expect(result.current.info).not.toBeNull());
+    mockDiag.info.mockClear();
+    await act(async () => {
+      await result.current.exportLog();
+    });
+    expect(mockDiag.export).toHaveBeenCalledTimes(1);
+    expect(mockDiag.info).toHaveBeenCalledTimes(1);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it('clear refreshes even when the action fails', async () => {
+    mockDiag.clear.mockRejectedValue(new Error('x'));
+    const { result } = renderHook(() => useDiagnosticsLog());
+    await waitFor(() => expect(result.current.info).not.toBeNull());
+    mockDiag.info.mockClear();
+    await act(async () => {
+      await result.current.clear();
+    });
+    expect(mockDiag.info).toHaveBeenCalledTimes(1);
+    expect(result.current.busy).toBe(false);
+  });
 });
 
 describe('usePageBudget', () => {
@@ -308,6 +362,11 @@ describe('DebugScreen', () => {
     expect(UNSAFE_getByType(ChevronLeft)).toBeTruthy();
     fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it('renders the diagnostics log card with its adb command', async () => {
+    const { getByText } = render(<DebugScreen onBack={jest.fn()} />);
+    await waitFor(() => expect(getByText('adb pull /p/app.log')).toBeTruthy());
   });
 
   it('renders the page size picker with the current value selected', async () => {

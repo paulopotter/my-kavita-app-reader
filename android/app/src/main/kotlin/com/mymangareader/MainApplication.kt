@@ -42,6 +42,10 @@ import com.mymangareader.tools.ota.OtaDecision
 import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.HiltAndroidApp
+import com.mymangareader.tools.diagnostics.DiagnosticLog
+import com.mymangareader.tools.diagnostics.LogcatCapture
+import com.mymangareader.tools.diagnostics.ProcessExits
+import com.mymangareader.tools.diagnostics.describeMemory
 import com.mymangareader.tools.network.redactApiKey
 import com.mymangareader.tools.network.stableImageCacheKey
 import kotlinx.coroutines.CoroutineScope
@@ -169,6 +173,7 @@ class MainApplication :
 
     override fun onCreate() {
         super.onCreate()
+        startDiagnostics()
         ReaderDebugFlags.d("CoilDiagnostic") { "app version=${BuildConfig.KOTLIN_VERSION_NAME}" }
         otaManager.discardStaleBundleIfNeeded()
         otaManager.applyRollbackIfNeeded()
@@ -228,12 +233,39 @@ class MainApplication :
         }
     }
 
+    // A local file for troubles that nobody is watching logcat for (a rare crash with the app closed):
+    // uncaught exceptions, the app's own warnings/errors, why the previous process ended, and a
+    // memory sample every few minutes. Started first so even a crash during boot is recorded.
+    private fun startDiagnostics() {
+        // Never allowed to get in the way of the app itself: no storage, no log, nothing else changes.
+        runCatching { startDiagnosticsUnsafe() }
+    }
+
+    private fun startDiagnosticsUnsafe() {
+        val directory = diagnosticsDirectory(this)
+        DiagnosticLog.init(directory)
+        DiagnosticLog.event(
+            "App",
+            "start version=${BuildConfig.KOTLIN_VERSION_NAME} pid=${android.os.Process.myPid()} " +
+                "sdk=${android.os.Build.VERSION.SDK_INT} device=${android.os.Build.MODEL} ${describeMemory()}",
+        )
+        LogcatCapture.start()
+        applicationScope.launch { ProcessExits.recordPrevious(this@MainApplication, directory) }
+        applicationScope.launch {
+            while (true) {
+                delay(MEMORY_SAMPLE_INTERVAL_MS)
+                DiagnosticLog.event("Memory", describeMemory())
+            }
+        }
+    }
+
     // The notification foreground service keeps this process alive after the user closes the app, so
     // the decoded reader pages Coil holds in memory (full-resolution ARGB_8888, tens of MB each)
     // would otherwise stay resident with no screen to show them. Drop them as soon as the UI is
     // hidden — the disk cache still serves them without a re-download.
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        DiagnosticLog.event("Memory", "onTrimMemory level=$level ${describeMemory()}")
         if (level >= TRIM_MEMORY_UI_HIDDEN) {
             coil.Coil.imageLoader(this).memoryCache?.clear()
         }
@@ -327,5 +359,6 @@ class MainApplication :
         private const val READER_MEMORY_CACHE_BYTES = 160 * 1024 * 1024
         private const val STABLE_BOOT_DELAY_MS = 5_000L
         private const val CACHE_SWEEP_DELAY_MS = 8_000L
+        private const val MEMORY_SAMPLE_INTERVAL_MS = 5 * 60 * 1000L
     }
 }

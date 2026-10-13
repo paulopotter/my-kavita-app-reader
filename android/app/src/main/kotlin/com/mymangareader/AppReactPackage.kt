@@ -89,6 +89,7 @@ class AppReactPackage(
             FollowedSeriesBridgeModule(followedSeriesDao, context),
             PreferencesBridgeModule(preferences, context),
             ReaderFlagsBridgeModule(preferences, context),
+            DiagnosticsBridgeModule(context),
             notificationsBridge,
         )
     }

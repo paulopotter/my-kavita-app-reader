@@ -258,6 +258,15 @@ export interface Strings {
   // ── Debug menu — reader page size ───────────────────────────────────────
   debugPageBudgetTitle: string;
   debugPageBudgetHint: string;
+
+  // ── Debug menu — local diagnostics log ──────────────────────────────────
+  debugLogTitle: string;
+  debugLogHint: string;
+  debugLogSize: string;
+  debugLogAdb: string;
+  debugLogExport: string;
+  debugLogClear: string;
+  debugLogRefresh: string;
   readerOffline: string;
   readerEndOfChapter: string;
   // Same message as readerEndOfChapter, but WITHOUT the {0} placeholder — the footer now renders
@@ -630,6 +639,14 @@ const ptBR: Strings = {
   debugPageBudgetTitle: 'Tamanho máximo da página',
   debugPageBudgetHint:
     'Páginas altas são reduzidas para caber neste tamanho. Menor = mais fluido, maior = mais nítido. Vale para páginas carregadas depois da troca.',
+  debugLogTitle: 'Log de diagnóstico',
+  debugLogHint:
+    'Arquivo local com erros, travamentos e o motivo de o app ter fechado. Não sai do aparelho: leia pelo comando abaixo ou exporte.',
+  debugLogSize: 'Tamanho',
+  debugLogAdb: 'Ler pelo computador',
+  debugLogExport: 'Exportar',
+  debugLogClear: 'Limpar',
+  debugLogRefresh: 'Atualizar',
   readerOffline: 'Sem conexão',
   readerEndOfChapter: 'Fim do capítulo {0}',
   readerEndOfChapterPrefix: 'Fim do capítulo',
@@ -985,6 +1002,14 @@ const en: Strings = {
   debugPageBudgetTitle: 'Maximum page size',
   debugPageBudgetHint:
     'Tall pages are scaled down to fit this size. Smaller = smoother, larger = sharper. Applies to pages loaded after the change.',
+  debugLogTitle: 'Diagnostics log',
+  debugLogHint:
+    'A local file with errors, freezes and why the app closed. It never leaves the device: read it with the command below, or export it.',
+  debugLogSize: 'Size',
+  debugLogAdb: 'Read from a computer',
+  debugLogExport: 'Export',
+  debugLogClear: 'Clear',
+  debugLogRefresh: 'Refresh',
   readerOffline: 'No connection',
   readerEndOfChapter: 'End of chapter {0}',
   readerEndOfChapterPrefix: 'End of chapter',

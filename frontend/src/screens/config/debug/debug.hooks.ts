@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { DiagnosticsService } from '../../../shared/services/diagnostics';
 import { ReaderFlagsService } from '../../../shared/services/reader-flags';
 import {
   discoverActiveGroupId,
@@ -76,4 +77,50 @@ export function usePageBudget() {
   }, []);
 
   return { value, options: PAGE_BUDGET_OPTIONS, select };
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) {return `${bytes} B`;}
+  if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)} KB`;}
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+// The local diagnostics log: its size and the adb command (null until the first answer), plus the
+// export / clear / refresh actions. `busy` keeps a second tap from racing the first.
+export function useDiagnosticsLog() {
+  const [info, setInfo] = useState<{ sizeLabel: string; adbCommand: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const next = await DiagnosticsService.log.info();
+      setInfo({ sizeLabel: formatBytes(next.sizeBytes), adbCommand: next.adbCommand });
+    } catch {
+      setInfo(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const run = useCallback(
+    async (action: () => Promise<void>) => {
+      setBusy(true);
+      try {
+        await action();
+      } catch {
+        // the native side reports its own failure; the card simply stays as it was
+      } finally {
+        setBusy(false);
+        await refresh();
+      }
+    },
+    [refresh],
+  );
+
+  const exportLog = useCallback(() => run(() => DiagnosticsService.log.export()), [run]);
+  const clear = useCallback(() => run(() => DiagnosticsService.log.clear()), [run]);
+
+  return { info, busy, refresh, exportLog, clear };
 }

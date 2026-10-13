@@ -3,9 +3,10 @@ import { ScrollView, Text, View } from 'react-native';
 import { useStyles } from '../../../shared/context';
 import { BackChevron } from '../components';
 
+import { DiagnosticsLog } from './components/diagnostics-log';
 import { PageBudget } from './components/page-budget';
 import { Section } from './components/section';
-import { useDebugIds, usePageBudget } from './debug.hooks';
+import { useDebugIds, useDiagnosticsLog, usePageBudget } from './debug.hooks';
 import { useStrings } from '../../../shared/i18n';
 import { configStyles as makeChrome } from '../config.styles';
 import {
@@ -28,6 +29,7 @@ export function DebugScreen({ onBack }: { onBack: () => void }) {
   const chrome = useStyles(makeChrome);
   const t = useStrings();
   const pageBudget = usePageBudget();
+  const diagnostics = useDiagnosticsLog();
   const {
     groupId,
     setGroupId,
@@ -55,6 +57,23 @@ export function DebugScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={chrome.scroll}>
+        <DiagnosticsLog
+          strings={{
+            title: t.debugLogTitle,
+            hint: t.debugLogHint,
+            size: t.debugLogSize,
+            adb: t.debugLogAdb,
+            exportLabel: t.debugLogExport,
+            clearLabel: t.debugLogClear,
+            refreshLabel: t.debugLogRefresh,
+          }}
+          info={diagnostics.info}
+          busy={diagnostics.busy}
+          onExport={diagnostics.exportLog}
+          onClear={diagnostics.clear}
+          onRefresh={diagnostics.refresh}
+        />
+
         <PageBudget
           title={t.debugPageBudgetTitle}
           hint={t.debugPageBudgetHint}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lets the diagnostics export be shared as a file (see DiagnosticsBridgeModule). Only this folder. -->
+<paths>
+    <external-files-path name="diagnostics" path="diagnostics/" />
+    <files-path name="diagnostics_internal" path="diagnostics/" />
+</paths>
