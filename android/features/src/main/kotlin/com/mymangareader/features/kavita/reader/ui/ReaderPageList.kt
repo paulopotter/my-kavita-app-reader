@@ -880,8 +880,9 @@ internal fun ReaderPageImage(
                 .setParameter("retryCount", retryCount)
                 // Explicit, stable key (defaults to null otherwise) so SafeBitmapDecoder can
                 // serialize this request against PagePreloader's request for the same URL — see
-                // PageDecodeCoordinator for why that matters.
-                .diskCacheKey(url)
+                // PageDecodeCoordinator for why that matters. Host- and apiKey-free, so the same
+                // page is one cache entry whether it came through the LAN or the public address.
+                .stableImageKeys(url)
                 .apply {
                     if (retryCount > 0) {
                         memoryCachePolicy(CachePolicy.WRITE_ONLY)

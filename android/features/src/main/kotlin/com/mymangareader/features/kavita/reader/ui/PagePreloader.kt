@@ -6,6 +6,7 @@ import coil.imageLoader
 import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import kotlinx.coroutines.CoroutineScope
+import com.mymangareader.tools.network.stableImageCacheKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -63,7 +64,7 @@ internal class PagePreloader(
 
         previousWindow
             .filterNot { it in desired }
-            .forEach { url -> imageLoader.memoryCache?.remove(MemoryCache.Key(url)) }
+            .forEach { url -> imageLoader.memoryCache?.remove(MemoryCache.Key(stableImageCacheKey(url))) }
         previousWindow = desired
 
         orderedUrls.forEach { url ->
@@ -74,7 +75,9 @@ internal class PagePreloader(
                             ImageRequest
                                 .Builder(context)
                                 .data(url)
-                                .diskCacheKey(url)
+                                // Same key as the on-screen request (host- and apiKey-free): the page is
+                                // cached once whichever address is active, in memory and on disk.
+                                .stableImageKeys(url)
                                 .build(),
                         )
                     }

@@ -93,6 +93,9 @@ suspend fun buildPageDigest(
                 pageDigestJson
                     .decodeFromString<PageDigest.Success>(cached.value)
                     .copy(cache = cached.toCacheDescriptor(key))
+                    // The cached URL carries the host active when it was written — point it at the
+                    // one active now (see rehostPageUrl).
+                    .rehosted(server.getActiveInfo()?.url)
             if (cached.isExpired) {
                 pageDigestBackgroundScope.launch {
                     buildPageDigest(server, chapter, pageIndex, cache, force = true)

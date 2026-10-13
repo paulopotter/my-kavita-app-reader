@@ -9,6 +9,7 @@ import com.mymangareader.contentdigest.error.toErrorDigest
 import com.mymangareader.contentdigest.page.ChapterSummary
 import com.mymangareader.contentdigest.page.PageDigest
 import com.mymangareader.contentdigest.page.buildPageDigest
+import com.mymangareader.contentdigest.page.rehosted
 import com.mymangareader.server.ImageDescriptor
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerActiveInfo
@@ -202,6 +203,8 @@ suspend fun buildChapterDigest(
                 chapterDigestJson
                     .decodeFromString<ChapterDigest.Success>(cached.value)
                     .copy(cache = cached.toChapterCacheDescriptor(key))
+                    // Pages embedded in the cached chapter keep the host of the day it was written.
+                    .rehosted(server.getActiveInfo()?.url)
             // A caller holding a FRESH list row (knownChapter — the series just fetched
             // chapters.list()) that disagrees with this entry's reading progress knows the cached
             // digest is stale: serving it showed "all read" on the series screen while the Library

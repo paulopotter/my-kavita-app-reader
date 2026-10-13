@@ -42,6 +42,8 @@ import com.mymangareader.tools.ota.OtaDecision
 import com.mymangareader.tools.ota.OtaManager
 import com.mymangareader.tools.ota.OtaStore
 import dagger.hilt.android.HiltAndroidApp
+import com.mymangareader.tools.network.redactApiKey
+import com.mymangareader.tools.network.stableImageCacheKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -205,7 +207,12 @@ class MainApplication :
             runCatching {
                 val imageCache = coil.Coil.imageLoader(this@MainApplication).diskCache
                 val result =
-                    CacheRetention(cacheRetentionDao, followedSeriesDao) { url -> imageCache?.remove(url) }.sweep()
+                    CacheRetention(cacheRetentionDao, followedSeriesDao) { url ->
+                        // The image is cached under the host-free key; an older install may still hold
+                        // it under the full URL it was keyed by before.
+                        imageCache?.remove(stableImageCacheKey(url))
+                        imageCache?.remove(url)
+                    }.sweep()
                 android.util.Log.i("CacheRetention", "sweep done: $result")
             }.onFailure { android.util.Log.w("CacheRetention", "sweep failed", it) }
         }
@@ -303,7 +310,7 @@ class MainApplication :
                     ) {
                         android.util.Log.e(
                             "CoilDiagnostic",
-                            "onError url=${request.data} throwable=${result.throwable}",
+                            "onError url=${redactApiKey(request.data.toString())} throwable=${redactApiKey(result.throwable.toString())}",
                             result.throwable,
                         )
                     }

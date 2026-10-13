@@ -395,6 +395,20 @@ class PageDigestTest {
     // ── Cache-first behavior ─────────────────────────────────────────────────
 
     @Test
+    fun `a cached page url is re-pointed at the host that is active now`() =
+        runTest {
+            activateGroup()
+            // Cached while another address (an old LAN IP) was the active one.
+            plugin.urlResult = Result.success("http://192.0.2.10:5150/api/reader/image?chapterId=1&page=0&apiKey=k")
+            val first = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+            assertEquals("http://192.0.2.10:5150/api/reader/image?chapterId=1&page=0&apiKey=k", first.url)
+
+            val second = buildPageDigest(server, chapter, pageIndex = 0, cache) as PageDigest.Success
+
+            assertEquals("$baseUrl/api/reader/image?chapterId=1&page=0&apiKey=k", second.url)
+        }
+
+    @Test
     fun `a fresh cache hit never touches the network`() =
         runTest {
             activateGroup()

@@ -11,6 +11,7 @@ import com.mymangareader.contentdigest.chapter.buildChapterDigest
 import com.mymangareader.contentdigest.chapter.patchChapterReadStatus
 import com.mymangareader.contentdigest.error.ErrorDigest
 import com.mymangareader.contentdigest.error.toErrorDigest
+import com.mymangareader.contentdigest.page.rehosted
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.server.ImageDescriptor
@@ -254,6 +255,7 @@ suspend fun buildSerialDigest(
                 serialDigestJson
                     .decodeFromString<SerialDigest.Success>(cached.value)
                     .copy(cache = cached.toSerialCacheDescriptor(key))
+                    .withRehostedPages(server.getActiveInfo()?.url)
             // An entry seeded ONLY by the list route (buildSerialsDigest — the splash / Library
             // batch) carries chapters == null: it never ran serial(id).chapters.list(). Serving
             // that to the SerieScreen renders an empty chapter list until the user pulls to
@@ -292,6 +294,15 @@ suspend fun buildSerialDigest(
             variant = "full:external",
         )
     return fresh.copy(cache = descriptor)
+}
+
+// A full series carries each chapter's pages (with their image URLs): same host-of-the-day issue
+// as a cached chapter, see rehostPageUrl.
+private fun SerialDigest.Success.withRehostedPages(activeBaseUrl: String?): SerialDigest.Success {
+    val chapters = chapters ?: return this
+    if (activeBaseUrl.isNullOrBlank()) return this
+    val moved = chapters.list.map { if (it is ChapterDigest.Success) it.rehosted(activeBaseUrl) else it }
+    return copy(chapters = chapters.copy(list = moved))
 }
 
 // The series screen reads its own variant ("<id>:false:true": with enrichment) while the Library's
