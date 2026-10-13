@@ -16,6 +16,8 @@ import com.facebook.soloader.SoLoader
 import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.ChapterCacheDao
 import com.mymangareader.core.database.DbStatusProvider
+import com.mymangareader.contentdigest.retention.CacheRetention
+import com.mymangareader.core.database.CacheRetentionDao
 import com.mymangareader.core.database.FollowedSeriesDao
 import com.mymangareader.core.database.ServerConfigDao
 import com.mymangareader.externalmetadataserver.ExternalMetadataServer
@@ -105,6 +107,8 @@ class MainApplication :
 
     @Inject lateinit var notificationRetentionPurge: NotificationRetentionPurge
 
+    @Inject lateinit var cacheRetentionDao: CacheRetentionDao
+
     override val reactNativeHost: ReactNativeHost by lazy {
         object : DefaultReactNativeHost(this) {
             override fun getPackages(): List<ReactPackage> =
@@ -184,6 +188,18 @@ class MainApplication :
         }
         applicationScope.launch {
             notificationRetentionPurge.purge()
+        }
+        // Drops digests (and the page images they point to) nobody has read recently: a day for a
+        // series that is not followed, three days for a followed one. A short delay keeps the
+        // sweep's database work out of the way of the boot itself.
+        applicationScope.launch {
+            delay(CACHE_SWEEP_DELAY_MS)
+            runCatching {
+                val imageCache = coil.Coil.imageLoader(this@MainApplication).diskCache
+                val result =
+                    CacheRetention(cacheRetentionDao, followedSeriesDao) { url -> imageCache?.remove(url) }.sweep()
+                android.util.Log.i("CacheRetention", "sweep done: $result")
+            }.onFailure { android.util.Log.w("CacheRetention", "sweep failed", it) }
         }
         // NotificationsBridgeModule only re-evaluates start/stop as a side effect of an RN-side
         // config write (add/edit/remove group or URL, toggle the channel) — nothing else ever
@@ -295,5 +311,6 @@ class MainApplication :
         // in on-device logs. Room for three such pages; cleared in onTrimMemory once the UI is hidden.
         private const val READER_MEMORY_CACHE_BYTES = 160 * 1024 * 1024
         private const val STABLE_BOOT_DELAY_MS = 5_000L
+        private const val CACHE_SWEEP_DELAY_MS = 8_000L
     }
 }

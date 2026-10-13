@@ -32,6 +32,9 @@ android {
 }
 
 dependencies {
+    // CacheRetention reads/deletes rows through CacheRetentionDao and asks FollowedSeriesDao which
+    // series are followed.
+    implementation(project(":core"))
     implementation(project(":server"))
     implementation(project(":tools"))
     implementation(project(":cache"))

@@ -92,6 +92,9 @@ object DatabaseModule {
     fun provideCacheDao(db: AppDatabase): CacheDao = db.cacheDao()
 
     @Provides
+    fun provideCacheRetentionDao(db: AppDatabase): CacheRetentionDao = db.cacheRetentionDao()
+
+    @Provides
     fun providePreferenceDao(db: AppDatabase): PreferenceDao = db.preferenceDao()
 
     @Provides

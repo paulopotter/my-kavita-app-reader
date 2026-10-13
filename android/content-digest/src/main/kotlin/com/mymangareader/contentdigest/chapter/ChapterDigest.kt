@@ -149,7 +149,7 @@ internal fun PluginChapter.isCompleteForChapterDigest(): Boolean =
         pageCount != null &&
         pagesRead != null
 
-private const val CHAPTER_CACHE_DOMAIN = "chapter"
+internal const val CHAPTER_CACHE_DOMAIN = "chapter"
 private val chapterDigestJson = Json { ignoreUnknownKeys = true }
 private val chapterDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

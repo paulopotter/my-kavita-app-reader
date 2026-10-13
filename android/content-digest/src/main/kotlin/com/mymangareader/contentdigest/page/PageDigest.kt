@@ -51,7 +51,7 @@ sealed interface PageDigest {
     enum class Orientation { PORTRAIT, LANDSCAPE }
 }
 
-private const val PAGE_CACHE_DOMAIN = "page"
+internal const val PAGE_CACHE_DOMAIN = "page"
 private val pageDigestJson = Json { ignoreUnknownKeys = true }
 private val pageDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

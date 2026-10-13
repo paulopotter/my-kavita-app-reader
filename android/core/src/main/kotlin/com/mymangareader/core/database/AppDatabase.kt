@@ -58,6 +58,8 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun cacheDao(): CacheDao
 
+    abstract fun cacheRetentionDao(): CacheRetentionDao
+
     abstract fun preferenceDao(): PreferenceDao
 
     abstract fun notificationGroupDao(): NotificationGroupDao
