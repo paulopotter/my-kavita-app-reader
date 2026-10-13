@@ -1,6 +1,7 @@
 package com.mymangareader.tools.network
 
 import com.mymangareader.cache.Cache
+import android.util.Log
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -14,6 +15,16 @@ import javax.inject.Singleton
 import kotlin.concurrent.schedule
 
 private const val CACHE_TTL_MS = 15 * 60 * 1000L
+
+// A selection that landed on anything but the top-priority candidate (typically: the LAN address
+// failed its health check once, so the public DDNS one won) is only trusted for this long. The
+// 15-minute TTL is right when the best URL won — nothing better exists to look for — but a
+// fallback winner that stays cached that long keeps the whole app on the slow route (images
+// downloaded through the DNS/public path while sitting on the same network as the server) long
+// after the better URL became reachable again. Observed on device.
+private const val FALLBACK_RECHECK_MS = 60 * 1000L
+
+private const val LOG_TAG = "UrlSelector"
 
 // Same watchdog pattern as RequestTool.kt, and for the same reason: `withTimeoutOrNull` alone
 // does not reliably interrupt a blocking `Call.execute()` — it has no coroutine suspension point
@@ -73,6 +84,14 @@ class ActiveUrlSelector
         @Volatile
         private var lastKnownUrl: String? = null
 
+        // key → when a NON-top-priority candidate won. Only set for those; a top-priority win clears it.
+        private val fallbackSelectedAtMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+        // Test hooks (internal): a short window / a controllable clock, since Hilt builds this class
+        // with only its two injected dependencies.
+        internal var fallbackRecheckMs: Long = FALLBACK_RECHECK_MS
+        internal var nowMs: () -> Long = System::currentTimeMillis
+
         override suspend fun getActiveUrl(candidates: List<UrlCandidate>): Result<String> {
             val key = candidatesCacheKey(candidates)
             // MMR-DIAG (backlog 015-telemetria-interna-debug): candidate set + cache key + winner for
@@ -81,8 +100,21 @@ class ActiveUrlSelector
             //     "MMR-DIAG",
             //     "getActiveUrl key=$key candidates=${candidates.map { "${it.url.trimEnd('/')}${it.healthCheckPath}" }}",
             // )
-            val result = cache.network.run(key, CACHE_TTL_MS) { selectFastest(candidates) }
-            // Log.i("MMR-DIAG", "getActiveUrl → ${result.getOrNull() ?: "FAIL: ${result.exceptionOrNull()?.message}"}")
+            fallbackSelectedAtMs[key]?.let { selectedAt ->
+                if (nowMs() - selectedAt >= fallbackRecheckMs) {
+                    fallbackSelectedAtMs.remove(key)
+                    cache.network.invalidate(key)
+                }
+            }
+            val result =
+                cache.network.run(key, CACHE_TTL_MS) {
+                    selectFastest(candidates).also { selection ->
+                        val winner = selection.getOrNull()
+                        val top = candidates.minByOrNull { it.priority }?.url?.trimEnd('/')
+                        if (winner != null && winner != top) fallbackSelectedAtMs[key] = nowMs() else fallbackSelectedAtMs.remove(key)
+                        Log.i(LOG_TAG, "selection → ${winner ?: "FAIL"} (top priority: $top)")
+                    }
+                }
             result.onSuccess { lastKnownUrl = it }
             return result
         }
@@ -119,11 +151,14 @@ class ActiveUrlSelector
                         ok = response.isSuccessful,
                         status = response.code,
                         elapsedMs = System.currentTimeMillis() - startedAt,
-                    )
-                    // .also { Log.i("MMR-DIAG", "probe ← $url status=${it.status} ok=${it.ok} ${it.elapsedMs}ms") }
+                    ).also { Log.i(LOG_TAG, "probe ${it.url}${candidate.healthCheckPath} → status=${it.status} ok=${it.ok} ${it.elapsedMs}ms") }
                 }
             } catch (e: Exception) {
-                // Log.w("MMR-DIAG", "probe ✗ $url threw ${e.javaClass.simpleName}: ${e.message}")
+                Log.w(
+                    LOG_TAG,
+                    "probe ${candidate.url.trimEnd('/')}${candidate.healthCheckPath} ✗ ${e.javaClass.simpleName}: ${e.message} " +
+                        "(timeout=${candidate.timeoutMs}ms, after ${System.currentTimeMillis() - startedAt}ms)",
+                )
                 UrlProbeResult(
                     url = candidate.url.trimEnd('/'),
                     ok = false,

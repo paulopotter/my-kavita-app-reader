@@ -23,6 +23,12 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // ActiveUrlSelector (used by these tests' Server) logs each health-check probe via
+    // android.util.Log; without this every unmocked Log call throws in a plain JVM unit test.
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

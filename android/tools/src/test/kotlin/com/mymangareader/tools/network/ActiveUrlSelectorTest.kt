@@ -162,6 +162,39 @@ class ActiveUrlSelectorTest {
         }
 
     @Test
+    fun `a fallback winner is re-checked soon so the preferred url takes over when it recovers`() =
+        runTest {
+            // Preferred (priority 0) fails its first probe, then recovers; the fallback is healthy throughout.
+            server1.enqueue(MockResponse().setResponseCode(503))
+            server1.enqueue(MockResponse().setResponseCode(200))
+            server2.enqueue(MockResponse().setResponseCode(200))
+            server2.enqueue(MockResponse().setResponseCode(200))
+            selector.fallbackRecheckMs = 0
+            val candidates = listOf(candidate(server1, "preferred", priority = 0), candidate(server2, "fallback", priority = 1))
+
+            val first = selector.getActiveUrl(candidates).getOrThrow()
+            val second = selector.getActiveUrl(candidates).getOrThrow()
+
+            assertEquals(server2.url("/").toString().trimEnd('/'), first)
+            assertEquals(server1.url("/").toString().trimEnd('/'), second)
+        }
+
+    @Test
+    fun `a fallback winner stays cached inside the recheck window`() =
+        runTest {
+            server1.enqueue(MockResponse().setResponseCode(503))
+            server2.enqueue(MockResponse().setResponseCode(200))
+            selector.fallbackRecheckMs = 60_000
+            val candidates = listOf(candidate(server1, "preferred", priority = 0), candidate(server2, "fallback", priority = 1))
+
+            val first = selector.getActiveUrl(candidates).getOrThrow()
+            val second = selector.getActiveUrl(candidates).getOrThrow()
+
+            assertEquals(first, second)
+            assertEquals(1, server1.requestCount)
+        }
+
+    @Test
     fun `invalidateAndReselect re-probes after cache is cleared`() =
         runTest {
             server1.enqueue(MockResponse().setResponseCode(200))
