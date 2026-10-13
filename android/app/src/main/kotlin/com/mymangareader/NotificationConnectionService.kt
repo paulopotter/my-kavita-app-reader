@@ -24,6 +24,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,6 +81,12 @@ class NotificationConnectionService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private var activePlugin: NotificationPlugin? = null
 
+    // One live connection at a time. onStartCommand runs on every start() (app launch AND every RN
+    // config write), so without this each call opened a NEW plugin (own OkHttpClient + socket +
+    // reconnect loop) while the previous one kept running orphaned — leaking threads/sockets/heap
+    // for as long as this foreground service kept the process alive.
+    private var connectJob: Job? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(
@@ -89,7 +97,15 @@ class NotificationConnectionService : Service() {
         Log.i(TAG, "onStartCommand() — starting foreground service")
         startForegroundWithConnectedNotification()
         updateStatus(NotificationServiceStatus.CONNECTING)
-        scope.launch { connectAndObserve() }
+        val previousPlugin = activePlugin
+        val previousJob = connectJob
+        activePlugin = null
+        connectJob =
+            scope.launch {
+                previousJob?.cancelAndJoin()
+                previousPlugin?.disconnect()
+                connectAndObserve()
+            }
         return START_STICKY
     }
 
@@ -126,20 +142,23 @@ class NotificationConnectionService : Service() {
         Log.i(TAG, "connectAndObserve() — group=${group.id} (${group.name}) providerId=${group.providerId} url=${url.url} topic=${url.topic}")
         plugin.connect(url)
 
-        scope.launch {
-            plugin.connectionState.collect { state ->
-                Log.d(TAG, "connectionState changed -> $state")
-                updateStatus(
-                    when (state) {
-                        ConnectionState.CONNECTING -> NotificationServiceStatus.CONNECTING
-                        ConnectionState.CONNECTED -> NotificationServiceStatus.CONNECTED
-                        ConnectionState.DISCONNECTED -> NotificationServiceStatus.DISCONNECTED
-                    },
-                )
+        // Children of this connection's job: cancelled together when a newer start() replaces it.
+        coroutineScope {
+            launch {
+                plugin.connectionState.collect { state ->
+                    Log.d(TAG, "connectionState changed -> $state")
+                    updateStatus(
+                        when (state) {
+                            ConnectionState.CONNECTING -> NotificationServiceStatus.CONNECTING
+                            ConnectionState.CONNECTED -> NotificationServiceStatus.CONNECTED
+                            ConnectionState.DISCONNECTED -> NotificationServiceStatus.DISCONNECTED
+                        },
+                    )
+                }
             }
-        }
-        scope.launch {
-            plugin.events.collect { rawEvent -> eventPipeline.handle(rawEvent) }
+            launch {
+                plugin.events.collect { rawEvent -> eventPipeline.handle(rawEvent) }
+            }
         }
     }
 

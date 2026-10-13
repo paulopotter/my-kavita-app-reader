@@ -197,6 +197,17 @@ class MainApplication :
         }
     }
 
+    // The notification foreground service keeps this process alive after the user closes the app, so
+    // the decoded reader pages Coil holds in memory (full-resolution ARGB_8888, tens of MB each)
+    // would otherwise stay resident with no screen to show them. Drop them as soon as the UI is
+    // hidden — the disk cache still serves them without a re-download.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_UI_HIDDEN) {
+            coil.Coil.imageLoader(this).memoryCache?.clear()
+        }
+    }
+
     // Runs the OTA bundle download for a resolved DownloadPending, mirroring progress to the RN
     // side through OtaEventBridge. Fire-and-forget on applicationScope — the boot never waits on it.
     fun startOtaDownload(decision: OtaDecision.DownloadPending) {
