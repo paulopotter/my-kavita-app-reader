@@ -1159,6 +1159,21 @@ class ServerTest {
         }
 
     @Test
+    fun `group validateUrls makes getActive report the url it just picked`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val validatingServer = Server(groupDao, urlDao, mapOf("fake" to fakeRegistration()), urlSelector, RequestTool(OkHttpClient()))
+            val group = validatingServer.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))
+            validatingServer.group(group.id).addUrl(NewServerUrl("http://other.invalid", 5000, 0))
+            validatingServer.group(group.id).addUrl(NewServerUrl(baseUrl, 5000, 1))
+
+            assertEquals(null, validatingServer.group(group.id).getActive())
+            val winner = validatingServer.group(group.id).validateUrls()
+
+            assertEquals(winner.id, validatingServer.group(group.id).getActive()?.id)
+        }
+
+    @Test
     fun `group validateUrls throws when no configured url responds`() =
         runTest {
             val group = server.groups.add(NewServerGroup("My Server", "fake", """{"apiKey":"key-1"}""", "/health"))

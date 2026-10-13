@@ -996,7 +996,11 @@ class ExternalMetadataServer
                     urlSelector.invalidateAndReselect(candidates).getOrElse {
                         throw ExternalMetadataServerException("Could not resolve a healthy URL for group $groupId: ${it.message}")
                     }
-                return externalMetadataUrlDao.getByGroupId(groupId).first { it.url.trimEnd('/') == winningUrl }.toInfo()
+                val winner = externalMetadataUrlDao.getByGroupId(groupId).first { it.url.trimEnd('/') == winningUrl }
+                // Same as :server — record the winner so getActive() reflects this test, not the
+                // previous resolution.
+                activeMutex.withLock { lastActiveInfoByGroupId[groupId] = buildActiveInfo(group, winner) }
+                return winner.toInfo()
             }
 
             override suspend fun getActive(): ExternalMetadataUrlInfo? =

@@ -1222,6 +1222,28 @@ class ExternalMetadataServerTest {
         }
 
     @Test
+    fun `group validateUrls makes getActive report the url it just picked`() =
+        runTest {
+            val urlSelector = FakeUrlSelector(baseUrl)
+            val validatingServer =
+                ExternalMetadataServer(
+                    groupDao,
+                    urlDao,
+                    mapOf("fake" to fakeRegistration()),
+                    urlSelector,
+                    RequestTool(OkHttpClient()),
+                    Cache(FakeCacheDao()),
+                ).also { it.backgroundDispatcher = UnconfinedTestDispatcher() }
+            val group = validatingServer.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))
+            validatingServer.group(group.id).addUrl(NewExternalMetadataUrl("http://other.invalid", 5000, 0))
+            validatingServer.group(group.id).addUrl(NewExternalMetadataUrl(baseUrl, 5000, 1))
+
+            val winner = validatingServer.group(group.id).validateUrls()
+
+            assertEquals(winner.id, validatingServer.group(group.id).getActive()?.id)
+        }
+
+    @Test
     fun `group validateUrls throws when no configured url responds`() =
         runTest {
             val group = server.groups.add(NewExternalMetadataGroup("My M3", "fake", "{}", "/health"))

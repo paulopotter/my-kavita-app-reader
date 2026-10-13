@@ -903,7 +903,12 @@ class Server
                     urlSelector.invalidateAndReselect(candidates).getOrElse {
                         throw ServerException("Could not resolve a healthy URL for group $groupId: ${it.message}")
                     }
-                return serverUrlDao.getByGroupId(groupId).first { it.url.trimEnd('/') == winningUrl }.toInfo()
+                val winner = serverUrlDao.getByGroupId(groupId).first { it.url.trimEnd('/') == winningUrl }
+                // The selector's cache now points at the winner, but getActive() reads this map —
+                // without recording it here, "test connection" picked one URL and the very next
+                // getActive() still reported the previous one until some content call resolved again.
+                activeMutex.withLock { lastActiveInfoByGroupId[groupId] = buildActiveInfo(group, winner) }
+                return winner.toInfo()
             }
 
             override suspend fun getActive(): ServerUrlInfo? =
