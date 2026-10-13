@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Rect
 import coil.ImageLoader
 import coil.decode.DecodeResult
@@ -41,6 +42,12 @@ import java.nio.ByteBuffer
 //   to avoid never applies to this path.
 private const val TILE_HEIGHT_PX = 2048
 
+// Final stitched bitmap is capped at this many bytes (ARGB_8888). Android's RecordingCanvas refuses
+// to draw a bitmap above ~100MB ("Canvas: trying to draw too large(N bytes) bitmap", a FATAL crash
+// on the main thread, not catchable at decode time) — confirmed on-device with 1450x27604 PNG
+// webtoon strips (152MB each). Staying well under leaves headroom for several pages in memory.
+private const val MAX_OUTPUT_BYTES = 80L * 1024 * 1024
+
 /**
  * Coil decoder that avoids asking the platform to decode very tall images in one shot: tiles via
  * [BitmapRegionDecoder] for JPEG/PNG/WebP (see [TILE_HEIGHT_PX] for why that matters on some
@@ -73,6 +80,18 @@ class SafeBitmapDecoder(
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             val originalWidth = bounds.outWidth
             val originalHeight = bounds.outHeight
+            // Always-on (Log.i): estimated ARGB_8888 size vs. free Java heap, to catch OOM crashes.
+            run {
+                val rt = Runtime.getRuntime()
+                val estimateMb = originalWidth.toLong() * originalHeight * 4 / (1024 * 1024)
+                val freeMb = (rt.maxMemory() - (rt.totalMemory() - rt.freeMemory())) / (1024 * 1024)
+                android.util.Log.i(
+                    "CoilDiagnostic",
+                    "decodeNow SIZE ${originalWidth}x$originalHeight est=${estimateMb}MB " +
+                        "fileKb=${bytes.size / 1024} heapFree=${freeMb}MB heapMax=${rt.maxMemory() / (1024 * 1024)}MB " +
+                        "mime=${bounds.outMimeType} cacheKey=$cacheKey",
+                )
+            }
             ReaderDebugFlags.d("CoilDiagnostic") {
                 "decodeNow bounds=${originalWidth}x$originalHeight mimeType=${bounds.outMimeType} cacheKey=$cacheKey"
             }
@@ -83,7 +102,13 @@ class SafeBitmapDecoder(
 
             if (originalHeight <= TILE_HEIGHT_PX) {
                 ReaderDebugFlags.d("CoilDiagnostic") { "decodeNow SMALL PATH (no tiling needed) cacheKey=$cacheKey" }
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options())
+                val bitmap =
+                    try {
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options())
+                    } catch (t: Throwable) {
+                        android.util.Log.e("CoilDiagnostic", "decodeNow SMALL PATH THREW cacheKey=$cacheKey", t)
+                        null
+                    }
                 if (bitmap == null) {
                     android.util.Log.e("CoilDiagnostic", "decodeNow SMALL PATH BITMAP NULL cacheKey=$cacheKey")
                     return@runInterruptible null
@@ -165,18 +190,30 @@ class SafeBitmapDecoder(
         }
 
         try {
+            val fullBytes = originalWidth.toLong() * originalHeight * 4
+            val scale =
+                if (fullBytes <= MAX_OUTPUT_BYTES) 1f else Math.sqrt(MAX_OUTPUT_BYTES.toDouble() / fullBytes).toFloat()
+            val outWidth = maxOf(1, Math.round(originalWidth * scale))
+            val outHeight = maxOf(1, Math.round(originalHeight * scale))
+            if (scale < 1f) {
+                android.util.Log.i(
+                    "CoilDiagnostic",
+                    "decodeTiled DOWNSCALE ${originalWidth}x$originalHeight -> ${outWidth}x$outHeight scale=$scale cacheKey=$cacheKey",
+                )
+            }
             val output =
                 try {
-                    Bitmap.createBitmap(originalWidth, originalHeight, Bitmap.Config.ARGB_8888)
+                    Bitmap.createBitmap(outWidth, outHeight, Bitmap.Config.ARGB_8888)
                 } catch (t: Throwable) {
                     android.util.Log.e(
                         "CoilDiagnostic",
-                        "decodeTiled output createBitmap THREW ${originalWidth}x$originalHeight cacheKey=$cacheKey",
+                        "decodeTiled output createBitmap THREW ${outWidth}x$outHeight cacheKey=$cacheKey",
                         t,
                     )
                     return null
                 }
             val canvas = Canvas(output)
+            val paint = Paint(Paint.FILTER_BITMAP_FLAG)
 
             var top = 0
             var tileIndex = 0
@@ -202,7 +239,9 @@ class SafeBitmapDecoder(
                     )
                     return null
                 }
-                canvas.drawBitmap(tileBitmap, 0f, top.toFloat(), null)
+                // Rounded edges from the same function for adjacent tiles, so no seam/gap appears.
+                val dst = Rect(0, Math.round(top * scale), outWidth, Math.round(bottom * scale))
+                canvas.drawBitmap(tileBitmap, null, dst, paint)
                 tileBitmap.recycle()
                 ReaderDebugFlags.d("CoilDiagnostic") { "decodeTiled tile=$tileIndex OK rect=$rect cacheKey=$cacheKey" }
 
@@ -213,7 +252,7 @@ class SafeBitmapDecoder(
             ReaderDebugFlags.d("CoilDiagnostic") {
                 "decodeTiled SUCCESS bitmap=${output.width}x${output.height} tiles=$tileIndex cacheKey=$cacheKey"
             }
-            return DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, output), isSampled = false)
+            return DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, output), isSampled = scale < 1f)
         } finally {
             regionDecoder.recycle()
         }
