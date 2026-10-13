@@ -10,6 +10,35 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.10.13.2105](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.13.2105)] - 2026-10-13
+
+Maior estabilidade ao abrir páginas longas, carregamento de imagens mais rápido e correções importantes de conexão e cache. / Greater stability when opening long pages, faster image loading, and important connection and cache fixes.
+
+
+### **Backend** - `1.6.0`
+
+**[pt-BR]**
+- O aplicativo não fecha mais ao abrir obras com páginas muito altas e a rolagem ficou muito mais fluida.
+- O carregamento de páginas já vistas foi otimizado e o espaço temporário é limpo automaticamente ao iniciar.
+- Trocar entre rede local e endereço externo não baixa as imagens de novo e esconde dados sensíveis.
+- O sistema de conexão agora recupera o endereço local mais rápido e atualiza o servidor ativo corretamente.
+- A tela de detalhes da obra não exibe mais capítulos desatualizados e o aplicativo lida melhor com falhas.
+
+**[en]**
+- The app no longer crashes when opening titles with very tall pages and scrolling has become much smoother.
+- Loading previously viewed pages was optimized and temporary storage is automatically cleared upon startup.
+- Switching between local network and external address does not redownload images and hides sensitive data.
+- The connection system now recovers the local address faster and updates the active server correctly.
+- The title details screen no longer displays outdated chapters and the application handles failures better.
+
+### **Frontend** - `1.7.0`
+
+**[pt-BR]**
+- Sem alterações nesta versão
+
+**[en]**
+- No changes in this version
+
 ## [[2026.09.25.0053](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.09.25.0053)] - 2026-09-25
 
 Nova seleção de capítulos em massa, ajustes rápidos no leitor e mais opções visuais para a sua biblioteca. / New bulk chapter selection, quick reader adjustments, and more visual options for your library.
