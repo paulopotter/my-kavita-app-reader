@@ -433,8 +433,23 @@ describe('SerieTool.normalize.card', () => {
     });
     expect(card.publicationStatus).toBe('COMPLETED');
     expect(card.publicationLabel).toBe('Completo');
-    expect(card.downloadedLabel).toBe('40/40 caps.');
+    expect(card.downloadedLabel).toBe('40 caps.');
     expect(card.errorsLabel).toBe('Erros');
+  });
+
+  it.each([
+    [343, 39, '343 caps.'],
+    [40, 40, '40 caps.'],
+    [100, 110, '100/110 caps.'],
+    [10, undefined, '10 caps.'],
+    [undefined, 10, undefined],
+  ])('labels downloaded %s with accepted %s as %s', (downloaded, accepted, expected) => {
+    const card = SerieTool.normalize.card({
+      serial: serial(),
+      t: cardStrings,
+      enrichment: { downloadedChapters: downloaded, externalTotalChapters: accepted },
+    });
+    expect(card.downloadedLabel).toBe(expected);
   });
 
   it('omits every optional label when the caller has no enrichment — Search passes none', () => {
@@ -506,6 +521,12 @@ describe('SerieTool.relabel', () => {
     });
     expect(patched.downloadedLabel).toBe('7/20 caps.');
     expect(patched.errorsLabel).toBe('Erros');
+  });
+
+  it('relabels downloaded without the accepted count when nothing is missing', () => {
+    const card = SerieTool.normalize.card({ serial: serial(), t: cardStrings });
+    const patched = SerieTool.relabel({ card: { ...card, downloadedChapters: 343, totalChapters: 39 }, t: cardStrings });
+    expect(patched.downloadedLabel).toBe('343 caps.');
   });
 
   it('leaves a page-only row\'s progress alone (no chapter counts to recompute from)', () => {

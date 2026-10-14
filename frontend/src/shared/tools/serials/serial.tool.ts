@@ -246,6 +246,20 @@ function countLabel(read: number | undefined, total: number | undefined, t: Stri
   return `${read}/${total} ${t.chaptersFormat}`;
 }
 
+// What the source holds vs. what the provider delivers and the source accepts. Only the gap is
+// worth showing: "12/40 caps." when the provider has more than the source holds, a bare
+// "40 caps." when nothing is missing (or the accepted count is unknown). undefined without a
+// downloaded count, so the card omits the line.
+function downloadedLabel(downloaded: number | undefined, accepted: number | undefined, t: Strings): string | undefined {
+  if (downloaded == null) {
+    return undefined;
+  }
+  if (accepted == null || downloaded >= accepted) {
+    return `${downloaded} ${t.chaptersFormat}`;
+  }
+  return `${downloaded}/${accepted} ${t.chaptersFormat}`;
+}
+
 // status → the string that names it. Keyed by the enum, so a new status that nobody gave a
 // label to fails to compile rather than rendering blank.
 const PUBLICATION_LABEL_KEY: Record<PublicationStatus, keyof Strings> = {
@@ -364,7 +378,7 @@ export const SerieTool = {
         publicationLabel: publicationStatus ? publicationLabel(publicationStatus, t) : undefined,
         downloadedChapters: enrichment?.downloadedChapters,
         totalChapters: enrichment?.externalTotalChapters,
-        downloadedLabel: countLabel(enrichment?.downloadedChapters, enrichment?.externalTotalChapters, t),
+        downloadedLabel: downloadedLabel(enrichment?.downloadedChapters, enrichment?.externalTotalChapters, t),
         hasErrors: enrichment?.hasErrors,
         errorsLabel: enrichment?.hasErrors ? t.hasErrors : undefined,
         lastChapterAddedEpochMs: serial.lastUpdatesUTC?.chapterAdded,
@@ -397,7 +411,7 @@ export const SerieTool = {
       chapterCountLabel: countLabel(card.readChapters, card.chapterCount, t),
       publicationStatus: status,
       publicationLabel: status ? publicationLabel(status, t) : undefined,
-      downloadedLabel: countLabel(card.downloadedChapters, card.totalChapters, t),
+      downloadedLabel: downloadedLabel(card.downloadedChapters, card.totalChapters, t),
       errorsLabel: card.hasErrors ? t.hasErrors : undefined,
     };
   },
