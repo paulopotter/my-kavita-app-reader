@@ -10,6 +10,16 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+- feat: o plugin de metadados externos passa a usar a API `/api/v1`, sem baixar o catálogo inteiro.
+- feat: a lista de obras passa a trazer a data em que cada obra entrou na biblioteca.
+
+### Frontend
+- feat: nova tela Home (dashboard) com os trilhos "Continuar lendo" (abre direto no capítulo, com barra de progresso do capítulo), "Novos capítulos" das obras seguidas, "Atualizadas", "Na fila" e "Novas na biblioteca", mais uma faixa de estatísticas.
+- feat: nova opção em Ajustes para escolher a tela inicial (Home ou Favoritos); a aba Home aparece depois do primeiro uso e, sem ela, o app abre na Biblioteca.
+- feat: o ponto de retomada de uma obra é atualizado logo depois de ler nela, em vez de esperar o cache expirar.
+- feat: o rótulo dos capítulos baixados mostra a lacuna só quando ela existe.
+
 ## [[2026.10.13.2105](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.13.2105)] - 2026-10-13
 
 Maior estabilidade ao abrir páginas longas, carregamento de imagens mais rápido e correções importantes de conexão e cache. / Greater stability when opening long pages, faster image loading, and important connection and cache fixes.

@@ -1,17 +1,12 @@
-# Backlog 005 — Home Screen
+# Backlog 005 — Dashboard (Home)
 
-## What
-Dashboard: recently added, recently read, recommended. Fifth screen in migration order.
+## Status
+Implemented as `screens/dashboard/` (code name "dashboard"; user-facing label "Home").
+Rails: continue reading, new chapters (followed), recently updated, up next (followed), new in
+library, plus a stats strip. Start screen is a setting (`StartScreenPrefs`); the tab is unlocked
+on first consumption and never locks again. Resume-point freshness lives in the series domain
+(`SerialRefreshTool`), not in the screen.
 
-## Why
-Main landing screen after splash — aggregates content from multiple Kavita endpoints.
-
-## Scope (when planned)
-- Kotlin: multiple `kavita.*` repo calls (recently added, on deck, etc.)
-- RN: `HomeScreen` → horizontal carousels + section headers (all dummy components)
-- `HomeService` aggregates data from multiple domain services without new requests
-  (data already fetched — transforms only)
-
-## Dependencies
-- Plan 001 (Config)
-- Backlog 003 (Library) — shared series types
+## Still open
+- Adult-content filter (hide / blur / adult-only) across Library, Search and Dashboard.
+- Series-level progress bar on Library/Following cards (the Dashboard bar is per chapter).

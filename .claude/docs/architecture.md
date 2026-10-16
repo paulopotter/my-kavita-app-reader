@@ -29,11 +29,13 @@ my-kavita-app-reader/
 │       │       ├── modes/         #   webtoon.adapter.ts (per rendering-mode translation)
 │       │       ├── reader.screen.tsx / .styles.ts / .types.ts
 │       │       └── reader.model.ts / reader.window.ts   # screen-local pure model, no `Transform`
+│       │   └── dashboard/         # "Home" tab: rails built by dashboard.tool.ts (screen-local, pure) from the
+│       │                          #   series list; owns no cache — freshness is SerialRefreshTool's job
 │       └── shared/
 │           ├── components/        # Generic dumb components
 │           ├── context/           # React contexts (startup, immersive)
 │           ├── services/          # Layer 4 — chapters/pages/serials/servers
-│           ├── tools/             # Layer 3 — domain normalizers + actions/methods/reader-prefs
+│           ├── tools/             # Layer 3 — domain normalizers + actions/methods/reader-prefs/start-screen-prefs/serial-refresh
 │           ├── managers/          # Layer 3 infra — caches/preferences/events/store
 │           ├── bridge/            # TypeScript types + NativeModule handles
 │           └── i18n/              # strings by language + hooks
