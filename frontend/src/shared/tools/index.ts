@@ -6,6 +6,7 @@ export * from './methods';
 export * from './navigation';
 export * from './reader';
 export * from './serials';
+export * from './startup';
 export * from './string';
 export * from './theme-labels';
 export * from './url';

@@ -140,6 +140,7 @@ export interface SerialLastUpdatesUTC {
   series?: number;
   chapterAdded?: number;
   readDate?: number;
+  created?: number;
 }
 
 export interface SerialOtherNames {

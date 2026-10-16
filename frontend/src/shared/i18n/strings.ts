@@ -26,6 +26,9 @@ export interface Strings {
   configMenuSerials: string;
   configMenuNotifications: string;
   configMenuTheme: string;
+  configMenuStartScreen: string;
+  configStartScreenHome: string;
+  configStartScreenFollowing: string;
   themeNameTeal: string;
   themeNameCrimson: string;
   themeNameOnyx: string;
@@ -130,10 +133,26 @@ export interface Strings {
 
   // ── Bottom nav (react-navigation tabs) ───────────────────────────────────
   navLibrary: string;
+  navDashboard: string;
   navFollowing: string;
   navSearch: string;
   navNotifications: string;
   navConfig: string;
+
+  // ── Dashboard (Home tab) ─────────────────────────────────────────────────
+  dashboardContinueReading: string;
+  dashboardLatestChapters: string;
+  dashboardRecentlyUpdated: string;
+  dashboardUnreadFollowed: string;
+  dashboardRecentlyAdded: string;
+  dashboardEmpty: string;
+  dashboardChapter: string; // "{0}" = chapter number — "Cap. {0}"
+  dashboardPercentRead: string; // "{0}" = percent — "{0}% lido"
+  dashboardStatSeries: string;
+  dashboardStatFollowed: string;
+  dashboardStatInProgress: string;
+  dashboardError: string;
+  dashboardRetry: string;
 
   // ── Search screen ────────────────────────────────────────────────────────
   searchPlaceholder: string;
@@ -439,6 +458,9 @@ const ptBR: Strings = {
   configMenuSerials: 'Página do mangá',
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
+  configMenuStartScreen: 'Tela inicial',
+  configStartScreenHome: 'Home',
+  configStartScreenFollowing: 'Favoritos',
   themeNameTeal: 'Petróleo',
   themeNameCrimson: 'Carmim',
   themeNameOnyx: 'Ônix',
@@ -527,11 +549,25 @@ const ptBR: Strings = {
   bottomBarSettings: 'Ajustes',
 
   navLibrary: 'Biblioteca',
+  navDashboard: 'Home',
   navFollowing: 'Seguindo',
   navSearch: 'Buscar',
   navNotifications: 'Notificações',
   navConfig: 'Ajustes',
 
+  dashboardContinueReading: 'Continuar lendo',
+  dashboardLatestChapters: 'Novos capítulos',
+  dashboardRecentlyUpdated: 'Atualizadas',
+  dashboardUnreadFollowed: 'Na fila',
+  dashboardRecentlyAdded: 'Novas na biblioteca',
+  dashboardEmpty: 'Sem conteúdo',
+  dashboardChapter: 'Cap. {0}',
+  dashboardPercentRead: '{0}% lido',
+  dashboardStatSeries: 'Obras',
+  dashboardStatFollowed: 'Seguidas',
+  dashboardStatInProgress: 'Em andamento',
+  dashboardError: 'Não foi possível carregar a Home',
+  dashboardRetry: 'Tentar novamente',
   searchPlaceholder: 'Buscar por nome',
   searchClear: 'Limpar busca',
   searchLoading: 'Carregando séries...',
@@ -802,6 +838,9 @@ const en: Strings = {
   configMenuSerials: 'Manga page',
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
+  configMenuStartScreen: 'Start screen',
+  configStartScreenHome: 'Home',
+  configStartScreenFollowing: 'Favorites',
   themeNameTeal: 'Teal',
   themeNameCrimson: 'Crimson',
   themeNameOnyx: 'Onyx',
@@ -890,11 +929,25 @@ const en: Strings = {
   bottomBarSettings: 'Settings',
 
   navLibrary: 'Library',
+  navDashboard: 'Home',
   navFollowing: 'Following',
   navSearch: 'Search',
   navNotifications: 'Notifications',
   navConfig: 'Settings',
 
+  dashboardContinueReading: 'Continue reading',
+  dashboardLatestChapters: 'New chapters',
+  dashboardRecentlyUpdated: 'Updated',
+  dashboardUnreadFollowed: 'Up next',
+  dashboardRecentlyAdded: 'New in library',
+  dashboardEmpty: 'Nothing here yet',
+  dashboardChapter: 'Ch. {0}',
+  dashboardPercentRead: '{0}% read',
+  dashboardStatSeries: 'Series',
+  dashboardStatFollowed: 'Following',
+  dashboardStatInProgress: 'In progress',
+  dashboardError: 'Could not load Home',
+  dashboardRetry: 'Try again',
   searchPlaceholder: 'Search by name',
   searchClear: 'Clear search',
   searchLoading: 'Loading series...',

@@ -1,3 +1,5 @@
+import type { StartTab } from '../../tools/startup';
+
 // State discovered at app startup (via StartupBridge) that the navigation shell needs to decide
 // its initial route and initial tab. Not per-screen state — this is "what did we find out about
 // the install before rendering anything".
@@ -6,6 +8,11 @@ export interface StartupState {
   hasServerConfigured: boolean;
   // The user follows at least one series → open on the Following tab, not Library.
   hasFollowedSeries: boolean;
+  // The tab to open on, resolved once per load() from the user's choice, whether they follow
+  // anything and whether the Dashboard tab is unlocked. Falls back to the Library.
+  startTab: StartTab;
+  // The Dashboard tab exists (as of the last load(); it only ever flips on).
+  dashboardUnlocked: boolean;
   // Badge on the notifications entry. Placeholder (always 0) until notifications ship (Plano 008).
   unreadNotificationCount: number;
   // Re-read all of the above (e.g. after the user wipes their server and bounces to setup).

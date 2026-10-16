@@ -21,8 +21,15 @@ export interface SerieDigestResolvedPayload {
   publicationStatus?: string;
 }
 
+// Emitted by SerialRefreshTool once a series was re-fetched after the user read in it — the cached
+// digest (and its resume point) is now current. Listeners re-read the cache; nothing else is sent.
+export interface SerieRefreshedPayload {
+  seriesId: string;
+}
+
 export const SerieEvents = {
   digestResolved: createEvent<SerieDigestResolvedPayload>('serieDigestResolved'),
+  refreshed: createEvent<SerieRefreshedPayload>('serieRefreshed'),
 } as const;
 
 // Builds the event payload from a resolved digest — the one place the "which fields the Library
