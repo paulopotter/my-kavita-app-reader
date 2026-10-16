@@ -49,6 +49,9 @@ data class PluginSerial(
     val malId: Long?,
     val primaryColor: String?,
     val secondaryColor: String?,
+    // When the series first appeared in the library. Default null so a provider (or test) with no
+    // such date need not name it.
+    val createdUtc: String? = null,
 )
 
 // Fields from Kavita's real SeriesMetadataDto — a genuinely separate network call

@@ -320,6 +320,7 @@ private fun KavitaSeriesDto.toPluginSerial(coverUrl: String) =
         malId = if (malId != 0L) malId else null,
         primaryColor = primaryColor,
         secondaryColor = secondaryColor,
+        createdUtc = ensureIsoUtc(created),
     )
 
 // Kavita's own PublicationStatus enum (0=OnGoing, 1=Hiatus, 2=Completed, 3=Cancelled, 4=Ended) —

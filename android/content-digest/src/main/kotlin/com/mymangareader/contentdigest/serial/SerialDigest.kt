@@ -61,6 +61,9 @@ interface SerialFields {
         val series: Long?,
         val chapterAdded: Long?,
         val readDate: Long?,
+        // When the series first appeared in the library (not an update — kept here with the other
+        // dates). Default null so older cached digests still decode.
+        val created: Long? = null,
     )
 
     @Serializable
@@ -503,6 +506,7 @@ private suspend fun fetchSerialDigest(
                 series = parseIsoUtcToEpochMs(plugin.lastFolderScannedUtc),
                 chapterAdded = parseIsoUtcToEpochMs(plugin.lastChapterAddedUtc),
                 readDate = parseIsoUtcToEpochMs(plugin.latestReadDateUtc),
+                created = parseIsoUtcToEpochMs(plugin.createdUtc),
             ),
         coverImage = coverImage,
         chapters = chapters,

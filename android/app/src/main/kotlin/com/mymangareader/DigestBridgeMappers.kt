@@ -183,6 +183,7 @@ private fun SerialFields.LastUpdatesUTC.toWritableMap(): WritableMap =
         series?.let { putDouble("series", it.toDouble()) }
         chapterAdded?.let { putDouble("chapterAdded", it.toDouble()) }
         readDate?.let { putDouble("readDate", it.toDouble()) }
+        created?.let { putDouble("created", it.toDouble()) }
     }
 
 private fun SerialFields.OtherNames.toWritableMap(): WritableMap =

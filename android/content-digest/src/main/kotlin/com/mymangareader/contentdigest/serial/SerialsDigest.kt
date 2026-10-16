@@ -121,6 +121,7 @@ internal fun serialDigestFromListData(
                 series = parseIsoUtcToEpochMs(serial.lastFolderScannedUtc),
                 chapterAdded = parseIsoUtcToEpochMs(serial.lastChapterAddedUtc),
                 readDate = parseIsoUtcToEpochMs(serial.latestReadDateUtc),
+                created = parseIsoUtcToEpochMs(serial.createdUtc),
             ),
         coverImage = serial.coverImage,
         chapters = null,

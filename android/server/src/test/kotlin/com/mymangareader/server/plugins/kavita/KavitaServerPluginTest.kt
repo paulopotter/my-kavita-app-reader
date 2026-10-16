@@ -198,6 +198,20 @@ class KavitaServerPluginTest {
             assertEquals("$baseUrl/api/Image/series-cover?seriesId=1&apiKey=api-key-123", serial.coverUrl)
         }
 
+    @Test
+    fun `serials list maps the library creation date as an ISO UTC string`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":1,"name":"Serial A","pages":1,"pagesRead":0,"created":"2026-01-01T00:00:00.1234567"}]""",
+                ),
+            )
+
+            val serial = plugin.serials.list().single()
+
+            assertEquals("2026-01-01T00:00:00.123Z", serial.createdUtc)
+        }
+
     // ── serial(id).get() / getMetadata() — two separate network calls ──
 
     @Test

@@ -1136,6 +1136,7 @@ private fun fakePluginSerial(
     lastChapterAddedUtc: String? = null,
     pagesRead: Int = 0,
     totalPages: Int = 0,
+    createdUtc: String? = null,
 ) = PluginSerial(
     id = id,
     name = name,
@@ -1154,6 +1155,7 @@ private fun fakePluginSerial(
     malId = null,
     primaryColor = null,
     secondaryColor = null,
+    createdUtc = createdUtc,
 )
 
 class SerialsDigestTest {
@@ -1214,6 +1216,26 @@ class SerialsDigestTest {
             assertNull(first.metadata)
             // cover was normalized by :server into a full ImageDescriptor
             assertTrue(first.coverImage.url.isNotEmpty())
+        }
+
+    @Test
+    fun `a listed series carries the date it first appeared in the library`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult =
+                Result.success(
+                    listOf(
+                        fakePluginSerial("s1", createdUtc = "2026-01-01T00:00:00.000Z"),
+                        fakePluginSerial("s2"),
+                    ),
+                )
+
+            val result = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+            val dated = result.serials[0] as SerialDigest.Success
+            val undated = result.serials[1] as SerialDigest.Success
+            assertEquals(1767225600000L, dated.lastUpdatesUTC?.created)
+            assertNull(undated.lastUpdatesUTC?.created)
         }
 
     @Test

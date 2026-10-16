@@ -248,6 +248,7 @@ data class SerialData(
     val malId: Long?,
     val primaryColor: String?,
     val secondaryColor: String?,
+    val createdUtc: String? = null,
 )
 
 // Wrapper for serials.list()'s payload — an object, not a bare array, so list-level metadata
@@ -288,6 +289,7 @@ private fun PluginSerial.toSerialData(
     malId = malId,
     primaryColor = primaryColor,
     secondaryColor = secondaryColor,
+    createdUtc = createdUtc,
 )
 
 fun buildImageDescriptor(
