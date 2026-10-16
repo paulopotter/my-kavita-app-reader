@@ -9,6 +9,7 @@ import { SerialsService, SerialService } from '../../../shared/services/serials'
 import { ChapterEvents } from '../../../shared/tools/chapters';
 import { SeriesTool, SerieTool, SerieEvents, serieDigestResolvedPayload } from '../../../shared/tools/serials';
 import { SeriesDigestIndex, type SeriesDigestIndexEntry } from '../../../shared/managers/store';
+import { StartScreenPrefs } from '../../../shared/tools/startup';
 import { LibraryEvents } from '../library.events';
 import { LibraryPrefs, DEFAULT_SORT_MODE, DEFAULT_VIEW_MODE } from '../library.prefs';
 import { LibraryTool, type LibraryEntry } from '../library.tool';
@@ -365,6 +366,11 @@ export async function assembleLibrary({
   const series = SeriesTool.normalize({ serials: digest.serials });
   const followedIds = settledOr(followedResult, [] as string[]);
   const followedSet = new Set(followedIds);
+  // Having read anything is what unlocks the Dashboard tab (for good — see StartScreenPrefs).
+  // Raised from here because the list is already in hand and this runs on every launch.
+  if (series.some(s => (s.pages?.read ?? 0) > 0)) {
+    StartScreenPrefs.unlockDashboard();
+  }
   // Assemble timing trace — kept for the debug task (backlog 015-telemetria-interna-debug).
   // console.log(`[library] assemble light=${light} serials=${series.length} listMs=${Date.now() - t0}`);
 

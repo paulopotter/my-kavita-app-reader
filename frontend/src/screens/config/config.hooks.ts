@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '../../shared/i18n';
+import { DEFAULT_START_SCREEN, type StartScreen, StartScreenPrefs } from '../../shared/tools/startup';
 
 // ── useConfigLanguage ────────────────────────────────────────────────────────
 // The single "change the app language" action, shared by the Config menu and the onboarding
@@ -18,4 +19,22 @@ export function useConfigMenu() {
   const [debugUnlocked, setDebugUnlocked] = useState(false);
   const unlockDebug = useCallback(() => setDebugUnlocked(true), []);
   return { debugUnlocked, unlockDebug };
+}
+
+// ── useConfigStartScreen ─────────────────────────────────────────────────────
+// Which tab the app opens on. Takes effect on the next launch (StartupProvider resolves it once
+// per load), so there is nothing to refresh here — just read and write the preference.
+export function useConfigStartScreen() {
+  const [startScreen, setStartScreen] = useState<StartScreen>(DEFAULT_START_SCREEN);
+
+  useEffect(() => {
+    StartScreenPrefs.get().then(setStartScreen);
+  }, []);
+
+  const changeStartScreen = useCallback((value: StartScreen) => {
+    setStartScreen(value);
+    StartScreenPrefs.set(value);
+  }, []);
+
+  return { startScreen, changeStartScreen };
 }

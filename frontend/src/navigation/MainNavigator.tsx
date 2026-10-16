@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import { Bell, Library, Search, Settings, Star } from 'lucide-react-native';
+import { Bell, House, Library, Search, Settings, Star } from 'lucide-react-native';
 import { Routes } from './routes';
+import { DashboardScreen } from '../screens/dashboard';
 import { LibraryScreen } from '../screens/library';
 import { ConfigScreen } from '../screens/config';
 import { NotificationsScreen, useUnreadNotificationsCount } from '../screens/notifications';
@@ -38,6 +39,12 @@ function useNotificationsEnabled(): boolean {
 
 const Tab = createBottomTabNavigator();
 
+const INITIAL_ROUTE = {
+  dashboard: Routes.DASHBOARD,
+  following: Routes.FOLLOWING,
+  library: Routes.LIBRARY,
+} as const;
+
 // Extracted to avoid react/no-unstable-nested-components lint warning.
 function ConfigTab({
   onRegisterBackHandler,
@@ -60,7 +67,7 @@ export function MainNavigator() {
   const BORDER = colors.border.primary;
   const ACTIVE = colors.icon.button.secondary;
   const INACTIVE = ColorTool.add.alpha(colors.text.secondary, 0.45);
-  const { refresh, hasFollowedSeries } = useStartup();
+  const { refresh, hasFollowedSeries, startTab, dashboardUnlocked } = useStartup();
   const strings = useStrings();
   const navigation = useNavigation<any>();
   const isConfigSubScreenRef = useRef(false);
@@ -76,7 +83,7 @@ export function MainNavigator() {
     navigation.reset({ index: 0, routes: [{ name: Routes.SETUP }] });
   };
 
-  const initialTab = hasFollowedSeries ? Routes.FOLLOWING : Routes.LIBRARY;
+  const initialTab = INITIAL_ROUTE[startTab];
 
   return (
     <Tab.Navigator
@@ -95,6 +102,17 @@ export function MainNavigator() {
         tabBarLabelStyle: { fontSize: text.size[2] },
       }}
     >
+      {/* The Dashboard tab is absent on a brand-new install; once unlocked it stays. */}
+      {dashboardUnlocked && (
+        <Tab.Screen
+          name={Routes.DASHBOARD}
+          component={DashboardScreen}
+          options={{
+            tabBarLabel: strings.navDashboard,
+            tabBarIcon: ({ focused }) => <House size={icon.size[5]} color={focused ? ACTIVE : INACTIVE} />,
+          }}
+        />
+      )}
       {/* Following and Library are the same component; the `mode` route param is the only
           difference (followed-only filter + its own prefs scope + nav origin). */}
       {hasFollowedSeries && (

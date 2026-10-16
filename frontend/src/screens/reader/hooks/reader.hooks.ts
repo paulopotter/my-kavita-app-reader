@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
 import { ChapterEvents, ChapterTool, chapterEvents } from '../../../shared/tools/chapters';
+import { SerialRefreshTool } from '../../../shared/tools/serials';
 import { EventBus, useEvent } from '../../../shared/managers/events';
 import { useImmersive } from '../../../shared/context/immersive';
 import { ReadingProgressManager } from '../../../shared/managers/store';
@@ -122,6 +123,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
       if (sessionMarkedReadRef.current.has(chapter.id)) {return;}
       sessionMarkedReadRef.current.add(chapter.id);
       suppressServerSyncRef.current.add(chapter.id);
+      SerialRefreshTool.afterReading({ seriesId: chapter.seriesId });
       ChapterTool.mark.read({
         seriesId: chapter.seriesId,
         chapterId: chapter.id,
@@ -231,6 +233,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
               chapterId: chapter.id,
               pageIndex: position.page,
             });
+            SerialRefreshTool.afterReading({ seriesId: chapter.seriesId });
           })
           .catch(() => {});
       }
@@ -606,6 +609,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
         .then(() => {
           lastSyncedPageRef.current.set(chId, page);
           EventBus.emit(ReaderEvents.progressChanged, { seriesId: chSeriesId, chapterId: chId, pageIndex: page });
+          SerialRefreshTool.afterReading({ seriesId: chSeriesId });
         })
         .catch(() => {});
     }, SERVER_SYNC_INTERVAL_MS);

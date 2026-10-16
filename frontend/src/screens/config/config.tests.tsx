@@ -1,6 +1,6 @@
 import React from 'react';
 import { BackHandler } from 'react-native';
-import { act, fireEvent, render, renderHook } from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 
 const mockSetLanguage = jest.fn();
 let mockLanguage = 'en';
@@ -39,7 +39,7 @@ jest.mock('../../shared/components/app-versions', () => ({
 
 import { getStrings } from '../../shared/i18n/strings';
 import { ThemeProvider } from '../../shared/context';
-import { useConfigLanguage, useConfigMenu } from './config.hooks';
+import { useConfigLanguage, useConfigMenu, useConfigStartScreen } from './config.hooks';
 import { ConfigScreen } from './config.screen';
 
 const t = getStrings('en');
@@ -47,6 +47,20 @@ const t = getStrings('en');
 beforeEach(() => {
   jest.clearAllMocks();
   mockLanguage = 'en';
+});
+
+describe('useConfigStartScreen', () => {
+  it('reads the stored choice and persists a change', async () => {
+    const { PreferencesManager } = require('../../shared/managers/preferences');
+    PreferencesManager.get.mockResolvedValueOnce({ value: 'following' });
+    const { result } = renderHook(() => useConfigStartScreen());
+    await waitFor(() => expect(result.current.startScreen).toBe('following'));
+    act(() => result.current.changeStartScreen('dashboard'));
+    expect(result.current.startScreen).toBe('dashboard');
+    expect(PreferencesManager.put).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'startScreen', value: 'dashboard' }),
+    );
+  });
 });
 
 describe('useConfigLanguage', () => {

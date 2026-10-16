@@ -5,10 +5,11 @@ import { AppVersions } from '../../shared/components/app-versions';
 import { useStrings } from '../../shared/i18n';
 import { type ThemeName, defaultThemeName, icon, themes } from '../../shared/theme';
 import { useTheme } from '../../shared/context';
+import type { StartScreen } from '../../shared/tools/startup';
 import { ThemeLabelsTool } from '../../shared/tools/theme-labels';
 import { Select } from './components/select';
 import { LanguageToggle } from './components/language-toggle';
-import { useConfigLanguage, useConfigMenu } from './config.hooks';
+import { useConfigLanguage, useConfigMenu, useConfigStartScreen } from './config.hooks';
 import { configStyles } from './config.styles';
 import type { ConfigScreenProps, ConfigSubScreen } from './config.types';
 import { DebugScreen } from './debug';
@@ -64,6 +65,15 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
   const t = useStrings();
   const { language, changeLanguage } = useConfigLanguage();
   const { debugUnlocked, unlockDebug } = useConfigMenu();
+  const { startScreen, changeStartScreen } = useConfigStartScreen();
+
+  const startScreenOptions = useMemo(
+    () => [
+      { id: 'dashboard', label: t.configStartScreenHome },
+      { id: 'following', label: t.configStartScreenFollowing },
+    ],
+    [t],
+  );
 
   const themeOptions = useMemo(
     () =>
@@ -109,6 +119,15 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
         <ChevronRight size={icon.size[5]} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={[styles.divider, styles.dividerInset]} />
+
+      <Text style={styles.themeLabel}>{t.configMenuStartScreen}</Text>
+      <View style={styles.themeField}>
+        <Select
+          value={startScreen}
+          options={startScreenOptions}
+          onChange={(id: string | undefined) => id && changeStartScreen(id as StartScreen)}
+        />
+      </View>
 
       <Text style={styles.themeLabel}>{t.configMenuTheme}</Text>
       <View style={styles.themeField}>

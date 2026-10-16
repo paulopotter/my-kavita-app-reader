@@ -1,0 +1,66 @@
+import React, { useCallback } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useStrings } from '../../shared/i18n';
+import { useStyles, useTheme } from '../../shared/context';
+import { Routes } from '../../navigation/routes';
+import { Rail } from './components/rail';
+import { StatsStrip } from './components/stats-strip';
+import { useDashboard } from './hooks';
+import { dashboardStyles } from './dashboard.styles';
+import type { DashboardItem } from './dashboard.types';
+
+// dashboard.screen.tsx — render + navigation only. Rails come from useDashboard; a tile on
+// "continue reading" opens the reader on its chapter, any other opens the series.
+export function DashboardScreen() {
+  const styles = useStyles(dashboardStyles);
+  const { colors } = useTheme();
+  const t = useStrings();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { status, data, refreshing, refresh, retry } = useDashboard();
+
+  const open = useCallback(
+    (item: DashboardItem) => {
+      if (item.chapterId) {
+        navigation.navigate(Routes.READER, { seriesId: item.seriesId, chapterId: item.chapterId, origin: 'DASHBOARD' });
+      } else {
+        navigation.navigate(Routes.SERIES_DETAIL, { seriesId: item.seriesId, origin: 'DASHBOARD' });
+      }
+    },
+    [navigation],
+  );
+
+  if (status === 'loading' || (status === 'ready' && !data)) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.button.primary} />
+      </View>
+    );
+  }
+
+  if (status === 'error' || !data) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>{t.dashboardError}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={retry}>
+          <Text style={styles.retryText}>{t.dashboardRetry}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      <StatsStrip stats={data.stats} />
+      <Rail title={t.dashboardContinueReading} items={data.continueReading} onPressItem={open} />
+      <Rail title={t.dashboardLatestChapters} items={data.latestChapters} onPressItem={open} />
+      <Rail title={t.dashboardRecentlyUpdated} items={data.recentlyUpdated} onPressItem={open} />
+      <Rail title={t.dashboardUnreadFollowed} items={data.unreadFollowed} onPressItem={open} />
+      <Rail title={t.dashboardRecentlyAdded} items={data.recentlyAdded} onPressItem={open} />
+    </ScrollView>
+  );
+}

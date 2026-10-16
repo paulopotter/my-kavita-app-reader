@@ -25,6 +25,11 @@ jest.mock('../../../shared/services/serials', () => ({
   },
 }));
 
+const mockUnlockDashboard = jest.fn();
+jest.mock('../../../shared/tools/startup', () => ({
+  StartScreenPrefs: { unlockDashboard: (...a: unknown[]) => mockUnlockDashboard(...a) },
+}));
+
 const mockGetAllIds = jest.fn();
 jest.mock('../../../shared/bridge/followed-series', () => ({
   FollowedSeriesBridge: { getAllIds: (...a: unknown[]) => mockGetAllIds(...a) },
@@ -137,6 +142,20 @@ describe('useLibrary — mount / assembly', () => {
     await waitFor(() => expect(result.current.data).toHaveLength(2));
     expect(result.current.data[0]).toMatchObject({ id: '1', progressFraction: 0.5, isFollowed: false });
     expect(result.current.data[0].coverUrl).toBe('cover/1');
+  });
+
+  it('unlocks the Dashboard tab once any series has been read', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1', { pagesRead: 1 })]));
+    renderHook(() => useLibrary());
+    await waitFor(() => expect(mockUnlockDashboard).toHaveBeenCalled());
+  });
+
+  it('leaves the Dashboard tab locked while nothing has been read', async () => {
+    mockGet.mockResolvedValue(serialsDigest([serialData('1'), serialData('2')]));
+    renderHook(() => useLibrary());
+    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await act(async () => {});
+    expect(mockUnlockDashboard).not.toHaveBeenCalled();
   });
 
   it('a language change re-labels the rows in place, without refetching', async () => {
