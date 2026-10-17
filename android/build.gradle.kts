@@ -56,7 +56,7 @@ kover {
         total {
             html { onCheck = false }
             xml  { onCheck = false }
-            // COVERAGE_FLOOR_KOTLIN=84 — bump this value whenever coverage improves.
+            // COVERAGE_FLOOR_KOTLIN=85 — bump this value whenever coverage improves.
             // Bumped from 78 (Task 028): deleting the untested LibraryModule, KavitaSeriesFeature.
             // listSeries()/resolveProgress(), BffFeature.syncBff() and the SplashSyncCoordinator
             // work loop removed a large block of uncovered lines, lifting the measured value to
@@ -67,10 +67,12 @@ kover {
             // Bumped from 83 (Plan 008 Task 001): new :notifications module (schema + thin CRUD
             // facade) added to the merged Kover report with full DAO/migration/facade test
             // coverage, lifting the measured value to ~84.37%.
+            // Bumped from 84 (Plan 029 Task 001): the per-page zoom's gesture rules and a Robolectric
+            // pass through the real list lifted the measured value to ~85.2%.
             verify {
                 rule("Kotlin line coverage floor") {
                     bound {
-                        minValue = 84
+                        minValue = 85
                         coverageUnits = kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE
                         aggregationForGroup = kotlinx.kover.gradle.plugin.dsl.AggregationType.COVERED_PERCENTAGE
                     }
