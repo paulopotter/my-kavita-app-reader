@@ -10,17 +10,38 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
-- feat: o plugin de metadados externos passa a usar a API `/api/v1`, sem baixar o catálogo inteiro.
-- feat: a lista de obras passa a trazer a data em que cada obra entrou na biblioteca.
-- feat: o servidor passa a oferecer a lista de categorias e as obras que as têm, sem expor os ids do provedor.
+## [[2026.10.17.0115](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.17.0115)] - 2026-10-17
 
-### Frontend
-- feat: filtro de conteúdo sensível com um interruptor que alterna entre ocultar (padrão) e exibir desfocado, mais a opção de remover o desfoque; as categorias do filtro são adicionadas como tags em Ajustes, um botão mostra só esse conteúdo até fechar o app, e o filtro vale na Biblioteca, Seguindo, Busca, Home e Notificações.
-- feat: nova tela Home (dashboard) com os trilhos "Continuar lendo" (abre direto no capítulo, com barra de progresso do capítulo), "Novos capítulos" das obras seguidas, "Atualizadas", "Na fila" e "Novas na biblioteca", mais uma faixa de estatísticas.
-- feat: nova opção em Ajustes para escolher a tela inicial (Home ou Favoritos); a aba Home aparece depois do primeiro uso e, sem ela, o app abre na Biblioteca.
-- feat: o ponto de retomada de uma obra é atualizado logo depois de ler nela, em vez de esperar o cache expirar.
-- feat: o rótulo dos capítulos baixados mostra a lacuna só quando ela existe.
+O app agora conta com uma nova tela inicial com trilhos personalizados, salvamento instantâneo do progresso de leitura e otimizações na busca de metadados e categorias. / The app now features a new home screen with personalized rails, instant reading progress saving, and optimizations for metadata and category searches.
+
+
+### **Backend** - `1.7.0`
+
+**[pt-BR]**
+- O plugin de metadados externos passou a utilizar a versão `/api/v1` da interface, otimizando o carregamento sem baixar todo o catálogo.
+- A lista de obras agora exibe a data exata em que cada título foi adicionado à biblioteca.
+- O servidor passou a fornecer diretamente a relação de categorias e seus respectivos mangás, sem expor códigos internos dos provedores.
+
+**[en]**
+- The external metadata plugin now utilizes the `/api/v1` interface version, optimizing loading without downloading the entire catalog.
+- The manga list now displays the exact date each title was added to the library.
+- The server now directly provides the relationship of categories and their respective mangas without exposing internal provider codes.
+
+### **Frontend** - `1.8.0`
+
+**[pt-BR]**
+- Novo filtro de conteúdo sensível com opções para ocultar, exibir desfocado ou remover o desfoque, gerenciado por tags em Ajustes e aplicado em todas as abas.
+- Nova tela principal no estilo painel com trilhos para continuar a leitura, novos capítulos, obras atualizadas, itens na fila, novidades e estatísticas de uso.
+- Adicionada a opção em Ajustes para definir a tela inicial padrão entre a página principal e a aba de favoritos.
+- O ponto onde você parou na leitura agora é atualizado imediatamente após a conclusão, sem aguardar a expiração do armazenamento temporário.
+- Os indicadores de capítulos baixados passaram a exibir avisos de lacunas somente quando houver capítulos faltantes.
+
+**[en]**
+- New sensitive content filter with options to hide, blur, or unblur, managed via tags in Settings and applied across all browsing tabs.
+- New dashboard-style main screen featuring rails for continuing reading, recent chapters, updated titles, queued items, new arrivals, and usage statistics.
+- Added an option in Settings to choose the default startup screen between the main page and the favorites tab.
+- Your reading progress point is now updated immediately upon completion, bypassing any temporary storage expiration delays.
+- Downloaded chapter labels now display missing gap warnings only when there are actually skipped chapters.
 
 ## [[2026.10.13.2105](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.13.2105)] - 2026-10-13
 

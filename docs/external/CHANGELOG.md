@@ -10,6 +10,39 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+## [[2026.10.17.0115](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.17.0115)] - 2026-10-17
+
+O app agora conta com uma nova tela inicial com trilhos personalizados, salvamento instantâneo do progresso de leitura e otimizações na busca de metadados e categorias. / The app now features a new home screen with personalized rails, instant reading progress saving, and optimizations for metadata and category searches.
+
+
+### **Backend** - `1.7.0`
+
+**[pt-BR]**
+- O plugin de metadados externos passou a utilizar a versão `/api/v1` da interface, otimizando o carregamento sem baixar todo o catálogo.
+- A lista de obras agora exibe a data exata em que cada título foi adicionado à biblioteca.
+- O servidor passou a fornecer diretamente a relação de categorias e seus respectivos mangás, sem expor códigos internos dos provedores.
+
+**[en]**
+- The external metadata plugin now utilizes the `/api/v1` interface version, optimizing loading without downloading the entire catalog.
+- The manga list now displays the exact date each title was added to the library.
+- The server now directly provides the relationship of categories and their respective mangas without exposing internal provider codes.
+
+### **Frontend** - `1.8.0`
+
+**[pt-BR]**
+- Novo filtro de conteúdo sensível com opções para ocultar, exibir desfocado ou remover o desfoque, gerenciado por tags em Ajustes e aplicado em todas as abas.
+- Nova tela principal no estilo painel com trilhos para continuar a leitura, novos capítulos, obras atualizadas, itens na fila, novidades e estatísticas de uso.
+- Adicionada a opção em Ajustes para definir a tela inicial padrão entre a página principal e a aba de favoritos.
+- O ponto onde você parou na leitura agora é atualizado imediatamente após a conclusão, sem aguardar a expiração do armazenamento temporário.
+- Os indicadores de capítulos baixados passaram a exibir avisos de lacunas somente quando houver capítulos faltantes.
+
+**[en]**
+- New sensitive content filter with options to hide, blur, or unblur, managed via tags in Settings and applied across all browsing tabs.
+- New dashboard-style main screen featuring rails for continuing reading, recent chapters, updated titles, queued items, new arrivals, and usage statistics.
+- Added an option in Settings to choose the default startup screen between the main page and the favorites tab.
+- Your reading progress point is now updated immediately upon completion, bypassing any temporary storage expiration delays.
+- Downloaded chapter labels now display missing gap warnings only when there are actually skipped chapters.
+
 ## [[2026.10.13.2105](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.13.2105)] - 2026-10-13
 
 Maior estabilidade ao abrir páginas longas, carregamento de imagens mais rápido e correções importantes de conexão e cache. / Greater stability when opening long pages, faster image loading, and important connection and cache fixes.
