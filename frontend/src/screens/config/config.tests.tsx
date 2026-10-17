@@ -27,6 +27,7 @@ jest.mock('../../shared/managers/preferences', () => ({
 jest.mock('./server', () => ({ ServerScreen: (p: { onBack?: () => void }) => stub('server')(p) }));
 jest.mock('./reader', () => ({ ReaderPrefsScreen: (p: { onBack?: () => void }) => stub('reader')(p) }));
 jest.mock('./serials', () => ({ SerialsSortScreen: (p: { onBack?: () => void }) => stub('serials')(p) }));
+jest.mock('./adult', () => ({ AdultFilterScreen: (p: { onBack?: () => void }) => stub('adult')(p) }));
 jest.mock('./debug', () => ({ DebugScreen: (p: { onBack?: () => void }) => stub('debug')(p) }));
 
 // AppVersions owns the debug-unlock tap gesture; stub it with a button that fires onDebugUnlocked.
@@ -103,6 +104,12 @@ describe('ConfigScreen router', () => {
 
     fireEvent.press(getByTestId('stub-server')); // stub calls onBack on press
     expect(queryByText(t.configTitle)).toBeTruthy(); // back on the menu
+  });
+
+  it('opens the adult-content filter from its menu row', () => {
+    const { getByText, getByTestId } = render(<ConfigScreen />);
+    fireEvent.press(getByText(t.configMenuAdult));
+    expect(getByTestId('stub-adult')).toBeTruthy();
   });
 
   it('reveals the Debug row only after the version footer unlocks it', () => {

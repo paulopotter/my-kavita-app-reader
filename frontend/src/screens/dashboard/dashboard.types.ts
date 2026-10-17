@@ -8,6 +8,8 @@ export interface DashboardItem {
   caption?: string;
   // 0..1 — absent means "no progress known", and the tile draws no bar.
   progressFraction?: number;
+  // Adult-content filter: draw the tile blurred.
+  blurred?: boolean;
 }
 
 export interface DashboardStats {

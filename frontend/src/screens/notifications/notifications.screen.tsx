@@ -144,6 +144,7 @@ export function NotificationsScreen() {
             timestampLabel={DateTool.format.to.relative(item.detectedAtMs, t)}
             read={item.read}
             coverUrl={item.coverUrl}
+            blurred={item.blurred}
             selectionMode={selectionMode}
             selected={selectedIds.has(item.id)}
             onPress={() => openItem(item)}

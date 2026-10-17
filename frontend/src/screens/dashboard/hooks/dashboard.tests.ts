@@ -10,6 +10,16 @@ jest.mock('@react-navigation/native', () => {
   return { useFocusEffect: (cb: () => void) => React.useEffect(cb, [cb]) };
 });
 
+// Identity unless a test installs a rule: stands in for the adult filter's read-time pass.
+const mockAdult = jest.fn((items: unknown[]) => items);
+jest.mock('../../../shared/context/adult-filter', () => ({
+  // The real hook hands every item to idOf; do the same so the callers' id selectors run.
+  useAdultFiltered: ({ items, idOf }: { items: unknown[]; idOf: (item: unknown) => string }) => {
+    items.forEach(item => idOf(item));
+    return mockAdult(items);
+  },
+}));
+
 const mockSerialsGet = jest.fn();
 const mockSerialGet = jest.fn();
 jest.mock('../../../shared/services/serials', () => ({
@@ -52,6 +62,7 @@ function serialsDigest() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAdult.mockImplementation((items: unknown[]) => items);
   mockSerialsGet.mockResolvedValue(serialsDigest());
   mockFollowedIds.mockResolvedValue(['2']);
   mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) =>
@@ -139,5 +150,23 @@ describe('useDashboard — series refreshed after reading', () => {
       EventBus.emit(SerieEvents.refreshed, { seriesId: '1' });
     });
     await waitFor(() => expect(mockSerialsGet).toHaveBeenCalledWith({ force: false }));
+  });
+});
+
+describe('useDashboard — adult filter', () => {
+  it('builds every rail and the stats from what the filter lets through, and marks blurred ones', async () => {
+    mockAdult.mockImplementation((items: unknown[]) =>
+      (items as Array<{ id: string }>)
+        .filter(serie => serie.id !== '2')
+        .map(serie => ({ ...serie, blurred: serie.id === '1' })),
+    );
+    const { result } = renderHook(() => useDashboard());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const data = result.current.data!;
+    expect(data.stats.series).toBe(1);
+    expect(data.recentlyUpdated.map(i => i.seriesId)).toEqual(['1']);
+    expect(data.recentlyUpdated[0].blurred).toBe(true);
+    expect(data.continueReading.every(i => i.seriesId !== '2')).toBe(true);
+    expect(data.continueReading[0].blurred).toBe(true);
   });
 });

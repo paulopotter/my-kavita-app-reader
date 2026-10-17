@@ -20,4 +20,15 @@ describe('RailCard', () => {
     fireEvent.press(getByText('One Piece'));
     expect(onPress).toHaveBeenCalledWith('s1');
   });
+
+  it('blurs the cover, name and caption only when asked', () => {
+    const { Image } = require('react-native');
+    const { UNSAFE_getByType, getByText, rerender } = render(<RailCard {...base} caption="Ch. 10" />);
+    expect(UNSAFE_getByType(Image).props.blurRadius).toBe(0);
+    expect(JSON.stringify(getByText('One Piece').props.style)).not.toContain('transparent');
+    rerender(<RailCard {...base} caption="Ch. 10" blurred />);
+    expect(UNSAFE_getByType(Image).props.blurRadius).toBeGreaterThan(0);
+    expect(JSON.stringify(getByText('One Piece').props.style)).toContain('transparent');
+    expect(JSON.stringify(getByText('Ch. 10').props.style)).toContain('transparent');
+  });
 });

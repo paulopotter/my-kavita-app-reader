@@ -91,4 +91,16 @@ describe('HistoryItem', () => {
     const image = UNSAFE_root.findByType(Image);
     expect(image.props.source).toEqual({ uri: 'https://cover/s1' });
   });
+
+  it('blurs the cover and hides the texts that name the series only when asked', () => {
+    const plain = render(<HistoryItem {...props({ coverUrl: 'https://cover' })} />);
+    expect(plain.UNSAFE_getByType(Image).props.blurRadius).toBe(0);
+    expect(JSON.stringify(plain.getByText('One Piece').props.style)).not.toContain('transparent');
+    plain.unmount();
+
+    const blurred = render(<HistoryItem {...props({ coverUrl: 'https://cover', blurred: true })} />);
+    expect(blurred.UNSAFE_getByType(Image).props.blurRadius).toBeGreaterThan(0);
+    expect(JSON.stringify(blurred.getByText('One Piece').props.style)).toContain('transparent');
+    expect(JSON.stringify(blurred.getByText('Chapter 1050 available').props.style)).toContain('transparent');
+  });
 });

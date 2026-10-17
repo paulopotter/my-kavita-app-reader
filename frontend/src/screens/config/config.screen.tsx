@@ -12,6 +12,7 @@ import { LanguageToggle } from './components/language-toggle';
 import { useConfigLanguage, useConfigMenu, useConfigStartScreen } from './config.hooks';
 import { configStyles } from './config.styles';
 import type { ConfigScreenProps, ConfigSubScreen } from './config.types';
+import { AdultFilterScreen } from './adult';
 import { DebugScreen } from './debug';
 import { NotificationsScreen } from './notifications';
 import { ReaderPrefsScreen } from './reader';
@@ -51,6 +52,8 @@ export function ConfigScreen({ onRegisterBackHandler, onServerCleared }: ConfigS
       return <SerialsSortScreen onBack={goBack} />;
     case 'notifications':
       return <NotificationsScreen onBack={goBack} />;
+    case 'adult':
+      return <AdultFilterScreen onBack={goBack} />;
     case 'debug':
       return <DebugScreen onBack={goBack} />;
     default:
@@ -116,6 +119,12 @@ function ConfigMenu({ onNavigate }: { onNavigate: (s: ConfigSubScreen) => void }
 
       <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('notifications')}>
         <Text style={styles.menuRowLabel}>{t.configMenuNotifications}</Text>
+        <ChevronRight size={icon.size[5]} color={colors.icon.secondary} />
+      </TouchableOpacity>
+      <View style={[styles.divider, styles.dividerInset]} />
+
+      <TouchableOpacity style={styles.menuRow} onPress={() => onNavigate('adult')}>
+        <Text style={styles.menuRowLabel}>{t.configMenuAdult}</Text>
         <ChevronRight size={icon.size[5]} color={colors.icon.secondary} />
       </TouchableOpacity>
       <View style={[styles.divider, styles.dividerInset]} />

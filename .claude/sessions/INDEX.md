@@ -38,6 +38,7 @@ Nenhum plano ativo.
 | [025](backlog/items/025-aviso-de-nova-versao-nativa.md) | Aviso in-app (informativo, não bloqueante) de que há APK novo — consome o `lastKotlinVersion` já publicado | — |
 | [026](backlog/items/026-modos-de-leitura-e-zoom.md) | Modos de leitura (paginada, horizontal) e zoom | 007 |
 | [027](backlog/items/027-env-como-default-e-gate-de-feature.md) | `.env` como valor padrão e gate de feature | — |
+| [028](backlog/items/028-filtro-adulto.md) | Filtro de conteúdo adulto (oculto / blur / só adulto) | — |
 
 > Dois itens carregam o número 016 (criptografia de credenciais e rollback de migrations) — são
 > assuntos distintos que nasceram com o mesmo número. O 017 aqui é cache em cascata, sem relação

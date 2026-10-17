@@ -4,6 +4,16 @@ jest.mock('../../shared/i18n/i18n.hooks', () => ({
   useStrings: () => require('../../shared/i18n/strings').getStrings('en'),
 }));
 
+// Identity unless a test installs a rule: stands in for the adult filter's read-time pass.
+const mockAdult = jest.fn((items: unknown[]) => items);
+jest.mock('../../shared/context/adult-filter', () => ({
+  // The real hook hands every item to idOf; do the same so the callers' id selectors run.
+  useAdultFiltered: ({ items, idOf }: { items: unknown[]; idOf: (item: unknown) => string }) => {
+    items.forEach(item => idOf(item));
+    return mockAdult(items);
+  },
+}));
+
 const mockHistoryList = jest.fn();
 const mockUnreadCount = jest.fn();
 const mockMarkRead = jest.fn();
@@ -65,6 +75,7 @@ const historyItem = (over: Partial<Record<string, unknown>> = {}) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAdult.mockImplementation((items: unknown[]) => items);
   eventListeners.length = 0;
   mockHistoryList.mockResolvedValue([]);
   mockUnreadCount.mockResolvedValue(0);
@@ -492,5 +503,25 @@ describe('useUnreadNotificationsCount', () => {
       eventListeners.forEach(cb => cb(5));
     });
     await waitFor(() => expect(result.current).toBe(5));
+  });
+});
+
+describe('useNotificationHistory — adult filter', () => {
+  it('lists only the rows the filter lets through, with its blur mark', async () => {
+    mockHistoryList.mockResolvedValue([
+      historyItem({ id: 'h1', seriesId: 's1' }),
+      historyItem({ id: 'h2', seriesId: 's2', seriesName: 'Hidden' }),
+      historyItem({ id: 'h3', seriesId: 's3', seriesName: 'Blurry' }),
+    ]);
+    mockAdult.mockImplementation((items: unknown[]) =>
+      (items as Array<{ seriesId: string }>)
+        .filter(row => row.seriesId !== 's2')
+        .map(row => ({ ...row, blurred: row.seriesId === 's3' })),
+    );
+    const { result } = renderHook(() => useNotificationHistory());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.rows.map(r => r.seriesId)).toEqual(['s1', 's3']);
+    expect(result.current.rows.find(r => r.seriesId === 's3')?.blurred).toBe(true);
+    expect(result.current.totalCount).toBe(2);
   });
 });

@@ -3,7 +3,7 @@ import { createStyles } from '../../../../shared/theme';
 // The tile's own width; the cover is 2:3, so its height is the sum of what it holds.
 export const RAIL_CARD_WIDTH = 112;
 
-export const railCardStyles = createStyles(({ colors, text, spacing, radius }) => ({
+export const railCardStyles = createStyles(({ colors, text, spacing, radius, blur }) => ({
   card: { width: RAIL_CARD_WIDTH, marginRight: spacing[5] },
   cover: {
     width: RAIL_CARD_WIDTH,
@@ -16,6 +16,13 @@ export const railCardStyles = createStyles(({ colors, text, spacing, radius }) =
     fontSize: text.size[2],
     fontWeight: text.weight.bold,
     marginTop: spacing[3],
+  },
+  // Text cannot be blurred directly: draw it as a soft shadow of itself instead.
+  textBlurred: {
+    color: 'transparent',
+    textShadowColor: colors.text.secondary,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: blur.text,
   },
   caption: { color: colors.text.secondary, fontSize: text.size[2], marginTop: spacing[1] },
   progressBar: {

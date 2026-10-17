@@ -4,6 +4,7 @@ import { NavigationContainer, NavigationContainerRef } from '@react-navigation/n
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguageContext, getStrings } from './shared/i18n';
 import { ConfigRepository, StartupBridge } from './shared/bridge';
+import { AdultFilterProvider } from './shared/context/adult-filter';
 import { StartupProvider } from './shared/context/startup';
 import { ImmersiveProvider, useImmersive } from './shared/context/immersive';
 import { registerSeriesDigestIndexListener } from './shared/managers/store';
@@ -113,6 +114,7 @@ function AppContent() {
     <LanguageContext.Provider value={{ language, strings: getStrings(language), setLanguage: applyLanguage }}>
       <StatusBar backgroundColor={colors.surface.primary} barStyle="light-content" translucent={false} />
       <View style={[{ flex: 1, backgroundColor: colors.surface.primary }, { paddingTop: statusBarHeight }]}>
+        <AdultFilterProvider>
         <StartupProvider>
           <NavigationContainer ref={navRef} linking={linking} onStateChange={onNavigationStateChange}>
             <RootNavigator
@@ -122,6 +124,7 @@ function AppContent() {
             />
           </NavigationContainer>
         </StartupProvider>
+        </AdultFilterProvider>
       </View>
     </LanguageContext.Provider>
   );

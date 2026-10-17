@@ -13,8 +13,10 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 ### Backend
 - feat: o plugin de metadados externos passa a usar a API `/api/v1`, sem baixar o catálogo inteiro.
 - feat: a lista de obras passa a trazer a data em que cada obra entrou na biblioteca.
+- feat: o servidor passa a oferecer a lista de categorias e as obras que as têm, sem expor os ids do provedor.
 
 ### Frontend
+- feat: filtro de conteúdo adulto com modos ocultar (padrão), exibir desfocado, exibir normalmente e somente adulto, mais a opção de remover o desfoque; as categorias que contam como adultas são escolhidas em Ajustes e o filtro vale na Biblioteca, Seguindo, Busca, Home e Notificações.
 - feat: nova tela Home (dashboard) com os trilhos "Continuar lendo" (abre direto no capítulo, com barra de progresso do capítulo), "Novos capítulos" das obras seguidas, "Atualizadas", "Na fila" e "Novas na biblioteca", mais uma faixa de estatísticas.
 - feat: nova opção em Ajustes para escolher a tela inicial (Home ou Favoritos); a aba Home aparece depois do primeiro uso e, sem ela, o app abre na Biblioteca.
 - feat: o ponto de retomada de uma obra é atualizado logo depois de ler nela, em vez de esperar o cache expirar.

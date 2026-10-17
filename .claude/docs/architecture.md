@@ -581,3 +581,23 @@ setup` before `make build-android`.
 with a path-encoded name (`src/assets/ic_splash.png` → `src_assets_ic_splash.png`). Density
 suffixes map `@1x`→mdpi … `@4x`→xxxhdpi. Not committed (`.gitignore` excludes
 `drawable-*/src_assets_*`).
+
+
+---
+
+## Adult-content filter (render-time)
+
+- **Provider side** — `ServerPlugin.categories` is an optional capability: `list()` (names) and
+  `serialIds(names)` (series ids carrying any of them). The Kavita plugin resolves name → numeric
+  id internally (`/api/Metadata/genres|tags`, then a second `all-v2` filtered with `Genres`/`Tags`
+  `Contains`, OR-ed). Only names and series ids cross the `:server` boundary; a provider without it
+  answers with empty lists. No digest: one source, nothing to compose.
+- **RN side** — `CategoriesService` → `ServerBridge`. `AdultFilterProvider`
+  (`shared/context/adult-filter/`) holds the user's choices (`AdultFilterPrefs`, by category
+  name) and the last classification `{ adultIds, knownIds }`, persisted so the first paint is
+  already filtered. A series outside `knownIds` is *pending* and treated as adult until the next
+  classification.
+- **Filtering happens only at read time**: `useAdultFiltered({ items, idOf })` wraps the pure
+  `AdultFilterTool.apply`. Caches, digests and the reducers keep the raw list. Dumb components get
+  a `blurred` prop (cover `blurRadius`, text drawn as a shadow of itself — `blur` size tokens).
+- Not covered: system (OS) notification text, and the global unread badge count.

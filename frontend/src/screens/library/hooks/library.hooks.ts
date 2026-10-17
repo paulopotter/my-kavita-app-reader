@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { FollowedSeriesBridge, SeriesFollowedEmitter } from '../../../shared/bridge';
 import type { ExternalMetadataMatch } from '../../../shared/bridge';
+import { useAdultFiltered } from '../../../shared/context/adult-filter';
 import { useStrings } from '../../../shared/i18n';
 import type { Strings } from '../../../shared/i18n';
 import { EventBus, useEvent } from '../../../shared/managers/events';
@@ -610,10 +611,14 @@ export function useLibrary({ filter, prefsKey = 'library' }: UseLibraryOptions =
   // ── derived view state — sort + filter live here, not in the reducer ─────────
   // Re-runs only when the raw list, the sort mode or the filter actually change. The toggle just
   // flips sortMode; this re-orders the list already in hand, no fetch, no re-normalization.
-  const data = useMemo(() => {
+  const sortedAndFiltered = useMemo(() => {
     const sorted = sortEntries(state.data, state.sortMode);
     return filter ? sorted.filter(filter) : sorted;
   }, [state.data, state.sortMode, filter]);
+
+  // The adult filter is the last step, applied here at read time: state.data stays the raw list, so
+  // changing the mode never touches the reducer, the cache or the enrichment.
+  const data = useAdultFiltered({ items: sortedAndFiltered, idOf: entry => entry.id });
 
   // Freshness strip state. 'confirmed' wins right after a successful force-refresh (transient);
   // then 'offline' if the last load failed but rows are still shown; then 'stale' if the newest

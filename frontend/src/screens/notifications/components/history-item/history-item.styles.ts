@@ -1,5 +1,5 @@
 import { createStyles } from '../../../../shared/theme';
-export const historyItemStyles = createStyles(({ colors, text, spacing, radius, border, gutter }) => ({
+export const historyItemStyles = createStyles(({ colors, text, spacing, radius, border, gutter, blur }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -20,6 +20,13 @@ export const historyItemStyles = createStyles(({ colors, text, spacing, radius, 
     thumbPlaceholder: { backgroundColor: colors.surface.tertiary },
     body: { flex: 1 },
     seriesName: { color: colors.text.title.primary, fontSize: text.size[3], fontWeight: text.weight.bold },
+    // Text cannot be blurred directly: draw it as a soft shadow of itself instead.
+    textBlurred: {
+      color: 'transparent',
+      textShadowColor: colors.text.secondary,
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: blur.text,
+    },
     seriesNameRead: { color: colors.text.secondary, fontWeight: text.weight.regular },
     bodyText: { color: colors.text.secondary, fontSize: text.size[3], marginTop: spacing[1] },
     timestamp: { color: colors.text.secondary, fontSize: text.size[2], marginTop: spacing[2] },

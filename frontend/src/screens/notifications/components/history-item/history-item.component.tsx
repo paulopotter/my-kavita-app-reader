@@ -3,7 +3,7 @@ import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { CheckCircle2, Circle, Info, X } from 'lucide-react-native';
 import { historyItemStyles } from './history-item.styles';
 import { useTheme, useStyles } from '../../../../shared/context';
-import { icon } from '../../../../shared/theme';
+import { blur, icon } from '../../../../shared/theme';
 
 // Dumb: an unread dot, series cover (when known), series name, body-equivalent summary, relative
 // timestamp (already formatted by the hook via DateTool), a delete affordance, an info affordance
@@ -19,6 +19,8 @@ export interface HistoryItemProps {
   // Undefined while not yet enriched (lazy, per-viewport — see notifications.hooks.ts) or when
   // this row has no series to show a cover for.
   coverUrl?: string;
+  // Adult-content filter: blur the cover and hide the texts that name the series.
+  blurred?: boolean;
   selectionMode: boolean;
   selected: boolean;
   onPress: () => void;
@@ -35,6 +37,7 @@ export function HistoryItem({
   timestampLabel,
   read,
   coverUrl,
+  blurred,
   selectionMode,
   selected,
   onPress,
@@ -60,12 +63,17 @@ export function HistoryItem({
           <Circle size={icon.size.dot} color={read ? "transparent" : colors.icon.status.unread} fill={read ? "transparent" : colors.icon.status.unread} />
         )}
       </View>
-      <Image source={coverUrl ? { uri: coverUrl } : undefined} style={[styles.thumb, !coverUrl && styles.thumbPlaceholder]} resizeMode="cover" />
+      <Image
+        source={coverUrl ? { uri: coverUrl } : undefined}
+        style={[styles.thumb, !coverUrl && styles.thumbPlaceholder]}
+        resizeMode="cover"
+        blurRadius={blurred ? blur.cover : 0}
+      />
       <View style={styles.body}>
-        <Text style={[styles.seriesName, read && styles.seriesNameRead]} numberOfLines={1}>
+        <Text style={[styles.seriesName, read && styles.seriesNameRead, blurred && styles.textBlurred]} numberOfLines={1}>
           {seriesName}
         </Text>
-        <Text style={styles.bodyText} numberOfLines={2}>
+        <Text style={[styles.bodyText, blurred && styles.textBlurred]} numberOfLines={2}>
           {bodyText}
         </Text>
         <Text style={styles.timestamp}>{timestampLabel}</Text>

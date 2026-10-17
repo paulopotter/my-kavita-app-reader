@@ -20,13 +20,15 @@ export interface SearchHistoryRow extends SearchHistoryItem {
   progressFraction: number;
   progressLabel: string;
   chapterCountLabel?: string;
+  // Set by the adult-content filter at read time; absent while the filter is off.
+  blurred?: boolean;
 }
 
 export interface UseSearchResult {
   query: string;
   setQuery: (query: string) => void;
   // Empty while the query is blank — the screen shows the history instead.
-  results: SerialCard[];
+  results: Array<SerialCard & { blurred?: boolean }>;
   history: SearchHistoryRow[];
   loading: boolean;
   error: string | null;

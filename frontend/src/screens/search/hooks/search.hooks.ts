@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FollowedSeriesBridge, SeriesFollowedEmitter } from '../../../shared/bridge';
+import { useAdultFiltered } from '../../../shared/context/adult-filter';
 import { useStrings } from '../../../shared/i18n';
 import { SerialsService } from '../../../shared/services/serials';
 import { SeriesTool, SerieTool, type SerialCard } from '../../../shared/tools/serials';
@@ -105,10 +106,12 @@ export function useSearch(): UseSearchResult {
 
   // Pure derivation, re-run only when the query, the catalogue or the followed set changes —
   // never a fetch.
-  const results = useMemo(
+  const matches = useMemo(
     () => SearchTool.filter({ cards, query }).map(card => ({ ...card, isFollowed: followedIds.has(card.id) })),
     [cards, query, followedIds],
   );
+  // Adult filter last, at read time: the catalogue and the matches stay raw.
+  const results = useAdultFiltered({ items: matches, idOf: card => card.id });
 
   // The history stores only identity (id/name/cover) — never the followed flag, which would be
   // stale the moment it was written. The flag is applied here, from the same live set.
@@ -116,7 +119,7 @@ export function useSearch(): UseSearchResult {
   // catalogue's current progress, so the same series reads identically here and in the Library.
   // The catalogue is only consulted when it is there — a row still renders while it loads or
   // fails, which is why the history stores name and cover in the first place.
-  const historyRows = useMemo(
+  const historyRowsRaw = useMemo(
     () =>
       history.map(item => {
         const card = cards.find(c => c.id === item.seriesId);
@@ -130,6 +133,7 @@ export function useSearch(): UseSearchResult {
       }),
     [history, cards, followedIds],
   );
+  const historyRows = useAdultFiltered({ items: historyRowsRaw, idOf: row => row.seriesId });
 
   const recordOpened = useCallback(
     ({ seriesId }: { seriesId: string }) => {

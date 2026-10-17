@@ -36,6 +36,7 @@ export function Rail({ title, items, onPressItem }: RailProps) {
               coverUrl={item.coverUrl}
               caption={item.caption}
               progressFraction={item.progressFraction}
+              blurred={item.blurred}
               onPress={() => onPressItem(item)}
             />
           )}

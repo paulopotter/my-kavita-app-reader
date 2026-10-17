@@ -1,3 +1,4 @@
+import { useAdultFiltered } from '../../shared/context/adult-filter';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationHistoryItem } from '../../shared/bridge';
 import { NotificationsEventEmitter } from '../../shared/bridge';
@@ -138,7 +139,9 @@ export interface UseNotificationHistoryResult {
 export function useNotificationHistory(): UseNotificationHistoryResult {
   const t = useStrings();
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<NotificationHistoryRow[]>([]);
+  const [rawRows, setRows] = useState<NotificationHistoryRow[]>([]);
+  // Adult filter at read time: selection, enrichment and the list all work on what is shown.
+  const rows = useAdultFiltered({ items: rawRows, idOf: row => row.seriesId });
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

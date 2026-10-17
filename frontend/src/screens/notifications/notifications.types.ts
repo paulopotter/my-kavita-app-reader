@@ -29,4 +29,6 @@ export interface NotificationHistoryRow {
   // Filled in lazily, per-viewport (see notifications.hooks.ts's enrichCover) — undefined until
   // enriched, or forever when the series has no resolvable cover.
   coverUrl?: string;
+  // Set by the adult-content filter at read time; absent while the filter is off.
+  blurred?: boolean;
 }

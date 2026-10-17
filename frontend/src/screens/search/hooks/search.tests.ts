@@ -2,6 +2,16 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 // ── mocks: only the hook's I/O. SearchTool / the serials normalizers stay real (pure). ────────
 
+// Identity unless a test installs a rule: stands in for the adult filter's read-time pass.
+const mockAdult = jest.fn((items: unknown[]) => items);
+jest.mock('../../../shared/context/adult-filter', () => ({
+  // The real hook hands every item to idOf; do the same so the callers' id selectors run.
+  useAdultFiltered: ({ items, idOf }: { items: unknown[]; idOf: (item: unknown) => string }) => {
+    items.forEach(item => idOf(item));
+    return mockAdult(items);
+  },
+}));
+
 const mockGet = jest.fn();
 jest.mock('../../../shared/services/serials', () => ({
   SerialsService: { get: (...a: unknown[]) => mockGet(...a) },
@@ -69,6 +79,7 @@ const catalogue = [serialData('a', 'One Piece'), serialData('b', 'Attack on Tita
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAdult.mockImplementation((items: unknown[]) => items);
   mockFollowedListeners.length = 0;
   mockLanguage.current = 'pt-BR';
   mockGet.mockResolvedValue(digest(catalogue));
@@ -328,5 +339,23 @@ describe('useSearch — delete confirmation', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.confirmDelete());
     expect(mockHistoryDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe('useSearch — adult filter', () => {
+  it('runs it over the matches and over the history rows, leaving the catalogue raw', async () => {
+    mockHistoryList.mockResolvedValue([historyItem({ seriesId: 'a' }), historyItem({ seriesId: 'zz', name: 'Hidden' })]);
+    mockAdult.mockImplementation((items: unknown[]) =>
+      (items as Array<{ id?: string; seriesId?: string }>)
+        .filter(item => (item.id ?? item.seriesId) !== 'b' && item.seriesId !== 'zz')
+        .map(item => ({ ...item, blurred: (item.id ?? item.seriesId) === 'a' })),
+    );
+    const { result } = renderHook(() => useSearch());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.setQuery('i')); // matches One Piece, Attack on Titan and Ação
+    expect(result.current.results.map(r => r.id)).not.toContain('b');
+    expect(result.current.results.find(r => r.id === 'a')?.blurred).toBe(true);
+    expect(result.current.history.map(h => h.seriesId)).toEqual(['a']);
   });
 });

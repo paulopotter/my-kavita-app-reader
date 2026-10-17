@@ -58,7 +58,7 @@ export function SearchScreen() {
   }, []);
 
   const renderResult = useCallback(
-    ({ item }: { item: SerialCard }) => (
+    ({ item }: { item: SerialCard & { blurred?: boolean } }) => (
       <CardList {...item} onToggleFollow={toggleFollow} onPress={openSeries} />
     ),
     [toggleFollow, openSeries],
@@ -80,6 +80,7 @@ export function SearchScreen() {
             progressLabel={item.progressLabel}
             chapterCountLabel={item.chapterCountLabel}
             isFollowed={item.isFollowed}
+            blurred={item.blurred}
             onToggleFollow={toggleFollow}
             onPress={openSeries}
           />
