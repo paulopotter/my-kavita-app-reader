@@ -26,6 +26,29 @@ describe('ReaderPageListView', () => {
     expect(onVisiblePageChanged).toHaveBeenCalledWith('c9', 2, 0.5, 0.25);
   });
 
+  it('keeps zoom off unless asked and unwraps the zoom event payload', () => {
+    const onZoomChanged = jest.fn();
+    const { getByTestId, rerender } = render(
+      <ReaderPageListView blocks={[block]} scrollToChapterId={null} scrollToPageIndex={-1} />,
+    );
+    expect(getByTestId('reader-page-list-view').props.zoomEnabled).toBe(false);
+    expect(getByTestId('reader-page-list-view').props.onZoomChanged).toBeUndefined();
+
+    rerender(
+      <ReaderPageListView
+        blocks={[block]}
+        scrollToChapterId={null}
+        scrollToPageIndex={-1}
+        zoomEnabled
+        onZoomChanged={onZoomChanged}
+      />,
+    );
+    const native = getByTestId('reader-page-list-view');
+    expect(native.props.zoomEnabled).toBe(true);
+    native.props.onZoomChanged({ nativeEvent: { zoomed: true } });
+    expect(onZoomChanged).toHaveBeenCalledWith(true);
+  });
+
   it('passes undefined for onVisiblePageChanged when the prop is omitted', () => {
     const { getByTestId } = render(
       <ReaderPageListView blocks={[block]} scrollToChapterId={null} scrollToPageIndex={-1} />,

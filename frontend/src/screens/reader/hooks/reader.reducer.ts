@@ -21,6 +21,7 @@ export const initialState: State = {
   scrollRequest: null,
   offline: false,
   nativeListKey: 0,
+  zoomed: false,
 };
 
 function mapEntry(
@@ -59,6 +60,8 @@ export function reducer(state: State, action: ReaderAction): State {
         // (open / arrow / jump). The old native View is torn down; the new one is built straight
         // onto the target chapter, so there is no surviving scroll position to fight.
         nativeListKey: state.nativeListKey + 1,
+        // The remounted native view starts un-zoomed and does not report it.
+        zoomed: false,
       };
 
     case 'SET_WINDOW':
@@ -139,6 +142,10 @@ export function reducer(state: State, action: ReaderAction): State {
 
     case 'TOGGLE_OVERLAY':
       return { ...state, overlayVisible: !state.overlayVisible };
+
+    case 'SET_ZOOMED':
+      // Entering zoom tucks the overlay away; leaving it does not bring it back by itself.
+      return { ...state, zoomed: action.zoomed, overlayVisible: action.zoomed ? false : state.overlayVisible };
 
     case 'SET_OFFLINE':
       return { ...state, offline: action.offline };

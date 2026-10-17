@@ -202,6 +202,31 @@ describe('reader.reducer', () => {
     expect(reducer(initialState, { type: 'TOGGLE_OVERLAY' }).overlayVisible).toBe(true);
   });
 
+  it('SET_ZOOMED true tucks the overlay away; false leaves it as it was', () => {
+    const shown = { ...initialState, overlayVisible: true };
+    const zoomedIn = reducer(shown, { type: 'SET_ZOOMED', zoomed: true });
+    expect(zoomedIn).toMatchObject({ zoomed: true, overlayVisible: false });
+
+    const reopened = reducer({ ...zoomedIn, overlayVisible: true }, { type: 'SET_ZOOMED', zoomed: false });
+    expect(reopened).toMatchObject({ zoomed: false, overlayVisible: true });
+  });
+
+  it('WINDOW_READY clears zoom because the remounted native list starts un-zoomed', () => {
+    const w = windowOf(['c1'], 0);
+    const s = reducer(
+      { ...initialState, zoomed: true },
+      {
+        type: 'WINDOW_READY',
+        window: w,
+        initialPage: 0,
+        initialScrollFraction: 0,
+        initialChapterFraction: 0,
+        scrollTo: { chapterId: 'c1', page: 0 },
+      },
+    );
+    expect(s.zoomed).toBe(false);
+  });
+
   it('SET_OFFLINE sets the flag', () => {
     expect(reducer(initialState, { type: 'SET_OFFLINE', offline: true }).offline).toBe(true);
   });

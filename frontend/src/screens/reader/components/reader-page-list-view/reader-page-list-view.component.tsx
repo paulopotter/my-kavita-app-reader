@@ -34,6 +34,8 @@ interface NativeProps {
   onTap?: () => void;
   pageLoadingNode?: SduNode;
   pageErrorNode?: SduNode;
+  zoomEnabled?: boolean;
+  onZoomChanged?: (event: NativeSyntheticEvent<{ zoomed: boolean }>) => void;
 }
 
 const RCTReaderPageListView = requireNativeComponent<NativeProps>('ReaderPageListView');
@@ -57,6 +59,10 @@ interface Props {
   // and the words the language, neither of which reaches native Compose on its own.
   pageLoadingNode?: SduNode;
   pageErrorNode?: SduNode;
+  // Whether the user can zoom a page (double-tap / pinch). RN decides; the native view only draws.
+  zoomEnabled?: boolean;
+  // The user entered (true) or left (false) zoom on a page.
+  onZoomChanged?: (zoomed: boolean) => void;
 }
 
 // Dumb: forwards props to the native view and unwraps its event payloads. Kotlin never decides
@@ -71,6 +77,8 @@ export function ReaderPageListView({
   onTap,
   pageLoadingNode,
   pageErrorNode,
+  zoomEnabled = false,
+  onZoomChanged,
 }: Props) {
   return (
     <RCTReaderPageListView
@@ -94,6 +102,8 @@ export function ReaderPageListView({
       onTap={onTap}
       pageLoadingNode={pageLoadingNode}
       pageErrorNode={pageErrorNode}
+      zoomEnabled={zoomEnabled}
+      onZoomChanged={onZoomChanged ? event => onZoomChanged(event.nativeEvent.zoomed) : undefined}
     />
   );
 }

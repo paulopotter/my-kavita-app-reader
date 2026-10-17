@@ -705,6 +705,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
 
   // ── overlay / scroll plumbing ─────────────────────────────────
   const toggleOverlay = useCallback(() => dispatch({ type: 'TOGGLE_OVERLAY' }), []);
+  const handleZoomChanged = useCallback((zoomed: boolean) => dispatch({ type: 'SET_ZOOMED', zoomed }), []);
   const scrollToPage = useCallback((page: number) => dispatch({ type: 'SCROLL_TO_PAGE', page }), []);
   const handleScrollRequestHandled = useCallback(
     () => dispatch({ type: 'SCROLL_REQUEST_HANDLED' }),
@@ -729,6 +730,7 @@ export function useReader(seriesId: string, chapterId: string, seriesNameHint?: 
     hasNextChapter,
     dispatch,
     toggleOverlay,
+    handleZoomChanged,
     scrollToPage,
     handleScrollRequestHandled,
     onNativePosition,

@@ -133,6 +133,9 @@ export interface State {
   // with no stale scroll offset to fight. NOT bumped by MOVE_FOCUS (natural scroll crossings
   // must NOT remount — that would jank mid-scroll).
   nativeListKey: number;
+  // True while the native list shows a page zoomed in (reported by onZoomChanged). The overlay and
+  // the progress bar step aside meanwhile: zoom pans inside one page, so neither means anything.
+  zoomed: boolean;
 }
 
 export type ReaderAction =
@@ -177,5 +180,6 @@ export type ReaderAction =
   | { type: 'SCROLL_REQUEST_HANDLED' }
   | { type: 'SERIES_NAME_LOADED'; seriesName: string }
   | { type: 'TOGGLE_OVERLAY' }
+  | { type: 'SET_ZOOMED'; zoomed: boolean }
   | { type: 'SET_OFFLINE'; offline: boolean }
   | { type: 'OPTIMISTIC_MARK'; chapterId: string; readStatus: ReaderChapter['readStatus'] };

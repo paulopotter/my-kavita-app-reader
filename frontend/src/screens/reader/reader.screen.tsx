@@ -168,6 +168,10 @@ export function ReaderScreen() {
         onVisiblePageChanged={handleVisiblePageChanged}
         onScrollToChapterHandled={reader.handleScrollRequestHandled}
         onTap={reader.toggleOverlay}
+        // Not tied to `readingMode`: that is a stored preference for modes that are still stubs, and
+        // this native list is the only renderer the screen has, whatever the preference says.
+        zoomEnabled
+        onZoomChanged={reader.handleZoomChanged}
         pageLoadingNode={pageLoadingNode}
         pageErrorNode={pageErrorNode}
       />
@@ -178,7 +182,7 @@ export function ReaderScreen() {
         </View>
       )}
 
-      {!reader.overlayVisible && (
+      {!reader.overlayVisible && !reader.zoomed && (
         <ReaderThinProgressBar
           fraction={progressBarFraction(reader.chapterFraction)}
           pageFraction={reader.scrollFraction}
