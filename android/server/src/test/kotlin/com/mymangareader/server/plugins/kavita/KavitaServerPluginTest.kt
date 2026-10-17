@@ -212,6 +212,86 @@ class KavitaServerPluginTest {
             assertEquals("2026-01-01T00:00:00.123Z", serial.createdUtc)
         }
 
+    // ── categories ───────────────────────────────────────────────────────
+
+    private val genresBody = """[{"id":113,"title":"Hentai"},{"id":128,"title":"Ecchi"},{"id":2,"title":"Ação"}]"""
+    private val tagsBody = """[{"id":7,"title":"Gore"},{"id":8,"title":"ecchi"}]"""
+
+    @Test
+    fun `categories list merges genres and tags into distinct sorted names`() =
+        runTest {
+            server.enqueue(pathResponse("/api/Metadata/genres", genresBody))
+            server.enqueue(pathResponse("/api/Metadata/tags", tagsBody))
+
+            assertEquals(listOf("Ação", "Ecchi", "Gore", "Hentai"), plugin.categories!!.list())
+        }
+
+    @Test
+    fun `categories serialIds resolves names to ids case-insensitively and filters in one request`() =
+        runTest {
+            server.enqueue(pathResponse("/api/Metadata/genres", genresBody))
+            server.enqueue(pathResponse("/api/Metadata/tags", tagsBody))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""[{"id":593,"name":"A"},{"id":12,"name":"B"}]"""))
+
+            val ids = plugin.categories!!.serialIds(listOf("hentai", "ECCHI"))
+
+            assertEquals(listOf("593", "12"), ids)
+            server.takeRequest()
+            server.takeRequest()
+            val body = server.takeRequest().body.readUtf8()
+            // genres 113 + 128 in one statement, the tag called "ecchi" (id 8) in the other, OR-ed
+            assertTrue(body.contains(""""field":18,"value":"113,128""""))
+            assertTrue(body.contains(""""field":6,"value":"8""""))
+            assertTrue(body.contains(""""combination":0"""))
+        }
+
+    @Test
+    fun `categories serialIds sends no request for an empty or unknown selection`() =
+        runTest {
+            assertEquals(emptyList<String>(), plugin.categories!!.serialIds(emptyList()))
+            assertEquals(0, server.requestCount)
+
+            server.enqueue(pathResponse("/api/Metadata/genres", genresBody))
+            server.enqueue(pathResponse("/api/Metadata/tags", tagsBody))
+            assertEquals(emptyList<String>(), plugin.categories!!.serialIds(listOf("Nonexistent")))
+            assertEquals(2, server.requestCount) // table only, no all-v2
+        }
+
+    @Test
+    fun `categories reuse the name table until a name is missing from it`() =
+        runTest {
+            server.enqueue(pathResponse("/api/Metadata/genres", genresBody))
+            server.enqueue(pathResponse("/api/Metadata/tags", tagsBody))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+            plugin.categories!!.serialIds(listOf("Hentai"))
+            assertEquals(3, server.requestCount)
+
+            server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+            plugin.categories!!.serialIds(listOf("Hentai")) // known → only the filtered query
+            assertEquals(4, server.requestCount)
+
+            server.enqueue(pathResponse("/api/Metadata/genres", """[{"id":113,"title":"Hentai"},{"id":300,"title":"Novo"}]"""))
+            server.enqueue(pathResponse("/api/Metadata/tags", "[]"))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+            plugin.categories!!.serialIds(listOf("Novo")) // unknown → table reloaded first
+            assertEquals(7, server.requestCount)
+        }
+
+    @Test
+    fun `categories fail loudly when the filtered query is rejected`() =
+        runTest {
+            server.enqueue(pathResponse("/api/Metadata/genres", genresBody))
+            server.enqueue(pathResponse("/api/Metadata/tags", tagsBody))
+            server.enqueue(MockResponse().setResponseCode(500))
+
+            assertFailsWith<Exception> { plugin.categories!!.serialIds(listOf("Hentai")) }
+        }
+
+    private fun pathResponse(
+        @Suppress("UNUSED_PARAMETER") path: String,
+        body: String,
+    ) = MockResponse().setResponseCode(200).setBody(body)
+
     // ── serial(id).get() / getMetadata() — two separate network calls ──
 
     @Test

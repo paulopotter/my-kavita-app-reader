@@ -188,6 +188,8 @@ private class FakeUrlSelector(
 // authJson content without depending on the real Kavita adapter. failSerialsListWith, when set,
 // makes exactly the next serials.list() call throw that error instead of returning — used to
 // simulate a dead URL for the network-retry tests.
+private var sharedFakeCategories: ServerPlugin.Categories? = null
+
 private class FakePlugin(
     val authJson: String,
     var failSerialsListWith: Throwable? = null,
@@ -199,6 +201,11 @@ private class FakePlugin(
     var authenticateCalled = false
     var authenticateCallCount = 0
     var tokenAfterAuth: String? = null
+
+    // Server may build a fresh plugin per resolution, so the stand-in capability is shared state
+    // the test sets before the call and clears after.
+    override val categories: ServerPlugin.Categories?
+        get() = sharedFakeCategories
 
     override val auth =
         object : ServerPlugin.Auth {
@@ -734,6 +741,34 @@ class ServerTest {
             val serials = server.serials.list()
 
             assertEquals(listOf("1"), serials.data.serials.map { it.id })
+        }
+
+    @Test
+    fun `categories delegate to the active plugin`() =
+        runTest {
+            activateGroup()
+            sharedFakeCategories =
+                object : ServerPlugin.Categories {
+                    override suspend fun list() = listOf("Action", "Drama")
+
+                    override suspend fun serialIds(names: List<String>) = names.map { "id-$it" }
+                }
+
+            try {
+                assertEquals(listOf("Action", "Drama"), server.categories.list().data)
+                assertEquals(listOf("id-Action"), server.categories.serialIds(listOf("Action")).data)
+            } finally {
+                sharedFakeCategories = null
+            }
+        }
+
+    @Test
+    fun `a plugin without categories answers with empty lists instead of failing`() =
+        runTest {
+            activateGroup()
+
+            assertEquals(emptyList<String>(), server.categories.list().data)
+            assertEquals(emptyList<String>(), server.categories.serialIds(listOf("Action")).data)
         }
 
     @Test

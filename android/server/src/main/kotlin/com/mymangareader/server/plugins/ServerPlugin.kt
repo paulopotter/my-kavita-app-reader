@@ -187,6 +187,13 @@ interface ServerPlugin {
     val auth: Auth
     val serials: Serials
 
+    // Optional capability: a provider with no notion of categories (genres/tags) leaves this null
+    // and the feature simply does not exist for it — Server answers with an empty list, never an
+    // error. Only names and series ids cross this boundary; whatever ids the provider uses for its
+    // categories stay inside the plugin.
+    val categories: Categories?
+        get() = null
+
     fun serial(serialId: String): Serial
 
     companion object {
@@ -228,6 +235,15 @@ interface ServerPlugin {
 
     interface Serials {
         suspend fun list(): List<PluginSerial>
+    }
+
+    interface Categories {
+        // Every category name the provider knows (genres and tags together), distinct and sorted.
+        suspend fun list(): List<String>
+
+        // Ids of the series carrying ANY of the given category names (case-insensitive). Names the
+        // provider does not know are ignored; an empty [names] is an empty result, no request.
+        suspend fun serialIds(names: List<String>): List<String>
     }
 
     interface Serial {

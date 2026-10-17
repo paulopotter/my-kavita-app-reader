@@ -13,12 +13,17 @@ import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.server.plugins.kavita.auth.KavitaAuth
 import com.mymangareader.server.plugins.kavita.chapter.KavitaChapter
 import com.mymangareader.server.plugins.kavita.chapter.KavitaChapterDto
+import com.mymangareader.server.plugins.kavita.category.KavitaCategory
 import com.mymangareader.server.plugins.kavita.chapter.KavitaVolumeDto
+import com.mymangareader.server.plugins.kavita.series.KavitaGenreDto
 import com.mymangareader.server.plugins.kavita.series.KavitaSeries
 import com.mymangareader.server.plugins.kavita.series.KavitaSeriesDto
 import com.mymangareader.server.plugins.kavita.series.KavitaSeriesMetadataDto
+import com.mymangareader.server.plugins.kavita.series.KavitaTagDto
 import com.mymangareader.tools.datetime.ensureIsoUtc
 import com.mymangareader.tools.network.RequestTool
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -108,6 +113,8 @@ class KavitaServerPlugin(
 
     private fun kavitaSeries(token: String) = KavitaSeries(baseUrl, token, apiKey, requestTool)
 
+    private fun kavitaCategory(token: String) = KavitaCategory(baseUrl, token, requestTool)
+
     private fun kavitaChapter(token: String) = KavitaChapter(baseUrl, token, apiKey, requestTool)
 
     private suspend fun ensureToken(): String {
@@ -159,6 +166,53 @@ class KavitaServerPlugin(
             override suspend fun list(): List<PluginSerial> {
                 val api = kavitaSeries(ensureToken())
                 return api.listSeries().map { it.toPluginSerial(api.buildSeriesCoverUrl(it.id.toString())) }
+            }
+        }
+
+    // Kavita filters genres/tags by numeric id and lists them with their ids, so the name→id table
+    // lives here and nowhere above. Kept for this instance's lifetime; reloaded when a requested
+    // name is not in it (a category created on the server after the table was read).
+    private class CategoryTable(
+        val genres: List<KavitaGenreDto>,
+        val tags: List<KavitaTagDto>,
+    )
+
+    private val categoryTableMutex = Mutex()
+    private var categoryTable: CategoryTable? = null
+
+    private suspend fun loadCategoryTable(api: KavitaCategory): CategoryTable =
+        coroutineScope {
+            val genres = async { api.listGenres() }
+            val tags = async { api.listTags() }
+            CategoryTable(genres.await(), tags.await())
+        }.also { categoryTable = it }
+
+    override val categories: ServerPlugin.Categories =
+        object : ServerPlugin.Categories {
+            override suspend fun list(): List<String> {
+                val api = kavitaCategory(ensureToken())
+                val table = categoryTableMutex.withLock { loadCategoryTable(api) }
+                return (table.genres.map { it.title } + table.tags.map { it.title })
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .distinctBy { it.lowercase() }
+                    .sortedBy { it.lowercase() }
+            }
+
+            override suspend fun serialIds(names: List<String>): List<String> {
+                val wanted = names.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
+                if (wanted.isEmpty()) return emptyList()
+
+                val api = kavitaCategory(ensureToken())
+                val table =
+                    categoryTableMutex.withLock {
+                        val cached = categoryTable
+                        val known = cached?.let { c -> (c.genres.map { it.title } + c.tags.map { it.title }).map { it.trim().lowercase() }.toSet() }
+                        if (cached != null && known != null && known.containsAll(wanted)) cached else loadCategoryTable(api)
+                    }
+                val genreIds = table.genres.filter { it.title.trim().lowercase() in wanted }.map { it.id }
+                val tagIds = table.tags.filter { it.title.trim().lowercase() in wanted }.map { it.id }
+                return api.listSeriesByCategoryIds(genreIds, tagIds).map { it.id.toString() }.distinct()
             }
         }
 

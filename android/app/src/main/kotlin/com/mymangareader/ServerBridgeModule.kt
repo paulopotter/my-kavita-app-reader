@@ -253,6 +253,28 @@ class ServerBridgeModule
             }
         }
 
+        // ── content: categories ──────────────────────────────────────────────
+
+        @ReactMethod
+        fun listCategories(promise: Promise) {
+            scope.launch {
+                runCatching { server.categories.list().data }
+                    .resolveOrReject(promise, "LIST_CATEGORIES_ERROR") { it.toStringWritableArray() }
+            }
+        }
+
+        @ReactMethod
+        fun getSerialIdsByCategories(
+            names: ReadableArray,
+            promise: Promise,
+        ) {
+            scope.launch {
+                val wanted = (0 until names.size()).mapNotNull { names.getString(it) }
+                runCatching { server.categories.serialIds(wanted).data }
+                    .resolveOrReject(promise, "GET_SERIAL_IDS_BY_CATEGORIES_ERROR") { it.toStringWritableArray() }
+            }
+        }
+
         // ── content: chapters ────────────────────────────────────────────────
 
         @ReactMethod
@@ -496,6 +518,11 @@ class ServerBridgeModule
                 createdUtc?.let { putString("createdUtc", it) }
                 lastReadingProgressUtc?.let { putString("lastReadingProgressUtc", it) }
                 fileFormat?.let { putString("fileFormat", it) }
+            }
+
+        private fun List<String>.toStringWritableArray() =
+            Arguments.createArray().also { arr ->
+                forEach { arr.pushString(it) }
             }
 
         private fun List<PluginChapter>.toChaptersWritableArray() =

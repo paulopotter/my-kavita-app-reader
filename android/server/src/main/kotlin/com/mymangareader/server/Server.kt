@@ -445,6 +445,16 @@ class Server
                 }
             }
 
+        // Neutral view of the active provider's categories. A provider without the capability
+        // answers with empty lists, so a caller never needs to ask "is it supported" first.
+        val categories: Categories =
+            object : Categories {
+                override suspend fun list(): ServerResponse<List<String>> = withUrlRetryEnveloped { it.categories?.list().orEmpty() }
+
+                override suspend fun serialIds(names: List<String>): ServerResponse<List<String>> =
+                    withUrlRetryEnveloped { it.categories?.serialIds(names).orEmpty() }
+            }
+
         fun serial(serialId: String): Serial = SerialHandle(serialId)
 
         private inner class SerialHandle(
@@ -776,6 +786,12 @@ class Server
 
         interface Serials {
             suspend fun list(): ServerResponse<SerialListData>
+        }
+
+        interface Categories {
+            suspend fun list(): ServerResponse<List<String>>
+
+            suspend fun serialIds(names: List<String>): ServerResponse<List<String>>
         }
 
         interface Serial {
