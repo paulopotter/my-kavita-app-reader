@@ -2,7 +2,9 @@
 
 ## Em andamento
 
-Nenhum plano ativo.
+| Plan | Description |
+|------|-------------|
+| [029 — Zoom no leitor](active/029-zoom-no-leitor/README.md) | 2 tasks — 1 concluída (001); a 002 espera o veredito de nitidez do usuário. Zoom no modo webtoon: duplo toque alterna 1x/2x, pinça de 1x a 4x, pan nos dois eixos preso aos limites da página tocada, rolagem da lista travada enquanto ampliado. Contrato novo: prop `zoomEnabled` e evento `onZoomChanged` no `ReaderPageListView`. A task 002 (redecodificar a região visível em resolução cheia) só entra se o usuário achar a 001 borrada no device |
 
 ## Concluídos
 
@@ -37,7 +39,7 @@ Nenhum plano ativo.
 | [023](backlog/items/023-library-cache-offline-fallback.md) | Library lê o cache local quando o servidor está inacessível | — |
 | [024](backlog/items/024-storage-footprint.md) | Storage Footprint & Resource Hygiene — módulo `:storage`, teto de cache configurável, purga na splash, tela de uso | — |
 | [025](backlog/items/025-aviso-de-nova-versao-nativa.md) | Aviso in-app (informativo, não bloqueante) de que há APK novo — consome o `lastKotlinVersion` já publicado | — |
-| [026](backlog/items/026-modos-de-leitura-e-zoom.md) | Modos de leitura (paginada, horizontal) e zoom | 007 |
+| [026](backlog/items/026-modos-de-leitura-e-zoom.md) | Modos de leitura (paginada, horizontal) — o zoom virou o plano 029 | 007 |
 | [027](backlog/items/027-env-como-default-e-gate-de-feature.md) | `.env` como valor padrão e gate de feature | — |
 
 > Dois itens carregam o número 016 (criptografia de credenciais e rollback de migrations) — são

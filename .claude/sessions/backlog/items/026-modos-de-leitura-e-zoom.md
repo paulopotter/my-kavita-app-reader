@@ -1,17 +1,17 @@
-# Backlog 026 — Modos de leitura (paginada, horizontal) e zoom
+# Backlog 026 — Modos de leitura (paginada, horizontal)
 
 ## What
 Implementar os dois modos de leitura que hoje existem só como stub —
-`horizontal` e `paginated` — e o zoom dentro da página. Rolagem contínua
-(`webtoon`) é o único modo real hoje.
+`horizontal` e `paginated`. Rolagem contínua (`webtoon`) é o único modo real hoje.
+
+> O zoom dentro da página saiu deste item e virou o plano 029
+> ([Zoom no leitor](../../active/029-zoom-no-leitor/README.md)), que cobre só o modo
+> webtoon. Quando estes modos forem feitos, decidir como o zoom se aplica a cada um.
 
 ## Why
 Rolagem contínua é o formato certo para webtoon, e errado para mangá
 tradicional: uma página por vez, virada com toque ou swipe, é como o formato
 foi desenhado para ser lido. Sem isso o app atende metade do acervo.
-
-Zoom é o complemento disso: numa página digitalizada de mangá, texto pequeno
-e arte detalhada dependem de poder aproximar — hoje não há como.
 
 ## Estado atual
 A estrutura já está pronta e o contrato já foi desenhado para isto
@@ -34,8 +34,7 @@ modo é um adapter + a view daquele modo.
   `interpretPositionReport` traduz o swipe discreto em `FocusMoveTrigger`
 - `horizontal`: rolagem lateral contínua, incluindo a direção direita→esquerda
   que mangá japonês usa
-- Zoom: duplo toque e pinça, com pan enquanto ampliado; decidir se vale para
-  o modo webtoon (numa página de 10.000px o zoom tem outro significado)
+- Zoom: fora do escopo, tratado no plano 029 (só webtoon)
 - Seletor de modo na UI do leitor + a preferência por série já suportada
 - A view nativa (`ReaderPageList.kt`) hoje é um `LazyColumn` vertical; os dois
   modos novos precisam da sua própria view ou de um parâmetro de orientação —
