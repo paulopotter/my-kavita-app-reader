@@ -50,4 +50,13 @@ describe('CardList', () => {
     fireEvent.press(touchables[touchables.length - 1]);
     expect(onToggleFollow).toHaveBeenCalledWith('s1');
   });
+
+  it('blurs the cover and hides the title text only when asked', () => {
+    const { Image } = require('react-native');
+    const { UNSAFE_getByType, getByText, rerender } = render(<CardList {...props()} />);
+    expect(UNSAFE_getByType(Image).props.blurRadius).toBe(0);
+    rerender(<CardList {...props({ blurred: true })} />);
+    expect(UNSAFE_getByType(Image).props.blurRadius).toBeGreaterThan(0);
+    expect(JSON.stringify(getByText('Some Series').props.style)).toContain('transparent');
+  });
 });

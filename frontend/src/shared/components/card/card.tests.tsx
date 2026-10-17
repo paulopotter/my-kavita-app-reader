@@ -94,4 +94,14 @@ describe('Card', () => {
     expect(typeof Card).toBe('object');
     expect((Card as unknown as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
   });
+
+  it('blurs the cover and hides the title text only when asked', () => {
+    const { UNSAFE_getByType, getByText, rerender } = render(<Card {...props()} />);
+    const { Image } = require('react-native');
+    expect(UNSAFE_getByType(Image).props.blurRadius).toBe(0);
+    expect(getByText('Some Series').props.style).not.toContainEqual(expect.objectContaining({ color: 'transparent' }));
+    rerender(<Card {...props({ blurred: true })} />);
+    expect(UNSAFE_getByType(Image).props.blurRadius).toBeGreaterThan(0);
+    expect(JSON.stringify(getByText('Some Series').props.style)).toContain('transparent');
+  });
 });

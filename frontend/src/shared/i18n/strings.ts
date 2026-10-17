@@ -27,6 +27,17 @@ export interface Strings {
   configMenuNotifications: string;
   configMenuTheme: string;
   configMenuStartScreen: string;
+  configMenuAdult: string;
+  adultMode: string;
+  adultModeHidden: string;
+  adultModeBlur: string;
+  adultModeNormal: string;
+  adultModeOnly: string;
+  adultUnblur: string;
+  adultCategories: string;
+  adultCategoriesHint: string;
+  adultCategoriesEmpty: string;
+  adultCategoriesError: string;
   configStartScreenHome: string;
   configStartScreenFollowing: string;
   themeNameTeal: string;
@@ -458,6 +469,17 @@ const ptBR: Strings = {
   configMenuSerials: 'Página do mangá',
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
+  configMenuAdult: 'Conteúdo adulto',
+  adultMode: 'Como exibir',
+  adultModeHidden: 'Ocultar',
+  adultModeBlur: 'Exibir desfocado',
+  adultModeNormal: 'Exibir normalmente',
+  adultModeOnly: 'Somente conteúdo adulto',
+  adultUnblur: 'Remover o desfoque',
+  adultCategories: 'Categorias consideradas adultas',
+  adultCategoriesHint: 'Obras com qualquer uma das categorias marcadas entram no filtro. Sem nenhuma marcada, nada é filtrado.',
+  adultCategoriesEmpty: 'Este servidor não oferece categorias',
+  adultCategoriesError: 'Não foi possível carregar as categorias',
   configMenuStartScreen: 'Tela inicial',
   configStartScreenHome: 'Home',
   configStartScreenFollowing: 'Favoritos',
@@ -838,6 +860,17 @@ const en: Strings = {
   configMenuSerials: 'Manga page',
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
+  configMenuAdult: 'Adult content',
+  adultMode: 'How to show it',
+  adultModeHidden: 'Hide',
+  adultModeBlur: 'Show blurred',
+  adultModeNormal: 'Show normally',
+  adultModeOnly: 'Adult content only',
+  adultUnblur: 'Remove the blur',
+  adultCategories: 'Categories treated as adult',
+  adultCategoriesHint: 'Series with any marked category fall under the filter. With none marked, nothing is filtered.',
+  adultCategoriesEmpty: 'This server offers no categories',
+  adultCategoriesError: 'Could not load the categories',
   configMenuStartScreen: 'Start screen',
   configStartScreenHome: 'Home',
   configStartScreenFollowing: 'Favorites',

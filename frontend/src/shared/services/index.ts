@@ -1,3 +1,4 @@
+export * from './categories';
 export * from './chapters';
 export * from './diagnostics';
 export * from './followed-series';

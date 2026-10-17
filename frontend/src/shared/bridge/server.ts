@@ -148,6 +148,10 @@ interface ServerBridgeModuleInterface {
   listSerials(): Promise<SerialListData>;
   getSerial(serialId: string): Promise<SerialData>;
 
+  // content: categories (names only — whatever ids the provider uses stay in its plugin)
+  listCategories(): Promise<string[]>;
+  getSerialIdsByCategories(names: string[]): Promise<string[]>;
+
   // content: chapters
   listChapters(serialId: string): Promise<PluginChapter[]>;
   setChaptersRead(serialId: string, isRead: boolean, chapterIds: string[]): Promise<void>;

@@ -68,6 +68,15 @@ export const icon = {
   },
 } as const;
 
+// Blur radii for content the user asked to keep out of sight (the adult-content filter): one for
+// an image, one for text drawn as a shadow of itself. A scale step each, so they follow the base
+// like everything else here.
+export const blur = {
+  cover: step(2),
+  text: step(1),
+} as const;
+
+export type Blur = typeof blur;
 export type Icon = typeof icon;
 export type Gutter = typeof gutter;
 export type Spacing = typeof spacing;

@@ -1,4 +1,4 @@
-import { spacing, radius, border, gutter } from './sizes';
+import { spacing, radius, border, gutter, blur } from './sizes';
 import { themes } from './themes';
 
 describe('spacing scale', () => {
@@ -66,5 +66,13 @@ describe('sizes are not part of the theme', () => {
     const before = JSON.stringify({ spacing, radius, border, gutter });
     Object.values(themes).forEach(palette => expect(palette.text).toBeDefined());
     expect(JSON.stringify({ spacing, radius, border, gutter })).toBe(before);
+  });
+});
+
+describe('blur radii', () => {
+  it('blur an image harder than a title, both in whole pixels', () => {
+    expect(Number.isInteger(blur.cover)).toBe(true);
+    expect(Number.isInteger(blur.text)).toBe(true);
+    expect(blur.cover).toBeGreaterThan(blur.text);
   });
 });

@@ -1,5 +1,5 @@
 import { createStyles } from '../../theme';
-export const cardStyles = createStyles(({ colors, text, line, spacing, radius, alpha }) => ({
+export const cardStyles = createStyles(({ colors, text, line, spacing, radius, blur, alpha }) => ({
     card: {
       flex: 1,
       margin: spacing[3],
@@ -41,6 +41,13 @@ export const cardStyles = createStyles(({ colors, text, line, spacing, radius, a
       height: line.height[3] * 2,
       fontWeight: text.weight.bold,
       marginBottom: spacing[3],
+    },
+    // Text cannot be blurred directly: draw it as a soft shadow of itself instead.
+    nameBlurred: {
+      color: 'transparent',
+      textShadowColor: colors.text.emphasis,
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: blur.text,
     },
     progressBar: {
       height: 4,

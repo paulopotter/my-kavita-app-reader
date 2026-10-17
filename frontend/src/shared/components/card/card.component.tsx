@@ -4,7 +4,7 @@ import { FollowStar } from '../follow-star';
 import { cardStyles } from './card.styles';
 import { useTheme } from '../../context';
 import { useStyles } from '../../context';
-import { icon } from '../../theme';
+import { blur, icon } from '../../theme';
 
 // Dumb component: primitives + callbacks + render only. All labels are computed in the hook /
 // SerieTool and passed in as strings — this component holds no i18n and no domain logic.
@@ -19,6 +19,8 @@ export interface CardProps {
   publicationLabel?: string; // localized publication status — omitted when unknown
   errorsLabel?: string; // localized "Errors" — omitted unless hasErrors
   isFollowed: boolean;
+  // Adult-content filter: draw the cover and the title blurred. Absent = plain.
+  blurred?: boolean;
   onToggleFollow: (id: string) => void;
   onPress: (id: string) => void;
 }
@@ -37,6 +39,7 @@ export const Card = React.memo(function Card({
   publicationLabel,
   errorsLabel,
   isFollowed,
+  blurred,
   onToggleFollow,
   onPress,
 }: CardProps) {
@@ -44,12 +47,12 @@ export const Card = React.memo(function Card({
   const styles = useStyles(cardStyles);
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(id)} activeOpacity={0.8}>
-      <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />
+      <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" blurRadius={blurred ? blur.cover : 0} />
       <TouchableOpacity style={styles.starBookmark} onPress={() => onToggleFollow(id)} activeOpacity={0.8}>
         <FollowStar active={isFollowed} size={icon.size[4]} color={colors.icon.primary} />
       </TouchableOpacity>
       <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={[styles.name, blurred && styles.nameBlurred]} numberOfLines={2}>
           {name}
         </Text>
 

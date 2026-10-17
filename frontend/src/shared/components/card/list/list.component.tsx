@@ -4,7 +4,7 @@ import { FollowStar } from '../../follow-star';
 import { listStyles } from './list.styles';
 import { useTheme } from '../../../context';
 import { useStyles } from '../../../context';
-import { icon } from '../../../theme';
+import { blur, icon } from '../../../theme';
 
 // Dumb component: primitives + callbacks + render only.
 export interface CardListProps {
@@ -16,6 +16,7 @@ export interface CardListProps {
   chapterCountLabel?: string;
   downloadedLabel?: string;
   isFollowed: boolean;
+  blurred?: boolean;
   onToggleFollow: (id: string) => void;
   onPress: (id: string) => void;
 }
@@ -30,6 +31,7 @@ export const CardList = React.memo(function CardList({
   chapterCountLabel,
   downloadedLabel,
   isFollowed,
+  blurred,
   onToggleFollow,
   onPress,
 }: CardListProps) {
@@ -37,9 +39,9 @@ export const CardList = React.memo(function CardList({
   const styles = useStyles(listStyles);
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(id)} activeOpacity={0.8}>
-      <Image source={{ uri: coverUrl }} style={styles.thumb} resizeMode="cover" />
+      <Image source={{ uri: coverUrl }} style={styles.thumb} resizeMode="cover" blurRadius={blurred ? blur.cover : 0} />
       <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={[styles.name, blurred && styles.nameBlurred]} numberOfLines={2}>
           {name}
         </Text>
         <View style={styles.progressBar}>

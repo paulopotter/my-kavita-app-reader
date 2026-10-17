@@ -1,4 +1,5 @@
 export * from './actions';
+export * from './adult-filter';
 export * from './chapters';
 export * from './date';
 export * from './metadata-sources';
