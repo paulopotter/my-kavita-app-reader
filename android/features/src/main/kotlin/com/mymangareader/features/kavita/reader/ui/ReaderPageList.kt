@@ -21,12 +21,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -39,6 +42,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.CachePolicy
 import coil.request.ImageRequest
+import kotlinx.coroutines.launch
 import java.io.IOException
 
 /**
@@ -511,6 +515,10 @@ fun ReaderPageList(
     // plain Compose UI below, which is never invisible but is neither themed nor translated.
     pageLoadingNode: SduNode? = null,
     pageErrorNode: SduNode? = null,
+    // Per-page zoom (double-tap or pinch). RN owns whether it exists at all; Kotlin only draws it.
+    // onZoomChanged fires when the user enters or leaves zoom, so RN can tuck its overlay away.
+    zoomEnabled: Boolean = false,
+    onZoomChanged: (zoomed: Boolean) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
@@ -526,6 +534,7 @@ fun ReaderPageList(
     // rather than list index.
     val itemHeights = remember { mutableStateMapOf<String, Int>() }
     var containerWidthPx by remember { mutableIntStateOf(0) }
+    var containerHeightPx by remember { mutableIntStateOf(0) }
 
     // Precomputes Page landmarks from server-provided aspect ratios as soon as both the entry
     // list and the container's real width are known — this is what lets scrollFraction be
@@ -816,43 +825,142 @@ fun ReaderPageList(
         }
     }
 
-    LazyColumn(
-        state = listState,
+    // --- Per-page zoom. See PageZoom.kt for the model: one page, drawn alone over the list, the
+    // list's scroll locked until the user leaves zoom. ---
+    val scope = rememberCoroutineScope()
+    var zoom by remember { mutableStateOf<PageZoom?>(null) }
+
+    fun beginZoom(
+        focal: Offset,
+        factor: Float,
+    ): Boolean {
+        val visible = listState.layoutInfo.visibleItemsInfo.map { ZoomItem(it.key.toString(), it.offset, it.size) }
+        val started = startPageZoom(visible, containerWidthPx, containerHeightPx, focal.x, focal.y, factor)
+        // Unconditional on purpose (a few lines per gesture, never per frame): zoom is a gesture feature
+        // that can only be diagnosed on the device.
+        android.util.Log.i(
+            ZOOM_LOG_TAG,
+            "beginZoom focal=${focal.x.toInt()},${focal.y.toInt()} factor=$factor viewport=${containerWidthPx}x$containerHeightPx " +
+                "visible=${visible.joinToString { "${it.entryKey}@${it.topPx}+${it.heightPx}" }} -> ${started?.entryKey ?: "none"}",
+        )
+        zoom = started ?: return false
+        return true
+    }
+
+    // Hands the list back where the pan ended; the layer only goes away after the list has moved, so
+    // the page never flashes at its old position in between.
+    fun endZoom() {
+        val leaving = zoom ?: return
+        val target = zoomExitTarget(leaving, latestEntries.map { it.key() })
+        android.util.Log.i(ZOOM_LOG_TAG, "endZoom scale=${leaving.scale} target=$target")
+        scope.launch {
+            if (target != null) listState.scrollToItem(target.first, target.second)
+            zoom = null
+        }
+    }
+
+    // A zoomed page that is no longer in the list (chapter window slid) or a switch-off from RN ends zoom.
+    LaunchedEffect(entries, zoomEnabled) {
+        val current = zoom ?: return@LaunchedEffect
+        if (shouldDropZoom(current, zoomEnabled, entries.map { it.key() })) zoom = null
+    }
+
+    LaunchedEffect(zoomEnabled) { android.util.Log.i(ZOOM_LOG_TAG, "zoomEnabled=$zoomEnabled") }
+
+    val isZoomed = zoom != null
+    var reportedZoomed by remember { mutableStateOf(false) }
+    LaunchedEffect(isZoomed) {
+        if (isZoomed != reportedZoomed) {
+            reportedZoomed = isZoomed
+            onZoomChanged(isZoomed)
+        }
+    }
+
+    Box(
         modifier =
             modifier
                 .fillMaxSize()
                 .onGloballyPositioned { coordinates ->
                     containerWidthPx = coordinates.size.width
-                }.pointerInput(Unit) {
-                    detectTapGestures(onTap = { onTap() })
+                    containerHeightPx = coordinates.size.height
+                }.pointerInput(zoomEnabled) {
+                    // A double-tap handler delays onTap by the double-tap window, so it is only
+                    // installed when zoom exists — with zoom off a tap stays instant.
+                    detectTapGestures(
+                        onTap = { onTap() },
+                        onDoubleTap =
+                            if (zoomEnabled) {
+                                { offset ->
+                                    android.util.Log.i(ZOOM_LOG_TAG, "doubleTap at=${offset.x.toInt()},${offset.y.toInt()} zoomed=${zoom != null}")
+                                    if (zoom != null) endZoom() else beginZoom(offset, ZOOM_DOUBLE_TAP_SCALE)
+                                }
+                            } else {
+                                null
+                            },
+                    )
+                }.pointerInput(zoomEnabled) {
+                    if (!zoomEnabled) return@pointerInput
+                    // Not keyed on `zoom`: a pinch that starts zoom must survive the state change it
+                    // causes, so the detector reads `zoom` live instead of being restarted by it.
+                    detectPageZoomGestures(
+                        allowSingleFinger = { zoom != null },
+                        onStart = { centroid ->
+                            android.util.Log.i(ZOOM_LOG_TAG, "gesture qualifies at=${centroid.x.toInt()},${centroid.y.toInt()} zoomed=${zoom != null}")
+                            zoom != null || beginZoom(centroid, 1f)
+                        },
+                        onTransform = { centroid, pan, factor ->
+                            zoom = zoom?.transformed(factor, centroid.x, centroid.y, pan.x, pan.y)
+                        },
+                        onEnd = { if (zoom?.isBackToNormal() == true) endZoom() },
+                    )
                 },
     ) {
-        entries.forEach { entry ->
-            item(key = entry.key()) {
-                val entryKey = entry.key()
-                Box(
-                    modifier =
-                        Modifier.onGloballyPositioned { coordinates ->
-                            val newHeight = coordinates.size.height
-                            val oldHeight = itemHeights[entryKey]
-                            if (oldHeight != null && oldHeight != newHeight) {
-                                ReaderDebugFlags.w("CoilDiagnostic") {
-                                    "itemHeights CHANGED key=$entryKey oldHeight=$oldHeight newHeight=$newHeight"
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = zoom == null,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            entries.forEach { entry ->
+                item(key = entry.key()) {
+                    val entryKey = entry.key()
+                    Box(
+                        modifier =
+                            Modifier.onGloballyPositioned { coordinates ->
+                                val newHeight = coordinates.size.height
+                                val oldHeight = itemHeights[entryKey]
+                                if (oldHeight != null && oldHeight != newHeight) {
+                                    ReaderDebugFlags.w("CoilDiagnostic") {
+                                        "itemHeights CHANGED key=$entryKey oldHeight=$oldHeight newHeight=$newHeight"
+                                    }
                                 }
-                            }
-                            itemHeights[entryKey] = newHeight
-                        },
-                ) {
-                    when (entry) {
-                        is ListEntry.Sdu -> SduNodeView(entry.node)
-                        is ListEntry.Page ->
-                            ReaderPageImage(
-                                url = entry.url,
-                                aspectRatio = entry.aspectRatio,
-                                loadingNode = pageLoadingNode,
-                                errorNode = pageErrorNode,
-                            )
+                                itemHeights[entryKey] = newHeight
+                            },
+                    ) {
+                        when (entry) {
+                            is ListEntry.Sdu -> SduNodeView(entry.node)
+                            is ListEntry.Page ->
+                                ReaderPageImage(
+                                    url = entry.url,
+                                    aspectRatio = entry.aspectRatio,
+                                    loadingNode = pageLoadingNode,
+                                    errorNode = pageErrorNode,
+                                )
+                        }
                     }
+                }
+            }
+        }
+
+        zoom?.let { current ->
+            val page = entries.firstOrNull { it.key() == current.entryKey } as? ListEntry.Page
+            if (page != null) {
+                ZoomedPageLayer(zoom = current) {
+                    ReaderPageImage(
+                        url = page.url,
+                        aspectRatio = page.aspectRatio,
+                        loadingNode = pageLoadingNode,
+                        errorNode = pageErrorNode,
+                    )
                 }
             }
         }
@@ -941,8 +1049,7 @@ internal const val RETRY_ACTION = "retry"
 
 // Only a non-network failure has a code worth showing; a timeout or a reset is transient and
 // retrying is the whole answer. Null means "leave the message as it is".
-internal fun errorCodeOrNull(throwable: Throwable): String? =
-    if (throwable is IOException) null else decodeErrorCode(throwable).toString()
+internal fun errorCodeOrNull(throwable: Throwable): String? = if (throwable is IOException) null else decodeErrorCode(throwable).toString()
 
 // A network/IO failure (timeout, connection reset, DNS, HTTP error) never gets a decode error
 // code — those are transient and retrying without any extra data is enough. Only a failure that

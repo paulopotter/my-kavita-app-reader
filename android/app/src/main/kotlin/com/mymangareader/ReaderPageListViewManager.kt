@@ -67,6 +67,15 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
         view.setPageErrorNode(node?.let(::parseSduNode))
     }
 
+    // Per-page zoom (double-tap / pinch). Off unless RN says so — the native side never turns it on.
+    @ReactProp(name = "zoomEnabled", defaultBoolean = false)
+    fun setZoomEnabled(
+        view: ReaderPageListView,
+        enabled: Boolean,
+    ) {
+        view.setZoomEnabled(enabled)
+    }
+
     private fun parseBlock(map: ReadableMap): ChapterBlock? {
         val chapterId = map.getString("chapterId") ?: return null
         val pageUrlsArray = map.getArray("pageUrls") ?: return null
@@ -164,5 +173,7 @@ class ReaderPageListViewManager : SimpleViewManager<ReaderPageListView>() {
             MapBuilder.of("registrationName", "onScrollToChapterHandled"),
             "onTap",
             MapBuilder.of("registrationName", "onTap"),
+            "onZoomChanged",
+            MapBuilder.of("registrationName", "onZoomChanged"),
         )
 }

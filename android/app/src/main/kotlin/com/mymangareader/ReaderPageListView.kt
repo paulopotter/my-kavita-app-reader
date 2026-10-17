@@ -31,6 +31,7 @@ class ReaderPageListView(
     private var currentScrollToPageIndex by mutableStateOf<Int?>(null)
     private var currentPageLoadingNode by mutableStateOf<SduNode?>(null)
     private var currentPageErrorNode by mutableStateOf<SduNode?>(null)
+    private var currentZoomEnabled by mutableStateOf(false)
 
     init {
         // RN can detach/reattach this View across re-renders of the host screen; the default
@@ -64,6 +65,12 @@ class ReaderPageListView(
         currentPageErrorNode = node
     }
 
+    // Whether the per-page zoom exists at all. RN decides; this view only draws it when told to.
+    fun setZoomEnabled(enabled: Boolean) {
+        android.util.Log.i("PageZoom", "prop zoomEnabled=$enabled")
+        currentZoomEnabled = enabled
+    }
+
     @androidx.compose.runtime.Composable
     override fun Content() {
         ReaderPageList(
@@ -75,6 +82,8 @@ class ReaderPageListView(
             onTap = ::emitTap,
             pageLoadingNode = currentPageLoadingNode,
             pageErrorNode = currentPageErrorNode,
+            zoomEnabled = currentZoomEnabled,
+            onZoomChanged = ::emitZoomChanged,
         )
     }
 
@@ -109,5 +118,14 @@ class ReaderPageListView(
         reactContext
             .getJSModule(RCTEventEmitter::class.java)
             .receiveEvent(id, "onTap", Arguments.createMap())
+    }
+
+    private fun emitZoomChanged(zoomed: Boolean) {
+        android.util.Log.i("PageZoom", "emit onZoomChanged zoomed=$zoomed")
+        val payload = Arguments.createMap().apply { putBoolean("zoomed", zoomed) }
+        val reactContext = context as? ReactContext ?: return
+        reactContext
+            .getJSModule(RCTEventEmitter::class.java)
+            .receiveEvent(id, "onZoomChanged", payload)
     }
 }
