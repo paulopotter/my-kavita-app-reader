@@ -28,10 +28,8 @@ export interface Strings {
   configMenuTheme: string;
   configMenuStartScreen: string;
   configMenuAdult: string;
-  adultMode: string;
-  adultModeHidden: string;
-  adultModeBlur: string;
-  adultModeNormal: string;
+  adultReveal: string;
+  adultRevealHint: string;
   adultOnlyButton: string;
   adultOnlyButtonOff: string;
   adultOnlyHint: string;
@@ -476,10 +474,8 @@ const ptBR: Strings = {
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
   configMenuAdult: 'Conteúdo sensível',
-  adultMode: 'Como exibir',
-  adultModeHidden: 'Ocultar',
-  adultModeBlur: 'Exibir desfocado',
-  adultModeNormal: 'Exibir normalmente',
+  adultReveal: 'Exibir conteúdo filtrado',
+  adultRevealHint: 'Desligado, o conteúdo do filtro fica oculto. Ligado, aparece desfocado.',
   adultOnlyButton: 'Mostrar só este conteúdo',
   adultOnlyButtonOff: 'Voltar ao normal',
   adultOnlyHint: 'Vale só até fechar o app: ao abrir de novo, tudo volta ao normal.',
@@ -873,10 +869,8 @@ const en: Strings = {
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
   configMenuAdult: 'Sensitive content',
-  adultMode: 'How to show it',
-  adultModeHidden: 'Hide',
-  adultModeBlur: 'Show blurred',
-  adultModeNormal: 'Show normally',
+  adultReveal: 'Show filtered content',
+  adultRevealHint: 'Off, filtered content stays hidden. On, it shows blurred.',
   adultOnlyButton: 'Show only this content',
   adultOnlyButtonOff: 'Back to normal',
   adultOnlyHint: 'Lasts only until the app is closed: the next time it opens, everything is back to normal.',

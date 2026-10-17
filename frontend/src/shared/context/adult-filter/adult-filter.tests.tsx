@@ -110,9 +110,9 @@ describe('AdultFilterProvider', () => {
   it('setters persist, and changing the selection classifies right away', async () => {
     const { result } = renderHook(() => useAdultFilter(), { wrapper });
     await waitFor(() => expect(result.current.mode).toBe('hidden'));
-    act(() => result.current.setMode('normal'));
+    act(() => result.current.setMode('blur'));
     act(() => result.current.setUnblur(true));
-    expect(mockPrefs.setMode).toHaveBeenCalledWith('normal');
+    expect(mockPrefs.setMode).toHaveBeenCalledWith('blur');
     expect(mockPrefs.setUnblur).toHaveBeenCalledWith(true);
     act(() => result.current.setCategories(['Gore']));
     expect(mockPrefs.setCategories).toHaveBeenCalledWith(['Gore']);

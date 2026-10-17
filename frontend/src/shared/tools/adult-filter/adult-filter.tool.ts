@@ -3,12 +3,14 @@
 // classification and the user's mode and decides, per item, whether it shows and whether it is
 // blurred. Nothing is cached or mutated, so changing the mode never refetches anything.
 
-export type AdultFilterMode = 'hidden' | 'blur' | 'normal';
+// Two states: `hidden` keeps the filtered items out, `blur` shows them blurred. Showing them plain
+// is not a mode — it is simply having nothing in the filter.
+export type AdultFilterMode = 'hidden' | 'blur';
 
 export const DEFAULT_ADULT_FILTER_MODE: AdultFilterMode = 'hidden';
 
 export function isAdultFilterMode(value: unknown): value is AdultFilterMode {
-  return value === 'hidden' || value === 'blur' || value === 'normal';
+  return value === 'hidden' || value === 'blur';
 }
 
 export interface AdultClassification {
@@ -65,9 +67,6 @@ export const AdultFilterTool = {
       }
 
       switch (mode) {
-        case 'normal':
-          result.push({ ...item, blurred: false });
-          break;
         case 'hidden':
           if (!suspect) {result.push({ ...item, blurred: false });}
           break;

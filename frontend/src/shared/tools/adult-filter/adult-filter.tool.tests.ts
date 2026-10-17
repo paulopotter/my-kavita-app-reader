@@ -38,15 +38,9 @@ describe('AdultFilterTool.apply', () => {
     expect(blurred(run('blur', { unblur: true }))).toEqual([]);
   });
 
-  it('normal shows everything untouched', () => {
-    const r = run('normal');
-    expect(ids(r)).toEqual(['a', 'adult', 'b', 'new']);
-    expect(blurred(r)).toEqual([]);
-  });
-
   it('only inverts the view: just the classified items, unclassified ones left out', () => {
     expect(ids(run('hidden', { only: true }))).toEqual(['adult']);
-    expect(ids(run('normal', { only: true }))).toEqual(['adult']);
+    expect(ids(run('blur', { only: true }))).toEqual(['adult']);
   });
 
   it('only shows them plain, unless the blur mode is chosen — then the blur follows unblur', () => {
@@ -81,9 +75,10 @@ describe('AdultFilterTool.apply', () => {
 });
 
 describe('isAdultFilterMode', () => {
-  it('accepts the three modes and nothing else, including the retired adultOnly', () => {
-    (['hidden', 'blur', 'normal'] as const).forEach(m => expect(isAdultFilterMode(m)).toBe(true));
+  it('accepts the two modes and nothing else, including the retired adultOnly and normal', () => {
+    (['hidden', 'blur'] as const).forEach(m => expect(isAdultFilterMode(m)).toBe(true));
     expect(isAdultFilterMode('adultOnly')).toBe(false);
+    expect(isAdultFilterMode('normal')).toBe(false);
     expect(isAdultFilterMode('x')).toBe(false);
     expect(isAdultFilterMode(undefined)).toBe(false);
   });

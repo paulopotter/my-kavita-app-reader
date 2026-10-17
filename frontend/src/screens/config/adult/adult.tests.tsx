@@ -68,12 +68,17 @@ describe('useAdultFilterConfig', () => {
     expect(mockFilter.setCategories).toHaveBeenLastCalledWith([]);
   });
 
-  it('only the blur mode has a blur to remove', async () => {
-    expect(renderHook(() => useAdultFilterConfig()).result.current.showsBlurred).toBe(false);
+  it('reveal follows the blur mode, and setReveal switches between blur and hidden', async () => {
+    mockFilter.mode = 'hidden';
+    const hidden = renderHook(() => useAdultFilterConfig());
+    expect(hidden.result.current.reveal).toBe(false);
+    act(() => hidden.result.current.setReveal(true));
+    expect(mockFilter.setMode).toHaveBeenLastCalledWith('blur');
     mockFilter.mode = 'blur';
-    expect(renderHook(() => useAdultFilterConfig()).result.current.showsBlurred).toBe(true);
-    mockFilter.mode = 'normal';
-    expect(renderHook(() => useAdultFilterConfig()).result.current.showsBlurred).toBe(false);
+    const blurred = renderHook(() => useAdultFilterConfig());
+    expect(blurred.result.current.reveal).toBe(true);
+    act(() => blurred.result.current.setReveal(false));
+    expect(mockFilter.setMode).toHaveBeenLastCalledWith('hidden');
     await act(async () => {});
   });
 
@@ -152,10 +157,15 @@ describe('AdultFilterScreen', () => {
     expect(await failed.findByText(t.adultCategoriesError)).toBeTruthy();
   });
 
-  it('changes the mode through the select', async () => {
-    const { findByText } = renderScreen();
-    fireEvent.press(await findByText(t.adultModeHidden));
-    fireEvent.press(await findByText(t.adultModeBlur));
+  it('reveals the filtered content with the switch, and hides it again', async () => {
+    const off = renderScreen();
+    fireEvent.press(await off.findByText(t.adultReveal));
     expect(mockFilter.setMode).toHaveBeenCalledWith('blur');
+    off.unmount();
+
+    mockFilter.mode = 'blur';
+    const on = renderScreen();
+    fireEvent.press(await on.findByText(t.adultReveal));
+    expect(mockFilter.setMode).toHaveBeenCalledWith('hidden');
   });
 });

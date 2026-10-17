@@ -2,16 +2,15 @@ import React, { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useStyles, useTheme } from '../../../shared/context';
 import { useStrings } from '../../../shared/i18n';
-import type { AdultFilterMode } from '../../../shared/tools/adult-filter';
-import { BackChevron, Select } from '../components';
+import { BackChevron } from '../components';
 import { configStyles } from '../config.styles';
 import { Chip } from './components/chip';
 import { useAdultFilterConfig } from './adult.hooks';
 import { adultStyles } from './adult.styles';
 
 // Sensitive-content filter settings: which categories are in the filter (chips that move into a
-// box as they are picked), how to show those series (hidden by default), whether to take the blur
-// off, and a button that flips the app into the inverted view for this session only. The filter
+// box as they are picked), one switch to reveal those series blurred (hidden by default), whether
+// to take the blur off, and a button that flips the app into the inverted view for this session only. The filter
 // itself runs on every screen at render time; this screen only edits the choices.
 export function AdultFilterScreen({ onBack }: { onBack: () => void }) {
   const { colors } = useTheme();
@@ -19,28 +18,19 @@ export function AdultFilterScreen({ onBack }: { onBack: () => void }) {
   const styles = useStyles(adultStyles);
   const t = useStrings();
   const {
-    mode,
+    reveal,
     unblur,
     selected,
     available,
     status,
-    showsBlurred,
     only,
-    setMode,
+    setReveal,
     setUnblur,
     setOnly,
     addCategory,
     removeCategory,
   } = useAdultFilterConfig();
 
-  const modeOptions = useMemo(
-    () => [
-      { id: 'hidden', label: t.adultModeHidden },
-      { id: 'blur', label: t.adultModeBlur },
-      { id: 'normal', label: t.adultModeNormal },
-    ],
-    [t],
-  );
   const pending = useMemo(() => available.filter(name => !selected.includes(name)), [available, selected]);
 
   return (
@@ -51,10 +41,18 @@ export function AdultFilterScreen({ onBack }: { onBack: () => void }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.sectionLabel}>{t.adultMode}</Text>
-        <Select value={mode} options={modeOptions} onChange={id => id && setMode(id as AdultFilterMode)} />
+        <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => setReveal(!reveal)}>
+          <Text style={styles.label}>{t.adultReveal}</Text>
+          <Switch
+            value={reveal}
+            onValueChange={setReveal}
+            thumbColor={reveal ? colors.button.switch.thumb.on : colors.button.switch.thumb.off}
+            trackColor={{ false: colors.button.switch.track.off, true: colors.button.switch.track.on }}
+          />
+        </TouchableOpacity>
+        <Text style={styles.hint}>{t.adultRevealHint}</Text>
 
-        {showsBlurred && (
+        {reveal && (
           <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => setUnblur(!unblur)}>
             <Text style={styles.label}>{t.adultUnblur}</Text>
             <Switch

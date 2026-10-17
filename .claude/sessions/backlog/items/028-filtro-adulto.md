@@ -6,7 +6,7 @@ extra criteria feeding the same id set; OS notification text and the unread badg
 
 ## What
 A user-configurable filter over series considered "adult", applied **only at render time**.
-Modes: `hidden` (default), `blur`, `normal`. The inverted view ("only the filtered set") is a button
+Modes: `hidden` (default) and `blur`, one switch ("normal" is just an empty filter). The inverted view ("only the filtered set") is a button
 on the settings screen, session-only state that is never stored. A second setting removes the blur
 (visible only in `blur` mode). User-facing name: "Conteúdo sensível". The user picks which
 **categories** (genres/tags) count as adult. Scope v1: Library, Following, Search, Dashboard rails

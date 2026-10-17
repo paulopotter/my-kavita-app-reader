@@ -49,9 +49,11 @@ describe('AdultFilterPrefs', () => {
     expect(await AdultFilterPrefs.getMode()).toBe('blur');
     stored({ mode: 'weird' });
     expect(await AdultFilterPrefs.getMode()).toBe('hidden');
-    await AdultFilterPrefs.setMode('normal');
-    expect(mockPut).toHaveBeenCalledWith(expect.objectContaining({ variant: 'mode', value: 'normal' }));
+    await AdultFilterPrefs.setMode('blur');
+    expect(mockPut).toHaveBeenCalledWith(expect.objectContaining({ variant: 'mode', value: 'blur' }));
     stored({ mode: 'adultOnly' }); // a value saved by an earlier build falls back to the default
+    expect(await AdultFilterPrefs.getMode()).toBe('hidden');
+    stored({ mode: 'normal' });
     expect(await AdultFilterPrefs.getMode()).toBe('hidden');
   });
 

@@ -41,19 +41,19 @@ export function useAdultFilterConfig() {
     [filter],
   );
 
-  // The blur only exists in the mode that shows the filtered items blurred.
-  const showsBlurred = filter.mode === 'blur';
+  // Revealing the filtered items (blurred) is one switch; the blur only exists while it is on.
+  const reveal = filter.mode === 'blur';
+  const setReveal = useCallback((value: boolean) => filter.setMode(value ? 'blur' : 'hidden'), [filter]);
 
   return {
-    mode: filter.mode,
     unblur: filter.unblur,
     selected: filter.categories,
     available,
     status,
-    showsBlurred,
+    reveal,
+    setReveal,
     only: filter.only,
     setOnly: filter.setOnly,
-    setMode: filter.setMode,
     setUnblur: filter.setUnblur,
     addCategory,
     removeCategory,
