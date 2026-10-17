@@ -6,12 +6,13 @@ const classification = {
   knownIds: new Set(['a', 'adult', 'b']),
 };
 
-function run(mode: AdultFilterMode, over: { unblur?: boolean; active?: boolean } = {}) {
+function run(mode: AdultFilterMode, over: { unblur?: boolean; active?: boolean; only?: boolean } = {}) {
   return AdultFilterTool.apply({
     items,
     idOf: i => i.id,
     mode,
     unblur: over.unblur ?? false,
+    only: over.only ?? false,
     active: over.active ?? true,
     classification,
   });
@@ -43,10 +44,15 @@ describe('AdultFilterTool.apply', () => {
     expect(blurred(r)).toEqual([]);
   });
 
-  it('adultOnly inverts: only classified-adult items, blurred unless unblur', () => {
-    expect(ids(run('adultOnly'))).toEqual(['adult']);
-    expect(blurred(run('adultOnly'))).toEqual(['adult']);
-    expect(blurred(run('adultOnly', { unblur: true }))).toEqual([]);
+  it('only inverts the view: just the classified items, unclassified ones left out', () => {
+    expect(ids(run('hidden', { only: true }))).toEqual(['adult']);
+    expect(ids(run('normal', { only: true }))).toEqual(['adult']);
+  });
+
+  it('only shows them plain, unless the blur mode is chosen — then the blur follows unblur', () => {
+    expect(blurred(run('hidden', { only: true }))).toEqual([]);
+    expect(blurred(run('blur', { only: true }))).toEqual(['adult']);
+    expect(blurred(run('blur', { only: true, unblur: true }))).toEqual([]);
   });
 
   it('counts the unclassified items so the caller can ask for a classification', () => {
@@ -65,6 +71,7 @@ describe('AdultFilterTool.apply', () => {
       idOf: i => i.id,
       mode: 'hidden',
       unblur: false,
+      only: false,
       active: true,
       classification: EMPTY_CLASSIFICATION,
     });
@@ -74,8 +81,9 @@ describe('AdultFilterTool.apply', () => {
 });
 
 describe('isAdultFilterMode', () => {
-  it('accepts the four modes and nothing else', () => {
-    (['hidden', 'blur', 'normal', 'adultOnly'] as const).forEach(m => expect(isAdultFilterMode(m)).toBe(true));
+  it('accepts the three modes and nothing else, including the retired adultOnly', () => {
+    (['hidden', 'blur', 'normal'] as const).forEach(m => expect(isAdultFilterMode(m)).toBe(true));
+    expect(isAdultFilterMode('adultOnly')).toBe(false);
     expect(isAdultFilterMode('x')).toBe(false);
     expect(isAdultFilterMode(undefined)).toBe(false);
   });

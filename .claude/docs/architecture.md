@@ -585,7 +585,7 @@ suffixes map `@1x`→mdpi … `@4x`→xxxhdpi. Not committed (`.gitignore` exclu
 
 ---
 
-## Adult-content filter (render-time)
+## Sensitive-content filter (render-time; code name "adult")
 
 - **Provider side** — `ServerPlugin.categories` is an optional capability: `list()` (names) and
   `serialIds(names)` (series ids carrying any of them). The Kavita plugin resolves name → numeric

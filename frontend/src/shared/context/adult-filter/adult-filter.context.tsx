@@ -21,14 +21,16 @@ const AdultFilterContext = createContext<AdultFilterState>({
   categories: [],
   mode: DEFAULT_ADULT_FILTER_MODE,
   unblur: false,
+  only: false,
   classification: EMPTY_CLASSIFICATION,
   setCategories: () => {},
   setMode: () => {},
   setUnblur: () => {},
+  setOnly: () => {},
   requestClassification: () => {},
 });
 
-// Holds the user's adult-filter choices and the provider's last answer to "which series carry the
+// Holds the user's sensitive-content filter choices and the provider's last answer to "which series carry the
 // selected categories". Renders nothing until the stored values are read (a local read, well
 // inside the splash), so the first paint is already filtered with the last known answer instead
 // of showing adult series for a moment and then removing them.
@@ -37,6 +39,8 @@ export function AdultFilterProvider({ children }: { children: React.ReactNode })
   const [categories, setCategoriesState] = useState<string[]>([]);
   const [mode, setModeState] = useState<AdultFilterMode>(DEFAULT_ADULT_FILTER_MODE);
   const [unblur, setUnblurState] = useState(false);
+  // Deliberately not hydrated or persisted: closing the app puts the filter back to normal.
+  const [only, setOnly] = useState(false);
   const [classification, setClassification] = useState<AdultClassification>(EMPTY_CLASSIFICATION);
 
   const categoriesRef = useRef<string[]>([]);
@@ -143,8 +147,19 @@ export function AdultFilterProvider({ children }: { children: React.ReactNode })
   }, [classify]);
 
   const value = useMemo<AdultFilterState>(
-    () => ({ categories, mode, unblur, classification, setCategories, setMode, setUnblur, requestClassification }),
-    [categories, mode, unblur, classification, setCategories, setMode, setUnblur, requestClassification],
+    () => ({
+      categories,
+      mode,
+      unblur,
+      only,
+      classification,
+      setCategories,
+      setMode,
+      setUnblur,
+      setOnly,
+      requestClassification,
+    }),
+    [categories, mode, unblur, only, classification, setCategories, setMode, setUnblur, requestClassification],
   );
 
   if (!ready) {return null;}
@@ -165,7 +180,7 @@ export function useAdultFiltered<T>({
   items: T[];
   idOf: (item: T) => string;
 }): AdultFiltered<T>[] {
-  const { categories, mode, unblur, classification, requestClassification } = useAdultFilter();
+  const { categories, mode, unblur, only, classification, requestClassification } = useAdultFilter();
   const idOfRef = useRef(idOf);
   idOfRef.current = idOf;
 
@@ -176,10 +191,11 @@ export function useAdultFiltered<T>({
         idOf: item => idOfRef.current(item),
         mode,
         unblur,
+        only,
         active: categories.length > 0,
         classification,
       }),
-    [items, mode, unblur, categories, classification],
+    [items, mode, unblur, only, categories, classification],
   );
 
   useEffect(() => {

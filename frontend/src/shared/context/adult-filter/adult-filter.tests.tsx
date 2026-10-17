@@ -110,9 +110,9 @@ describe('AdultFilterProvider', () => {
   it('setters persist, and changing the selection classifies right away', async () => {
     const { result } = renderHook(() => useAdultFilter(), { wrapper });
     await waitFor(() => expect(result.current.mode).toBe('hidden'));
-    act(() => result.current.setMode('adultOnly'));
+    act(() => result.current.setMode('normal'));
     act(() => result.current.setUnblur(true));
-    expect(mockPrefs.setMode).toHaveBeenCalledWith('adultOnly');
+    expect(mockPrefs.setMode).toHaveBeenCalledWith('normal');
     expect(mockPrefs.setUnblur).toHaveBeenCalledWith(true);
     act(() => result.current.setCategories(['Gore']));
     expect(mockPrefs.setCategories).toHaveBeenCalledWith(['Gore']);
@@ -213,5 +213,34 @@ describe('AdultFilterProvider — coming back to the app', () => {
     await waitFor(() => expect(mockIds).toHaveBeenCalledTimes(2));
     spy.mockRestore();
     jest.useRealTimers();
+  });
+});
+
+describe('AdultFilterProvider — the inverted view', () => {
+  it('starts off, can be switched on, is never stored and is off again on the next launch', async () => {
+    const first = renderHook(() => useAdultFilter(), { wrapper });
+    await waitFor(() => expect(first.result.current.mode).toBe('hidden'));
+    expect(first.result.current.only).toBe(false);
+    act(() => first.result.current.setOnly(true));
+    expect(first.result.current.only).toBe(true);
+    Object.values(mockPrefs).forEach(fn => expect(fn).not.toHaveBeenCalledWith(true, expect.anything()));
+    first.unmount();
+
+    const next = renderHook(() => useAdultFilter(), { wrapper });
+    await waitFor(() => expect(next.result.current.mode).toBe('hidden'));
+    expect(next.result.current.only).toBe(false);
+  });
+
+  it('useAdultFiltered shows just the classified items while it is on', async () => {
+    mockPrefs.getCategories.mockResolvedValue(['Hentai']);
+    mockPrefs.getClassification.mockResolvedValue({ adultIds: new Set(['2']), knownIds: new Set(['1', '2', '3']) });
+    const items = ['1', '2', '3'].map(id => ({ id }));
+    const { result } = renderHook(
+      () => ({ filter: useAdultFilter(), shown: useAdultFiltered({ items, idOf: i => i.id }) }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.shown.map(i => i.id)).toEqual(['1', '3']));
+    act(() => result.current.filter.setOnly(true));
+    expect(result.current.shown.map(i => i.id)).toEqual(['2']);
   });
 });

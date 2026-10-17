@@ -5,34 +5,43 @@ import { useStrings } from '../../../shared/i18n';
 import type { AdultFilterMode } from '../../../shared/tools/adult-filter';
 import { BackChevron, Select } from '../components';
 import { configStyles } from '../config.styles';
+import { Chip } from './components/chip';
 import { useAdultFilterConfig } from './adult.hooks';
 import { adultStyles } from './adult.styles';
 
-// Adult-content filter settings: which categories count as adult, how to show those series
-// (hidden by default), and — when they are shown — whether to take the blur off. The filter
+// Sensitive-content filter settings: which categories are in the filter (chips that move into a
+// box as they are picked), how to show those series (hidden by default), whether to take the blur
+// off, and a button that flips the app into the inverted view for this session only. The filter
 // itself runs on every screen at render time; this screen only edits the choices.
 export function AdultFilterScreen({ onBack }: { onBack: () => void }) {
   const { colors } = useTheme();
   const chrome = useStyles(configStyles);
   const styles = useStyles(adultStyles);
   const t = useStrings();
-  const { mode, unblur, selected, available, status, showsAdult, setMode, setUnblur, toggleCategory } =
-    useAdultFilterConfig();
+  const {
+    mode,
+    unblur,
+    selected,
+    available,
+    status,
+    showsBlurred,
+    only,
+    setMode,
+    setUnblur,
+    setOnly,
+    addCategory,
+    removeCategory,
+  } = useAdultFilterConfig();
 
   const modeOptions = useMemo(
     () => [
       { id: 'hidden', label: t.adultModeHidden },
       { id: 'blur', label: t.adultModeBlur },
       { id: 'normal', label: t.adultModeNormal },
-      { id: 'adultOnly', label: t.adultModeOnly },
     ],
     [t],
   );
-
-  const switchColors = (on: boolean) => ({
-    thumbColor: on ? colors.button.switch.thumb.on : colors.button.switch.thumb.off,
-    trackColor: { false: colors.button.switch.track.off, true: colors.button.switch.track.on },
-  });
+  const pending = useMemo(() => available.filter(name => !selected.includes(name)), [available, selected]);
 
   return (
     <View style={chrome.root}>
@@ -43,37 +52,61 @@ export function AdultFilterScreen({ onBack }: { onBack: () => void }) {
 
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.sectionLabel}>{t.adultMode}</Text>
-        <Select
-          value={mode}
-          options={modeOptions}
-          onChange={id => id && setMode(id as AdultFilterMode)}
-        />
+        <Select value={mode} options={modeOptions} onChange={id => id && setMode(id as AdultFilterMode)} />
 
-        {showsAdult && (
+        {showsBlurred && (
           <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => setUnblur(!unblur)}>
             <Text style={styles.label}>{t.adultUnblur}</Text>
-            <Switch value={unblur} onValueChange={setUnblur} {...switchColors(unblur)} />
+            <Switch
+              value={unblur}
+              onValueChange={setUnblur}
+              thumbColor={unblur ? colors.button.switch.thumb.on : colors.button.switch.thumb.off}
+              trackColor={{ false: colors.button.switch.track.off, true: colors.button.switch.track.on }}
+            />
           </TouchableOpacity>
         )}
 
         <Text style={styles.sectionLabel}>{t.adultCategories}</Text>
         <Text style={styles.hint}>{t.adultCategoriesHint}</Text>
+
+        <Text style={styles.hint}>{t.adultCategoriesSelected}</Text>
+        <View style={styles.selectedBox}>
+          {selected.length === 0 ? (
+            <Text style={styles.placeholder}>{t.adultCategoriesNoneSelected}</Text>
+          ) : (
+            selected.map(name => (
+              <Chip
+                key={name}
+                label={name}
+                selected
+                removeLabel={t.adultCategoriesRemove.replace('{0}', name)}
+                onPress={() => removeCategory(name)}
+              />
+            ))
+          )}
+        </View>
+
+        <Text style={[styles.hint, styles.sectionLabel]}>{t.adultCategoriesAvailable}</Text>
         {status === 'loading' && <ActivityIndicator color={colors.button.primary} />}
         {status === 'error' && <Text style={styles.error}>{t.adultCategoriesError}</Text>}
         {status === 'ready' && available.length === 0 && <Text style={styles.message}>{t.adultCategoriesEmpty}</Text>}
-        {status === 'ready' &&
-          available.map(name => {
-            const on = selected.includes(name);
-            return (
-              <View key={name}>
-                <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => toggleCategory(name)}>
-                  <Text style={styles.label}>{name}</Text>
-                  <Switch value={on} onValueChange={() => toggleCategory(name)} {...switchColors(on)} />
-                </TouchableOpacity>
-                <View style={chrome.divider} />
-              </View>
-            );
-          })}
+        {status === 'ready' && (
+          <View style={styles.chips}>
+            {pending.map(name => (
+              <Chip key={name} label={name} onPress={() => addCategory(name)} />
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.onlyButton, only && styles.onlyButtonActive]}
+          activeOpacity={0.8}
+          onPress={() => setOnly(!only)}>
+          <Text style={[styles.onlyButtonText, only && styles.onlyButtonTextActive]}>
+            {only ? t.adultOnlyButtonOff : t.adultOnlyButton}
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.hint}>{t.adultOnlyHint}</Text>
       </ScrollView>
     </View>
   );

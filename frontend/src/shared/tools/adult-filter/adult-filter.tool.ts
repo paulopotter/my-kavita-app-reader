@@ -1,14 +1,14 @@
-// AdultFilterTool — the pure render-time rule of the adult-content filter. Knows nothing about
+// AdultFilterTool — the pure render-time rule of the sensitive-content filter. Knows nothing about
 // where the adult set came from (the provider's categories) or how it is stored: it receives the
 // classification and the user's mode and decides, per item, whether it shows and whether it is
 // blurred. Nothing is cached or mutated, so changing the mode never refetches anything.
 
-export type AdultFilterMode = 'hidden' | 'blur' | 'normal' | 'adultOnly';
+export type AdultFilterMode = 'hidden' | 'blur' | 'normal';
 
 export const DEFAULT_ADULT_FILTER_MODE: AdultFilterMode = 'hidden';
 
 export function isAdultFilterMode(value: unknown): value is AdultFilterMode {
-  return value === 'hidden' || value === 'blur' || value === 'normal' || value === 'adultOnly';
+  return value === 'hidden' || value === 'blur' || value === 'normal';
 }
 
 export interface AdultClassification {
@@ -32,6 +32,7 @@ export const AdultFilterTool = {
     idOf,
     mode,
     unblur,
+    only,
     active,
     classification,
   }: {
@@ -39,6 +40,9 @@ export const AdultFilterTool = {
     idOf: (item: T) => string;
     mode: AdultFilterMode;
     unblur: boolean;
+    // The inverted view, switched on by hand for the current session only: show just the
+    // classified items. The blur still follows the user's own choice (blur mode, not removed).
+    only: boolean;
     active: boolean;
     classification: AdultClassification;
   }): { items: AdultFiltered<T>[]; pending: number } {
@@ -55,6 +59,11 @@ export const AdultFilterTool = {
       if (isPending) {pending += 1;}
       const suspect = adult || isPending;
 
+      if (only) {
+        if (adult) {result.push({ ...item, blurred: mode === 'blur' && !unblur });}
+        continue;
+      }
+
       switch (mode) {
         case 'normal':
           result.push({ ...item, blurred: false });
@@ -64,9 +73,6 @@ export const AdultFilterTool = {
           break;
         case 'blur':
           result.push({ ...item, blurred: suspect && !unblur });
-          break;
-        case 'adultOnly':
-          if (adult) {result.push({ ...item, blurred: !unblur });}
           break;
       }
     }

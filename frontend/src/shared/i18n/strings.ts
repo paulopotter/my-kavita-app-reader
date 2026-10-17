@@ -32,7 +32,13 @@ export interface Strings {
   adultModeHidden: string;
   adultModeBlur: string;
   adultModeNormal: string;
-  adultModeOnly: string;
+  adultOnlyButton: string;
+  adultOnlyButtonOff: string;
+  adultOnlyHint: string;
+  adultCategoriesSelected: string;
+  adultCategoriesAvailable: string;
+  adultCategoriesNoneSelected: string;
+  adultCategoriesRemove: string; // "{0}" = category name
   adultUnblur: string;
   adultCategories: string;
   adultCategoriesHint: string;
@@ -469,15 +475,21 @@ const ptBR: Strings = {
   configMenuSerials: 'Página do mangá',
   configMenuNotifications: 'Notificações',
   configMenuTheme: 'Tema',
-  configMenuAdult: 'Conteúdo adulto',
+  configMenuAdult: 'Conteúdo sensível',
   adultMode: 'Como exibir',
   adultModeHidden: 'Ocultar',
   adultModeBlur: 'Exibir desfocado',
   adultModeNormal: 'Exibir normalmente',
-  adultModeOnly: 'Somente conteúdo adulto',
+  adultOnlyButton: 'Mostrar só este conteúdo',
+  adultOnlyButtonOff: 'Voltar ao normal',
+  adultOnlyHint: 'Vale só até fechar o app: ao abrir de novo, tudo volta ao normal.',
+  adultCategoriesSelected: 'No filtro',
+  adultCategoriesAvailable: 'Toque para adicionar',
+  adultCategoriesNoneSelected: 'Nenhuma categoria no filtro',
+  adultCategoriesRemove: 'Remover {0}',
   adultUnblur: 'Remover o desfoque',
-  adultCategories: 'Categorias consideradas adultas',
-  adultCategoriesHint: 'Obras com qualquer uma das categorias marcadas entram no filtro. Sem nenhuma marcada, nada é filtrado.',
+  adultCategories: 'Categorias do filtro',
+  adultCategoriesHint: 'Obras com qualquer uma das categorias do filtro entram nele. Sem nenhuma, nada é filtrado.',
   adultCategoriesEmpty: 'Este servidor não oferece categorias',
   adultCategoriesError: 'Não foi possível carregar as categorias',
   configMenuStartScreen: 'Tela inicial',
@@ -860,15 +872,21 @@ const en: Strings = {
   configMenuSerials: 'Manga page',
   configMenuNotifications: 'Notifications',
   configMenuTheme: 'Theme',
-  configMenuAdult: 'Adult content',
+  configMenuAdult: 'Sensitive content',
   adultMode: 'How to show it',
   adultModeHidden: 'Hide',
   adultModeBlur: 'Show blurred',
   adultModeNormal: 'Show normally',
-  adultModeOnly: 'Adult content only',
+  adultOnlyButton: 'Show only this content',
+  adultOnlyButtonOff: 'Back to normal',
+  adultOnlyHint: 'Lasts only until the app is closed: the next time it opens, everything is back to normal.',
+  adultCategoriesSelected: 'In the filter',
+  adultCategoriesAvailable: 'Tap to add',
+  adultCategoriesNoneSelected: 'No category in the filter',
+  adultCategoriesRemove: 'Remove {0}',
   adultUnblur: 'Remove the blur',
-  adultCategories: 'Categories treated as adult',
-  adultCategoriesHint: 'Series with any marked category fall under the filter. With none marked, nothing is filtered.',
+  adultCategories: 'Filter categories',
+  adultCategoriesHint: 'Series with any category in the filter fall under it. With none, nothing is filtered.',
   adultCategoriesEmpty: 'This server offers no categories',
   adultCategoriesError: 'Could not load the categories',
   configMenuStartScreen: 'Start screen',

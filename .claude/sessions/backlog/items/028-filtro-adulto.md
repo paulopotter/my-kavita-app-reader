@@ -6,8 +6,9 @@ extra criteria feeding the same id set; OS notification text and the unread badg
 
 ## What
 A user-configurable filter over series considered "adult", applied **only at render time**.
-Modes: `hidden` (default), `blur`, `normal`, `adultOnly` (inverts: shows only the adult set).
-When the filter is active there is a second setting to remove the blur. The user picks which
+Modes: `hidden` (default), `blur`, `normal`. The inverted view ("only the filtered set") is a button
+on the settings screen, session-only state that is never stored. A second setting removes the blur
+(visible only in `blur` mode). User-facing name: "Conteúdo sensível". The user picks which
 **categories** (genres/tags) count as adult. Scope v1: Library, Following, Search, Dashboard rails
 and stats, Notifications history.
 
@@ -53,5 +54,5 @@ and stats, Notifications history.
 
 ## Verify
 Real server: pick Hentai+Ecchi, mode `hidden` → those series gone from every screen; `blur` →
-blurred cover/title; `adultOnly` → only them; change selection → updates with 1 call, no list
+blurred cover/title; the "show only this content" button → only them (until the app closes); change selection → updates with 1 call, no list
 refetch; kill the second call → last persisted set still applied, no flash.

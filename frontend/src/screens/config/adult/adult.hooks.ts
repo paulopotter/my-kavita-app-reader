@@ -29,16 +29,20 @@ export function useAdultFilterConfig() {
     };
   }, []);
 
-  const toggleCategory = useCallback(
+  const addCategory = useCallback(
     (name: string) => {
-      const selected = filter.categories.includes(name);
-      filter.setCategories(selected ? filter.categories.filter(c => c !== name) : [...filter.categories, name]);
+      if (!filter.categories.includes(name)) {filter.setCategories([...filter.categories, name]);}
     },
     [filter],
   );
 
-  // The blur only exists in the modes that show adult items.
-  const showsAdult = filter.mode === 'blur' || filter.mode === 'adultOnly';
+  const removeCategory = useCallback(
+    (name: string) => filter.setCategories(filter.categories.filter(c => c !== name)),
+    [filter],
+  );
+
+  // The blur only exists in the mode that shows the filtered items blurred.
+  const showsBlurred = filter.mode === 'blur';
 
   return {
     mode: filter.mode,
@@ -46,9 +50,12 @@ export function useAdultFilterConfig() {
     selected: filter.categories,
     available,
     status,
-    showsAdult,
+    showsBlurred,
+    only: filter.only,
+    setOnly: filter.setOnly,
     setMode: filter.setMode,
     setUnblur: filter.setUnblur,
-    toggleCategory,
+    addCategory,
+    removeCategory,
   };
 }

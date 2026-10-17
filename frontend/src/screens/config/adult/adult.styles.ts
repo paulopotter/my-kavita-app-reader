@@ -1,6 +1,6 @@
 import { createStyles } from '../../../shared/theme';
 
-export const adultStyles = createStyles(({ colors, text, spacing, gutter }) => ({
+export const adultStyles = createStyles(({ colors, text, spacing, radius, border, gutter }) => ({
   container: { paddingHorizontal: gutter, paddingBottom: spacing[9] },
   row: {
     flexDirection: 'row',
@@ -20,4 +20,27 @@ export const adultStyles = createStyles(({ colors, text, spacing, gutter }) => (
   hint: { color: colors.text.secondary, fontSize: text.size[2], marginBottom: spacing[4] },
   message: { color: colors.text.secondary, fontSize: text.size[3], paddingVertical: spacing[5] },
   error: { color: colors.text.message.bad, fontSize: text.size[3], paddingVertical: spacing[5] },
+  // The "input" the chosen categories live in: a bordered box that wraps its chips.
+  selectedBox: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    minHeight: spacing[9] + spacing[6],
+    padding: spacing[4],
+    borderRadius: radius.medium,
+    borderWidth: border.medium,
+    borderColor: colors.border.primary,
+    backgroundColor: colors.surface.secondary,
+  },
+  placeholder: { color: colors.text.secondary, fontSize: text.size[3], padding: spacing[3] },
+  chips: { flexDirection: 'row', flexWrap: 'wrap' },
+  onlyButton: {
+    marginTop: spacing[6],
+    alignItems: 'center',
+    paddingVertical: spacing[5],
+    borderRadius: radius.medium,
+    backgroundColor: colors.button.primary,
+  },
+  onlyButtonActive: { backgroundColor: colors.surface.tertiary, borderWidth: border.medium, borderColor: colors.button.primary },
+  onlyButtonText: { color: colors.text.button.primary, fontWeight: text.weight.bold, fontSize: text.size[3] },
+  onlyButtonTextActive: { color: colors.text.emphasis },
 }));

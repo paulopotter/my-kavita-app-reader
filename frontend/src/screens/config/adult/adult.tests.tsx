@@ -12,6 +12,8 @@ const mockFilter = {
   categories: ['Gore'] as string[],
   mode: 'hidden' as string,
   unblur: false,
+  only: false,
+  setOnly: jest.fn(),
   setCategories: jest.fn(),
   setMode: jest.fn(),
   setUnblur: jest.fn(),
@@ -35,6 +37,7 @@ beforeEach(() => {
   mockFilter.categories = ['Gore'];
   mockFilter.mode = 'hidden';
   mockFilter.unblur = false;
+  mockFilter.only = false;
   mockList.mockResolvedValue(['Ecchi', 'Gore', 'Hentai']);
 });
 
@@ -53,24 +56,24 @@ describe('useAdultFilterConfig', () => {
     await waitFor(() => expect(result.current.status).toBe('error'));
   });
 
-  it('toggleCategory adds a missing name and removes a present one', async () => {
+  it('addCategory adds a missing name once and removeCategory takes one out', async () => {
     const { result } = renderHook(() => useAdultFilterConfig());
     await waitFor(() => expect(result.current.status).toBe('ready'));
-    act(() => result.current.toggleCategory('Hentai'));
+    act(() => result.current.addCategory('Hentai'));
     expect(mockFilter.setCategories).toHaveBeenLastCalledWith(['Gore', 'Hentai']);
-    act(() => result.current.toggleCategory('Gore'));
+    mockFilter.setCategories.mockClear();
+    act(() => result.current.addCategory('Gore')); // already in: nothing to do
+    expect(mockFilter.setCategories).not.toHaveBeenCalled();
+    act(() => result.current.removeCategory('Gore'));
     expect(mockFilter.setCategories).toHaveBeenLastCalledWith([]);
   });
 
-  it('only the modes that show adult items have a blur to remove', async () => {
-    const hidden = renderHook(() => useAdultFilterConfig());
-    expect(hidden.result.current.showsAdult).toBe(false);
+  it('only the blur mode has a blur to remove', async () => {
+    expect(renderHook(() => useAdultFilterConfig()).result.current.showsBlurred).toBe(false);
     mockFilter.mode = 'blur';
-    expect(renderHook(() => useAdultFilterConfig()).result.current.showsAdult).toBe(true);
-    mockFilter.mode = 'adultOnly';
-    expect(renderHook(() => useAdultFilterConfig()).result.current.showsAdult).toBe(true);
+    expect(renderHook(() => useAdultFilterConfig()).result.current.showsBlurred).toBe(true);
     mockFilter.mode = 'normal';
-    expect(renderHook(() => useAdultFilterConfig()).result.current.showsAdult).toBe(false);
+    expect(renderHook(() => useAdultFilterConfig()).result.current.showsBlurred).toBe(false);
     await act(async () => {});
   });
 
@@ -92,20 +95,28 @@ function renderScreen() {
 }
 
 describe('AdultFilterScreen', () => {
-  it('lists the categories with the selected ones on', async () => {
-    const { findByText, getAllByRole } = renderScreen();
-    expect(await findByText('Hentai')).toBeTruthy();
-    expect(await findByText('Gore')).toBeTruthy();
-    expect(getAllByRole('switch').length).toBeGreaterThanOrEqual(3);
+  it('shows the chosen categories in the box and the rest as chips to add', async () => {
+    const { findByLabelText, findByText, queryByLabelText } = renderScreen();
+    expect(await findByLabelText(t.adultCategoriesRemove.replace('{0}', 'Gore'))).toBeTruthy(); // in the filter
+    expect(await findByText('Hentai')).toBeTruthy(); // available
+    expect(queryByLabelText('Gore')).toBeNull(); // no longer offered as an addable chip
   });
 
-  it('toggles a category by tapping its row', async () => {
-    const { findByText } = renderScreen();
+  it('adds a category by tapping its chip and removes one by tapping it in the box', async () => {
+    const { findByText, findByLabelText } = renderScreen();
     fireEvent.press(await findByText('Hentai'));
     expect(mockFilter.setCategories).toHaveBeenCalledWith(['Gore', 'Hentai']);
+    fireEvent.press(await findByLabelText(t.adultCategoriesRemove.replace('{0}', 'Gore')));
+    expect(mockFilter.setCategories).toHaveBeenCalledWith([]);
   });
 
-  it('shows the remove-blur option only in a mode that shows adult items', async () => {
+  it('says there is nothing in the filter yet', async () => {
+    mockFilter.categories = [];
+    const { findByText } = renderScreen();
+    expect(await findByText(t.adultCategoriesNoneSelected)).toBeTruthy();
+  });
+
+  it('shows the remove-blur option only in the blur mode', async () => {
     const hidden = renderScreen();
     await hidden.findByText('Hentai');
     expect(hidden.queryByText(t.adultUnblur)).toBeNull();
@@ -115,6 +126,19 @@ describe('AdultFilterScreen', () => {
     const blur = renderScreen();
     fireEvent.press(await blur.findByText(t.adultUnblur));
     expect(mockFilter.setUnblur).toHaveBeenCalledWith(true);
+  });
+
+  it('the button flips the session-only inverted view on, and back off', async () => {
+    const off = renderScreen();
+    fireEvent.press(await off.findByText(t.adultOnlyButton));
+    expect(mockFilter.setOnly).toHaveBeenCalledWith(true);
+    expect(await off.findByText(t.adultOnlyHint)).toBeTruthy();
+    off.unmount();
+
+    mockFilter.only = true;
+    const on = renderScreen();
+    fireEvent.press(await on.findByText(t.adultOnlyButtonOff));
+    expect(mockFilter.setOnly).toHaveBeenCalledWith(false);
   });
 
   it('says so when the server offers no categories, and when loading them fails', async () => {
