@@ -341,6 +341,7 @@ fun SerialDigest.toWritableMap(): WritableMap =
                 colors?.let { putMap("colors", it.toWritableMap()) }
                 pages?.let { putMap("pages", it.toWritableMap()) }
                 metadata?.let { putMap("metadata", it.toWritableMap()) }
+                fileFormat?.let { putString("fileFormat", it) }
                 putDouble("resolvedAtEpochMs", resolvedAtEpochMs.toDouble())
                 putMap("server", server.toWritableMap())
                 cache?.let { putMap("cache", it.toWritableMap()) } ?: putNull("cache")

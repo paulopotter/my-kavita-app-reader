@@ -223,6 +223,9 @@ export interface SerialDigestSuccess {
   colors?: SerialColors;
   pages?: SerialPages;
   metadata?: SerialMetadata;
+  // How the series' files are stored: 'image' | 'archive' | 'epub' | 'pdf' | 'unknown' (absent when
+  // the provider does not say) — lets a tile say "novel" without opening the series.
+  fileFormat?: string;
   resolvedAtEpochMs: number;
   server: ServerActiveInfo;
   cache: CacheDescriptorBridge | null;

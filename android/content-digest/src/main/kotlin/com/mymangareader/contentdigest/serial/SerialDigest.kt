@@ -52,6 +52,7 @@ interface SerialFields {
     val resolvedAtEpochMs: Long // R11 — only reflects this Series' OWN calls (get/getCoverImage), never chapters.list's or metadata's
     val server: ServerActiveInfo
     val cache: CacheDescriptor? // null only until the first successful cache write completes
+    val fileFormat: String? // how the series' files are stored ("image", "epub", "pdf", ...) — lets a tile say "this is a novel" without opening the series; null when the provider does not say
 
     @Serializable
     data class Library(
@@ -147,6 +148,8 @@ sealed interface SerialDigest {
         override val metadata: SerialFields.Metadata?,
         override val resolvedAtEpochMs: Long,
         override val server: ServerActiveInfo,
+        // Default null so rows cached before this field existed still decode.
+        override val fileFormat: String? = null,
         // Never part of the JSON persisted in Cache — see PageDigest.Success.cache's own doc.
         @Transient override val cache: CacheDescriptor? = null,
     ) : SerialDigest,
@@ -544,6 +547,7 @@ private suspend fun fetchSerialDigest(
         metadata = metadata,
         resolvedAtEpochMs = resolvedAtEpochMs!!,
         server = serverInfo!!,
+        fileFormat = plugin.fileFormat,
         cache = null,
     )
 }

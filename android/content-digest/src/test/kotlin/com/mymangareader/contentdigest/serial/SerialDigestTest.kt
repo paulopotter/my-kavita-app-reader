@@ -1286,6 +1286,7 @@ private fun fakePluginSerial(
     pagesRead: Int = 0,
     totalPages: Int = 0,
     createdUtc: String? = null,
+    fileFormat: String? = null,
 ) = PluginSerial(
     id = id,
     name = name,
@@ -1305,6 +1306,7 @@ private fun fakePluginSerial(
     primaryColor = null,
     secondaryColor = null,
     createdUtc = createdUtc,
+    fileFormat = fileFormat,
 )
 
 class SerialsDigestTest {
@@ -1433,6 +1435,21 @@ class SerialsDigestTest {
             val undated = result.serials[1] as SerialDigest.Success
             assertEquals(1767225600000L, dated.lastUpdatesUTC?.created)
             assertNull(undated.lastUpdatesUTC?.created)
+        }
+
+    @Test
+    fun `a listed series carries how its files are stored`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", fileFormat = "epub"), fakePluginSerial("s2")))
+
+            val result = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+            assertEquals("epub", (result.serials[0] as SerialDigest.Success).fileFormat)
+            assertNull((result.serials[1] as SerialDigest.Success).fileFormat)
+            // And it survives the snapshot the next plain read is served from.
+            val again = buildSerialsDigest(server, cache) as SerialsDigest.Success
+            assertEquals("epub", (again.serials[0] as SerialDigest.Success).fileFormat)
         }
 
     @Test

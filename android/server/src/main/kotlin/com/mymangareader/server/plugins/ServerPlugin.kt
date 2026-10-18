@@ -52,6 +52,9 @@ data class PluginSerial(
     // When the series first appeared in the library. Default null so a provider (or test) with no
     // such date need not name it.
     val createdUtc: String? = null,
+    // How the series' files are stored ("image", "archive", "epub", "pdf", "unknown" — free-form text
+    // as far as :server is concerned, like PluginChapter.fileFormat). Null when the provider does not say.
+    val fileFormat: String? = null,
 )
 
 // Fields from Kavita's real SeriesMetadataDto — a genuinely separate network call

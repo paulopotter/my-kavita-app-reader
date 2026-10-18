@@ -215,6 +215,20 @@ class KavitaServerPluginTest {
             assertEquals("2026-01-01T00:00:00.123Z", serial.createdUtc)
         }
 
+    @Test
+    fun `serials list maps the series' file format`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":1,"name":"A","pages":1,"pagesRead":0,"format":3},{"id":2,"name":"B","pages":1,"pagesRead":0,"format":1},{"id":3,"name":"C","pages":1,"pagesRead":0,"format":4}]""",
+                ),
+            )
+
+            val formats = plugin.serials.list().map { it.fileFormat }
+
+            assertEquals(listOf("epub", "archive", "pdf"), formats)
+        }
+
     // ── categories ───────────────────────────────────────────────────────
 
     private val genresBody = """[{"id":113,"title":"Hentai"},{"id":128,"title":"Ecchi"},{"id":2,"title":"Ação"}]"""

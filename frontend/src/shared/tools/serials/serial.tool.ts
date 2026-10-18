@@ -47,6 +47,8 @@ export interface Serie {
   otherIds?: SerialDigestSuccess['otherIds'];
   colors?: SerialDigestSuccess['colors'];
   metadata?: SerialDigestSuccess['metadata'];
+  // How the series' files are stored ('epub' = a novel, 'pdf', 'image'/'archive' = comics…).
+  fileFormat?: string;
   // Page-level read progress — present when this Serie came from the batch listing
   // (SeriesTool.normalize, which only has Kavita's series-level pagesRead/totalPages, no
   // per-chapter data). Absent when it came from SerieTool.normalize (a full digest), where
@@ -320,6 +322,7 @@ export const SerieTool = {
         id: digest.id,
         name: digest.name,
         library: digest.library,
+        fileFormat: digest.fileFormat,
         lastUpdatesUTC: digest.lastUpdatesUTC,
         coverImage: digest.coverImage,
         chapters: (digest.chapters?.list ?? [])

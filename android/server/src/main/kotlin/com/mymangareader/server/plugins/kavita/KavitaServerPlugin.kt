@@ -396,6 +396,7 @@ private fun KavitaSeriesDto.toPluginSerial(coverUrl: String) =
         primaryColor = primaryColor,
         secondaryColor = secondaryColor,
         createdUtc = ensureIsoUtc(created),
+        fileFormat = format.toPluginFileFormat(),
     )
 
 // Kavita's own PublicationStatus enum (0=OnGoing, 1=Hiatus, 2=Completed, 3=Cancelled, 4=Ended) —

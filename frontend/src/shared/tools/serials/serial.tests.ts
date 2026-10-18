@@ -112,6 +112,12 @@ describe('SerieTool.normalize.digest', () => {
     expect(serie.sortName).toBe('one piece');
   });
 
+  it('carries how the series is stored, so a tile can tell a novel from a comic', () => {
+    const serie = SerieTool.normalize.digest({ digest: makeSeriesDigest({ fileFormat: 'epub' }) });
+    expect(serie.fileFormat).toBe('epub');
+    expect(SerieTool.normalize.digest({ digest: makeSeriesDigest({}) }).fileFormat).toBeUndefined();
+  });
+
   it('normalizes each successful chapter, attaching a navigate action to the reader route', () => {
     const digest = makeSeriesDigest({
       chapters: { total: 1, list: [makeChapter({ id: 'c1' })] },

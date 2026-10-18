@@ -180,5 +180,6 @@ internal fun serialDigestFromListData(
         metadata = null,
         resolvedAtEpochMs = resolvedAtEpochMs,
         server = serverInfo,
+        fileFormat = serial.fileFormat,
         cache = null,
     )
