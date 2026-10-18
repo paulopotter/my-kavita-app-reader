@@ -34,6 +34,8 @@ jest.mock('../../../shared/managers/store', () => ({
 
 const mockAppearanceGet = jest.fn();
 const mockAppearanceSet = jest.fn();
+const mockModeGet = jest.fn();
+const mockModeSet = jest.fn();
 jest.mock('../../../shared/tools/books', () => {
   const actual = jest.requireActual('../../../shared/tools/books');
   return {
@@ -43,6 +45,10 @@ jest.mock('../../../shared/tools/books', () => {
       appearance: {
         get: (...a: unknown[]) => mockAppearanceGet(...a),
         set: (...a: unknown[]) => mockAppearanceSet(...a),
+      },
+      mode: {
+        get: (...a: unknown[]) => mockModeGet(...a),
+        set: (...a: unknown[]) => mockModeSet(...a),
       },
     },
   };
@@ -69,8 +75,8 @@ function chapter(id: string, number: number, readStatus: 'READ' | 'UNREAD' = 'UN
 
 const series = { isSuccess: true, chapters: { list: [chapter('c1', 1, 'READ'), chapter('c2', 2), chapter('c3', 3)] } };
 
-function setup(chapterId = 'c2') {
-  return renderHook(() => useBookReader({ seriesId: 's1', chapterId, seriesName: 'Leveling' }));
+function setup(chapterId = 'c2', inject?: (script: string) => void) {
+  return renderHook(() => useBookReader({ seriesId: 's1', chapterId, seriesName: 'Leveling', inject }));
 }
 
 describe('useBookReader', () => {
@@ -84,6 +90,9 @@ describe('useBookReader', () => {
     mockProgressSet.mockResolvedValue(undefined);
     mockAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE });
     mockAppearanceSet.mockResolvedValue(undefined);
+    // The existing tests exercise the paged mode; the infinite one has its own describe below.
+    mockModeGet.mockResolvedValue('paged');
+    mockModeSet.mockResolvedValue(undefined);
   });
 
   describe('opening a chapter', () => {
@@ -413,4 +422,296 @@ describe('useBookReader', () => {
       expect(mockAppearanceSet).not.toHaveBeenCalled();
     });
   });
+
+  describe('the saved look and mode', () => {
+    it('waits for them before loading, so the page is not drawn twice', async () => {
+      let release: (value: unknown) => void = () => {};
+      mockAppearanceGet.mockReturnValue(new Promise(resolve => (release = resolve)));
+      const { result } = setup();
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockInfo).not.toHaveBeenCalled();
+      expect(result.current.status).toBe('loading');
+
+      await act(async () => release({ ...DEFAULT_BOOK_APPEARANCE, theme: 'night' }));
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      expect(result.current.appearance.theme).toBe('night');
+    });
+
+    it('opens with the defaults when they cannot be read, and in the infinite mode', async () => {
+      mockAppearanceGet.mockRejectedValue(new Error('x'));
+      mockModeGet.mockRejectedValue(new Error('x'));
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      expect(result.current.appearance).toEqual(DEFAULT_BOOK_APPEARANCE);
+      expect(result.current.mode).toBe('infinite');
+    });
+  });
 });
+
+describe('useBookReader — infinite mode', () => {
+  const inject = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockModeGet.mockResolvedValue('infinite');
+    mockModeSet.mockResolvedValue(undefined);
+    mockInfo.mockResolvedValue({ title: 'x', pageCount: 1 });
+    mockPage.mockImplementation(({ chapterId, page }: { chapterId: string; page: number }) => Promise.resolve(`<p>${chapterId}/${page}</p>`));
+    mockSerialGet.mockResolvedValue(series);
+    mockStoreGet.mockResolvedValue(null);
+    mockStoreSet.mockResolvedValue(undefined);
+    mockProgressSet.mockResolvedValue(undefined);
+    mockAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE });
+    mockAppearanceSet.mockResolvedValue(undefined);
+  });
+
+  async function ready(chapterId = 'c1') {
+    const hook = setup(chapterId, inject);
+    await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+    await waitFor(() => expect(hook.result.current.hasNextChapter || chapterId === 'c3').toBe(true));
+    return hook;
+  }
+
+  const injected = () => inject.mock.calls.map(call => call[0] as string);
+  const send = (hook: { result: { current: { handleMessage: (raw: string) => void } } }, message: object) =>
+    act(() => {
+      hook.result.current.handleMessage(JSON.stringify(message));
+    });
+
+  it('is the infinite mode, with the loaded chapter as the first section', async () => {
+    const { result } = await ready('c2');
+    expect(result.current.infinite).toBe(true);
+    expect(result.current.firstSection).toEqual({ chapterId: 'c2', page: 0 });
+  });
+
+  it('turns no pages by hand', async () => {
+    mockInfo.mockResolvedValue({ title: 'x', pageCount: 3 });
+    const { result } = await ready('c2');
+    expect(result.current.hasNextPage).toBe(false);
+    expect(result.current.hasPrevPage).toBe(false);
+  });
+
+  describe('appending', () => {
+    it('adds the next chapter when the page asks for it', async () => {
+      const hook = await ready('c1');
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      expect(injected()[0]).toBe('window.__appendSection({"chapterId":"c2","page":0,"html":"<p>c2/0</p>"}); true;');
+      expect(mockInfo).toHaveBeenCalledWith({ chapterId: 'c2' });
+    });
+
+    it('adds the next PAGE first when the chapter has more', async () => {
+      mockInfo.mockResolvedValue({ title: 'x', pageCount: 3 });
+      const hook = await ready('c1');
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      expect(injected()[0]).toContain('"chapterId":"c1","page":1');
+    });
+
+    it('keeps going, one section after another', async () => {
+      const hook = await ready('c1');
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(2));
+
+      expect(injected()[1]).toContain('"chapterId":"c3"');
+    });
+
+    it('says there is no more when the series has run out', async () => {
+      const hook = await ready('c3');
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      expect(injected()[0]).toBe('window.__noMore(); true;');
+    });
+
+    it('tells the page to ask again when the fetch fails', async () => {
+      const hook = await ready('c1');
+      mockPage.mockRejectedValueOnce(new Error('x'));
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      expect(injected()[0]).toBe('window.__needNextFailed(); true;');
+    });
+
+    it('does not mistake "the order is not here yet" for "the series ended"', async () => {
+      let release: (value: unknown) => void = () => {};
+      mockSerialGet.mockReturnValue(new Promise(resolve => (release = resolve)));
+      const hook = setup('c1', inject);
+      await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+      expect(injected()[0]).toBe('window.__needNextFailed(); true;');
+
+      release(series);
+    });
+
+    it('fetches once when asked twice before the first answer', async () => {
+      let finish: (html: string) => void = () => {};
+      const hook = await ready('c1');
+      mockPage.mockReturnValueOnce(new Promise(resolve => (finish = resolve)));
+
+      send(hook, { type: 'needNext' });
+      send(hook, { type: 'needNext' });
+      await act(async () => finish('<p>late</p>'));
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+    });
+
+    it('escapes whatever the page contains so it cannot end the snippet', async () => {
+      mockPage.mockImplementation(({ chapterId }: { chapterId: string }) =>
+        Promise.resolve(chapterId === 'c2' ? '</script>"; alert(1); //' : '<p>x</p>'),
+      );
+      const hook = await ready('c1');
+
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      expect(injected()[0]).toContain('"html":"</script>\\"; alert(1); //"');
+    });
+
+    it('does nothing without a way to run a snippet in the page', async () => {
+      const hook = setup('c1', undefined);
+      await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+      send(hook, { type: 'needNext' });
+      expect(mockInfo).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('where the reader is', () => {
+    it('follows the section in view: chapter, title, progress and neighbours', async () => {
+      const hook = await ready('c1');
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      send(hook, { type: 'progress', fraction: 0.4, chapterId: 'c2', page: 0 });
+
+      await waitFor(() => expect(hook.result.current.chapterId).toBe('c2'));
+      expect(hook.result.current.chapterTitle).toBe('T:Cap 2');
+      expect(hook.result.current.chapterFraction).toBeCloseTo(0.4);
+      expect(hook.result.current.hasPrevChapter).toBe(true);
+      expect(hook.result.current.hasNextChapter).toBe(true);
+    });
+
+    it('saves the progress of the chapter in view, not of the one that was opened', async () => {
+      const hook = await ready('c1');
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      send(hook, { type: 'progress', fraction: 0.4, chapterId: 'c2', page: 0 });
+
+      expect(mockStoreSet).toHaveBeenCalledWith('c2', { seriesId: 's1', page: 0, scrollFraction: 0.4 });
+      expect(mockProgressSet).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c2', pageIndex: 0 });
+    });
+
+    it('shows the page indicator of the section in view', async () => {
+      mockInfo.mockImplementation(({ chapterId }: { chapterId: string }) => Promise.resolve({ title: 'x', pageCount: chapterId === 'c2' ? 4 : 1 }));
+      const hook = await ready('c1');
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+
+      send(hook, { type: 'progress', fraction: 0.1, chapterId: 'c2', page: 0 });
+
+      await waitFor(() => expect(hook.result.current.pageIndicator).toBe('Page 1 of 4'));
+    });
+  });
+
+  describe('marking chapters read', () => {
+    it('marks a chapter read once the reader is past its end', async () => {
+      const hook = await ready('c2');
+
+      send(hook, { type: 'passed', chapterId: 'c2', page: 0 });
+      send(hook, { type: 'passed', chapterId: 'c2', page: 0 });
+
+      expect(mockMarkRead).toHaveBeenCalledTimes(1);
+      expect(mockMarkRead).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c2', prevStatus: 'UNREAD' });
+    });
+
+    it('does not mark a chapter whose last page has not been passed', async () => {
+      mockInfo.mockResolvedValue({ title: 'x', pageCount: 3 });
+      const hook = await ready('c2');
+
+      send(hook, { type: 'passed', chapterId: 'c2', page: 0 });
+
+      expect(mockMarkRead).not.toHaveBeenCalled();
+    });
+
+    it('marks it when the end of the last page is reached while still in it', async () => {
+      const hook = await ready('c2');
+
+      send(hook, { type: 'progress', fraction: 0.99, chapterId: 'c2', page: 0 });
+
+      expect(mockMarkRead).toHaveBeenCalledWith({ seriesId: 's1', chapterId: 'c2', prevStatus: 'UNREAD' });
+    });
+
+    it('does not re-mark a chapter that was already read', async () => {
+      const hook = await ready('c1');
+
+      send(hook, { type: 'passed', chapterId: 'c1', page: 0 });
+
+      expect(mockMarkRead).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changing how it reads', () => {
+    it('keeps the place when the mode changes, and remembers the choice', async () => {
+      const hook = await ready('c1');
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+      send(hook, { type: 'progress', fraction: 0.5, chapterId: 'c2', page: 0 });
+      await waitFor(() => expect(hook.result.current.chapterId).toBe('c2'));
+      mockPage.mockClear();
+
+      act(() => hook.result.current.changeMode('paged'));
+
+      expect(hook.result.current.mode).toBe('paged');
+      expect(mockModeSet).toHaveBeenCalledWith('paged');
+      await waitFor(() => expect(mockPage).toHaveBeenCalledWith({ chapterId: 'c2', page: 0 }));
+      await waitFor(() => expect(hook.result.current.restoreFraction).toBe(0.5));
+      expect(hook.result.current.firstSection).toEqual({ chapterId: 'c2', page: 0 });
+    });
+
+    it('ignores choosing the mode it is already in', async () => {
+      const hook = await ready('c1');
+      act(() => hook.result.current.changeMode('infinite'));
+      expect(mockModeSet).not.toHaveBeenCalled();
+    });
+
+    it('reopens at the section in view when the look changes after the page has grown', async () => {
+      const hook = await ready('c1');
+      send(hook, { type: 'needNext' });
+      await waitFor(() => expect(inject).toHaveBeenCalledTimes(1));
+      send(hook, { type: 'progress', fraction: 0.7, chapterId: 'c2', page: 0 });
+      await waitFor(() => expect(hook.result.current.chapterId).toBe('c2'));
+      mockPage.mockClear();
+
+      act(() => hook.result.current.updateAppearance('theme', 'sepia'));
+
+      await waitFor(() => expect(mockPage).toHaveBeenCalledWith({ chapterId: 'c2', page: 0 }));
+      await waitFor(() => expect(hook.result.current.restoreFraction).toBe(0.7));
+    });
+
+    it('just rebuilds when nothing has been appended', async () => {
+      const hook = await ready('c1');
+      send(hook, { type: 'progress', fraction: 0.3, chapterId: 'c1', page: 0 });
+      mockPage.mockClear();
+
+      act(() => hook.result.current.updateAppearance('justify', true));
+
+      expect(hook.result.current.restoreFraction).toBe(0.3);
+      expect(mockPage).not.toHaveBeenCalled();
+    });
+  });
+});
+

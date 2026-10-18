@@ -5,13 +5,15 @@ import { useStyles, useTheme } from '../../../../shared/context';
 import type { Strings } from '../../../../shared/i18n';
 import { READING_THEME_NAMES } from '../../../../shared/theme';
 import type { ReadingThemeName, ThemeColors } from '../../../../shared/theme';
-import { BOOK_FONT_FAMILIES, BOOK_LINE_SPACINGS, BOOK_MARGINS, BookThemeTool } from '../../../../shared/tools/books';
-import type { BookAppearance, BookFontFamily, BookMargin } from '../../../../shared/tools/books';
+import { BOOK_FONT_FAMILIES, BOOK_LINE_SPACINGS, BOOK_MARGINS, BOOK_READING_MODES, BookThemeTool } from '../../../../shared/tools/books';
+import type { BookAppearance, BookFontFamily, BookMargin, BookReadingMode } from '../../../../shared/tools/books';
 
 interface Props {
   visible: boolean;
   appearance: BookAppearance;
+  mode: BookReadingMode;
   t: Strings;
+  onChangeMode: (mode: BookReadingMode) => void;
   onChange: <K extends keyof BookAppearance>(key: K, value: BookAppearance[K]) => void;
   onClose: () => void;
 }
@@ -24,7 +26,7 @@ const marginLabel = (margin: BookMargin, t: Strings): string =>
 
 // Dumb: shows the reader's choices and reports each change. What a choice does to the page is the
 // document's job; where it is saved is the hook's.
-export function BookReaderSettingsSheet({ visible, appearance, t, onChange, onClose }: Props) {
+export function BookReaderSettingsSheet({ visible, appearance, mode, t, onChangeMode, onChange, onClose }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(bookReaderSettingsSheetStyles);
 
@@ -65,6 +67,20 @@ export function BookReaderSettingsSheet({ visible, appearance, t, onChange, onCl
           <Text style={styles.title}>{t.bookReaderAppearance}</Text>
 
           <ScrollView contentContainerStyle={styles.content}>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>{t.bookReaderModeLabel}</Text>
+              <View style={styles.row}>
+                {BOOK_READING_MODES.map(option =>
+                  chip({
+                    key: option,
+                    label: option === 'infinite' ? t.bookReaderModeInfinite : t.bookReaderModePaged,
+                    selected: mode === option,
+                    onPress: () => onChangeMode(option),
+                  }),
+                )}
+              </View>
+            </View>
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>{t.bookReaderThemeLabel}</Text>
               <View style={styles.row}>{READING_THEME_NAMES.map(name => swatch(name, colors))}</View>

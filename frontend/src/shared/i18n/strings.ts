@@ -198,6 +198,9 @@ export interface Strings {
   bookReaderMarginMedium: string;
   bookReaderMarginWide: string;
   bookReaderJustify: string;
+  bookReaderModeLabel: string;
+  bookReaderModeInfinite: string;
+  bookReaderModePaged: string;
 
   // ── Search screen ────────────────────────────────────────────────────────
   searchPlaceholder: string;
@@ -658,6 +661,9 @@ const ptBR: Strings = {
   bookReaderMarginMedium: 'Médias',
   bookReaderMarginWide: 'Largas',
   bookReaderJustify: 'Texto justificado',
+  bookReaderModeLabel: 'Modo de leitura',
+  bookReaderModeInfinite: 'Infinito',
+  bookReaderModePaged: 'Paginado',
   searchPlaceholder: 'Buscar por nome',
   searchClear: 'Limpar busca',
   searchLoading: 'Carregando séries...',
@@ -1083,6 +1089,9 @@ const en: Strings = {
   bookReaderMarginMedium: 'Medium',
   bookReaderMarginWide: 'Wide',
   bookReaderJustify: 'Justified text',
+  bookReaderModeLabel: 'Reading mode',
+  bookReaderModeInfinite: 'Infinite',
+  bookReaderModePaged: 'Paged',
   searchPlaceholder: 'Search by name',
   searchClear: 'Clear search',
   searchLoading: 'Loading series...',

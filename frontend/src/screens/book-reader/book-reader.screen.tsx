@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
@@ -26,7 +26,10 @@ export function BookReaderScreen() {
   const t = useStrings();
   const route = useRoute<RouteProp<RouteParams, 'Reader'>>();
   const { seriesId, chapterId, seriesName } = route.params ?? {};
-  const book = useBookReader({ seriesId, chapterId, seriesName });
+  // The page runs snippets from the hook (the infinite mode appends the next chapter that way).
+  const webViewRef = useRef<WebView>(null);
+  const inject = useCallback((script: string) => webViewRef.current?.injectJavaScript(script), []);
+  const book = useBookReader({ seriesId, chapterId, seriesName, inject });
   const { realize } = useAction();
 
   // The same edge the image reader's thin progress bar uses — one preference for both readers.
@@ -59,17 +62,19 @@ export function BookReaderScreen() {
             lineSpacing: book.appearance.lineSpacing,
             margin: book.appearance.margin,
             justify: book.appearance.justify,
+            infinite: book.infinite ? book.firstSection : undefined,
             restoreFraction: book.restoreFraction,
             nonce: makeNonce(),
           })
         : null,
-    [book.status, book.html, book.appearance, book.restoreFraction, pageColors],
+    [book.status, book.html, book.appearance, book.restoreFraction, book.infinite, book.firstSection, pageColors],
   );
 
   return (
     <View style={[styles.root, { backgroundColor: pageColors.background }]} testID="book-reader">
       {document != null && (
         <WebView
+          ref={webViewRef}
           testID="book-reader-webview"
           style={[styles.webview, { backgroundColor: pageColors.background }]}
           accessibilityLabel={book.chapterTitle}
@@ -123,7 +128,7 @@ export function BookReaderScreen() {
         }}
         hasPrevChapter={book.hasPrevChapter}
         hasNextChapter={book.hasNextChapter}
-        showPages={book.pageCount > 1}
+        showPages={!book.infinite && book.pageCount > 1}
         hasPrevPage={book.hasPrevPage}
         hasNextPage={book.hasNextPage}
         onPrevChapter={book.goToPrevChapter}
@@ -137,7 +142,9 @@ export function BookReaderScreen() {
       <BookReaderSettingsSheet
         visible={settingsVisible}
         appearance={book.appearance}
+        mode={book.mode}
         t={t}
+        onChangeMode={book.changeMode}
         onChange={book.updateAppearance}
         onClose={() => setSettingsVisible(false)}
       />

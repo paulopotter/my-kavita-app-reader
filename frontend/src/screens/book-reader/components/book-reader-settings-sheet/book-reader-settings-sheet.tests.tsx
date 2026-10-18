@@ -8,11 +8,21 @@ const t = getStrings('en');
 
 function setup(over: Partial<React.ComponentProps<typeof BookReaderSettingsSheet>> = {}) {
   const onChange = jest.fn();
+  const onChangeMode = jest.fn();
   const onClose = jest.fn();
   const utils = render(
-    <BookReaderSettingsSheet visible appearance={DEFAULT_BOOK_APPEARANCE} t={t} onChange={onChange} onClose={onClose} {...over} />,
+    <BookReaderSettingsSheet
+      visible
+      appearance={DEFAULT_BOOK_APPEARANCE}
+      mode="infinite"
+      t={t}
+      onChange={onChange}
+      onChangeMode={onChangeMode}
+      onClose={onClose}
+      {...over}
+    />,
   );
-  return { ...utils, onChange, onClose };
+  return { ...utils, onChange, onChangeMode, onClose };
 }
 
 describe('BookReaderSettingsSheet', () => {
@@ -22,7 +32,7 @@ describe('BookReaderSettingsSheet', () => {
 
   it('lists every section', () => {
     const { getByText } = setup();
-    for (const label of [t.bookReaderAppearance, t.bookReaderThemeLabel, t.bookReaderFontLabel, t.bookReaderLineSpacingLabel, t.bookReaderMarginLabel, t.bookReaderJustify]) {
+    for (const label of [t.bookReaderAppearance, t.bookReaderModeLabel, t.bookReaderThemeLabel, t.bookReaderFontLabel, t.bookReaderLineSpacingLabel, t.bookReaderMarginLabel, t.bookReaderJustify]) {
       expect(getByText(label)).toBeTruthy();
     }
   });
@@ -56,8 +66,17 @@ describe('BookReaderSettingsSheet', () => {
   it('shows the current line height and margin as chosen', () => {
     const { getAllByRole } = setup({ appearance: { ...DEFAULT_BOOK_APPEARANCE, lineSpacing: 2, margin: 'narrow' } });
     const selected = getAllByRole('button').filter(b => b.props.accessibilityState?.selected === true);
-    // The app theme swatch, the serif font, line height 2 and narrow margins.
-    expect(selected).toHaveLength(4);
+    // The infinite mode, the app theme swatch, the serif font, line spacing 2 and narrow margins.
+    expect(selected).toHaveLength(5);
+  });
+
+  it('offers both reading modes, marks the current one and reports the choice', () => {
+    const { getByText, onChangeMode } = setup({ mode: 'paged' });
+
+    fireEvent.press(getByText(t.bookReaderModeInfinite));
+    expect(onChangeMode).toHaveBeenCalledWith('infinite');
+    fireEvent.press(getByText(t.bookReaderModePaged));
+    expect(onChangeMode).toHaveBeenCalledWith('paged');
   });
 
   it('reports the justification switch', () => {

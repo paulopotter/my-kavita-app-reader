@@ -16,23 +16,28 @@ jest.mock('../../shared/tools/actions', () => ({
 
 // The WebView is native: a stand-in that keeps the props the screen hands it.
 let mockWebViewProps: Record<string, unknown> = {};
+// What the screen ran in the page through the WebView's injectJavaScript.
+let mockInjected: string[] = [];
 jest.mock('react-native-webview', () => {
+  const React = require('react');
   const { View } = require('react-native');
   return {
-    WebView: (props: Record<string, unknown>) => {
+    WebView: React.forwardRef((props: Record<string, unknown>, ref: React.Ref<unknown>) => {
       mockWebViewProps = props;
+      React.useImperativeHandle(ref, () => ({ injectJavaScript: (script: string) => mockInjected.push(script) }));
       return <View testID="book-reader-webview" />;
-    },
+    }),
   };
 });
 
 let mockBook: Record<string, unknown>;
+const mockUseBookReader = jest.fn((_args: { inject?: (script: string) => void }) => mockBook);
 jest.mock('../../shared/tools/reader', () => ({
   ReaderPrefs: { getProgressBarPosition: () => Promise.resolve('top') },
 }));
 
 jest.mock('./hooks', () => ({
-  useBookReader: () => mockBook,
+  useBookReader: (args: { inject?: (script: string) => void }) => mockUseBookReader(args),
 }));
 
 import { BookReaderScreen } from './book-reader.screen';
@@ -49,6 +54,9 @@ function book(over: Record<string, unknown> = {}) {
     pageIndicator: undefined,
     restoreFraction: 0.25,
     chapterFraction: 0.5,
+    mode: 'paged',
+    infinite: false,
+    firstSection: { chapterId: 'c1', page: 0 },
     appearance: { theme: 'app', fontScale: 1, fontFamily: 'serif', lineSpacing: 1.6, margin: 'medium', justify: false },
     overlayVisible: true,
     hasPrevChapter: true,
@@ -63,6 +71,7 @@ function book(over: Record<string, unknown> = {}) {
     goToPrevChapter: jest.fn(),
     changeFontScale: jest.fn(),
     updateAppearance: jest.fn(),
+    changeMode: jest.fn(),
     retry: jest.fn(),
     ...over,
   };
@@ -72,6 +81,7 @@ describe('BookReaderScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWebViewProps = {};
+    mockInjected = [];
     mockBook = book();
   });
 
@@ -134,6 +144,34 @@ describe('BookReaderScreen', () => {
     expect(mockRealize).toHaveBeenCalledWith({ kind: 'back' });
   });
 
+  describe('infinite mode', () => {
+    beforeEach(() => {
+      mockBook = book({ mode: 'infinite', infinite: true, firstSection: { chapterId: 'c1', page: 2 }, pageCount: 3 });
+    });
+
+    it('builds the page as the first section of a growing book', () => {
+      render(<BookReaderScreen />);
+      const html = (mockWebViewProps.source as { html: string }).html;
+      expect(html).toContain('<main id="book"><section data-chapter-id="c1" data-page="2">');
+      expect(html).toContain("post({ type: 'needNext' })");
+    });
+
+    it('gives the hook a way to run a snippet in the page', () => {
+      render(<BookReaderScreen />);
+
+      const { inject } = mockUseBookReader.mock.calls[0][0];
+      inject?.('window.__noMore(); true;');
+
+      expect(mockInjected).toEqual(['window.__noMore(); true;']);
+    });
+
+    it('has no page buttons even for a book with several pages', () => {
+      const { queryByLabelText } = render(<BookReaderScreen />);
+      expect(queryByLabelText('Next page')).toBeNull();
+      expect(queryByLabelText('Previous page')).toBeNull();
+    });
+  });
+
   it('draws the thin progress bar while the bars are closed, and not while they are open', async () => {
     mockBook = book({ overlayVisible: false });
     const closed = render(<BookReaderScreen />);
@@ -192,6 +230,13 @@ describe('BookReaderScreen', () => {
 
       fireEvent.press(getByLabelText('Night'));
       expect(mockBook.updateAppearance).toHaveBeenCalledWith('theme', 'night');
+    });
+
+    it('changes the reading mode from the sheet', () => {
+      const { getByLabelText, getByText } = render(<BookReaderScreen />);
+      fireEvent.press(getByLabelText('Appearance'));
+      fireEvent.press(getByText('Infinite'));
+      expect(mockBook.changeMode).toHaveBeenCalledWith('infinite');
     });
 
     it('closes the sheet', () => {
