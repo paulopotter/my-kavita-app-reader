@@ -76,6 +76,22 @@ function isPage(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
+// How far through a section the reader is, and the inverse (where to scroll for a saved fraction).
+// Kept as source text because it runs inside the page; exported so the tests can run the very same
+// code. Progress is measured from the section's TOP edge to the point where its end reaches the
+// bottom of the screen: 0 when the section starts at the top, 1 when its last line is on screen. A
+// section that fits in one screen has no distance to travel, so it counts as read once fully shown.
+export const BOOK_SECTION_GEOMETRY = `
+  var sectionProgress = function (scrollY, top, height, viewport) {
+    var travel = height - viewport;
+    if (travel <= 0) { return scrollY + viewport >= top + height ? 1 : 0; }
+    return Math.min(1, Math.max(0, (scrollY - top) / travel));
+  };
+  var sectionScrollFor = function (fraction, top, height, viewport) {
+    return Math.max(0, top + fraction * Math.max(0, height - viewport));
+  };
+`;
+
 // The script is a template string kept free of the page's own content: only validated numbers and
 // the nonce are interpolated into it.
 function script({ nonce, restoreFraction }: { nonce: string; restoreFraction: number }): string {
@@ -134,9 +150,9 @@ function infiniteScript({ nonce, restoreFraction }: { nonce: string; restoreFrac
     }
     return list.length - 1;
   };
+  ${BOOK_SECTION_GEOMETRY}
   var progressOf = function (el) {
-    var height = Math.max(1, el.offsetHeight);
-    return Math.min(1, Math.max(0, (window.scrollY + window.innerHeight - el.offsetTop) / height));
+    return sectionProgress(window.scrollY, el.offsetTop, el.offsetHeight, window.innerHeight);
   };
   var checkNext = function () {
     if (noMore || requested) { return; }
@@ -187,7 +203,7 @@ function infiniteScript({ nonce, restoreFraction }: { nonce: string; restoreFrac
   var land = function () {
     var first = sections()[0];
     if (restore > 0 && first) {
-      window.scrollTo(0, Math.max(0, first.offsetTop + restore * first.offsetHeight - window.innerHeight));
+      window.scrollTo(0, sectionScrollFor(restore, first.offsetTop, first.offsetHeight, window.innerHeight));
     }
     report();
   };

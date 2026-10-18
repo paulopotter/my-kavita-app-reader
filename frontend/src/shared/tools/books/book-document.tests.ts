@@ -1,8 +1,11 @@
-import { BOOK_BASE_FONT_PX, BookDocumentTool } from './book-document.tool';
+import { BOOK_BASE_FONT_PX, BOOK_SECTION_GEOMETRY, BookDocumentTool } from './book-document.tool';
 import type { BookDocumentInput } from './book-document.tool';
 
 // Node's own module: the project has no node typings, and this is the only place a test needs it.
-const { Script } = require('vm') as { Script: new (code: string) => unknown };
+const { Script, runInNewContext } = require('vm') as {
+  Script: new (code: string) => unknown;
+  runInNewContext: (code: string) => unknown;
+};
 
 const input: BookDocumentInput = {
   html: '<div class=" "><h1>Capítulo 1</h1><p>Olá</p></div>',
@@ -212,3 +215,44 @@ describe('BookDocumentTool.parseMessage — infinite mode', () => {
   });
 });
 
+
+// The very code the page runs, evaluated here.
+describe('BOOK_SECTION_GEOMETRY', () => {
+  const geometry = runInNewContext(`(function () { ${BOOK_SECTION_GEOMETRY}; return { progress: sectionProgress, scrollFor: sectionScrollFor }; })()`) as {
+    progress: (scrollY: number, top: number, height: number, viewport: number) => number;
+    scrollFor: (fraction: number, top: number, height: number, viewport: number) => number;
+  };
+
+  it('starts at zero when the section is at the top of the screen', () => {
+    expect(geometry.progress(20, 20, 3000, 800)).toBe(0);
+  });
+
+  it('stays at zero while the section is still below the top of the screen', () => {
+    expect(geometry.progress(0, 400, 3000, 800)).toBe(0);
+  });
+
+  it('is half way through the distance the section can travel', () => {
+    // travel = 3000 - 800 = 2200; scrolled 1100 past its top
+    expect(geometry.progress(1120, 20, 3000, 800)).toBeCloseTo(0.5);
+  });
+
+  it('reaches one when the end of the section reaches the bottom of the screen', () => {
+    expect(geometry.progress(2220, 20, 3000, 800)).toBe(1);
+    expect(geometry.progress(5000, 20, 3000, 800)).toBe(1);
+  });
+
+  it('counts a section that fits on one screen as read once it is fully shown', () => {
+    expect(geometry.progress(0, 20, 500, 800)).toBe(1);
+    expect(geometry.progress(0, 600, 500, 800)).toBe(0);
+  });
+
+  it('scrolls back to where a fraction was reported', () => {
+    const scroll = geometry.scrollFor(0.5, 20, 3000, 800);
+    expect(geometry.progress(scroll, 20, 3000, 800)).toBeCloseTo(0.5);
+  });
+
+  it('never scrolls above the top of the document', () => {
+    expect(geometry.scrollFor(0, 0, 3000, 800)).toBe(0);
+    expect(geometry.scrollFor(0.7, 20, 300, 800)).toBe(20);
+  });
+});
