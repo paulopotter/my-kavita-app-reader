@@ -2,9 +2,9 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { selectionBottomBarStyles } from './selection-bottom-bar.styles';
+import { spacing } from '../../theme';
 
-import { useTheme } from '../../context';
-import { useStyles } from '../../context';
+import { useBottomInset, useStyles, useTheme } from '../../context';
 
 const ICON_SIZE = 22;
 
@@ -27,8 +27,9 @@ interface Props {
 export function SelectionBottomBar({ actions }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(selectionBottomBarStyles);
+  const bottomInset = useBottomInset();
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingBottom: spacing[5] + bottomInset }]}>
       {actions.map(({ key, icon: Icon, label, onPress }) => (
         <TouchableOpacity key={key} style={styles.button} onPress={onPress} activeOpacity={0.7}>
           <Icon size={ICON_SIZE} color={colors.icon.button.secondary} />
