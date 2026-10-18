@@ -86,6 +86,18 @@ export interface PluginChapter {
   isSpecial: boolean;
 }
 
+export interface PluginBookInfo {
+  title: string | null;
+  pageCount: number;
+}
+
+export interface PluginBookTocItem {
+  title: string;
+  // The book page the entry opens.
+  page: number;
+  children: PluginBookTocItem[];
+}
+
 export interface PluginProgress {
   pageIndex: number;
   updatedAtUtc?: string;
@@ -151,6 +163,12 @@ interface ServerBridgeModuleInterface {
   // content: categories (names only — whatever ids the provider uses stay in its plugin)
   listCategories(): Promise<string[]>;
   getSerialIdsByCategories(names: string[]): Promise<string[]>;
+
+  // content: book — a chapter read as an EPUB. The page is an HTML FRAGMENT with its styles
+  // already scoped by the provider; a provider without the capability rejects.
+  getBookInfo(chapterId: string): Promise<PluginBookInfo>;
+  getBookPage(chapterId: string, page: number): Promise<string>;
+  getBookToc(chapterId: string): Promise<PluginBookTocItem[]>;
 
   // content: chapters
   listChapters(serialId: string): Promise<PluginChapter[]>;

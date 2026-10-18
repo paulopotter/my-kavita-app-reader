@@ -1,3 +1,4 @@
+export * from './books';
 export * from './categories';
 export * from './chapters';
 export * from './diagnostics';
