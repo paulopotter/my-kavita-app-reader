@@ -121,3 +121,94 @@ describe('BookDocumentTool.parseMessage', () => {
     expect(BookDocumentTool.parseMessage('{"type":"progress","fraction":null}')).toBeNull();
   });
 });
+
+describe('BookDocumentTool.build — infinite mode', () => {
+  const infiniteInput: BookDocumentInput = { ...input, infinite: { chapterId: '70814', page: 0 } };
+
+  it('wraps the page in the first section of a growing book', () => {
+    const doc = BookDocumentTool.build(infiniteInput);
+
+    expect(doc).toContain('<main id="book"><section data-chapter-id="70814" data-page="0">');
+    expect(doc).toContain('<p>Olá</p></div></section></main>');
+  });
+
+  it('does not wrap a paged document', () => {
+    const doc = BookDocumentTool.build(input);
+    expect(doc).not.toContain('<main id="book">');
+    expect(scriptOf(doc)).not.toContain('needNext');
+  });
+
+  it('separates the sections with a divider drawn in the page\'s own text colour', () => {
+    const doc = BookDocumentTool.build(infiniteInput);
+    expect(doc).toContain('section + section {');
+    expect(doc).toContain('border-top: 1px solid #eeeeee66;');
+  });
+
+  it('gives the page a script that can append, stop and recover, and that asks for the next page', () => {
+    const body = scriptOf(BookDocumentTool.build(infiniteInput));
+
+    expect(body).toContain('window.__appendSection');
+    expect(body).toContain('window.__noMore');
+    expect(body).toContain('window.__needNextFailed');
+    expect(body).toContain("post({ type: 'needNext' })");
+    expect(body).toContain("post({ type: 'passed'");
+    expect(body).toContain('chapterId: current.chapterId');
+  });
+
+  it('generates a script that is valid JavaScript', () => {
+    expect(() => new Script(scriptOf(BookDocumentTool.build({ ...infiniteInput, restoreFraction: 0.5 })))).not.toThrow();
+  });
+
+  it('restores inside the first section, as a clamped fraction', () => {
+    expect(scriptOf(BookDocumentTool.build({ ...infiniteInput, restoreFraction: 0.42 }))).toContain('var restore = 0.42;');
+    expect(scriptOf(BookDocumentTool.build({ ...infiniteInput, restoreFraction: 9 }))).toContain('var restore = 1;');
+  });
+
+  it('keeps the same lockdown: a nonce-only CSP and no script from the page', () => {
+    const doc = BookDocumentTool.build(infiniteInput);
+    expect(doc).toContain("script-src 'nonce-abc123'");
+    expect(doc).toContain("default-src 'none'");
+  });
+
+  it('refuses a first section that could break out of the attribute', () => {
+    expect(() => BookDocumentTool.build({ ...input, infinite: { chapterId: '1"><script>', page: 0 } })).toThrow('first section');
+    expect(() => BookDocumentTool.build({ ...input, infinite: { chapterId: '', page: 0 } })).toThrow('first section');
+    expect(() => BookDocumentTool.build({ ...input, infinite: { chapterId: '1', page: -1 } })).toThrow('first section');
+    expect(() => BookDocumentTool.build({ ...input, infinite: { chapterId: '1', page: 1.5 } })).toThrow('first section');
+  });
+});
+
+describe('BookDocumentTool.parseMessage — infinite mode', () => {
+  it('reads a request for the next page', () => {
+    expect(BookDocumentTool.parseMessage('{"type":"needNext"}')).toEqual({ type: 'needNext' });
+  });
+
+  it('reads which chapter and page a progress report belongs to', () => {
+    expect(BookDocumentTool.parseMessage('{"type":"progress","fraction":0.5,"chapterId":"70814","page":2}')).toEqual({
+      type: 'progress',
+      fraction: 0.5,
+      chapterId: '70814',
+      page: 2,
+    });
+  });
+
+  it('keeps a progress report without a section as it was', () => {
+    expect(BookDocumentTool.parseMessage('{"type":"progress","fraction":0.5}')).toEqual({ type: 'progress', fraction: 0.5 });
+    expect(BookDocumentTool.parseMessage('{"type":"progress","fraction":0.5,"chapterId":"","page":0}')).toEqual({
+      type: 'progress',
+      fraction: 0.5,
+    });
+    expect(BookDocumentTool.parseMessage('{"type":"progress","fraction":0.5,"chapterId":"1","page":-1}')).toEqual({
+      type: 'progress',
+      fraction: 0.5,
+    });
+  });
+
+  it('reads a section that was passed, and refuses one without an identity', () => {
+    expect(BookDocumentTool.parseMessage('{"type":"passed","chapterId":"7","page":0}')).toEqual({ type: 'passed', chapterId: '7', page: 0 });
+    expect(BookDocumentTool.parseMessage('{"type":"passed"}')).toBeNull();
+    expect(BookDocumentTool.parseMessage('{"type":"passed","chapterId":7,"page":0}')).toBeNull();
+    expect(BookDocumentTool.parseMessage('{"type":"passed","chapterId":"7","page":"0"}')).toBeNull();
+  });
+});
+
