@@ -28,6 +28,8 @@
 // Note vs. the legacy reader.types.ts: there's no `hasPages: boolean` here — that state is
 // LoadedChapterEntry.status ('placeholder' | 'loading' | 'ready' | 'error'), which is explicit
 // about the three real cases instead of one overloaded boolean.
+import type { OrderedChapter } from '../../shared/tools/chapters';
+
 export interface ReaderChapter {
   id: string;
   seriesId: string;
@@ -79,17 +81,8 @@ export interface ReaderWindow {
 
 // ── Series reading order ─────────────────────────────────────────────────
 
-// Reading order (ascending by number) — the sequence prev/next depend on, not the display sort.
-export interface OrderedChapter {
-  id: string;
-  seriesId: string;
-  number?: number;
-  decimalNumber?: number;
-  specialLabel?: string;
-  isSpecial?: boolean;
-  title: string;
-  readStatus: ReaderChapter['readStatus'];
-}
+// Reading order — the sequence prev/next depend on. Lives in shared/tools/chapters now.
+export type { OrderedChapter } from '../../shared/tools/chapters';
 
 // ── moveFocus — for NATURAL SCROLL crossings only ───────────────────────
 //
