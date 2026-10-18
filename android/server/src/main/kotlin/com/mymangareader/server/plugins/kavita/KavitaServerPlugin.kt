@@ -272,7 +272,7 @@ class KavitaServerPlugin(
 
         override val chapters: ServerPlugin.Chapters =
             object : ServerPlugin.Chapters {
-                override suspend fun list(): List<PluginChapter> = volumes().flatMap { it.chapters }.map { it.toPluginChapter() }
+                override suspend fun list(): List<PluginChapter> = volumes().flatMap { volume -> volume.chapters.map { it.toPluginChapter(volume) } }
 
                 override suspend fun setRead(
                     isRead: Boolean,
@@ -299,9 +299,9 @@ class KavitaServerPlugin(
         override suspend fun get(): PluginChapter =
             serial
                 .volumes()
-                .flatMap { it.chapters }
-                .firstOrNull { it.id.toString() == chapterId }
-                ?.toPluginChapter()
+                .flatMap { volume -> volume.chapters.map { it to volume } }
+                .firstOrNull { (chapter, _) -> chapter.id.toString() == chapterId }
+                ?.let { (chapter, volume) -> chapter.toPluginChapter(volume) }
                 ?: throw KavitaServerPluginException("Chapter $chapterId not found in series $seriesId")
 
         // Synchronous by design — same rationale as KavitaPage.getUrl()/KavitaSerial.getCoverUrl().
@@ -440,17 +440,33 @@ private fun Int.toPluginFileFormat(): String? =
         else -> null
     }
 
-private fun KavitaChapterDto.toPluginChapter() =
-    PluginChapter(
+// Kavita's marker for "this chapter has no number of its own" (a volume file named just "Vol 3", or
+// a novel EPUB per chapter): number "-100000" and a sortOrder to match. Left as is, every such chapter
+// of a series is identical — same title, same position.
+private const val KAVITA_LOOSE_CHAPTER_NUMBER = -100_000.0
+
+private fun KavitaChapterDto.isLoose() = !isSpecial && (sortOrder == KAVITA_LOOSE_CHAPTER_NUMBER || number == "-100000")
+
+// A loose chapter takes its identity from the volume that holds it: the volume's number is what
+// orders it ("1", "1.2", "4") and the chapter's titleName is what names it. A volume with no real
+// number of its own (minNumber at or below zero, e.g. the bucket of chapters without a volume) keeps
+// the chapter's own values.
+private fun KavitaChapterDto.toPluginChapter(volume: KavitaVolumeDto? = null): PluginChapter {
+    val volumeNumber = volume?.minNumber?.takeIf { it > 0.0 && isLoose() }
+    return PluginChapter(
         id = id.toString(),
-        title = title,
-        number = number,
+        title = if (volumeNumber != null) titleName?.takeIf { it.isNotBlank() }.orEmpty() else title,
+        number = volumeNumber?.toDisplayNumber() ?: number,
         pageCount = pages,
         pagesRead = pagesRead,
         isSpecial = isSpecial,
-        decimalNumber = sortOrder,
+        decimalNumber = volumeNumber ?: sortOrder,
         specialLabel = range,
         createdUtc = createdUtc,
         lastReadingProgressUtc = lastReadingProgressUtc,
         fileFormat = format.toPluginFileFormat(),
     )
+}
+
+// 4.0 -> "4", 1.2 -> "1.2".
+private fun Double.toDisplayNumber(): String = if (this % 1.0 == 0.0) toLong().toString() else toString()

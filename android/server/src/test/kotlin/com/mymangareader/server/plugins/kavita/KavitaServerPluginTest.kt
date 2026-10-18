@@ -396,6 +396,86 @@ class KavitaServerPluginTest {
         }
 
     @Test
+    fun `a loose chapter takes its number from the volume and its title from titleName`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[
+                    |{"id":10,"seriesId":7,"name":"1.2","minNumber":1.2,"chapters":[{"id":100,"title":"-100000","number":"-100000","sortOrder":-100000.0,"titleName":"Capítulo 1.2","format":3}]},
+                    |{"id":11,"seriesId":7,"name":"4","minNumber":4.0,"chapters":[{"id":101,"title":"-100000","number":"-100000","sortOrder":-100000.0,"titleName":"Capítulo 4","format":3}]}
+                    |]""".trimMargin(),
+                ),
+            )
+
+            val chapters = plugin.serial("7").chapters.list()
+
+            assertEquals(listOf(1.2, 4.0), chapters.map { it.decimalNumber })
+            assertEquals(listOf("1.2", "4"), chapters.map { it.number })
+            assertEquals(listOf("Capítulo 1.2", "Capítulo 4"), chapters.map { it.title })
+        }
+
+    @Test
+    fun `a loose chapter without a titleName gets an empty title, not the marker`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"name":"3","minNumber":3.0,"chapters":[{"id":100,"title":"-100000","number":"-100000","sortOrder":-100000.0}]}]""",
+                ),
+            )
+
+            val chapter = plugin.serial("7").chapters.list().single()
+
+            assertEquals("", chapter.title)
+            assertEquals(3.0, chapter.decimalNumber)
+        }
+
+    @Test
+    fun `a chapter with a real number is left alone even inside a numbered volume`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"name":"2","minNumber":2.0,"chapters":[{"id":100,"title":"Ch 9","number":"9","sortOrder":9.0,"titleName":"Nine"}]}]""",
+                ),
+            )
+
+            val chapter = plugin.serial("7").chapters.list().single()
+
+            assertEquals(9.0, chapter.decimalNumber)
+            assertEquals("9", chapter.number)
+            assertEquals("Ch 9", chapter.title)
+        }
+
+    @Test
+    fun `a loose chapter in a volume without a number keeps its own values`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"name":"-100000","minNumber":-100000.0,"chapters":[{"id":100,"title":"-100000","number":"-100000","sortOrder":-100000.0,"titleName":"x"}]}]""",
+                ),
+            )
+
+            val chapter = plugin.serial("7").chapters.list().single()
+
+            assertEquals(-100000.0, chapter.decimalNumber)
+            assertEquals("-100000", chapter.title)
+        }
+
+    @Test
+    fun `chapter get applies the same volume rule as the list`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"id":10,"seriesId":7,"name":"6","minNumber":6.0,"chapters":[{"id":100,"title":"-100000","number":"-100000","sortOrder":-100000.0,"titleName":"Capítulo 6"}]}]""",
+                ),
+            )
+
+            val chapter = plugin.serial("7").chapter("100").get()
+
+            assertEquals(6.0, chapter.decimalNumber)
+            assertEquals("Capítulo 6", chapter.title)
+        }
+
+    @Test
     fun `chapters list maps every MangaFormat value`() =
         runTest {
             server.enqueue(

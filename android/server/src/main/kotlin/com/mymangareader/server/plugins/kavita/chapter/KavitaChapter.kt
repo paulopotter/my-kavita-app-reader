@@ -127,6 +127,8 @@ data class KavitaChapterDto(
 data class KavitaVolumeDto(
     val id: Int,
     val seriesId: Int = 0,
+    val name: String? = null,
+    val minNumber: Double = 0.0,
     val chapters: List<KavitaChapterDto> = emptyList(),
 )
 
