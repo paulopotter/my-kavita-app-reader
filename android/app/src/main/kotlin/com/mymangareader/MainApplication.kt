@@ -55,6 +55,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -227,8 +228,10 @@ class MainApplication :
         // configured from a previous session never reconnects on a fresh app launch: the service
         // simply never runs until the user touches notification config again.
         applicationScope.launch {
-            if (notificationConnectionGate.shouldConnect()) {
-                NotificationConnectionService.start(this@MainApplication)
+            if (notificationConnectionGate.shouldConnect() && !NotificationConnectionService.tryStart(this@MainApplication)) {
+                // Refused because the process is still in the background: connect once it is not.
+                AppForegroundState.isForeground.first { it }
+                if (notificationConnectionGate.shouldConnect()) NotificationConnectionService.tryStart(this@MainApplication)
             }
         }
     }

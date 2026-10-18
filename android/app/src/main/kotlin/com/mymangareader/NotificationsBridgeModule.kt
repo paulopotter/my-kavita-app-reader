@@ -425,7 +425,7 @@ class NotificationsBridgeModule(
 
     private suspend fun reevaluateConnection() {
         if (connectionGate.shouldConnect()) {
-            NotificationConnectionService.start(reactApplicationContext)
+            NotificationConnectionService.tryStart(reactApplicationContext)
         } else {
             NotificationConnectionService.stop(reactApplicationContext)
         }

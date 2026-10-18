@@ -240,6 +240,19 @@ class NotificationConnectionService : Service() {
             context.startService(Intent(context, NotificationConnectionService::class.java))
         }
 
+        // Android refuses to start this service while the app is in the background (a launch from adb
+        // with the screen off, or a process started for another reason, is "background" for the first
+        // moments) and says so with an exception that would take the whole process down. False means
+        // "not allowed right now": the caller tries again once the app is in the foreground.
+        fun tryStart(context: Context): Boolean =
+            try {
+                start(context)
+                true
+            } catch (e: IllegalStateException) {
+                android.util.Log.w("NotificationConnection", "start refused while in the background", e)
+                false
+            }
+
         fun stop(context: Context) {
             context.stopService(Intent(context, NotificationConnectionService::class.java))
         }
