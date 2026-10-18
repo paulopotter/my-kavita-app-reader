@@ -367,6 +367,7 @@ dependencies {
     implementation(project(":react-native-svg"))
     implementation(project(":react-native-community_netinfo"))
     implementation(project(":shopify_react-native-skia"))
+    implementation(project(":react-native-webview"))
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
