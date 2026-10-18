@@ -978,6 +978,147 @@ class SerialDigestTest {
             assertEquals(first.cache?.cachedAtEpochMs, second.cache?.cachedAtEpochMs)
         }
 
+    // ── a series with very many chapters is cached in segments ─────────────────
+    //
+    // One row holding a 3000-chapter list outgrew what a cache row can be read back from, so such a
+    // series is stored as a main row (no chapter list) plus segment rows. The digest handed back is
+    // the same either way.
+
+    private val bigSeriesKey = "s1:false:false"
+
+    private fun manyChapters(count: Int) = (1..count).map { fakeChapter("ch$it", decimalNumber = it.toDouble(), pageCount = 10) }
+
+    private suspend fun segmentCount(): Int {
+        val raw = cache.persistent.get(segmentIndexKey(bigSeriesKey), SERIAL_SEGMENT_VARIANT)?.value ?: return 0
+        return Regex("\"counts\":\\[([^\\]]*)]").find(raw)!!.groupValues[1].split(",").size
+    }
+
+    @Test
+    fun `a series too big for one row is stored in segments and comes back identical`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(manyChapters(1500))
+            val first = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+
+            val main = serialDigestJson.decodeFromString<SerialDigest.Success>(cache.persistent.get(bigSeriesKey, SERIAL_CACHE_VARIANT)!!.value)
+            assertTrue(main.chapters!!.list.isEmpty())
+            assertEquals(1500, main.chapters!!.total)
+            assertTrue(segmentCount() >= 2)
+            // No part of it is anywhere near what a row can hold.
+            assertTrue(cache.persistent.get(bigSeriesKey, SERIAL_CACHE_VARIANT)!!.value.length < SERIAL_INLINE_MAX_CHARS)
+            for (k in 0 until segmentCount()) {
+                assertTrue(cache.persistent.get(segmentKey(bigSeriesKey, k), SERIAL_SEGMENT_VARIANT)!!.value.length <= SERIAL_SEGMENT_TARGET_CHARS * 2)
+            }
+
+            val second = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+
+            assertEquals(1, plugin.serialGetCallCount)
+            assertEquals(first.chapters?.list, second.chapters?.list)
+            assertEquals(1500, second.chapters?.list?.size)
+            assertEquals(first.chapters?.readCount, second.chapters?.readCount)
+            assertEquals(first.chapters?.resumePoint, second.chapters?.resumePoint)
+        }
+
+    @Test
+    fun `a small series stays in one row`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(manyChapters(5))
+            buildSerialDigest(server, "s1", cache)
+
+            assertEquals(0, segmentCount())
+            val main = serialDigestJson.decodeFromString<SerialDigest.Success>(cache.persistent.get(bigSeriesKey, SERIAL_CACHE_VARIANT)!!.value)
+            assertEquals(5, main.chapters!!.list.size)
+        }
+
+    @Test
+    fun `a missing segment makes the whole series a miss, rebuilt and healed`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(manyChapters(1500))
+            buildSerialDigest(server, "s1", cache)
+            cache.persistent.invalidate(segmentKey(bigSeriesKey, 1), SERIAL_SEGMENT_VARIANT)
+
+            val rebuilt = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            assertEquals(2, plugin.serialGetCallCount)
+            assertEquals(1500, rebuilt.chapters?.list?.size)
+
+            buildSerialDigest(server, "s1", cache)
+            assertEquals(2, plugin.serialGetCallCount)
+        }
+
+    @Test
+    fun `a segment left over from another write is never mixed in`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(manyChapters(1500))
+            buildSerialDigest(server, "s1", cache)
+            cache.persistent.put(
+                segmentKey(bigSeriesKey, 0),
+                "{\"resolvedAtEpochMs\":1,\"list\":[]}",
+                SERIAL_CACHE_DOMAIN,
+                variant = SERIAL_SEGMENT_VARIANT,
+            )
+
+            buildSerialDigest(server, "s1", cache)
+
+            assertEquals(2, plugin.serialGetCallCount)
+        }
+
+    @Test
+    fun `an unreadable main row is a miss, not a crash`() =
+        runTest {
+            activateGroup()
+            buildSerialDigest(server, "s1", cache)
+            cache.persistent.put(bigSeriesKey, "not json", SERIAL_CACHE_DOMAIN, variant = SERIAL_CACHE_VARIANT)
+
+            val digest = buildSerialDigest(server, "s1", cache)
+
+            assertTrue(digest is SerialDigest.Success)
+            assertEquals(2, plugin.serialGetCallCount)
+        }
+
+    @Test
+    fun `marking a chapter on a segmented series rewrites only its segment and keeps readCount`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(manyChapters(1500))
+            buildSerialDigest(server, "s1", cache)
+            val last = segmentCount() - 1
+            val untouchedBefore = cache.persistent.get(segmentKey(bigSeriesKey, last), SERIAL_SEGMENT_VARIANT)!!
+
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.READ)
+
+            val patched = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            assertEquals(1, plugin.serialGetCallCount)
+            assertEquals(1, patched.chapters?.readCount)
+            val byId = patched.chapters!!.list.filterIsInstance<ChapterDigest.Success>().associateBy { it.id }
+            assertEquals(ChapterFields.ReadStatus.READ, byId.getValue("ch1").readStatus)
+            assertEquals(ChapterFields.ReadStatus.UNREAD, byId.getValue("ch2").readStatus)
+            assertEquals(ChapterFields.ReadStatus.UNREAD, byId.getValue("ch1500").readStatus)
+            val untouchedAfter = cache.persistent.get(segmentKey(bigSeriesKey, last), SERIAL_SEGMENT_VARIANT)!!
+            assertEquals(untouchedBefore.cachedAtEpochMs, untouchedAfter.cachedAtEpochMs)
+
+            // Back to unread: readCount follows, and repeating the same status changes nothing.
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.UNREAD)
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.UNREAD)
+            val reverted = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            assertEquals(0, reverted.chapters?.readCount)
+        }
+
+    @Test
+    fun `marking a chapter that a segmented series does not have changes nothing`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(manyChapters(1500))
+            buildSerialDigest(server, "s1", cache)
+
+            patchSerialChapterReadStatus(cache, "s1", "not-a-chapter", ChapterFields.ReadStatus.READ)
+
+            val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            assertEquals(0, digest.chapters?.readCount)
+        }
+
     // ── the chapter list's two paths ─────────────────────────────────────
     //
     // full=false (the serial page) builds the list straight from chapters.list(); full=true (the
@@ -1216,6 +1357,25 @@ class SerialsDigestTest {
             assertNull(first.metadata)
             // cover was normalized by :server into a full ImageDescriptor
             assertTrue(first.coverImage.url.isNotEmpty())
+        }
+
+    @Test
+    fun `a library list refresh over a segmented series row is rebuilt cleanly, not mixed with the old segments`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success((1..1500).map { fakeChapter("ch$it", decimalNumber = it.toDouble(), pageCount = 10) })
+            buildSerialDigest(server, "s1", cache)
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
+
+            // The list route merges into this very row and drops its chapters block (the series
+            // screen reads another variant) — the old segments are then orphans nothing points to.
+            buildSerialsDigest(server, cache, force = true)
+            val rebuilt = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            assertEquals(2, plugin.serialGetCallCount)
+            assertEquals(1500, rebuilt.chapters?.list?.size)
+
+            buildSerialDigest(server, "s1", cache)
+            assertEquals(2, plugin.serialGetCallCount)
         }
 
     @Test

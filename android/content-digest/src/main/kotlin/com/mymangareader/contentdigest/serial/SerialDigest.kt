@@ -213,7 +213,7 @@ internal fun isSerialCacheStale(lastUpdatedEpochMs: Long?): Boolean {
 // by never passing ttlMs).
 private const val SERIAL_CACHE_TTL_MS = 15 * 60 * 1000L
 
-private val serialDigestJson = Json { ignoreUnknownKeys = true }
+internal val serialDigestJson = Json { ignoreUnknownKeys = true }
 private val serialDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 private fun serialDigestCacheKey(
@@ -252,11 +252,12 @@ suspend fun buildSerialDigest(
     val key = serialDigestCacheKey(seriesId, options)
 
     if (!force) {
-        val cached = cache.persistent.get(key, variant = "full:external")
-        if (cached != null) {
+        // readSerialRow reassembles a series stored in segments; a missing part reads as a miss.
+        val row = readSerialRow(cache, key)
+        val cached = row?.entry
+        if (row != null && cached != null) {
             val digest =
-                serialDigestJson
-                    .decodeFromString<SerialDigest.Success>(cached.value)
+                row.digest
                     .copy(cache = cached.toSerialCacheDescriptor(key))
                     .withRehostedPages(server.getActiveInfo()?.url)
             // An entry seeded ONLY by the list route (buildSerialsDigest — the splash / Library
@@ -289,13 +290,7 @@ suspend fun buildSerialDigest(
     val fresh = fetchSerialDigest(server, seriesId, cache, options, force)
     if (fresh !is SerialDigest.Success) return fresh
 
-    val descriptor =
-        cache.persistent.put(
-            key,
-            serialDigestJson.encodeToString(SerialDigest.Success.serializer(), fresh),
-            SERIAL_CACHE_DOMAIN,
-            variant = "full:external",
-        )
+    val descriptor = persistSerialDigest(cache, key, fresh, variant = "full:external")
     return fresh.copy(cache = descriptor)
 }
 
@@ -352,28 +347,7 @@ suspend fun patchSerialChapterReadStatus(
     for (full in listOf(true, false)) {
         for (includeExternalMetadata in listOf(true, false)) {
             val key = serialDigestCacheKey(seriesId, SerialDigestOptions(full = full, includeExternalMetadata = includeExternalMetadata))
-            val cached = cache.persistent.get(key, variant = SERIAL_CACHE_VARIANT) ?: continue
-            val digest = runCatching { serialDigestJson.decodeFromString<SerialDigest.Success>(cached.value) }.getOrNull() ?: continue
-            val chapters = digest.chapters ?: continue
-            var changed = false
-            val patchedList =
-                chapters.list.map { chapter ->
-                    if (chapter is ChapterDigest.Success && chapter.id == chapterId && chapter.readStatus != readStatus) {
-                        changed = true
-                        chapter.copy(readStatus = readStatus)
-                    } else {
-                        chapter
-                    }
-                }
-            if (!changed) continue
-            val patchedReadCount = patchedList.count { it is ChapterDigest.Success && it.readStatus == ChapterFields.ReadStatus.READ }
-            val patched = digest.copy(chapters = chapters.copy(list = patchedList, readCount = patchedReadCount))
-            cache.persistent.put(
-                key,
-                serialDigestJson.encodeToString(SerialDigest.Success.serializer(), patched),
-                SERIAL_CACHE_DOMAIN,
-                variant = SERIAL_CACHE_VARIANT,
-            )
+            patchSerialRowChapter(cache, key, chapterId, readStatus, SERIAL_CACHE_VARIANT)
         }
     }
 }
