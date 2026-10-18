@@ -14,7 +14,6 @@ import {
   ReaderPageListView,
   ReaderSettingsModal,
   ReaderSideProgressBar,
-  ReaderThinProgressBar,
   ReaderTopBar,
   type ReaderChapterBlock,
 } from './components';
@@ -26,6 +25,7 @@ import { useTheme, useStyles } from '../../shared/context';
 import { icon } from '../../shared/theme';
 import { ReaderPrefs, type ProgressBarPosition } from '../../shared/tools/reader';
 import { IconButton } from '../../shared/components/icon-button';
+import { ThinProgressBar } from '../../shared/components/thin-progress-bar';
 
 type RouteParams = {
   Reader: { seriesId: string; chapterId: string; origin?: NavOrigin; seriesName?: string };
@@ -183,7 +183,7 @@ export function ReaderScreen() {
       )}
 
       {!reader.overlayVisible && !reader.zoomed && (
-        <ReaderThinProgressBar
+        <ThinProgressBar
           fraction={progressBarFraction(reader.chapterFraction)}
           pageFraction={reader.scrollFraction}
           position={progressBarPosition}

@@ -1,8 +1,8 @@
 import React from 'react';
 import { View } from 'react-native';
-import { readerThinProgressBarStyles } from './reader-thin-progress-bar.styles';
-import { useStyles } from '../../../../shared/context';
-import type { ProgressBarPosition } from '../../../../shared/tools/reader';
+import { thinProgressBarStyles } from './thin-progress-bar.styles';
+import { useStyles } from '../../context';
+import type { ProgressBarPosition } from '../../tools/reader';
 
 interface Props {
   fraction: number;
@@ -17,15 +17,15 @@ interface Props {
 
 // Dumb: clamps the fraction it's given and renders the fill along whichever axis `position`
 // implies. The clamp is trivial layout math, not domain logic.
-export function ReaderThinProgressBar({ fraction, position = 'right' }: Props) {
-  const styles = useStyles(readerThinProgressBarStyles);
+export function ThinProgressBar({ fraction, position = 'right' }: Props) {
+  const styles = useStyles(thinProgressBarStyles);
   const clamped = Math.min(1, Math.max(0, fraction));
 
   if (position === 'top' || position === 'bottom') {
     return (
       <View style={[styles.trackHorizontal, position === 'top' ? styles.trackTop : styles.trackBottom]}>
         <View
-          testID="reader-thin-progress-fill"
+          testID="thin-progress-fill"
           style={[styles.fillHorizontal, { position: 'absolute', left: 0, width: `${clamped * 100}%` }]}
         />
       </View>
@@ -35,7 +35,7 @@ export function ReaderThinProgressBar({ fraction, position = 'right' }: Props) {
   return (
     <View style={[styles.trackVertical, position === 'left' ? styles.trackLeft : styles.trackRight]}>
       <View
-        testID="reader-thin-progress-fill"
+        testID="thin-progress-fill"
         style={[styles.fillVertical, { position: 'absolute', top: 0, height: `${clamped * 100}%` }]}
       />
     </View>

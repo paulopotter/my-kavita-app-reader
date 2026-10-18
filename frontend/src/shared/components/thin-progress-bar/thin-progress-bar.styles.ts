@@ -1,6 +1,6 @@
-import { createStyles } from '../../../../shared/theme';
+import { createStyles } from '../../theme';
 
-export const readerThinProgressBarStyles = createStyles(({ colors, radius, alpha }) => ({
+export const thinProgressBarStyles = createStyles(({ colors, radius, alpha }) => ({
     // Vertical (left/right): thin column inset 10% top/bottom, filling top-to-bottom.
     trackVertical: {
       position: 'absolute',

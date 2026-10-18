@@ -38,7 +38,7 @@ jest.mock('../../config/reader/reader.hooks', () => ({
 }));
 
 // The screen reads the progress-bar edge directly (not through useReaderPrefs) to hand it to
-// ReaderThinProgressBar — mocked the same way, for the same reason (no native bridge in tests).
+// ThinProgressBar — mocked the same way, for the same reason (no native bridge in tests).
 const mockGetProgressBarPosition = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../../shared/tools/reader', () => ({
   ReaderPrefs: { getProgressBarPosition: () => mockGetProgressBarPosition() },
@@ -247,16 +247,16 @@ describe('ReaderScreen V2 — progress bar position', () => {
     mockGetProgressBarPosition.mockResolvedValue(undefined);
     withWindow([entry()], 0);
     const { findByTestId } = render(<ReaderScreen />);
-    const fill = await findByTestId('reader-thin-progress-fill');
+    const fill = await findByTestId('thin-progress-fill');
     expect(fill.props.style[1].height).toBeDefined();
     expect(fill.props.style[1].width).toBeUndefined();
   });
 
-  it('passes a stored edge through to ReaderThinProgressBar', async () => {
+  it('passes a stored edge through to ThinProgressBar', async () => {
     mockGetProgressBarPosition.mockResolvedValue('top');
     withWindow([entry()], 0);
     const { findByTestId } = render(<ReaderScreen />);
-    const fill = await findByTestId('reader-thin-progress-fill');
+    const fill = await findByTestId('thin-progress-fill');
     expect(fill.props.style[1].width).toBeDefined();
     expect(fill.props.style[1].height).toBeUndefined();
   });
