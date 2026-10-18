@@ -159,6 +159,7 @@ private class FakePlugin(
     var serialsListResult: Result<List<PluginSerial>> = Result.success(emptyList()),
 ) : ServerPlugin {
     var serialGetCallCount = 0
+    var serialsListCallCount = 0
     override val id = "fake"
     override val displayName = "Fake"
     override val version = "0.0.0"
@@ -178,7 +179,10 @@ private class FakePlugin(
 
     override val serials =
         object : ServerPlugin.Serials {
-            override suspend fun list(): List<PluginSerial> = serialsListResult.getOrThrow()
+            override suspend fun list(): List<PluginSerial> {
+                serialsListCallCount++
+                return serialsListResult.getOrThrow()
+            }
         }
 
     override fun serial(serialId: String): ServerPlugin.Serial =
@@ -1465,6 +1469,120 @@ class SerialsDigestTest {
 
             assertTrue(result.serials.isEmpty())
             assertNull(result.lastUpdatedEpochMs)
+        }
+
+    // ── the list snapshot ────────────────────────────────────────────────
+
+    @Test
+    fun `a second plain read of the list is served from the snapshot, without asking the server`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
+            buildSerialsDigest(server, cache)
+            assertEquals(1, plugin.serialsListCallCount)
+
+            val again = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+            assertEquals(1, plugin.serialsListCallCount)
+            assertEquals(listOf("s1", "s2"), again.serials.map { (it as SerialDigest.Success).id })
+            // Each series still carries a descriptor, as a list built from the network does.
+            assertTrue(again.serials.all { (it as SerialDigest.Success).cache != null })
+            assertTrue(again.lastUpdatedEpochMs != null)
+        }
+
+    @Test
+    fun `force goes to the server even with a fresh snapshot`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+            buildSerialsDigest(server, cache)
+
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
+            val forced = buildSerialsDigest(server, cache, force = true) as SerialsDigest.Success
+
+            assertEquals(2, plugin.serialsListCallCount)
+            assertEquals(2, forced.serials.size)
+            assertEquals(2, (buildSerialsDigest(server, cache) as SerialsDigest.Success).serials.size)
+        }
+
+    @Test
+    fun `an old snapshot is served at once and replaced in the background`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", name = "Old name")))
+            buildSerialsDigest(server, cache)
+            val snapshot = readSerialsSnapshot(cache)!!
+            writeSerialsSnapshot(cache, snapshot.copy(syncedAtEpochMs = System.currentTimeMillis() - SERIALS_SNAPSHOT_TTL_MS - 1))
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", name = "New name")))
+
+            val served = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+            assertEquals("Old name", (served.serials.first() as SerialDigest.Success).name)
+            val deadline = System.currentTimeMillis() + 5000
+            while (readSerialsSnapshot(cache)!!.serials.first().name != "New name" && System.currentTimeMillis() < deadline) {
+                Thread.sleep(20)
+            }
+            assertEquals("New name", readSerialsSnapshot(cache)!!.serials.first().name)
+            assertEquals(2, plugin.serialsListCallCount)
+        }
+
+    @Test
+    fun `an empty list is not remembered`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(emptyList())
+            buildSerialsDigest(server, cache)
+
+            assertNull(readSerialsSnapshot(cache))
+            buildSerialsDigest(server, cache)
+            assertEquals(2, plugin.serialsListCallCount)
+        }
+
+    @Test
+    fun `a snapshot of another address of the server is not served`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+            buildSerialsDigest(server, cache)
+            writeSerialsSnapshot(cache, readSerialsSnapshot(cache)!!.copy(serverUrl = "http://somewhere-else:1"))
+
+            buildSerialsDigest(server, cache)
+
+            assertEquals(2, plugin.serialsListCallCount)
+        }
+
+    @Test
+    fun `fetching one series mirrors its reading progress into the snapshot`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", pagesRead = 0, totalPages = 10)))
+            buildSerialsDigest(server, cache)
+            plugin.serialResult = Result.success(fakePluginSerial("s1", pagesRead = 7, totalPages = 10))
+            plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10)))
+
+            val fetched = buildSerialDigest(server, "s1", cache, force = true) as SerialDigest.Success
+            val listed = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+            assertEquals(1, plugin.serialsListCallCount)
+            assertEquals(7, fetched.pages?.read)
+            assertEquals(7, (listed.serials.first() as SerialDigest.Success).pages?.read)
+        }
+
+    @Test
+    fun `marking a chapter stamps the read date into the snapshot`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+            buildSerialsDigest(server, cache)
+            plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", decimalNumber = 1.0, pageCount = 10)))
+            buildSerialDigest(server, "s1", cache)
+
+            val before = System.currentTimeMillis()
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.READ)
+
+            val readDate = (buildSerialsDigest(server, cache) as SerialsDigest.Success).serials.first().let { (it as SerialDigest.Success).lastUpdatesUTC?.readDate }
+            assertTrue(readDate != null && readDate >= before)
+            assertEquals(1, plugin.serialsListCallCount)
         }
 
     @Test

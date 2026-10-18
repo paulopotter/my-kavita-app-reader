@@ -199,20 +199,6 @@ internal const val SERIAL_CACHE_VARIANT = "full:external"
 // options (full=false, includeExternalMetadata=false).
 internal fun serialsListCacheKey(seriesId: String) = serialDigestCacheKey(seriesId, SerialDigestOptions())
 
-// Whether the newest per-series cache entry a buildSerialsDigest run touched is old enough to
-// warrant a background refresh. null (nothing cached / empty list) is treated as stale so the
-// first-ever load still schedules a refresh. Uses the Cache module's own default TTL — the same
-// one buildSerialDigest's writes carry (it never overrides ttlMs on put()).
-internal fun isSerialCacheStale(lastUpdatedEpochMs: Long?): Boolean {
-    if (lastUpdatedEpochMs == null) return true
-    return System.currentTimeMillis() - lastUpdatedEpochMs >= SERIAL_CACHE_TTL_MS
-}
-
-// 15 min — Cache.persistent.put()'s DEFAULT_TTL_MS (that module keeps it internal, so it's
-// restated here with the same value and reasoning; buildSerialDigest relies on that same default
-// by never passing ttlMs).
-private const val SERIAL_CACHE_TTL_MS = 15 * 60 * 1000L
-
 // explicitNulls = false because the Library's list refresh writes rows WITHOUT the fields it cannot
 // know (see serialsDigestJson): a nullable field that is simply absent must read back as null.
 internal val serialDigestJson = Json {
@@ -305,6 +291,9 @@ suspend fun buildSerialDigest(
     if (fresh !is SerialDigest.Success) return fresh
 
     val descriptor = persistSerialDigest(cache, key, fresh, variant = "full:external")
+    // The list snapshot learns what this fetch knows exactly (reading progress above all), so the
+    // Library and the Dashboard show it without going back to the server.
+    mirrorIntoSerialsSnapshot(cache, seriesId) { it.listFieldsFrom(fresh) }
     return fresh.copy(cache = descriptor)
 }
 
@@ -370,6 +359,14 @@ suspend fun patchSerialChapterReadStatus(
             val key = serialDigestCacheKey(seriesId, SerialDigestOptions(full = full, includeExternalMetadata = includeExternalMetadata))
             patchSerialRowChapter(cache, key, chapterId, readStatus, SERIAL_CACHE_VARIANT)
         }
+    }
+
+    // Reading is the newest thing known about this series, ahead of any list from the server: stamp
+    // it in the list snapshot, so "most recently read" order is right before the next sync. (The exact
+    // page counts arrive with the re-fetch that follows reading.)
+    val readAt = System.currentTimeMillis()
+    mirrorIntoSerialsSnapshot(cache, seriesId) { row ->
+        row.copy(lastUpdatesUTC = (row.lastUpdatesUTC ?: SerialFields.LastUpdatesUTC(null, null, null, null)).copy(readDate = readAt))
     }
 }
 

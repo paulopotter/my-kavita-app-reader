@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.Json
 
 // buildSerialsDigest — the list counterpart of buildSerialDigest. Same cache-first contract, but
@@ -21,16 +22,16 @@ import kotlinx.serialization.json.Json
 // the list can't carry — chapters/metadata/resumePoint — are absent (null), exactly as they'd be
 // on a fresh buildSerialDigest that only got as far as serial.get().
 //
-// It owns NO cache of its own. Instead it MERGES each list item into that series' own per-series
+// Its only cache of its own is the list snapshot (SerialsListSnapshot.kt) that makes a plain read
+// instant. Apart from that it MERGES each list item into that series' own per-series
 // cache (buildSerialDigest's domain "serial", key "<id>:false:false") so a later
 // buildSerialDigest(id) mount is a cache hit — and, crucially, so a list refresh never clobbers a
 // richer entry (chapters/metadata) a prior buildSerialDigest(id) already wrote: the merge keeps
 // those and only refreshes the list-sourced fields (name/cover/pages/dates/…).
 //
-// `lastUpdatedEpochMs` is DERIVED every call — the newest `cachedAtEpochMs` across the per-series
-// caches this run touched — never a stored value. When that newest is older than the SERIAL
-// domain's TTL, a background `force=true` refresh is kicked (same pattern as buildSerialDigest's
-// own stale-while-revalidate).
+// `lastUpdatedEpochMs` is the moment of the last sync with the server (the snapshot's own stamp when
+// it is served). When the snapshot is older than SERIALS_SNAPSHOT_TTL_MS, a background `force=true`
+// refresh is kicked (same stale-while-revalidate pattern as buildSerialDigest).
 
 sealed interface SerialsDigest {
     data class Success(
@@ -59,8 +60,15 @@ private val serialsDigestJson = Json {
     explicitNulls = false
 }
 private val serialsDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+// One list refresh in the background at a time: the Library and the Dashboard both ask on focus.
+private val serialsRefreshing = AtomicBoolean(false)
 
 /**
+ * Cache-first, as the data-freshness principle 2 asks: without `force`, a snapshot of the list that
+ * is still fresh (SERIALS_SNAPSHOT_TTL_MS) is returned at once with no network call, and an older one
+ * is returned too while a background refresh replaces it. Only with no usable snapshot does the call
+ * wait for the server.
+ *
  * @param force when true, re-fetch `serials.list()` and re-merge every per-series cache even if
  *   the current caches are still fresh. A manual pull-to-refresh on the Library passes this.
  */
@@ -69,6 +77,23 @@ suspend fun buildSerialsDigest(
     cache: Cache,
     force: Boolean = false,
 ): SerialsDigest {
+    if (!force) {
+        val snapshot = readServedSnapshot(server, cache)
+        if (snapshot != null) {
+            if (snapshot.isStale(System.currentTimeMillis()) && serialsRefreshing.compareAndSet(false, true)) {
+                serialsDigestBackgroundScope.launch {
+                    try {
+                        buildSerialsDigest(server, cache, force = true)
+                    } finally {
+                        serialsRefreshing.set(false)
+                    }
+                }
+            }
+            serialLog("list snapshot hit serials=${snapshot.serials.size} ageMs=${System.currentTimeMillis() - snapshot.syncedAtEpochMs}")
+            return SerialsDigest.Success(serials = snapshot.withDescriptors(), lastUpdatedEpochMs = snapshot.syncedAtEpochMs)
+        }
+    }
+
     val response =
         try {
             server.serials.list()
@@ -103,14 +128,27 @@ suspend fun buildSerialsDigest(
 
     val lastUpdatedEpochMs = persisted.mapNotNull { it.cache?.cachedAtEpochMs }.maxOrNull()
 
-    if (!force && isSerialCacheStale(lastUpdatedEpochMs)) {
-        serialsDigestBackgroundScope.launch { buildSerialsDigest(server, cache, force = true) }
+    // An empty list is not remembered: it is more likely a server hiccup than an empty library.
+    if (minimals.isNotEmpty()) {
+        writeSerialsSnapshot(cache, SerialsSnapshot(System.currentTimeMillis(), serverInfo.url, minimals))
     }
 
     return SerialsDigest.Success(
         serials = persisted,
         lastUpdatedEpochMs = lastUpdatedEpochMs,
     )
+}
+
+// The snapshot, unless it came from another server or another address of it (its covers would point
+// there). With no active server resolved yet (a cold start) it is trusted: that is what lets the
+// first screen paint without waiting for the network.
+private suspend fun readServedSnapshot(
+    server: Server,
+    cache: Cache,
+): SerialsSnapshot? {
+    val snapshot = readSerialsSnapshot(cache) ?: return null
+    val activeUrl = server.getActiveInfo()?.url
+    return if (activeUrl != null && activeUrl != snapshot.serverUrl) null else snapshot
 }
 
 // A single SerialData (list row, cover already an ImageDescriptor) → the minimal SerialDigest.Success
