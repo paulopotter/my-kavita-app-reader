@@ -633,6 +633,53 @@ class ServerTest {
             assertEquals(listOf(baseUrl), info?.urls?.map { it.url })
         }
 
+    // ── resolveActiveUrl ─────────────────────────────────────────────────
+
+    @Test
+    fun `resolveActiveUrl fails when no group is active`() =
+        runTest {
+            val result = server.resolveActiveUrl()
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull() is ServerException)
+        }
+
+    @Test
+    fun `resolveActiveUrl answers with the URL of the active group that responds`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+            server.setActiveGroup(groupId)
+
+            assertEquals(baseUrl, server.resolveActiveUrl().getOrNull())
+        }
+
+    @Test
+    fun `resolveActiveUrl follows the group's URLs, not any other store`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+            server.setActiveGroup(groupId)
+            // A dead URL joins the group; the answer is the one that responds.
+            server.group(groupId).addUrl(NewServerUrl("http://127.0.0.1:1", 200, 0))
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+            server.group(groupId).validateUrls()
+
+            assertEquals(baseUrl, server.resolveActiveUrl().getOrNull())
+        }
+
+    @Test
+    fun `resolveActiveUrl fails when none of the active group's URLs answers`() =
+        runTest {
+            val groupId = addHealthyGroup()
+            mockServer.enqueue(MockResponse().setResponseCode(200))
+            server.setActiveGroup(groupId)
+            urlDao.deleteByGroupId(groupId)
+            server.group(groupId).addUrl(NewServerUrl("http://127.0.0.1:1", 200, 0))
+
+            assertTrue(server.resolveActiveUrl().isFailure)
+        }
+
     // ── setActiveGroup / getActiveContent ────────────────────────────────
 
     @Test

@@ -17,7 +17,7 @@ private const val POLL_INTERVAL_MS = 30_000L
 class ActiveUrlWatcher
     @Inject
     constructor(
-        private val urlSource: KavitaUrlSource,
+        private val urlSource: ActiveUrlSource,
     ) {
         private val _activeUrl = MutableStateFlow<String?>(null)
         val activeUrl: StateFlow<String?> = _activeUrl.asStateFlow()

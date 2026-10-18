@@ -8,8 +8,13 @@ import javax.inject.Singleton
 
 private const val KAVITA_HEALTH_PATH = "/api/Health"
 
-interface KavitaUrlSource {
+/** Where the active-URL watcher asks "which URL is answering right now". Bound in :app. */
+interface ActiveUrlSource {
     suspend fun getActiveUrl(): Result<String>
+}
+
+interface KavitaUrlSource : ActiveUrlSource {
+    override suspend fun getActiveUrl(): Result<String>
 
     suspend fun invalidateAndReselect(): Result<String>
 

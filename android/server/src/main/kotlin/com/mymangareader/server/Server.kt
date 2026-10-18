@@ -686,6 +686,17 @@ class Server
 
         fun getActiveGroupId(): String? = activeGroupId
 
+        // The URL the active group's URLs resolve to right now — UrlSelector's cache applies, so a
+        // caller polling this re-probes only when that cache has run out. Builds no plugin and
+        // authenticates nothing, and leaves getActive()/getActiveInfo() alone. Failure when no group
+        // is active, the group is gone or has no URLs, or none of its URLs answers.
+        suspend fun resolveActiveUrl(): Result<String> =
+            runCatching {
+                val groupId = activeGroupId ?: throw ServerException("No active server group set — call setActiveGroup(id) first")
+                val group = serverGroupDao.getById(groupId) ?: throw ServerException("Server group not found: $groupId")
+                urlSelector.getActiveUrl(urlCandidatesFor(groupId, group.healthCheckPath)).getOrThrow()
+            }
+
         // Resolves the active group's healthy URL and builds a live ServerPlugin for it, reusing the
         // session setActiveGroup obtained instead of authenticating again. Held under the same
         // activeMutex as setActiveGroup — a group switch can never happen mid-resolution.
