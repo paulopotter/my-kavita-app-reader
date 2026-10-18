@@ -7,8 +7,8 @@ approved contract changes.
 |---|------|------------|--------|
 | [001](001-loose-chapter-title-and-order.md) | Kavita plugin: title and order for "loose" chapters (sentinel `-100000`) from `titleName` and the volume number | — | implemented, awaiting device check |
 | [002](002-book-capability.md) | `book` capability on `ServerPlugin` (info, page, toc), Kavita implementation, `:server` facade, `ServerBridge.getBookInfo/getBookPage`, RN service | — | implemented, awaiting device check |
-| [003](003-webview-dependency-and-route.md) | `react-native-webview` dependency (new APK) and the `book-reader` route | — | pending |
-| [004](004-book-reader-screen.md) | `screens/book-reader/`: WebView reader, scroll progress, prev/next, mark read, routing from the series screen | 001, 002, 003 | pending |
+| [003](003-webview-dependency-and-route.md) | `react-native-webview` dependency (new APK) and the `book-reader` route | — | implemented, awaiting device check |
+| [004](004-book-reader-screen.md) | `screens/book-reader/`: WebView reader, scroll progress, prev/next, mark read, routing from the series screen | 001, 002, 003 | implemented, awaiting device check |
 
 ## Suggested execution order
 
