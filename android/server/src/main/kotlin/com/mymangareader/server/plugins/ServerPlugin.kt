@@ -98,6 +98,19 @@ data class PluginChapter(
     val fileFormat: String?,
 )
 
+/** What a provider knows about a chapter read as a book (text pages) rather than as images. */
+data class PluginBookInfo(
+    val title: String?,
+    val pageCount: Int,
+)
+
+/** One entry of a book's table of contents; [page] is the book page it opens. */
+data class PluginBookTocItem(
+    val title: String,
+    val page: Int,
+    val children: List<PluginBookTocItem>,
+)
+
 data class PluginProgress(
     val pageIndex: Int,
     val updatedAtUtc: String?,
@@ -194,6 +207,12 @@ interface ServerPlugin {
     val categories: Categories?
         get() = null
 
+    // Optional capability: reading a chapter as a book (an EPUB) instead of as image pages. A
+    // provider without it leaves this null, and asking Server for a book then fails with a clear
+    // "not supported" error — unlike categories there is no sensible empty answer to give.
+    val book: Book?
+        get() = null
+
     fun serial(serialId: String): Serial
 
     companion object {
@@ -235,6 +254,19 @@ interface ServerPlugin {
 
     interface Serials {
         suspend fun list(): List<PluginSerial>
+    }
+
+    interface Book {
+        suspend fun info(chapterId: String): PluginBookInfo
+
+        // One page of the book as an HTML FRAGMENT (not a whole document), with the book's own
+        // styles already scoped by the provider so they cannot leak into the page around it.
+        suspend fun page(
+            chapterId: String,
+            page: Int,
+        ): String
+
+        suspend fun toc(chapterId: String): List<PluginBookTocItem>
     }
 
     interface Categories {

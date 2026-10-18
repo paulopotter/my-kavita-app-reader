@@ -5,6 +5,8 @@ import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
+import com.mymangareader.server.plugins.PluginBookInfo
+import com.mymangareader.server.plugins.PluginBookTocItem
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
@@ -455,6 +457,22 @@ class Server
                     withUrlRetryEnveloped { it.categories?.serialIds(names).orEmpty() }
             }
 
+        // Neutral view of the active provider's book reading. A provider without the capability
+        // fails with a ServerException that says so, never with an empty book.
+        val book: Book =
+            object : Book {
+                override suspend fun info(chapterId: String): ServerResponse<PluginBookInfo> = withUrlRetryEnveloped { it.requireBook().info(chapterId) }
+
+                override suspend fun page(
+                    chapterId: String,
+                    page: Int,
+                ): ServerResponse<String> = withUrlRetryEnveloped { it.requireBook().page(chapterId, page) }
+
+                override suspend fun toc(chapterId: String): ServerResponse<List<PluginBookTocItem>> = withUrlRetryEnveloped { it.requireBook().toc(chapterId) }
+            }
+
+        private fun ServerPlugin.requireBook(): ServerPlugin.Book = book ?: throw ServerException("The active server does not support reading books")
+
         fun serial(serialId: String): Serial = SerialHandle(serialId)
 
         private inner class SerialHandle(
@@ -797,6 +815,17 @@ class Server
 
         interface Serials {
             suspend fun list(): ServerResponse<SerialListData>
+        }
+
+        interface Book {
+            suspend fun info(chapterId: String): ServerResponse<PluginBookInfo>
+
+            suspend fun page(
+                chapterId: String,
+                page: Int,
+            ): ServerResponse<String>
+
+            suspend fun toc(chapterId: String): ServerResponse<List<PluginBookTocItem>>
         }
 
         interface Categories {

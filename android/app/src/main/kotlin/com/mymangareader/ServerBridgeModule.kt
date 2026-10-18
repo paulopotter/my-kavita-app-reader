@@ -14,6 +14,8 @@ import com.mymangareader.server.SerialListData
 import com.mymangareader.server.Server
 import com.mymangareader.server.ServerGroupInfo
 import com.mymangareader.server.ServerUrlInfo
+import com.mymangareader.server.plugins.PluginBookTocItem
+import com.mymangareader.server.plugins.PluginBookInfo
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
@@ -275,6 +277,42 @@ class ServerBridgeModule
             }
         }
 
+        // ── content: book (a chapter read as an EPUB) ───────────────────────
+
+        @ReactMethod
+        fun getBookInfo(
+            chapterId: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { server.book.info(chapterId).data }
+                    .resolveOrReject(promise, "GET_BOOK_INFO_ERROR") { it.toWritableMap() }
+            }
+        }
+
+        // The page is an HTML fragment; it crosses the bridge as a plain string.
+        @ReactMethod
+        fun getBookPage(
+            chapterId: String,
+            page: Int,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { server.book.page(chapterId, page).data }.resolveOrReject(promise, "GET_BOOK_PAGE_ERROR") { it }
+            }
+        }
+
+        @ReactMethod
+        fun getBookToc(
+            chapterId: String,
+            promise: Promise,
+        ) {
+            scope.launch {
+                runCatching { server.book.toc(chapterId).data }
+                    .resolveOrReject(promise, "GET_BOOK_TOC_ERROR") { it.toTocWritableArray() }
+            }
+        }
+
         // ── content: chapters ────────────────────────────────────────────────
 
         @ReactMethod
@@ -473,6 +511,25 @@ class ServerBridgeModule
                 val statusCode = status
                 if (statusCode != null) putInt("status", statusCode) else putNull("status")
                 putDouble("elapsedMs", elapsedMs.toDouble())
+            }
+
+        private fun PluginBookInfo.toWritableMap() =
+            Arguments.createMap().apply {
+                if (title != null) putString("title", title) else putNull("title")
+                putInt("pageCount", pageCount)
+            }
+
+        private fun List<PluginBookTocItem>.toTocWritableArray(): com.facebook.react.bridge.WritableArray =
+            Arguments.createArray().also { arr ->
+                forEach { item ->
+                    arr.pushMap(
+                        Arguments.createMap().apply {
+                            putString("title", item.title)
+                            putInt("page", item.page)
+                            putArray("children", item.children.toTocWritableArray())
+                        },
+                    )
+                }
             }
 
         private fun SerialData.toWritableMap() =

@@ -2,6 +2,8 @@ package com.mymangareader.server.plugins.kavita
 
 import com.mymangareader.server.plugins.CredentialField
 import com.mymangareader.server.plugins.PluginAgeRating
+import com.mymangareader.server.plugins.PluginBookInfo
+import com.mymangareader.server.plugins.PluginBookTocItem
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginGenreOrTag
 import com.mymangareader.server.plugins.PluginPageDimension
@@ -14,6 +16,8 @@ import com.mymangareader.server.plugins.kavita.auth.KavitaAuth
 import com.mymangareader.server.plugins.kavita.chapter.KavitaChapter
 import com.mymangareader.server.plugins.kavita.chapter.KavitaChapterDto
 import com.mymangareader.server.plugins.kavita.category.KavitaCategory
+import com.mymangareader.server.plugins.kavita.book.KavitaBook
+import com.mymangareader.server.plugins.kavita.book.KavitaBookTocItemDto
 import com.mymangareader.server.plugins.kavita.chapter.KavitaVolumeDto
 import com.mymangareader.server.plugins.kavita.series.KavitaGenreDto
 import com.mymangareader.server.plugins.kavita.series.KavitaSeries
@@ -115,6 +119,8 @@ class KavitaServerPlugin(
 
     private fun kavitaCategory(token: String) = KavitaCategory(baseUrl, token, requestTool)
 
+    private fun kavitaBook(token: String) = KavitaBook(baseUrl, token, requestTool)
+
     private fun kavitaChapter(token: String) = KavitaChapter(baseUrl, token, apiKey, requestTool)
 
     private suspend fun ensureToken(): String {
@@ -186,6 +192,21 @@ class KavitaServerPlugin(
             val tags = async { api.listTags() }
             CategoryTable(genres.await(), tags.await())
         }.also { categoryTable = it }
+
+    override val book: ServerPlugin.Book =
+        object : ServerPlugin.Book {
+            override suspend fun info(chapterId: String): PluginBookInfo {
+                val dto = kavitaBook(ensureToken()).info(chapterId)
+                return PluginBookInfo(title = (dto.bookTitle ?: dto.chapterTitle)?.trim()?.takeIf { it.isNotEmpty() }, pageCount = dto.pages)
+            }
+
+            override suspend fun page(
+                chapterId: String,
+                page: Int,
+            ): String = kavitaBook(ensureToken()).page(chapterId, page)
+
+            override suspend fun toc(chapterId: String): List<PluginBookTocItem> = kavitaBook(ensureToken()).toc(chapterId).map { it.toPluginTocItem() }
+        }
 
     override val categories: ServerPlugin.Categories =
         object : ServerPlugin.Categories {
@@ -426,6 +447,9 @@ private fun KavitaSeriesMetadataDto.toPluginSeriesMetadata() =
         releaseYear = if (releaseYear != 0) releaseYear else null,
         language = language,
     )
+
+private fun KavitaBookTocItemDto.toPluginTocItem(): PluginBookTocItem =
+    PluginBookTocItem(title = title.orEmpty().trim(), page = page, children = children.orEmpty().map { it.toPluginTocItem() })
 
 // Kavita's own MangaFormat enum (0=Image, 1=Archive, 2=Unknown, 3=Epub, 4=Pdf) — this table is the
 // only place that knowledge lives; PluginChapter.fileFormat is free-form text as far as :server

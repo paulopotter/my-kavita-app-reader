@@ -1,5 +1,8 @@
 package com.mymangareader.server.plugins.kavita
 
+import com.mymangareader.server.plugins.PluginBookInfo
+import com.mymangareader.server.plugins.PluginBookTocItem
+import com.mymangareader.server.plugins.kavita.book.KavitaBookException
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -473,6 +476,83 @@ class KavitaServerPluginTest {
 
             assertEquals(6.0, chapter.decimalNumber)
             assertEquals("Capítulo 6", chapter.title)
+        }
+
+    // ── book (the EPUB capability) ────────────────────────────────────────
+
+    @Test
+    fun `book info maps the title and the page count`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"bookTitle":"Capítulo 1","chapterTitle":null,"pages":3,"seriesId":7}"""))
+
+            val info = plugin.book.info("100")
+
+            assertEquals(PluginBookInfo(title = "Capítulo 1", pageCount = 3), info)
+            val request = server.takeRequest()
+            assertEquals("/api/Book/100/book-info", request.path)
+            assertEquals("Bearer jwt-token", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun `book info falls back to chapterTitle and treats a blank title as none`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"bookTitle":null,"chapterTitle":"  From chapter ","pages":1}"""))
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"bookTitle":"   ","pages":1}"""))
+
+            assertEquals("From chapter", plugin.book.info("100").title)
+            assertNull(plugin.book.info("100").title)
+        }
+
+    @Test
+    fun `book page returns the html fragment untouched and asks for that page`() =
+        runTest {
+            val html = "<div class=\" \"><style>.book-content p{margin:0}</style><h1>Capítulo 1</h1><p>Olá</p></div>"
+            server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "text/plain; charset=utf-8").setBody(html))
+
+            val page = plugin.book.page("100", 2)
+
+            assertEquals(html, page)
+            assertEquals("/api/Book/100/book-page?page=2", server.takeRequest().path)
+        }
+
+    @Test
+    fun `book toc maps nested items`() =
+        runTest {
+            server.enqueue(
+                MockResponse().setResponseCode(200).setBody(
+                    """[{"title":"Obra","part":"","page":0,"children":[{"title":" Capítulo 1 ","part":"","page":0,"children":[]},{"title":null,"page":2}]}]""",
+                ),
+            )
+
+            val toc = plugin.book.toc("100")
+
+            assertEquals(
+                listOf(
+                    PluginBookTocItem(
+                        "Obra",
+                        0,
+                        listOf(PluginBookTocItem("Capítulo 1", 0, emptyList()), PluginBookTocItem("", 2, emptyList())),
+                    ),
+                ),
+                toc,
+            )
+            assertEquals("/api/Book/100/chapters", server.takeRequest().path)
+        }
+
+    @Test
+    fun `book calls refuse a chapter id that is not a number`() =
+        runTest {
+            assertFailsWith<KavitaBookException> { plugin.book.page("1/../../admin", 0) }
+            assertFailsWith<KavitaBookException> { plugin.book.info("abc") }
+            assertEquals(0, server.requestCount)
+        }
+
+    @Test
+    fun `book calls fail on an HTTP error instead of returning the error body`() =
+        runTest {
+            server.enqueue(MockResponse().setResponseCode(404).setBody("not found"))
+
+            assertFailsWith<KavitaBookException> { plugin.book.page("100", 0) }
         }
 
     @Test

@@ -9,6 +9,8 @@ import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
 import com.mymangareader.core.database.ServerUrlEntity
 import com.mymangareader.server.plugins.CredentialField
+import com.mymangareader.server.plugins.PluginBookInfo
+import com.mymangareader.server.plugins.PluginBookTocItem
 import com.mymangareader.server.plugins.PluginChapter
 import com.mymangareader.server.plugins.PluginPageDimension
 import com.mymangareader.server.plugins.PluginProgress
@@ -197,6 +199,7 @@ private class FakeUrlSelector(
 // makes exactly the next serials.list() call throw that error instead of returning — used to
 // simulate a dead URL for the network-retry tests.
 private var sharedFakeCategories: ServerPlugin.Categories? = null
+private var sharedFakeBook: ServerPlugin.Book? = null
 
 private class FakePlugin(
     val authJson: String,
@@ -214,6 +217,9 @@ private class FakePlugin(
     // the test sets before the call and clears after.
     override val categories: ServerPlugin.Categories?
         get() = sharedFakeCategories
+
+    override val book: ServerPlugin.Book?
+        get() = sharedFakeBook
 
     override val auth =
         object : ServerPlugin.Auth {
@@ -824,6 +830,43 @@ class ServerTest {
 
             assertEquals(emptyList<String>(), server.categories.list().data)
             assertEquals(emptyList<String>(), server.categories.serialIds(listOf("Action")).data)
+        }
+
+    @Test
+    fun `book delegates to the active plugin`() =
+        runTest {
+            activateGroup()
+            sharedFakeBook =
+                object : ServerPlugin.Book {
+                    override suspend fun info(chapterId: String) = PluginBookInfo(title = "T$chapterId", pageCount = 2)
+
+                    override suspend fun page(
+                        chapterId: String,
+                        page: Int,
+                    ) = "<p>$chapterId/$page</p>"
+
+                    override suspend fun toc(chapterId: String) = listOf(PluginBookTocItem("Intro", 0, emptyList()))
+                }
+
+            try {
+                assertEquals(PluginBookInfo("T9", 2), server.book.info("9").data)
+                assertEquals("<p>9/1</p>", server.book.page("9", 1).data)
+                assertEquals(listOf(PluginBookTocItem("Intro", 0, emptyList())), server.book.toc("9").data)
+            } finally {
+                sharedFakeBook = null
+            }
+        }
+
+    @Test
+    fun `a plugin without the book capability fails with a message that says so`() =
+        runTest {
+            activateGroup()
+
+            val failure = assertFailsWith<ServerException> { server.book.page("9", 0) }
+
+            assertTrue(failure.message!!.contains("does not support reading books"))
+            assertFailsWith<ServerException> { server.book.info("9") }
+            assertFailsWith<ServerException> { server.book.toc("9") }
         }
 
     @Test
