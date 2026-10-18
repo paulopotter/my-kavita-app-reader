@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme, useStyles } from '../../../shared/context';
 import { useStrings } from '../../../shared/i18n';
 // Config deliberately reaches into the screen it configures — ReaderProgressIndicatorFields is
@@ -8,13 +8,15 @@ import { useStrings } from '../../../shared/i18n';
 // are its only two callers; promote it to shared/ if a third screen ever needs it (same
 // precedent as ChapterSortFields in screens/serie/, imported by screens/config/serials/).
 import { ReaderProgressIndicatorFields } from '../../reader/components/reader-progress-indicator-fields';
+import { BookAppearanceFields } from '../../../shared/components/book-appearance-fields';
 import { BackChevron } from '../components';
 
-import { useReaderPrefs } from './reader.hooks';
+import { useBookReadingPrefs, useReaderPrefs } from './reader.hooks';
 import { readerStyles } from './reader.styles';
 import { configStyles as makeChrome } from '../config.styles';
 
-// Reading preferences: keep-screen-on + immersive mode while reading. Same folder name as the
+// Reading preferences: keep-screen-on + immersive mode while reading, the progress bar's edge, and a
+// block of its own for how a novel looks and reads. Same folder name as the
 // real reader screen (screens/reader/) on purpose — this is that screen's config, scoped inside
 // screens/config/.
 export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
@@ -23,6 +25,7 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
   const styles = useMemo(() => readerStyles({ colors, text }), [colors, text]);
   const t = useStrings();
   const { prefs, update } = useReaderPrefs();
+  const book = useBookReadingPrefs();
 
   return (
     <View style={chrome.root}>
@@ -31,7 +34,7 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
         <Text style={chrome.subTitle}>{t.configMenuReading}</Text>
       </View>
 
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container}>
         {prefs && (
           <>
             {/* Tapping anywhere on the row toggles it, not just the Switch thumb. */}
@@ -69,7 +72,20 @@ export function ReaderPrefsScreen({ onBack }: { onBack: () => void }) {
             />
           </>
         )}
-      </View>
+
+        {book.ready && (
+          <View style={styles.block} testID="config-book-reading">
+            <Text style={styles.blockTitle}>{t.configBookReadingTitle}</Text>
+            <BookAppearanceFields
+              appearance={book.appearance}
+              mode={book.mode}
+              t={t}
+              onChangeMode={book.changeMode}
+              onChange={book.changeAppearance}
+            />
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }

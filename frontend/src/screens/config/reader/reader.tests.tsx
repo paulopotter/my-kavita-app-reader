@@ -25,8 +25,28 @@ jest.mock('../../../shared/tools/reader', () => ({
   },
 }));
 
+const mockBookAppearanceGet = jest.fn();
+const mockBookAppearanceSet = jest.fn();
+const mockBookModeGet = jest.fn();
+const mockBookModeSet = jest.fn();
+jest.mock('../../../shared/tools/books', () => {
+  const actual = jest.requireActual('../../../shared/tools/books');
+  return {
+    ...actual,
+    BookPrefs: {
+      ...actual.BookPrefs,
+      appearance: {
+        get: (...a: unknown[]) => mockBookAppearanceGet(...a),
+        set: (...a: unknown[]) => mockBookAppearanceSet(...a),
+      },
+      mode: { get: (...a: unknown[]) => mockBookModeGet(...a), set: (...a: unknown[]) => mockBookModeSet(...a) },
+    },
+  };
+});
+
 import { getStrings } from '../../../shared/i18n/strings';
-import { useReaderPrefs } from './reader.hooks';
+import { DEFAULT_BOOK_APPEARANCE } from '../../../shared/tools/books/book-prefs.tool';
+import { useBookReadingPrefs, useReaderPrefs } from './reader.hooks';
 import { ReaderPrefsScreen } from './reader.screen';
 
 const t = getStrings('en');
@@ -39,6 +59,10 @@ beforeEach(() => {
   mockSetKeepScreenOn.mockResolvedValue(undefined);
   mockSetImmersiveMode.mockResolvedValue(undefined);
   mockSetProgressBarPosition.mockResolvedValue(undefined);
+  mockBookAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE });
+  mockBookAppearanceSet.mockResolvedValue(undefined);
+  mockBookModeGet.mockResolvedValue('infinite');
+  mockBookModeSet.mockResolvedValue(undefined);
 });
 
 describe('useReaderPrefs', () => {
@@ -115,5 +139,65 @@ describe('ReaderPrefsScreen', () => {
     await waitFor(() => expect(getByText(t.configKeepScreenOn)).toBeTruthy());
     fireEvent.press(findPressableAncestor(UNSAFE_getByType(ChevronLeft), TouchableOpacity) as never);
     expect(onBack).toHaveBeenCalled();
+  });
+});
+
+describe('useBookReadingPrefs', () => {
+  it('loads the saved look and mode', async () => {
+    mockBookAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE, theme: 'night' });
+    mockBookModeGet.mockResolvedValue('paged');
+    const { result } = renderHook(() => useBookReadingPrefs());
+    expect(result.current.ready).toBe(false);
+
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.appearance.theme).toBe('night');
+    expect(result.current.mode).toBe('paged');
+  });
+
+  it('keeps the defaults, and is ready, when the saved values cannot be read', async () => {
+    mockBookAppearanceGet.mockRejectedValue(new Error('x'));
+    const { result } = renderHook(() => useBookReadingPrefs());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.appearance).toEqual(DEFAULT_BOOK_APPEARANCE);
+    expect(result.current.mode).toBe('infinite');
+  });
+
+  it('changes one preference and saves it', async () => {
+    const { result } = renderHook(() => useBookReadingPrefs());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+
+    act(() => result.current.changeAppearance('margin', 'wide'));
+
+    expect(result.current.appearance.margin).toBe('wide');
+    expect(mockBookAppearanceSet).toHaveBeenCalledWith({ key: 'margin', value: 'wide' });
+  });
+
+  it('changes the mode and saves it', async () => {
+    const { result } = renderHook(() => useBookReadingPrefs());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+
+    act(() => result.current.changeMode('paged'));
+
+    expect(result.current.mode).toBe('paged');
+    expect(mockBookModeSet).toHaveBeenCalledWith('paged');
+  });
+});
+
+describe('ReaderPrefsScreen — novel block', () => {
+  it('shows the novel reading block under the reader toggles', async () => {
+    const { getByText, getByTestId } = render(<ReaderPrefsScreen onBack={jest.fn()} />);
+    await waitFor(() => expect(getByTestId('config-book-reading')).toBeTruthy());
+    expect(getByText(t.configBookReadingTitle)).toBeTruthy();
+    expect(getByText(t.bookReaderThemeLabel)).toBeTruthy();
+    expect(getByText(t.bookReaderModeLabel)).toBeTruthy();
+  });
+
+  it('saves a choice made in the block', async () => {
+    const { getByLabelText, getByTestId } = render(<ReaderPrefsScreen onBack={jest.fn()} />);
+    await waitFor(() => expect(getByTestId('config-book-reading')).toBeTruthy());
+
+    fireEvent.press(getByLabelText(t.bookReaderThemeSepia));
+
+    expect(mockBookAppearanceSet).toHaveBeenCalledWith({ key: 'theme', value: 'sepia' });
   });
 });

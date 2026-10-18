@@ -189,6 +189,8 @@ export interface Strings {
   bookReaderThemeBlack: string;
   bookReaderThemeContrast: string;
   bookReaderFontLabel: string;
+  bookReaderFontSizeLabel: string;
+  configBookReadingTitle: string;
   bookReaderFontSerif: string;
   bookReaderFontSans: string;
   bookReaderFontMono: string;
@@ -652,6 +654,8 @@ const ptBR: Strings = {
   bookReaderThemeBlack: 'Preto',
   bookReaderThemeContrast: 'Alto contraste',
   bookReaderFontLabel: 'Fonte',
+  bookReaderFontSizeLabel: 'Tamanho do texto',
+  configBookReadingTitle: 'Leitura de novel',
   bookReaderFontSerif: 'Com serifa',
   bookReaderFontSans: 'Sem serifa',
   bookReaderFontMono: 'Monoespaçada',
@@ -1080,6 +1084,8 @@ const en: Strings = {
   bookReaderThemeBlack: 'Black',
   bookReaderThemeContrast: 'High contrast',
   bookReaderFontLabel: 'Font',
+  bookReaderFontSizeLabel: 'Text size',
+  configBookReadingTitle: 'Novel reading',
   bookReaderFontSerif: 'Serif',
   bookReaderFontSans: 'Sans serif',
   bookReaderFontMono: 'Monospace',

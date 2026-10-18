@@ -1,4 +1,5 @@
 export * from './app-versions';
+export * from './book-appearance-fields';
 export * from './card';
 export * from './confirm-dialog';
 export * from './follow-star';
