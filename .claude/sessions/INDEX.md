@@ -5,6 +5,7 @@
 | Plan | Description |
 |------|-------------|
 | [029 — Zoom no leitor](active/029-zoom-no-leitor/README.md) | 2 tasks — 1 concluída (001); a 002 espera o veredito de nitidez do usuário. Zoom no modo webtoon: duplo toque alterna 1x/2x, pinça de 1x a 4x, pan nos dois eixos preso aos limites da página tocada, rolagem da lista travada enquanto ampliado. Contrato novo: prop `zoomEnabled` e evento `onZoomChanged` no `ReaderPageListView`. A task 002 (redecodificar a região visível em resolução cheia) só entra se o usuário achar a 001 borrada no device |
+| [030 — Cache da série em segmentos](active/030-cache-da-serie-em-segmentos/README.md) | 2 tasks — 001 em andamento; a 002 é condicional. Uma série com mais de 3000 capítulos passava de ~2 MB numa única linha do cache e estourava o `CursorWindow`; hoje, por causa do paliativo do commit `c03ed8e`, ela fica sem cache e é remontada pela rede a cada abertura. A task 001 (interna, sem mudança de contrato) parte a lista de capítulos em segmentos de ~300-500 linhas próprias e remonta o mesmo `SerialDigest` na leitura. A task 002 (paginar capítulos na tela da série) é mudança de contrato, exige nova aprovação e só entra se a página ainda ficar pesada no device. Relacionado ao backlog 017 e à revisão ampla das regras de cache do `:content-digest` |
 
 ## Concluídos
 
