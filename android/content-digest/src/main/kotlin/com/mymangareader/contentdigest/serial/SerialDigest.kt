@@ -283,6 +283,11 @@ suspend fun buildSerialDigest(
             val enrichmentPending =
                 (digest.metadata?.external as? ExternalMetadataDigest.Failure)?.error?.code == PENDING_ERROR_CODE
             val incomplete = digest.chapters == null || enrichmentPending || listRowContradicts(cache, seriesId, key, cached, digest)
+            // Why a hit was thrown away, so a screen that loads again on every return can be explained
+            // from the device log (the contradiction case logs its own numbers).
+            if (incomplete) {
+                serialLog("reject key=$key noChapters=${digest.chapters == null} enrichmentPending=$enrichmentPending")
+            }
             if (!incomplete) {
                 if (cached.isExpired) {
                     serialDigestBackgroundScope.launch {
@@ -332,7 +337,14 @@ private suspend fun listRowContradicts(
     val listEntry = cache.persistent.get(listKey, variant = SERIAL_CACHE_VARIANT) ?: return false
     if (listEntry.cachedAtEpochMs <= cached.cachedAtEpochMs) return false
     val row = runCatching { serialDigestJson.decodeFromString<SerialDigest.Success>(listEntry.value) }.getOrNull() ?: return false
-    return row.pages != digest.pages || row.lastUpdatesUTC?.chapterAdded != digest.lastUpdatesUTC?.chapterAdded
+    val contradicts = row.pages != digest.pages || row.lastUpdatesUTC?.chapterAdded != digest.lastUpdatesUTC?.chapterAdded
+    if (contradicts) {
+        serialLog(
+            "contradicts key=$key listPages=${row.pages} digestPages=${digest.pages} " +
+                "listAdded=${row.lastUpdatesUTC?.chapterAdded} digestAdded=${digest.lastUpdatesUTC?.chapterAdded}",
+        )
+    }
+    return contradicts
 }
 
 // Patches one chapter's readStatus in-place inside every cached variant of this series (full x
