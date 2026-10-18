@@ -133,7 +133,7 @@ export function useDashboard() {
     return {
       ...built,
       continueReading: mark(built.continueReading),
-      latestChapters: mark(built.latestChapters),
+      followedUpdated: mark(built.followedUpdated),
       recentlyUpdated: mark(built.recentlyUpdated),
       unreadFollowed: mark(built.unreadFollowed),
       recentlyAdded: mark(built.recentlyAdded),

@@ -156,13 +156,16 @@ export interface Strings {
 
   // ── Dashboard (Home tab) ─────────────────────────────────────────────────
   dashboardContinueReading: string;
-  dashboardLatestChapters: string;
+  dashboardFollowedUpdated: string;
   dashboardRecentlyUpdated: string;
   dashboardUnreadFollowed: string;
   dashboardRecentlyAdded: string;
   dashboardEmpty: string;
   dashboardChapter: string; // "{0}" = chapter number — "Cap. {0}"
   dashboardPercentRead: string; // "{0}" = percent — "{0}% lido"
+  dashboardNextChapter: string; // "{0}" = chapter number — "Próximo: Cap. {0}"
+  dashboardBadgeNovel: string;
+  dashboardBadgePdf: string;
   dashboardStatSeries: string;
   dashboardStatFollowed: string;
   dashboardStatInProgress: string;
@@ -621,13 +624,16 @@ const ptBR: Strings = {
   navConfig: 'Ajustes',
 
   dashboardContinueReading: 'Continuar lendo',
-  dashboardLatestChapters: 'Novos capítulos',
-  dashboardRecentlyUpdated: 'Atualizadas',
-  dashboardUnreadFollowed: 'Na fila',
+  dashboardFollowedUpdated: 'Obras seguidas atualizadas',
+  dashboardRecentlyUpdated: 'Atualizadas recentemente',
+  dashboardUnreadFollowed: 'Ainda não terminei…',
   dashboardRecentlyAdded: 'Novas na biblioteca',
   dashboardEmpty: 'Sem conteúdo',
   dashboardChapter: 'Cap. {0}',
   dashboardPercentRead: '{0}% lido',
+  dashboardNextChapter: 'Próximo: Cap. {0}',
+  dashboardBadgeNovel: 'Novel',
+  dashboardBadgePdf: 'PDF',
   dashboardStatSeries: 'Obras',
   dashboardStatFollowed: 'Seguidas',
   dashboardStatInProgress: 'Em andamento',
@@ -1051,13 +1057,16 @@ const en: Strings = {
   navConfig: 'Settings',
 
   dashboardContinueReading: 'Continue reading',
-  dashboardLatestChapters: 'New chapters',
-  dashboardRecentlyUpdated: 'Updated',
-  dashboardUnreadFollowed: 'Up next',
+  dashboardFollowedUpdated: 'Followed series updated',
+  dashboardRecentlyUpdated: 'Recently updated',
+  dashboardUnreadFollowed: 'Not finished yet…',
   dashboardRecentlyAdded: 'New in library',
   dashboardEmpty: 'Nothing here yet',
   dashboardChapter: 'Ch. {0}',
   dashboardPercentRead: '{0}% read',
+  dashboardNextChapter: 'Next: Ch. {0}',
+  dashboardBadgeNovel: 'Novel',
+  dashboardBadgePdf: 'PDF',
   dashboardStatSeries: 'Series',
   dashboardStatFollowed: 'Following',
   dashboardStatInProgress: 'In progress',

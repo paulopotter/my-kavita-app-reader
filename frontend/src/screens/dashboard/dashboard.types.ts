@@ -10,6 +10,8 @@ export interface DashboardItem {
   progressFraction?: number;
   // Adult-content filter: draw the tile blurred.
   blurred?: boolean;
+  // What the series is made of when it is not a comic ("Novel", "PDF"), already localized.
+  badge?: string;
 }
 
 export interface DashboardStats {
@@ -20,7 +22,7 @@ export interface DashboardStats {
 
 export interface DashboardData {
   continueReading: DashboardItem[];
-  latestChapters: DashboardItem[];
+  followedUpdated: DashboardItem[];
   recentlyUpdated: DashboardItem[];
   unreadFollowed: DashboardItem[];
   recentlyAdded: DashboardItem[];

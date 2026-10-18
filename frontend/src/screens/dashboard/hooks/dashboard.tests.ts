@@ -88,7 +88,7 @@ describe('useDashboard', () => {
     await waitFor(() => expect(result.current.data!.continueReading).toHaveLength(1));
     const data = result.current.data!;
     expect(data.continueReading.map(i => i.chapterId)).toEqual(['c1']);
-    expect(data.latestChapters.map(i => i.seriesId)).toEqual(['2']);
+    expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['2']);
     expect(data.stats).toEqual({ series: 2, followed: 1, inProgress: 1 });
   });
 

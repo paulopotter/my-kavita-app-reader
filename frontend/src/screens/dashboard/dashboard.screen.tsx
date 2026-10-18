@@ -57,9 +57,9 @@ export function DashboardScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
       <StatsStrip stats={data.stats} />
       <Rail title={t.dashboardContinueReading} items={data.continueReading} loading={continueLoading} onPressItem={open} />
-      <Rail title={t.dashboardLatestChapters} items={data.latestChapters} onPressItem={open} />
-      <Rail title={t.dashboardRecentlyUpdated} items={data.recentlyUpdated} onPressItem={open} />
+      <Rail title={t.dashboardFollowedUpdated} items={data.followedUpdated} onPressItem={open} />
       <Rail title={t.dashboardUnreadFollowed} items={data.unreadFollowed} onPressItem={open} />
+      <Rail title={t.dashboardRecentlyUpdated} items={data.recentlyUpdated} onPressItem={open} />
       <Rail title={t.dashboardRecentlyAdded} items={data.recentlyAdded} onPressItem={open} />
     </ScrollView>
   );

@@ -129,7 +129,7 @@ describe('DashboardTool.continueItem', () => {
   });
 });
 
-describe('DashboardTool.latestChapters', () => {
+describe('DashboardTool.followedUpdated', () => {
   it('lists followed series whose newest chapter is later than their last read, newest first', () => {
     const series = [
       serie({ id: 'a', lastUpdatesUTC: { chapterAdded: NOW - 2 * HOUR, readDate: NOW - 5 * HOUR } }),
@@ -138,7 +138,7 @@ describe('DashboardTool.latestChapters', () => {
       serie({ id: 'not-followed', lastUpdatesUTC: { chapterAdded: NOW } }),
       serie({ id: 'no-date' }),
     ];
-    const items = DashboardTool.latestChapters({
+    const items = DashboardTool.followedUpdated({
       series,
       followedIds: new Set(['a', 'b', 'caught-up', 'no-date']),
       limit: 5,
@@ -151,7 +151,7 @@ describe('DashboardTool.latestChapters', () => {
   it('respects the limit', () => {
     const series = Array.from({ length: 5 }, (_, i) => serie({ id: String(i), lastUpdatesUTC: { chapterAdded: NOW - i * HOUR } }));
     const followedIds = new Set(series.map(s => s.id));
-    expect(DashboardTool.latestChapters({ series, followedIds, limit: 2, t })).toHaveLength(2);
+    expect(DashboardTool.followedUpdated({ series, followedIds, limit: 2, t })).toHaveLength(2);
   });
 });
 
@@ -236,7 +236,7 @@ describe('DashboardTool.build', () => {
     });
     expect(data.continueReading).toHaveLength(DASHBOARD_LIMITS.continueReading);
     expect(data.continueReading[0].seriesId).toBe('r0');
-    expect(data.latestChapters.map(i => i.seriesId)).toEqual(['x']);
+    expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['x']);
     expect(data.recentlyUpdated.map(i => i.seriesId)).toEqual(['x']);
     expect(data.unreadFollowed).toEqual([]);
     expect(data.recentlyAdded).toEqual([]);
@@ -267,5 +267,24 @@ describe('DashboardTool.sameContinue', () => {
     expect(DashboardTool.sameContinue({ previous: [resumed()], next: [moved] })).toBe(false);
     const further = resumed({ chapters: [{ id: 'c1', number: 3, pages: { count: 10, readCount: 7 } } as Serie['chapters'][number]] });
     expect(DashboardTool.sameContinue({ previous: [resumed()], next: [further] })).toBe(false);
+  });
+});
+
+describe('DashboardTool — what a tile says it is made of', () => {
+  const added = { lastUpdatesUTC: { chapterAdded: NOW - HOUR } };
+
+  it('badges a novel and a PDF, and leaves a comic bare', () => {
+    const series = [
+      serie({ id: 'n', fileFormat: 'epub', ...added }),
+      serie({ id: 'p', fileFormat: 'pdf', ...added }),
+      serie({ id: 'c', fileFormat: 'image', ...added }),
+      serie({ id: 'u', ...added }),
+    ];
+    const items = DashboardTool.recentlyUpdated({ series, limit: 10, t });
+    const badgeOf = (id: string) => items.find(i => i.seriesId === id)?.badge;
+    expect(badgeOf('n')).toBe(t.dashboardBadgeNovel);
+    expect(badgeOf('p')).toBe(t.dashboardBadgePdf);
+    expect(badgeOf('c')).toBeUndefined();
+    expect(badgeOf('u')).toBeUndefined();
   });
 });

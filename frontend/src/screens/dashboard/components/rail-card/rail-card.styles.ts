@@ -11,6 +11,18 @@ export const railCardStyles = createStyles(({ colors, text, spacing, radius, blu
     borderRadius: radius.medium,
     backgroundColor: colors.surface.tertiary,
   },
+  // A pill in the cover's top-left corner: the button fill with the label made for it, so it reads
+  // on any cover.
+  badge: {
+    position: 'absolute',
+    top: spacing[2],
+    left: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: radius.full,
+    backgroundColor: colors.button.primary,
+  },
+  badgeText: { color: colors.text.button.primary, fontSize: text.size[1], fontWeight: text.weight.bold },
   name: {
     color: colors.text.emphasis,
     fontSize: text.size[2],

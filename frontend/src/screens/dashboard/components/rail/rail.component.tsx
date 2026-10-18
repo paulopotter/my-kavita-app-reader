@@ -52,6 +52,7 @@ export function Rail({ title, items, onPressItem, loading = false }: RailProps) 
               caption={item.caption}
               progressFraction={item.progressFraction}
               blurred={item.blurred}
+              badge={item.badge}
               onPress={() => onPressItem(item)}
             />
           )}

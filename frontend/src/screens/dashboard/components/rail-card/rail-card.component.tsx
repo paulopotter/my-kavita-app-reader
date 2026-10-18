@@ -13,6 +13,8 @@ export interface RailCardProps {
   caption?: string;
   progressFraction?: number;
   blurred?: boolean;
+  // "Novel" / "PDF": drawn over a corner of the cover.
+  badge?: string;
   onPress: (id: string) => void;
 }
 
@@ -23,12 +25,20 @@ export const RailCard = React.memo(function RailCard({
   caption,
   progressFraction,
   blurred,
+  badge,
   onPress,
 }: RailCardProps) {
   const styles = useStyles(railCardStyles);
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(id)} activeOpacity={0.8}>
-      <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" blurRadius={blurred ? blur.cover : 0} />
+      <View>
+        <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" blurRadius={blurred ? blur.cover : 0} />
+        {badge != null && (
+          <View style={styles.badge} testID="rail-card-badge">
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
       <Text style={[styles.name, blurred && styles.textBlurred]} numberOfLines={2}>
         {name}
       </Text>

@@ -9,7 +9,7 @@ import type { DashboardData, DashboardItem, DashboardStats } from './dashboard.t
 
 export const DASHBOARD_LIMITS = {
   continueReading: 10,
-  latestChapters: 10,
+  followedUpdated: 10,
   recentlyUpdated: 10,
   unreadFollowed: 10,
   recentlyAdded: 10,
@@ -45,8 +45,16 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function baseItem(serie: Serie): DashboardItem {
-  return { seriesId: serie.id, name: serie.name, coverUrl: serie.coverImage.url };
+// A label for what a series is made of, when it is not a comic: an EPUB is a novel, a PDF says PDF
+// (it may be a scanned comic, so it is not called a novel). Comics get none, to keep tiles clean.
+function formatBadge({ serie, t }: { serie: Serie; t: Strings }): string | undefined {
+  if (serie.fileFormat === 'epub') {return t.dashboardBadgeNovel;}
+  if (serie.fileFormat === 'pdf') {return t.dashboardBadgePdf;}
+  return undefined;
+}
+
+function baseItem({ serie, t }: { serie: Serie; t: Strings }): DashboardItem {
+  return { seriesId: serie.id, name: serie.name, coverUrl: serie.coverImage.url, badge: formatBadge({ serie, t }) };
 }
 
 function updatedCaption({ serie, t }: { serie: Serie; t: Strings }): string | undefined {
@@ -76,7 +84,7 @@ export const DashboardTool = {
     const hasBar =
       resume.status === 'IN_PROGRESS' && pages?.count != null && pages.count > 0 && (pages.readCount ?? 0) > 0;
     return {
-      ...baseItem(serie),
+      ...baseItem({ serie, t }),
       chapterId: resume.stoppedAtChapterId,
       caption: number != null ? t.dashboardChapter.replace('{0}', String(number)) : undefined,
       progressFraction: hasBar ? clamp01(pages!.readCount! / pages!.count!) : undefined,
@@ -111,7 +119,7 @@ export const DashboardTool = {
   },
 
   // Followed series that got a chapter after the last time the user read them.
-  latestChapters({
+  followedUpdated({
     series,
     followedIds,
     limit,
@@ -130,7 +138,7 @@ export const DashboardTool = {
       })
       .sort((a, b) => chapterAddedOf(b)! - chapterAddedOf(a)!)
       .slice(0, limit)
-      .map(s => ({ ...baseItem(s), caption: updatedCaption({ serie: s, t }) }));
+      .map(s => ({ ...baseItem({ serie: s, t }), caption: updatedCaption({ serie: s, t }) }));
   },
 
   recentlyUpdated({ series, limit, t }: { series: Serie[]; limit: number; t: Strings }): DashboardItem[] {
@@ -138,7 +146,7 @@ export const DashboardTool = {
       .filter(s => chapterAddedOf(s) != null)
       .sort((a, b) => chapterAddedOf(b)! - chapterAddedOf(a)!)
       .slice(0, limit)
-      .map(s => ({ ...baseItem(s), caption: updatedCaption({ serie: s, t }) }));
+      .map(s => ({ ...baseItem({ serie: s, t }), caption: updatedCaption({ serie: s, t }) }));
   },
 
   // Followed series with something still unread, newest chapter first.
@@ -160,7 +168,7 @@ export const DashboardTool = {
       .map(s => {
         const fraction = clamp01(s.pages!.read / s.pages!.total);
         return {
-          ...baseItem(s),
+          ...baseItem({ serie: s, t }),
           caption: t.dashboardPercentRead.replace('{0}', String(Math.round(fraction * 100))),
           progressFraction: fraction > 0 ? fraction : undefined,
         };
@@ -174,7 +182,7 @@ export const DashboardTool = {
       .filter(s => createdOf(s) != null)
       .sort((a, b) => createdOf(b)! - createdOf(a)!)
       .slice(0, limit)
-      .map(s => ({ ...baseItem(s), caption: DateTool.format.to.relative(createdOf(s)!, t) }));
+      .map(s => ({ ...baseItem({ serie: s, t }), caption: DateTool.format.to.relative(createdOf(s)!, t) }));
   },
 
   stats({ series, followedIds }: { series: Serie[]; followedIds: Set<string> }): DashboardStats {
@@ -203,7 +211,7 @@ export const DashboardTool = {
       .slice(0, DASHBOARD_LIMITS.continueReading);
     return {
       continueReading,
-      latestChapters: DashboardTool.latestChapters({ series, followedIds, limit: DASHBOARD_LIMITS.latestChapters, t }),
+      followedUpdated: DashboardTool.followedUpdated({ series, followedIds, limit: DASHBOARD_LIMITS.followedUpdated, t }),
       recentlyUpdated: DashboardTool.recentlyUpdated({ series, limit: DASHBOARD_LIMITS.recentlyUpdated, t }),
       unreadFollowed: DashboardTool.unreadFollowed({ series, followedIds, limit: DASHBOARD_LIMITS.unreadFollowed, t }),
       recentlyAdded: DashboardTool.recentlyAdded({ series, limit: DASHBOARD_LIMITS.recentlyAdded, t }),

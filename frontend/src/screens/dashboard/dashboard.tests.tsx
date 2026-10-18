@@ -21,7 +21,7 @@ jest.mock('../../shared/managers/preferences', () => ({
 
 const data = {
   continueReading: [{ seriesId: 's1', chapterId: 'c1', name: 'Reading', coverUrl: 'c', caption: 'Ch. 1' }],
-  latestChapters: [],
+  followedUpdated: [],
   recentlyUpdated: [{ seriesId: 's2', name: 'Fresh', coverUrl: 'c' }],
   unreadFollowed: [],
   recentlyAdded: [],

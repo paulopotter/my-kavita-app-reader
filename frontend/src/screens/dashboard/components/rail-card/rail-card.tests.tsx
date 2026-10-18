@@ -31,4 +31,11 @@ describe('RailCard', () => {
     expect(JSON.stringify(getByText('One Piece').props.style)).toContain('transparent');
     expect(JSON.stringify(getByText('Ch. 10').props.style)).toContain('transparent');
   });
+
+  it('draws a badge on the cover only when it has one', () => {
+    const { getByText, queryByTestId, rerender } = render(<RailCard {...base} badge="Novel" />);
+    expect(getByText('Novel')).toBeTruthy();
+    rerender(<RailCard {...base} />);
+    expect(queryByTestId('rail-card-badge')).toBeNull();
+  });
 });
