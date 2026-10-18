@@ -45,14 +45,14 @@ export const ChapterListItem = React.memo(function ChapterListItem({
 
   return (
     <TouchableOpacity
-      style={[styles.root, isZebra && styles.zebra, isRead && styles.read, selected && styles.selected]}
+      style={[styles.root, isZebra && styles.zebra, isRead && !selected && styles.read, selected && styles.selected]}
       onPress={handlePress}
       onLongPress={handleLongPress}
       activeOpacity={0.7}>
       <View style={styles.checkbox}>
         {selectionMode && <View style={[styles.checkboxBox, selected && styles.checkboxBoxChecked]} />}
       </View>
-      <Text style={[styles.title, isRead && styles.titleRead, selected && styles.titleSelected]} numberOfLines={1}>
+      <Text style={[styles.title, isRead && !selected && styles.titleRead, selected && styles.titleSelected]} numberOfLines={1}>
         {title}
       </Text>
     </TouchableOpacity>

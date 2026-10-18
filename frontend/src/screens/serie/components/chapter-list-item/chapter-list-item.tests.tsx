@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { chapterEvents, type SerieChapter } from '../../../../shared';
 import { ChapterListItem } from './chapter-list-item.component';
@@ -87,5 +88,28 @@ describe('ChapterListItem', () => {
       <ChapterListItem chapter={makeChapter({ readStatus: 'READ' })} title="1. A Chegada" index={1} selectionMode selected onPress={jest.fn()} onLongPress={jest.fn()} />,
     );
     expect(getByText('1. A Chegada')).toBeTruthy();
+  });
+
+  describe('a read chapter', () => {
+    const rowStyle = (getByText: (t: string) => { parent: unknown }, title: string) => {
+      // The row is the TouchableOpacity that holds the title.
+      let node = getByText(title).parent as { props: { style?: unknown }; parent: unknown } | null;
+      while (node && !('onPress' in (node.props as object))) {node = node.parent as typeof node;}
+      return StyleSheet.flatten((node as { props: { style?: unknown } }).props.style as object) as { opacity?: number };
+    };
+
+    it('is dimmed while it is only read', () => {
+      const { getByText } = render(
+        <ChapterListItem chapter={makeChapter({ readStatus: 'READ' })} title="Capítulo 4" index={0} selectionMode selected={false} onPress={jest.fn()} onLongPress={jest.fn()} />,
+      );
+      expect(rowStyle(getByText as never, 'Capítulo 4').opacity).toBe(0.5);
+    });
+
+    it('is NOT dimmed once it is selected: the text stays legible while the reader picks it', () => {
+      const { getByText } = render(
+        <ChapterListItem chapter={makeChapter({ readStatus: 'READ' })} title="Capítulo 4" index={0} selectionMode selected onPress={jest.fn()} onLongPress={jest.fn()} />,
+      );
+      expect(rowStyle(getByText as never, 'Capítulo 4').opacity).toBeUndefined();
+    });
   });
 });
