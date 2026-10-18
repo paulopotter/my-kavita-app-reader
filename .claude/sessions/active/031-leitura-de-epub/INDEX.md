@@ -10,7 +10,7 @@ approved contract changes.
 | [003](003-webview-dependency-and-route.md) | `react-native-webview` dependency (new APK) and the `book-reader` route | — | implemented, awaiting device check |
 | [004](004-book-reader-screen.md) | `screens/book-reader/`: WebView reader, scroll progress, prev/next, mark read, routing from the series screen | 001, 002, 003 | implemented, awaiting device check |
 | [005](005-reader-appearance.md) | Reader appearance: "Aa" sheet in the footer (theme, font, size, line height, margins, justification, reading mode), reader-only palettes in `shared/theme/reading-themes.ts` with a 7:1 test, all persisted in `BookPrefs` | 004 | implemented, awaiting device check |
-| [006](006-infinite-reading-mode.md) | Infinite reading mode (default for books): one growing WebView document, next chapters injected near the end, per-chapter progress and mark read | 004, 005 | pending |
+| [006](006-infinite-reading-mode.md) | Infinite reading mode (default for books): one growing WebView document, next chapters injected near the end, per-chapter progress and mark read | 004, 005 | implemented, awaiting device check |
 
 ## Suggested execution order
 

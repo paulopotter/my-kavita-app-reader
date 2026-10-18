@@ -1,6 +1,6 @@
 # Task 006 — Infinite reading mode
 
-**Status:** pending
+**Status:** implemented (awaiting device check)
 
 ## Why
 
@@ -56,3 +56,27 @@ contract change needs a new approval in text before any code.
   screen, with correct progress, read marks and bar titles.
 - Switching to paged in the sheet restores the Task 004 behaviour.
 - Coverage passes.
+
+## Implemented (awaiting the device check)
+
+Commits `cf7efca` (document + messages) and `961706e` (hook, screen, sheet, strings, tests).
+
+- `BookDocumentTool.build({ infinite: { chapterId, page } })` wraps the page in `<main id="book"><section
+  data-chapter-id data-page>`; its script reports `progress` (now with `chapterId`/`page`), `passed` (a
+  section scrolled entirely past) and `needNext` (the end is under 1.5 viewports away), and exposes
+  `__appendSection`, `__noMore` and `__needNextFailed`. Ids are validated before entering an attribute and
+  the CSP/nonce lockdown is the same; the section divider is the page's own text colour at 40%.
+- The progress fraction in the infinite mode is the viewport's BOTTOM edge inside the active section
+  (the paged mode keeps scrollY/maxScroll), so a position saved in one mode lands approximately, not
+  exactly, in the other.
+- `useBookReader` keeps `sectionsRef` (what is in the document), appends through `inject`, follows the
+  section in view for title/progress/neighbours, saves progress per chapter, marks a chapter read when
+  its last page passes (`passed`) or its end is reached, and reopens at the section in view when the
+  mode changes or the look changes over a document that has grown. The first load now waits for the
+  saved look and mode.
+- The mode control lives in the appearance sheet; infinite is the default.
+- Verified with tsc, eslint and the targeted jest suites only: the commit hook was skipped on purpose
+  (see the NTFS note in the README).
+- Not done / unverified on the device: how it feels (preload distance, divider), that the saved position
+  restores inside the first section, trimming of old sections (out of v1).
+

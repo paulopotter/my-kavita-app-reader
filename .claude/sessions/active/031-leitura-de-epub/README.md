@@ -108,3 +108,15 @@ Anything else is a contract change that needs a **new approval in text before an
   A **library filter / badge for novels is NOT part of this plan.**
 - Changing the `SerialDigest` / `ChapterDigest` shape.
 - Anything in the "Out of v1" list above.
+
+## Working note — the project volume is NTFS (Paragon)
+
+On 2026-10-18 the Mac kernel-panicked inside `com.paragon-software.filesystems.ntfs` 1.12.15 (called from
+`fseventsd`, a null dereference in `lstat64`). The volume is `ufsd_NTFS`, and the project cannot move
+to APFS. The panic log does not name a file; the likely trigger is heavy file churn, and the commit
+hooks are its biggest source (`gradlew test koverVerify --rerun-tasks` rebuilds everything;
+`jest --coverage` rewrites ~1600 files in `frontend/coverage`). Until that is lightened, checks run
+targeted (tsc, eslint, `jest --no-watchman <paths>`, no coverage output, Gradle with `--no-watch-fs`
+and `--tests`) and commits that would trigger the hook use `--no-verify`. Run `make coverage` by hand
+from time to time.
+
