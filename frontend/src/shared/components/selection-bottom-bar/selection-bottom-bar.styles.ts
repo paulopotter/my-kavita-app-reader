@@ -15,6 +15,6 @@ export const selectionBottomBarStyles = createStyles(({ colors, text, spacing, b
       gap: spacing[3],
       paddingHorizontal: spacing[2],
     },
-    buttonText: { color: colors.text.button.primary, fontSize: text.size[2], fontWeight: text.weight.bold, textAlign: 'center' },
+    buttonText: { color: colors.text.button.secondary, fontSize: text.size[2], fontWeight: text.weight.bold, textAlign: 'center' },
 }));
 

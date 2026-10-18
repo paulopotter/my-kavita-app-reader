@@ -4,7 +4,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { Check, X } from 'lucide-react-native';
 import { SelectionBottomBar } from './selection-bottom-bar.component';
-import { spacing } from '../../theme';
+import { selectionBottomBarStyles } from './selection-bottom-bar.styles';
+import { spacing, text, themes } from '../../theme';
 
 describe('SelectionBottomBar', () => {
   it('renders every action passed in', () => {
@@ -73,3 +74,35 @@ describe('SelectionBottomBar', () => {
     expect(padding).toBe(spacing[5]);
   });
 });
+
+// The bar is transparent buttons over a raised surface, so its labels take the "transparent button"
+// text role. The "on a primary fill" role (text.button.primary) looks fine in some identities and is
+// nearly black-on-dark in others (forest: 1.2:1), which is how this went unnoticed — hence every
+// identity is measured, not just the active one.
+describe('SelectionBottomBar legibility', () => {
+  const channels = (rgb: string): [number, number, number] => {
+    const m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(rgb);
+    if (!m) {throw new Error(`not an rgb() token: ${rgb}`);}
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  };
+  const luminance = (rgb: string): number => {
+    const [r, g, b] = channels(rgb).map(c => {
+      const v = c / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string): number => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+
+  it.each(Object.keys(themes) as Array<keyof typeof themes>)('%s: the labels clear 7:1 (WCAG AAA) on the bar', name => {
+    const styles = selectionBottomBarStyles({ colors: themes[name], text }) as unknown as {
+      root: { backgroundColor: string };
+      buttonText: { color: string };
+    };
+    expect(contrast(styles.buttonText.color, styles.root.backgroundColor)).toBeGreaterThanOrEqual(7);
+  });
+});
+
