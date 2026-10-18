@@ -14,7 +14,7 @@ internal class PersistentHandle(
         key: String,
         variant: String,
     ): CacheEntry? {
-        val entity = cacheDao.getByKey(key, variant) ?: return null
+        val entity = cacheDao.readOrDropOversized(key, variant) ?: return null
         cacheDao.touchLastAccessed(key, variant, System.currentTimeMillis())
         return CacheEntry(
             value = entity.value,
@@ -33,18 +33,24 @@ internal class PersistentHandle(
     ): CacheDescriptor {
         val now = System.currentTimeMillis()
         val expiresAtEpochMs = now + ttlMs
-        cacheDao.upsert(
-            CacheEntity(
-                key = key,
-                variant = variant,
-                value = value,
-                domain = domain,
-                cachedAtEpochMs = now,
-                ttlMs = ttlMs,
-                expiresAtEpochMs = expiresAtEpochMs,
-                lastAccessedAtEpochMs = now,
-            ),
-        )
+        if (value.exceedsCacheRowLimit()) {
+            // Not stored (it could never be read back), and the older copy goes too: left in place
+            // it would be served as a hit forever, stale, because the refresh can never replace it.
+            cacheDao.deleteByKey(key, variant)
+        } else {
+            cacheDao.upsert(
+                CacheEntity(
+                    key = key,
+                    variant = variant,
+                    value = value,
+                    domain = domain,
+                    cachedAtEpochMs = now,
+                    ttlMs = ttlMs,
+                    expiresAtEpochMs = expiresAtEpochMs,
+                    lastAccessedAtEpochMs = now,
+                ),
+            )
+        }
         return CacheDescriptor(
             key = key,
             variant = variant,
@@ -82,23 +88,29 @@ internal class PersistentHandle(
         // 2. Merge each item in memory (no I/O), build the rows to write.
         val now = System.currentTimeMillis()
         val entities = ArrayList<CacheEntity>(items.size)
+        val oversized = ArrayList<String>()
         val descriptors = ArrayList<CacheDescriptor>(items.size)
         for (item in items) {
             val existing = existingByKey[item.key]
             val toWrite = if (existing != null) jsonMerge(existing, item.value, deep) else item.value
             val expiresAtEpochMs = now + item.ttlMs
-            entities.add(
-                CacheEntity(
-                    key = item.key,
-                    variant = variant,
-                    value = toWrite,
-                    domain = domain,
-                    cachedAtEpochMs = now,
-                    ttlMs = item.ttlMs,
-                    expiresAtEpochMs = expiresAtEpochMs,
-                    lastAccessedAtEpochMs = now,
-                ),
-            )
+            // Same rule as put(): a merged value that could not be read back is not stored.
+            if (toWrite.exceedsCacheRowLimit()) {
+                oversized.add(item.key)
+            } else {
+                entities.add(
+                    CacheEntity(
+                        key = item.key,
+                        variant = variant,
+                        value = toWrite,
+                        domain = domain,
+                        cachedAtEpochMs = now,
+                        ttlMs = item.ttlMs,
+                        expiresAtEpochMs = expiresAtEpochMs,
+                        lastAccessedAtEpochMs = now,
+                    ),
+                )
+            }
             descriptors.add(
                 CacheDescriptor(
                     key = item.key,
@@ -113,6 +125,7 @@ internal class PersistentHandle(
 
         // 3. One transactional, lenient write.
         cacheDao.upsertAllLenient(entities)
+        oversized.forEach { cacheDao.deleteByKey(it, variant) }
         return descriptors
     }
 

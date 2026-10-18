@@ -2,6 +2,7 @@ package com.mymangareader.notifications
 
 import com.mymangareader.core.database.CacheDao
 import com.mymangareader.core.database.CacheEntity
+import com.mymangareader.core.database.CacheKeyRef
 import com.mymangareader.core.database.ServerGroupDao
 import com.mymangareader.core.database.ServerGroupEntity
 import com.mymangareader.core.database.ServerUrlDao
@@ -88,6 +89,13 @@ class FakeCacheDao : CacheDao {
     override suspend fun upsert(entity: CacheEntity) {
         entities[MapKey(entity.key, entity.variant)] = entity
     }
+
+    override suspend fun keyRefsFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheKeyRef> = queryFiltered(keys, hasKeys, domain, variant).map { CacheKeyRef(it.key, it.variant) }
 
     override suspend fun queryFiltered(
         keys: List<String>,

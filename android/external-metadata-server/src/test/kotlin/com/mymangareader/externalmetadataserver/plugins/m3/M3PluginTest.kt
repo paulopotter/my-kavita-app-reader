@@ -3,6 +3,7 @@ package com.mymangareader.externalmetadataserver.plugins.m3
 import com.mymangareader.cache.Cache
 import com.mymangareader.core.database.CacheDao
 import com.mymangareader.core.database.CacheEntity
+import com.mymangareader.core.database.CacheKeyRef
 import com.mymangareader.externalmetadataserver.plugins.ExternalMetadataSeriesRef
 import com.mymangareader.tools.network.RequestTool
 import kotlinx.coroutines.test.runTest
@@ -66,6 +67,13 @@ private class FakeCacheDao : CacheDao {
     override suspend fun getAllExpired(nowEpochMs: Long): List<CacheEntity> = entities.values.filter { it.expiresAtEpochMs <= nowEpochMs }
 
     override suspend fun getOlderThan(cutoffEpochMs: Long): List<CacheEntity> = entities.values.filter { it.cachedAtEpochMs < cutoffEpochMs && it.lastAccessedAtEpochMs < cutoffEpochMs }
+
+    override suspend fun keyRefsFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheKeyRef> = queryFiltered(keys, hasKeys, domain, variant).map { CacheKeyRef(it.key, it.variant) }
 
     override suspend fun queryFiltered(
         keys: List<String>,

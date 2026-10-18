@@ -6,6 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 
+/** A cache row's primary key — `(key, variant)` — with no payload. */
+data class CacheKeyRef(
+    val key: String,
+    val variant: String,
+)
+
 @Dao
 interface CacheDao {
     @Query("SELECT * FROM cache WHERE `key` = :key AND variant = :variant")
@@ -35,6 +41,23 @@ interface CacheDao {
         domain: String?,
         variant: String?,
     ): List<CacheEntity>
+
+    // The identity of the rows `queryFiltered` would return, without their `value` — so a caller can
+    // read them one at a time when a single oversized row makes the wide read throw.
+    @Query(
+        """
+        SELECT `key`, variant FROM cache
+        WHERE (:hasKeys = 0 OR `key` IN (:keys))
+          AND (:domain IS NULL OR domain = :domain)
+          AND (:variant IS NULL OR variant = :variant)
+        """,
+    )
+    suspend fun keyRefsFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheKeyRef>
 
     // Batch upsert in ONE transaction (one commit / fsync, not one per row — that difference is
     // the whole point). Lenient: a row that somehow fails to upsert is skipped, the rest still go

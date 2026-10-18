@@ -25,10 +25,31 @@ data class CacheFilter(
     }
 }
 
-internal suspend fun CacheDao.query(filter: CacheFilter): List<CacheEntity> =
-    queryFiltered(
-        keys = filter.keys ?: emptyList(),
-        hasKeys = if (filter.keys == null) 0 else 1,
-        domain = filter.domain,
-        variant = filter.variant,
-    )
+// A wide read is one query; when it throws because ONE row is too big to read, the slice is read
+// again row by row and the unreadable rows are deleted (they are only a cache) so the others still
+// come back and the slice heals instead of staying broken.
+internal suspend fun CacheDao.query(filter: CacheFilter): List<CacheEntity> {
+    val keys = filter.keys ?: emptyList()
+    val hasKeys = if (filter.keys == null) 0 else 1
+    return try {
+        queryFiltered(keys = keys, hasKeys = hasKeys, domain = filter.domain, variant = filter.variant)
+    } catch (e: Exception) {
+        if (!e.isCacheRowTooBig()) throw e
+        keyRefsFiltered(keys = keys, hasKeys = hasKeys, domain = filter.domain, variant = filter.variant)
+            .mapNotNull { ref -> readOrDropOversized(ref.key, ref.variant) }
+    }
+}
+
+// The row at (key, variant), or null when it is missing or too big to read — in which case it is
+// deleted so it cannot break the next read either.
+internal suspend fun CacheDao.readOrDropOversized(
+    key: String,
+    variant: String,
+): CacheEntity? =
+    try {
+        getByKey(key, variant)
+    } catch (e: Exception) {
+        if (!e.isCacheRowTooBig()) throw e
+        deleteByKey(key, variant)
+        null
+    }

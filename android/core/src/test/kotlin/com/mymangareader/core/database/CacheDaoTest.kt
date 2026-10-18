@@ -222,6 +222,27 @@ class CacheDaoTest {
         }
 
     @Test
+    fun `keyRefsFiltered applies the same filter as queryFiltered but returns only the identities`() =
+        runTest {
+            dao.upsert(entry("s1", domain = "serial", variant = "v", value = "big payload"))
+            dao.upsert(entry("s2", domain = "serial", variant = "other"))
+            dao.upsert(entry("c1", domain = "chapter", variant = "v"))
+
+            assertEquals(
+                setOf(CacheKeyRef("s1", "v")),
+                dao.keyRefsFiltered(emptyList(), hasKeys = 0, domain = "serial", variant = "v").toSet(),
+            )
+            assertEquals(
+                setOf(CacheKeyRef("s1", "v"), CacheKeyRef("s2", "other"), CacheKeyRef("c1", "v")),
+                dao.keyRefsFiltered(emptyList(), hasKeys = 0, domain = null, variant = null).toSet(),
+            )
+            assertEquals(
+                setOf(CacheKeyRef("c1", "v")),
+                dao.keyRefsFiltered(listOf("c1", "s2"), hasKeys = 1, domain = null, variant = "v").toSet(),
+            )
+        }
+
+    @Test
     fun `upsertAllLenient writes every row and returns the count`() =
         runTest {
             val written =

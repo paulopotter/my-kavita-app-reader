@@ -2,6 +2,7 @@ package com.mymangareader.cache
 
 import com.mymangareader.core.database.CacheDao
 import com.mymangareader.core.database.CacheEntity
+import com.mymangareader.core.database.CacheKeyRef
 
 // In-memory stand-in for CacheDao — CacheDao's own SQL behavior is already covered by
 // core's CacheDaoTest; PersistentHandle's own tests only need something that behaves like a
@@ -34,6 +35,13 @@ internal class FakeCacheDao : CacheDao {
                 (domain == null || e.domain == domain) &&
                 (variant == null || e.variant == variant)
         }
+
+    override suspend fun keyRefsFiltered(
+        keys: List<String>,
+        hasKeys: Int,
+        domain: String?,
+        variant: String?,
+    ): List<CacheKeyRef> = queryFiltered(keys, hasKeys, domain, variant).map { CacheKeyRef(it.key, it.variant) }
 
     override suspend fun touchLastAccessed(
         key: String,
