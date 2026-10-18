@@ -65,6 +65,7 @@ export const icon = {
     7: 24,
     8: 26,
     9: 28,
+    10: 30,
   },
 } as const;
 

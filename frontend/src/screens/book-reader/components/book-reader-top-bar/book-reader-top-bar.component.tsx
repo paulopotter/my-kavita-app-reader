@@ -8,7 +8,6 @@ import { IconButton } from '../../../../shared/components/icon-button';
 
 interface Props {
   seriesName: string;
-  chapterTitle: string;
   // undefined when the book has a single page — nothing worth showing.
   pageIndicatorText?: string;
   onBack: () => void;
@@ -16,9 +15,9 @@ interface Props {
   visible: boolean;
 }
 
-// Dumb: renders the series name, chapter title and optional page indicator it is given, and fires
-// onBack.
-export function BookReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBack, backLabel, visible }: Props) {
+// Dumb: the back button, the series name and, for a book with several pages, which page this is.
+// The chapter's own title is deliberately not here — the page already opens with it.
+export function BookReaderTopBar({ seriesName, pageIndicatorText, onBack, backLabel, visible }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(bookReaderTopBarStyles);
   if (!visible) {return null;}
@@ -34,21 +33,14 @@ export function BookReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, 
         accessibilityLabel={backLabel}
         style={styles.backButton}
       />
-      <View style={styles.titles}>
-        <View style={styles.titlesRow}>
-          <Text style={styles.seriesName} numberOfLines={1}>
-            {seriesName}
-          </Text>
-          {pageIndicatorText != null && (
-            <Text style={styles.pageIndicator} numberOfLines={1}>
-              {pageIndicatorText}
-            </Text>
-          )}
-        </View>
-        <Text style={styles.chapterTitle} numberOfLines={1}>
-          {chapterTitle}
+      <Text style={styles.seriesName} numberOfLines={1}>
+        {seriesName}
+      </Text>
+      {pageIndicatorText != null && (
+        <Text style={styles.pageIndicator} numberOfLines={1}>
+          {pageIndicatorText}
         </Text>
-      </View>
+      )}
     </View>
   );
 }

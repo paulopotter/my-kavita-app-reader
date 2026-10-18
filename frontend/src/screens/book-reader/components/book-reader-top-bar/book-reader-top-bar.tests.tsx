@@ -5,7 +5,7 @@ import { BookReaderTopBar } from './book-reader-top-bar.component';
 function setup(over: Partial<React.ComponentProps<typeof BookReaderTopBar>> = {}) {
   const onBack = jest.fn();
   const utils = render(
-    <BookReaderTopBar seriesName="Leveling with gods" chapterTitle="1. Capítulo 1" onBack={onBack} backLabel="Voltar" visible {...over} />,
+    <BookReaderTopBar seriesName="Leveling with gods" onBack={onBack} backLabel="Voltar" visible {...over} />,
   );
   return { ...utils, onBack };
 }
@@ -15,10 +15,9 @@ describe('BookReaderTopBar', () => {
     expect(setup({ visible: false }).toJSON()).toBeNull();
   });
 
-  it('shows the series name and the chapter title', () => {
+  it('shows the series name', () => {
     const { getByText } = setup();
     expect(getByText('Leveling with gods')).toBeTruthy();
-    expect(getByText('1. Capítulo 1')).toBeTruthy();
   });
 
   it('shows the page indicator only when it is given one', () => {

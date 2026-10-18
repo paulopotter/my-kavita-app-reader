@@ -34,7 +34,10 @@ export function useBookReader({
   // Where the document lands once laid out: the saved position when a chapter opens, the current
   // one when only the text size changed.
   const [restoreFraction, setRestoreFraction] = useState(0);
-  const [overlayVisible, setOverlayVisible] = useState(true);
+  // How far down the current page the reader is (0..1), for the progress bar.
+  const [pageScroll, setPageScroll] = useState(0);
+  // Closed on open, like the image reader: the page comes first, the controls appear on a tap.
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const [fontScale, setFontScale] = useState(DEFAULT_BOOK_FONT_SCALE);
   const [order, setOrder] = useState<OrderedChapter[]>([]);
   // Bumped by retry() to run the load again for the same chapter.
@@ -96,6 +99,7 @@ export function useBookReader({
         const page = await BookService.page({ chapterId, page: startPage });
         if (gen !== loadGenRef.current) {return;}
         fractionRef.current = startFraction;
+        setPageScroll(startFraction);
         setPageCount(count);
         setPageIndex(startPage);
         setRestoreFraction(startFraction);
@@ -117,6 +121,7 @@ export function useBookReader({
         .then(page => {
           if (gen !== loadGenRef.current) {return;}
           fractionRef.current = 0;
+          setPageScroll(0);
           setPageIndex(target);
           setRestoreFraction(0);
           setHtml(page);
@@ -159,6 +164,7 @@ export function useBookReader({
         return;
       }
       fractionRef.current = message.fraction;
+      setPageScroll(message.fraction);
       ReadingProgressManager.set(chapterId, { seriesId, page: pageIndex, scrollFraction: message.fraction }).catch(() => {});
       const ended = reachedEnd({ fraction: message.fraction, pageIndex, pageCount });
       if (shouldMarkRead({ ended, alreadyMarked: markedRef.current.has(chapterId), wasRead: current?.readStatus === 'READ' })) {
@@ -192,6 +198,8 @@ export function useBookReader({
     pageCount,
     pageIndicator: pageIndicatorText({ pageIndex, pageCount, template: t.bookReaderPage }),
     restoreFraction,
+    // Across the whole chapter: the pages already behind the reader plus how far into this one.
+    chapterFraction: pageCount > 0 ? Math.min(1, (pageIndex + pageScroll) / pageCount) : 0,
     fontScale,
     overlayVisible,
     hasPrevChapter: prevChapterId != null,

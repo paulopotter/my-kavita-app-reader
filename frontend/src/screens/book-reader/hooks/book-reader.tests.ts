@@ -251,12 +251,13 @@ describe('useBookReader', () => {
     it('toggles the bars on a tap', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current.status).toBe('ready'));
-      expect(result.current.overlayVisible).toBe(true);
+      // Closed on open, like the image reader: the page first, the controls on a tap.
+      expect(result.current.overlayVisible).toBe(false);
 
       act(() => result.current.handleMessage('{"type":"tap"}'));
-      expect(result.current.overlayVisible).toBe(false);
-      act(() => result.current.handleMessage('{"type":"tap"}'));
       expect(result.current.overlayVisible).toBe(true);
+      act(() => result.current.handleMessage('{"type":"tap"}'));
+      expect(result.current.overlayVisible).toBe(false);
     });
 
     it('ignores a message that is not one of ours', async () => {
@@ -264,7 +265,7 @@ describe('useBookReader', () => {
       await waitFor(() => expect(result.current.status).toBe('ready'));
       act(() => result.current.handleMessage('garbage'));
       expect(mockStoreSet).not.toHaveBeenCalled();
-      expect(result.current.overlayVisible).toBe(true);
+      expect(result.current.overlayVisible).toBe(false);
     });
 
     it('saves the position as the reader scrolls', async () => {
@@ -307,6 +308,47 @@ describe('useBookReader', () => {
       act(() => result.current.handleMessage('{"type":"progress","fraction":1}'));
 
       expect(mockMarkRead).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('progress', () => {
+    it('is the position inside a single-page chapter', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      expect(result.current.chapterFraction).toBe(0);
+
+      act(() => result.current.handleMessage('{"type":"progress","fraction":0.4}'));
+
+      expect(result.current.chapterFraction).toBeCloseTo(0.4);
+    });
+
+    it('counts the pages already behind the reader in a multi-page chapter', async () => {
+      mockInfo.mockResolvedValue({ title: 'x', pageCount: 4 });
+      mockStoreGet.mockResolvedValue({ seriesId: 's1', page: 2, scrollFraction: 0.5, updatedAtEpochMs: 1 });
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      // Two pages done and half of the third, out of four.
+      expect(result.current.chapterFraction).toBeCloseTo(0.625);
+    });
+
+    it('is capped at 1', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      act(() => result.current.handleMessage('{"type":"progress","fraction":1}'));
+      expect(result.current.chapterFraction).toBe(1);
+    });
+
+    it('restarts at the top of a page turned to', async () => {
+      mockInfo.mockResolvedValue({ title: 'x', pageCount: 2 });
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      act(() => result.current.handleMessage('{"type":"progress","fraction":0.9}'));
+
+      act(() => result.current.nextPage());
+      await waitFor(() => expect(result.current.pageIndex).toBe(1));
+
+      expect(result.current.chapterFraction).toBeCloseTo(0.5);
     });
   });
 

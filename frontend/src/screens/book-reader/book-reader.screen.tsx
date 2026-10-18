@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
@@ -7,6 +7,8 @@ import { useStrings } from '../../shared/i18n';
 import { useStyles, useTheme } from '../../shared/context';
 import { ColorTool } from '../../shared/theme';
 import { useAction } from '../../shared/tools/actions';
+import { ReaderPrefs, type ProgressBarPosition } from '../../shared/tools/reader';
+import { ThinProgressBar } from '../../shared/components/thin-progress-bar';
 import { BookDocumentTool } from '../../shared/tools/books';
 import { BookReaderFooter, BookReaderTopBar } from './components';
 import { useBookReader } from './hooks';
@@ -27,6 +29,14 @@ export function BookReaderScreen() {
   const { seriesId, chapterId, seriesName } = route.params ?? {};
   const book = useBookReader({ seriesId, chapterId, seriesName });
   const { realize } = useAction();
+
+  // The same edge the image reader's thin progress bar uses — one preference for both readers.
+  const [progressPosition, setProgressPosition] = useState<ProgressBarPosition | undefined>(undefined);
+  useEffect(() => {
+    ReaderPrefs.getProgressBarPosition()
+      .then(setProgressPosition)
+      .catch(() => {});
+  }, []);
 
   const handleBack = useCallback(() => realize(book.backAction)(), [realize, book.backAction]);
 
@@ -53,6 +63,7 @@ export function BookReaderScreen() {
         <WebView
           testID="book-reader-webview"
           style={styles.webview}
+          accessibilityLabel={book.chapterTitle}
           source={{ html: document }}
           originWhitelist={['about:*']}
           javaScriptEnabled
@@ -79,9 +90,12 @@ export function BookReaderScreen() {
         </View>
       )}
 
+      {book.status === 'ready' && !book.overlayVisible && (
+        <ThinProgressBar fraction={book.chapterFraction} position={progressPosition} />
+      )}
+
       <BookReaderTopBar
         seriesName={book.seriesName}
-        chapterTitle={book.chapterTitle}
         pageIndicatorText={book.pageIndicator}
         onBack={handleBack}
         backLabel={t.commonBackLabel}

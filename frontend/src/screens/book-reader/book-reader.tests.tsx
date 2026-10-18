@@ -27,6 +27,10 @@ jest.mock('react-native-webview', () => {
 });
 
 let mockBook: Record<string, unknown>;
+jest.mock('../../shared/tools/reader', () => ({
+  ReaderPrefs: { getProgressBarPosition: () => Promise.resolve('top') },
+}));
+
 jest.mock('./hooks', () => ({
   useBookReader: () => mockBook,
 }));
@@ -44,6 +48,7 @@ function book(over: Record<string, unknown> = {}) {
     pageCount: 1,
     pageIndicator: undefined,
     restoreFraction: 0.25,
+    chapterFraction: 0.5,
     fontScale: 1,
     overlayVisible: true,
     hasPrevChapter: true,
@@ -109,7 +114,7 @@ describe('BookReaderScreen', () => {
     mockBook = book({ pageCount: 3, hasNextPage: true, pageIndicator: 'Page 1 of 3' });
     const { getByText, getByLabelText } = render(<BookReaderScreen />);
 
-    expect(getByText('1. Capítulo 1')).toBeTruthy();
+    expect(getByText('Leveling')).toBeTruthy();
     expect(getByText('Page 1 of 3')).toBeTruthy();
     fireEvent.press(getByLabelText('Next chapter'));
     fireEvent.press(getByLabelText('Next page'));
@@ -126,6 +131,23 @@ describe('BookReaderScreen', () => {
     const { getByLabelText } = render(<BookReaderScreen />);
     fireEvent.press(getByLabelText('Back'));
     expect(mockRealize).toHaveBeenCalledWith({ kind: 'back' });
+  });
+
+  it('draws the thin progress bar while the bars are closed, and not while they are open', async () => {
+    mockBook = book({ overlayVisible: false });
+    const closed = render(<BookReaderScreen />);
+    expect(await closed.findByTestId('thin-progress-fill')).toBeTruthy();
+    closed.unmount();
+
+    mockBook = book({ overlayVisible: true });
+    const open = render(<BookReaderScreen />);
+    expect(open.queryByTestId('thin-progress-fill')).toBeNull();
+  });
+
+  it('has no progress bar while the chapter is not ready', () => {
+    mockBook = book({ overlayVisible: false, status: 'loading' });
+    const { queryByTestId } = render(<BookReaderScreen />);
+    expect(queryByTestId('thin-progress-fill')).toBeNull();
   });
 
   it('hides the bars when the hook says so', () => {

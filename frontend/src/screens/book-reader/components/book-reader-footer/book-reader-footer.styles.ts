@@ -8,10 +8,13 @@ export const bookReaderFooterStyles = createStyles(({ colors, spacing }) => ({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing[4],
-    paddingHorizontal: spacing[6],
+    paddingTop: spacing[7],
+    paddingHorizontal: spacing[8],
     backgroundColor: colors.surface.secondary,
   },
-  group: { flexDirection: 'row', alignItems: 'center', gap: spacing[6] },
+  // Chapter navigation hugs the edges (previous on the left, next on the right) while the text
+  // size controls sit alone in the middle.
+  side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[7] },
+  sideEnd: { justifyContent: 'flex-end' },
+  center: { flexDirection: 'row', alignItems: 'center', gap: spacing[9] },
 }));

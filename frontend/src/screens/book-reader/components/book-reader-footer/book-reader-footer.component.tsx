@@ -3,8 +3,8 @@ import { View } from 'react-native';
 import { AArrowDown, AArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { bookReaderFooterStyles } from './book-reader-footer.styles';
-import { useTheme, useStyles } from '../../../../shared/context';
-import { icon } from '../../../../shared/theme';
+import { useBottomInset, useTheme, useStyles } from '../../../../shared/context';
+import { icon, spacing } from '../../../../shared/theme';
 import { IconButton } from '../../../../shared/components/icon-button';
 import type { GlyphName } from '../../../../shared/components/icon-button/icon-button.glyphs';
 
@@ -53,6 +53,7 @@ export function BookReaderFooter({
 }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(bookReaderFooterStyles);
+  const bottomInset = useBottomInset();
   if (!visible) {return null;}
 
   const button = ({
@@ -71,7 +72,7 @@ export function BookReaderFooter({
     <IconButton
       icon={Icon}
       glyph={glyph}
-      size={icon.size[9]}
+      size={icon.size[10]}
       color={enabled ? colors.icon.primary : colors.icon.tertiary}
       onPress={enabled ? onPress : undefined}
       accessibilityLabel={label}
@@ -79,15 +80,17 @@ export function BookReaderFooter({
   );
 
   return (
-    <View style={styles.root} testID="book-reader-footer">
-      <View style={styles.group}>
-        {button({ glyph: 'arrow', Icon: AArrowDown, label: labels.smallerText, enabled: true, onPress: onSmallerText })}
-        {button({ glyph: 'arrow', Icon: AArrowUp, label: labels.largerText, enabled: true, onPress: onLargerText })}
-      </View>
-      <View style={styles.group}>
+    <View style={[styles.root, { paddingBottom: spacing[7] + bottomInset }]} testID="book-reader-footer">
+      <View style={styles.side}>
         {button({ glyph: 'chevron', Icon: ChevronsLeft, label: labels.prevChapter, enabled: hasPrevChapter, onPress: onPrevChapter })}
         {showPages &&
           button({ glyph: 'chevron', Icon: ChevronLeft, label: labels.prevPage, enabled: hasPrevPage, onPress: onPrevPage })}
+      </View>
+      <View style={styles.center}>
+        {button({ glyph: 'arrow', Icon: AArrowDown, label: labels.smallerText, enabled: true, onPress: onSmallerText })}
+        {button({ glyph: 'arrow', Icon: AArrowUp, label: labels.largerText, enabled: true, onPress: onLargerText })}
+      </View>
+      <View style={[styles.side, styles.sideEnd]}>
         {showPages &&
           button({ glyph: 'chevron', Icon: ChevronRight, label: labels.nextPage, enabled: hasNextPage, onPress: onNextPage })}
         {button({ glyph: 'chevron', Icon: ChevronsRight, label: labels.nextChapter, enabled: hasNextChapter, onPress: onNextChapter })}
