@@ -40,6 +40,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -1360,22 +1361,51 @@ class SerialsDigestTest {
         }
 
     @Test
-    fun `a library list refresh over a segmented series row is rebuilt cleanly, not mixed with the old segments`() =
+    fun `a library list refresh keeps the chapters already cached for a series`() =
         runTest {
             activateGroup()
-            plugin.chaptersListResult = Result.success((1..1500).map { fakeChapter("ch$it", decimalNumber = it.toDouble(), pageCount = 10) })
+            plugin.chaptersListResult = Result.success((1..5).map { fakeChapter("ch$it", decimalNumber = it.toDouble(), pageCount = 10) })
             buildSerialDigest(server, "s1", cache)
             plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
 
-            // The list route merges into this very row and drops its chapters block (the series
-            // screen reads another variant) — the old segments are then orphans nothing points to.
             buildSerialsDigest(server, cache, force = true)
-            val rebuilt = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
-            assertEquals(2, plugin.serialGetCallCount)
-            assertEquals(1500, rebuilt.chapters?.list?.size)
+            val after = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
 
-            buildSerialDigest(server, "s1", cache)
-            assertEquals(2, plugin.serialGetCallCount)
+            // The list route merged its light row into this very entry and left the chapters alone:
+            // still a cache hit, no second fetch.
+            assertEquals(1, plugin.serialGetCallCount)
+            assertEquals(5, after.chapters?.list?.size)
+        }
+
+    @Test
+    fun `a library list refresh also leaves a segmented series readable from the cache`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success((1..1500).map { fakeChapter("ch$it", decimalNumber = it.toDouble(), pageCount = 10) })
+            val before = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1"), fakePluginSerial("s2")))
+
+            buildSerialsDigest(server, cache, force = true)
+            val after = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+
+            assertEquals(1, plugin.serialGetCallCount)
+            assertEquals(1500, after.chapters?.list?.size)
+            assertEquals(before.chapters?.list, after.chapters?.list)
+        }
+
+    @Test
+    fun `a series the list has only ever seen still triggers a fetch when its chapters are asked for`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+            plugin.chaptersListResult = Result.success((1..3).map { fakeChapter("ch$it", decimalNumber = it.toDouble(), pageCount = 10) })
+            buildSerialsDigest(server, cache, force = true)
+
+            val digest = buildSerialDigest(server, "s1", cache) as SerialDigest.Success
+
+            // The row exists (from the list) but carries no chapters block: not a usable hit.
+            assertEquals(1, plugin.serialGetCallCount)
+            assertEquals(3, digest.chapters?.list?.size)
         }
 
     @Test
@@ -1458,7 +1488,9 @@ class SerialsDigestTest {
             plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
             buildSerialsDigest(server, cache)
             val seeded = cache.persistent.get("s1:false:false", variant = "full:external")!!.value
-            assertTrue(seeded.contains("\"chapters\":null")) // list route leaves it null
+            // The list route leaves the chapters block OUT (not `null`): an explicit null would overwrite
+            // the chapters a fuller build saved in the same entry.
+            assertFalse(seeded.contains("\"chapters\""))
             plugin.serialGetCallCount = 0
 
             // Opening the SerieScreen: a plain cache-first build. The entry is a FRESH hit, but it has

@@ -213,7 +213,12 @@ internal fun isSerialCacheStale(lastUpdatedEpochMs: Long?): Boolean {
 // by never passing ttlMs).
 private const val SERIAL_CACHE_TTL_MS = 15 * 60 * 1000L
 
-internal val serialDigestJson = Json { ignoreUnknownKeys = true }
+// explicitNulls = false because the Library's list refresh writes rows WITHOUT the fields it cannot
+// know (see serialsDigestJson): a nullable field that is simply absent must read back as null.
+internal val serialDigestJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}
 private val serialDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 private fun serialDigestCacheKey(

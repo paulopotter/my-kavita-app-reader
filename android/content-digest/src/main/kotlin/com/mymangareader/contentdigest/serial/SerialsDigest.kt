@@ -49,7 +49,15 @@ sealed interface SerialsDigest {
     ) : SerialsDigest
 }
 
-private val serialsDigestJson = Json { ignoreUnknownKeys = true }
+// A field the list cannot know (chapters, metadata, ...) is a null in the minimal digest. Written out as
+// `"chapters":null` it would OVERWRITE the chapters an earlier buildSerialDigest saved in the very same
+// row — the shallow merge below treats an explicit null as a value — so every list refresh wiped them
+// and the next open of each series was a cache miss. Nulls are left out instead, and the merge keeps
+// whatever was already there.
+private val serialsDigestJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}
 private val serialsDigestBackgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 /**
