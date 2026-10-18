@@ -64,7 +64,7 @@ export function DashboardScreen() {
         onPressItem={open}
       />
       <Rail title={t.dashboardFollowedUpdated} items={data.followedUpdated} loading={followedLoading} onPressItem={open} />
-      <Rail title={t.dashboardUnreadFollowed} items={data.unreadFollowed} onPressItem={open} />
+      <Rail title={t.dashboardUnfinished} items={data.unfinished} onPressItem={open} />
       <Rail title={t.dashboardRecentlyUpdated} items={data.recentlyUpdated} onPressItem={open} />
       <Rail title={t.dashboardRecentlyAdded} items={data.recentlyAdded} onPressItem={open} />
     </ScrollView>

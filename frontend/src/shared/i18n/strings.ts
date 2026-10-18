@@ -158,14 +158,13 @@ export interface Strings {
   dashboardContinueReading: string;
   dashboardFollowedUpdated: string;
   dashboardRecentlyUpdated: string;
-  dashboardUnreadFollowed: string;
+  dashboardUnfinished: string;
   dashboardRecentlyAdded: string;
-  dashboardEmpty: string;
   dashboardChapter: string; // "{0}" = chapter number — "Cap. {0}"
   dashboardPercentRead: string; // "{0}" = percent — "{0}% lido"
   dashboardNextChapter: string; // "{0}" = chapter number — "Próximo: Cap. {0}"
-  dashboardBadgeNovel: string;
-  dashboardBadgePdf: string;
+  serieBadgeNovel: string;
+  serieBadgePdf: string;
   dashboardStatSeries: string;
   dashboardStatFollowed: string;
   dashboardStatInProgress: string;
@@ -627,14 +626,13 @@ const ptBR: Strings = {
   dashboardContinueReading: 'Continuar lendo',
   dashboardFollowedUpdated: 'Obras seguidas atualizadas',
   dashboardRecentlyUpdated: 'Atualizadas recentemente',
-  dashboardUnreadFollowed: 'Ainda não terminei…',
+  dashboardUnfinished: 'Ainda não terminei…',
   dashboardRecentlyAdded: 'Novas na biblioteca',
-  dashboardEmpty: 'Sem conteúdo',
   dashboardChapter: 'Cap. {0}',
   dashboardPercentRead: '{0}% lido',
   dashboardNextChapter: 'Próximo: Cap. {0}',
-  dashboardBadgeNovel: 'Novel',
-  dashboardBadgePdf: 'PDF',
+  serieBadgeNovel: 'Novel',
+  serieBadgePdf: 'PDF',
   dashboardStatSeries: 'Obras',
   dashboardStatFollowed: 'Seguidas',
   dashboardStatInProgress: 'Em andamento',
@@ -1061,14 +1059,13 @@ const en: Strings = {
   dashboardContinueReading: 'Continue reading',
   dashboardFollowedUpdated: 'Followed series updated',
   dashboardRecentlyUpdated: 'Recently updated',
-  dashboardUnreadFollowed: 'Not finished yet…',
+  dashboardUnfinished: 'Not finished yet…',
   dashboardRecentlyAdded: 'New in library',
-  dashboardEmpty: 'Nothing here yet',
   dashboardChapter: 'Ch. {0}',
   dashboardPercentRead: '{0}% read',
   dashboardNextChapter: 'Next: Ch. {0}',
-  dashboardBadgeNovel: 'Novel',
-  dashboardBadgePdf: 'PDF',
+  serieBadgeNovel: 'Novel',
+  serieBadgePdf: 'PDF',
   dashboardStatSeries: 'Series',
   dashboardStatFollowed: 'Following',
   dashboardStatInProgress: 'In progress',

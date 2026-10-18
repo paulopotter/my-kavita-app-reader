@@ -59,4 +59,11 @@ describe('CardList', () => {
     expect(UNSAFE_getByType(Image).props.blurRadius).toBeGreaterThan(0);
     expect(JSON.stringify(getByText('Some Series').props.style)).toContain('transparent');
   });
+
+  it('badges what is not a comic, and only then', () => {
+    const { getByText, queryByTestId, rerender } = render(<CardList {...props({ formatLabel: 'Novel' })} />);
+    expect(getByText('Novel')).toBeTruthy();
+    rerender(<CardList {...props()} />);
+    expect(queryByTestId('card-list-format-badge')).toBeNull();
+  });
 });

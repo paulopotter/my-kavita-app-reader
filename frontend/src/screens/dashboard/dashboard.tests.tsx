@@ -23,7 +23,7 @@ const data = {
   continueReading: [{ seriesId: 's1', chapterId: 'c1', name: 'Reading', coverUrl: 'c', caption: 'Ch. 1' }],
   followedUpdated: [],
   recentlyUpdated: [{ seriesId: 's2', name: 'Fresh', coverUrl: 'c' }],
-  unreadFollowed: [],
+  unfinished: [],
   recentlyAdded: [],
   stats: { series: 9, followed: 2, inProgress: 1 },
 };
@@ -54,10 +54,33 @@ describe('DashboardScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith(Routes.SERIES_DETAIL, { seriesId: 's2', origin: 'DASHBOARD' });
   });
 
-  it('shows the rail titles and the empty message of a rail with nothing', async () => {
-    const { findByText, getAllByText } = renderScreen();
+  it('draws the rails that have something and hides the ones with nothing', async () => {
+    const { findByText, queryByText } = renderScreen();
     expect(await findByText('Continue reading')).toBeTruthy();
-    expect(getAllByText('Nothing here yet').length).toBe(3);
+    expect(await findByText('Recently updated')).toBeTruthy();
+    // Followed-updated, not-finished and new-in-library have no tiles: no title either.
+    expect(queryByText('Followed series updated')).toBeNull();
+    expect(queryByText('Not finished yet…')).toBeNull();
+    expect(queryByText('New in library')).toBeNull();
+  });
+
+  it('puts the rails in order: continue, followed updated, not finished, recently updated', async () => {
+    mockState = {
+      ...mockState,
+      data: {
+        ...data,
+        followedUpdated: [{ seriesId: 'f', name: 'F', coverUrl: 'c' }],
+        unfinished: [{ seriesId: 'u', name: 'U', coverUrl: 'c' }],
+      },
+    };
+    const { findByText, UNSAFE_getAllByType } = renderScreen();
+    await findByText('Continue reading');
+    const { Text } = require('react-native');
+    const titles = UNSAFE_getAllByType(Text).map((node: { props: { children?: unknown } }) => String(node.props.children));
+    const at = (title: string) => titles.indexOf(title);
+    expect(at('Continue reading')).toBeLessThan(at('Followed series updated'));
+    expect(at('Followed series updated')).toBeLessThan(at('Not finished yet…'));
+    expect(at('Not finished yet…')).toBeLessThan(at('Recently updated'));
   });
 
   it('shows a spinner while loading', async () => {

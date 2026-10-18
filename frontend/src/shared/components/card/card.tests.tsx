@@ -104,4 +104,11 @@ describe('Card', () => {
     expect(UNSAFE_getByType(Image).props.blurRadius).toBeGreaterThan(0);
     expect(JSON.stringify(getByText('Some Series').props.style)).toContain('transparent');
   });
+
+  it('badges what is not a comic, and only then', () => {
+    const { getByText, queryByTestId, rerender } = render(<Card {...props({ formatLabel: 'Novel' })} />);
+    expect(getByText('Novel')).toBeTruthy();
+    rerender(<Card {...props()} />);
+    expect(queryByTestId('card-format-badge')).toBeNull();
+  });
 });

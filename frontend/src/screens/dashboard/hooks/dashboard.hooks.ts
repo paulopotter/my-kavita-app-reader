@@ -5,11 +5,12 @@ import { useAdultFiltered } from '../../../shared/context/adult-filter';
 import { useStrings } from '../../../shared/i18n';
 import { useEvent } from '../../../shared/managers/events';
 import { FollowedSeriesService } from '../../../shared/services/followed-series';
+import { ReadingProgressManager } from '../../../shared/managers/store';
 import { SerialService, SerialsService } from '../../../shared/services/serials';
 import { ConcurrencyTool } from '../../../shared/tools/concurrency';
 import { SeriesTool, SerieEvents, SerieTool, type Serie } from '../../../shared/tools/serials';
 import { DASHBOARD_LIMITS, DashboardTool } from '../dashboard.tool';
-import type { DashboardData, DashboardItem, DashboardStatus } from '../dashboard.types';
+import type { DashboardData, DashboardItem, DashboardStatus, LocalProgress } from '../dashboard.types';
 
 // How many "continue reading" digests are fetched at once. Each is a whole series (all its chapters),
 // so asking for a dozen together makes every one of them slow and the first tile the last to appear.
@@ -50,11 +51,32 @@ export function useDashboard() {
   // The tiles of a rail are still being fetched and none is on screen yet.
   const [continueLoading, setContinueLoading] = useState(false);
   const [followedLoading, setFollowedLoading] = useState(false);
+  // Where the reader got to in each tile's chapter, as the device saved it: the server's count lags it.
+  const [localProgress, setLocalProgress] = useState<Map<string, LocalProgress>>(new Map());
   // What the rails show right now, so a reload starts from it instead of from nothing.
   const shownContinueRef = useRef<Serie[]>([]);
   const shownFollowedRef = useRef<Map<string, Serie | null>>(new Map());
   // Only the latest request may write state: focus and pull-to-refresh can overlap.
   const requestRef = useRef(0);
+
+  // Reads the device's saved position of the chapter each "continue reading" tile would open.
+  const readLocalProgress = useCallback(async (digests: Serie[]) => {
+    const ids = digests.map(serie => serie.resumePoint?.stoppedAtChapterId).filter((id): id is string => id != null);
+    const entries = await Promise.all(ids.map(async id => [id, await ReadingProgressManager.get(id).catch(() => null)] as const));
+    const next = new Map<string, LocalProgress>();
+    entries.forEach(([id, record]) => {
+      if (record) {next.set(id, { page: record.page, scrollFraction: record.scrollFraction, updatedAtEpochMs: record.updatedAtEpochMs });}
+    });
+    setLocalProgress(previous => {
+      const same =
+        previous.size === next.size &&
+        [...next].every(([id, value]) => {
+          const before = previous.get(id);
+          return before != null && before.page === value.page && before.scrollFraction === value.scrollFraction && before.updatedAtEpochMs === value.updatedAtEpochMs;
+        });
+      return same ? previous : next;
+    });
+  }, []);
 
   const load = useCallback(async ({ force }: { force: boolean }) => {
     const request = ++requestRef.current;
@@ -77,7 +99,7 @@ export function useDashboard() {
       const followedCandidates = DashboardTool.followedUpdatedCandidates({
         series,
         followedIds: followed,
-        exclude: continueIds,
+        exclude: DashboardTool.followedOwners({ series, continueIds }),
         limit: DASHBOARD_LIMITS.followedUpdated,
       });
       // Start from the digests already on screen: a reload only replaces a tile when its fresh digest
@@ -111,6 +133,7 @@ export function useDashboard() {
       setStatus('ready');
       setContinueLoading(shownContinueRef.current.length === 0 && candidates.length > 0);
       setFollowedLoading(digests.size === 0 && followedCandidates.length > 0);
+      readLocalProgress(shownContinueRef.current).catch(() => {});
 
       const tasks: DigestTask[] = [
         ...candidates.map((serie, index): DigestTask => ({ kind: 'continue', serie, index })),
@@ -138,6 +161,7 @@ export function useDashboard() {
       if (request === requestRef.current) {
         setContinueLoading(false);
         setFollowedLoading(false);
+        await readLocalProgress(shownContinueRef.current).catch(() => {});
       }
       // One line per load, so a slow open can be told apart on the device: the list, or the digests.
       console.log(`[dashboard] list=${listMs}ms digests=${Date.now() - startedAt - listMs}ms candidates=${candidates.length} force=${force}`);
@@ -148,7 +172,7 @@ export function useDashboard() {
       // A reload that fails keeps what is already on screen.
       setStatus(previous => (previous === 'ready' ? 'ready' : 'error'));
     }
-  }, []);
+  }, [readLocalProgress]);
 
   useFocusEffect(
     useCallback(() => {
@@ -174,6 +198,7 @@ export function useDashboard() {
       continueSeries: source.continueSeries.filter(serie => visibleIds.has(serie.id)),
       continueIds: source.continueIds,
       followedDigests: source.followedDigests,
+      localProgress,
       t,
     });
     const mark = (items: DashboardItem[]): DashboardItem[] =>
@@ -183,10 +208,10 @@ export function useDashboard() {
       continueReading: mark(built.continueReading),
       followedUpdated: mark(built.followedUpdated),
       recentlyUpdated: mark(built.recentlyUpdated),
-      unreadFollowed: mark(built.unreadFollowed),
+      unfinished: mark(built.unfinished),
       recentlyAdded: mark(built.recentlyAdded),
     };
-  }, [source, visibleSeries, t]);
+  }, [source, visibleSeries, localProgress, t]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);

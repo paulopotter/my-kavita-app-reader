@@ -15,6 +15,7 @@ export interface CardListProps {
   progressLabel: string;
   chapterCountLabel?: string;
   downloadedLabel?: string;
+  formatLabel?: string; // "Novel" / "PDF" — omitted for a comic
   isFollowed: boolean;
   blurred?: boolean;
   onToggleFollow: (id: string) => void;
@@ -30,6 +31,7 @@ export const CardList = React.memo(function CardList({
   progressLabel,
   chapterCountLabel,
   downloadedLabel,
+  formatLabel,
   isFollowed,
   blurred,
   onToggleFollow,
@@ -48,7 +50,14 @@ export const CardList = React.memo(function CardList({
           <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%` }]} />
         </View>
         <View style={styles.metaLine}>
-          {chapterCountLabel ? <Text style={styles.meta}>{chapterCountLabel}</Text> : <View />}
+          <View style={styles.metaStart}>
+            {formatLabel && (
+              <View style={styles.formatBadge} testID="card-list-format-badge">
+                <Text style={styles.formatBadgeText}>{formatLabel}</Text>
+              </View>
+            )}
+            {chapterCountLabel ? <Text style={styles.meta}>{chapterCountLabel}</Text> : null}
+          </View>
           <Text style={styles.meta}>{progressLabel}</Text>
         </View>
         {downloadedLabel && <Text style={styles.chapters}>{downloadedLabel}</Text>}

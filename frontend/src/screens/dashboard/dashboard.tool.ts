@@ -1,7 +1,7 @@
 import type { Strings } from '../../shared/i18n';
 import { DateTool } from '../../shared/tools/date';
-import type { Serie } from '../../shared/tools/serials';
-import type { DashboardData, DashboardItem, DashboardStats } from './dashboard.types';
+import { SerieTool, type Serie } from '../../shared/tools/serials';
+import type { DashboardData, DashboardItem, DashboardStats, LocalProgress } from './dashboard.types';
 
 // DashboardTool — pure functions that shape the Dashboard's rails from the series list the
 // Library already loads (SerialsService.get → SeriesTool.normalize). Local to this screen: nothing
@@ -11,7 +11,7 @@ export const DASHBOARD_LIMITS = {
   continueReading: 10,
   followedUpdated: 10,
   recentlyUpdated: 10,
-  unreadFollowed: 10,
+  unfinished: 10,
   recentlyAdded: 10,
 } as const;
 
@@ -45,16 +45,29 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-// A label for what a series is made of, when it is not a comic: an EPUB is a novel, a PDF says PDF
-// (it may be a scanned comic, so it is not called a novel). Comics get none, to keep tiles clean.
-function formatBadge({ serie, t }: { serie: Serie; t: Strings }): string | undefined {
-  if (serie.fileFormat === 'epub') {return t.dashboardBadgeNovel;}
-  if (serie.fileFormat === 'pdf') {return t.dashboardBadgePdf;}
-  return undefined;
+// How far into the chapter to resume the reader is. The server's count (pages read) can lag what the
+// reader just did — a novel is one "page" whose position only the device keeps, and the progress of a
+// comic reaches the server in batches — so the device's own record wins when it is the newer of the two.
+function resumeFraction({
+  pages,
+  status,
+  local,
+}: {
+  pages: { count?: number; readCount?: number; resumePoint?: { recordedAtEpochMs?: number } } | undefined;
+  status: string;
+  local: LocalProgress | undefined;
+}): number | undefined {
+  const count = pages?.count;
+  if (pages == null || count == null || count <= 0) {return undefined;}
+  const server = status === 'IN_PROGRESS' && (pages.readCount ?? 0) > 0 ? clamp01(pages.readCount! / count) : undefined;
+  if (local == null) {return server;}
+  const device = clamp01((local.page + local.scrollFraction) / count);
+  const recordedByServer = pages.resumePoint?.recordedAtEpochMs ?? 0;
+  return device > 0 && local.updatedAtEpochMs >= recordedByServer ? device : server;
 }
 
 function baseItem({ serie, t }: { serie: Serie; t: Strings }): DashboardItem {
-  return { seriesId: serie.id, name: serie.name, coverUrl: serie.coverImage.url, badge: formatBadge({ serie, t }) };
+  return { seriesId: serie.id, name: serie.name, coverUrl: serie.coverImage.url, badge: SerieTool.formatBadge({ fileFormat: serie.fileFormat, t }) };
 }
 
 function updatedCaption({ serie, t }: { serie: Serie; t: Strings }): string | undefined {
@@ -75,20 +88,18 @@ export const DashboardTool = {
 
   // One "continue reading" tile from a series digest (it carries the resume point and each
   // chapter's page counts). Null when there is nothing left to resume.
-  continueItem({ serie, t }: { serie: Serie; t: Strings }): DashboardItem | null {
+  continueItem({ serie, t, local }: { serie: Serie; t: Strings; local?: LocalProgress }): DashboardItem | null {
     const resume = serie.resumePoint;
     if (!resume) {return null;}
     const chapter = serie.chapters.find(c => c.id === resume.stoppedAtChapterId);
     const number = chapter?.isSpecial ? chapter.specialLabel : (chapter?.decimalNumber ?? chapter?.number);
-    const pages = chapter?.pages;
-    const hasBar =
-      resume.status === 'IN_PROGRESS' && pages?.count != null && pages.count > 0 && (pages.readCount ?? 0) > 0;
+    const fraction = resumeFraction({ pages: chapter?.pages, status: resume.status, local });
     return {
       ...baseItem({ serie, t }),
       chapterId: resume.stoppedAtChapterId,
       caption: number != null ? t.dashboardChapter.replace('{0}', String(number)) : undefined,
-      progressFraction: hasBar ? clamp01(pages!.readCount! / pages!.count!) : undefined,
-      progressLabel: hasBar ? t.dashboardPercentRead.replace('{0}', String(Math.round(clamp01(pages!.readCount! / pages!.count!) * 100))) : undefined,
+      progressFraction: fraction,
+      progressLabel: fraction != null ? t.dashboardPercentRead.replace('{0}', String(Math.round(fraction * 100))) : undefined,
     };
   },
 
@@ -207,32 +218,33 @@ export const DashboardTool = {
       .map(s => ({ ...baseItem({ serie: s, t }), caption: updatedCaption({ serie: s, t }) }));
   },
 
-  // Followed series with something still unread, newest chapter first.
-  unreadFollowed({
-    series,
-    followedIds,
-    exclude,
-    limit,
-    t,
-  }: {
-    series: Serie[];
-    followedIds: Set<string>;
-    exclude: Set<string>;
-    limit: number;
-    t: Strings;
-  }): DashboardItem[] {
+  // The series that are started and not finished (any series, followed or not), most recently read
+  // first, that "continue reading" does not already own.
+  unfinishedCandidates({ series, exclude, limit }: { series: Serie[]; exclude: Set<string>; limit: number }): Serie[] {
     return series
-      .filter(s => followedIds.has(s.id) && !exclude.has(s.id) && s.pages != null && s.pages.total > 0 && s.pages.read < s.pages.total)
-      .sort((a, b) => (chapterAddedOf(b) ?? 0) - (chapterAddedOf(a) ?? 0))
-      .slice(0, limit)
-      .map(s => {
-        const fraction = clamp01(s.pages!.read / s.pages!.total);
-        return {
-          ...baseItem({ serie: s, t }),
-          caption: t.dashboardPercentRead.replace('{0}', String(Math.round(fraction * 100))),
-          progressFraction: fraction > 0 ? fraction : undefined,
-        };
-      });
+      .filter(s => !exclude.has(s.id) && isInProgress(s))
+      .sort((a, b) => (readDateOf(b) ?? 0) - (readDateOf(a) ?? 0))
+      .slice(0, limit);
+  },
+
+  unfinished({ series, exclude, limit, t }: { series: Serie[]; exclude: Set<string>; limit: number; t: Strings }): DashboardItem[] {
+    return DashboardTool.unfinishedCandidates({ series, exclude, limit }).map(s => {
+      const fraction = clamp01(s.pages!.read / s.pages!.total);
+      return {
+        ...baseItem({ serie: s, t }),
+        caption: t.dashboardPercentRead.replace('{0}', String(Math.round(fraction * 100))),
+        progressFraction: fraction > 0 ? fraction : undefined,
+      };
+    });
+  },
+
+  // What the rails above "followed series updated" own, known from the list alone (so nothing moves when
+  // digests arrive): "continue reading"'s series and the ones "not finished yet" lists. A series is on the
+  // Home once, and the one that is started and unfinished belongs to those rails, not to this one.
+  followedOwners({ series, continueIds }: { series: Serie[]; continueIds: Set<string> }): Set<string> {
+    const owners = new Set(continueIds);
+    DashboardTool.unfinishedCandidates({ series, exclude: continueIds, limit: DASHBOARD_LIMITS.unfinished }).forEach(s => owners.add(s.id));
+    return owners;
   },
 
   // Series that appeared in the library most recently (not "got a chapter" — that is
@@ -262,6 +274,7 @@ export const DashboardTool = {
     continueSeries,
     continueIds,
     followedDigests,
+    localProgress,
     t,
   }: {
     series: Serie[];
@@ -269,41 +282,40 @@ export const DashboardTool = {
     continueSeries: Serie[];
     continueIds: Set<string>;
     followedDigests: Map<string, Serie | null>;
+    // The device's own reading positions, by chapter id.
+    localProgress: Map<string, LocalProgress>;
     t: Strings;
   }): DashboardData {
     const continueReading = continueSeries
-      .map(serie => DashboardTool.continueItem({ serie, t }))
+      .map(serie => DashboardTool.continueItem({ serie, t, local: localProgress.get(serie.resumePoint?.stoppedAtChapterId ?? '') }))
       .filter((item): item is DashboardItem => item != null)
       .slice(0, DASHBOARD_LIMITS.continueReading);
-    // What "continue reading" owns or shows is not repeated in the rails of things to do. The candidates
-    // are chosen with `continueIds` alone (the hook fetches exactly those); a series that turns out to be
-    // shown by "continue reading" after all (one promoted from beyond its limit) is dropped later.
-    const exclude = new Set(continueIds);
-    continueReading.forEach(item => exclude.add(item.seriesId));
+    // What "continue reading" owns or shows is not repeated in the rails below it, and the series that
+    // are started and unfinished stay out of "followed series updated" (see followedOwners). The
+    // candidates are chosen with the owners known up front (the hook fetches exactly those); a series
+    // that turns out to be shown by "continue reading" after all (promoted from beyond its limit) is
+    // dropped later.
+    const shown = new Set(continueIds);
+    continueReading.forEach(item => shown.add(item.seriesId));
+    const owners = DashboardTool.followedOwners({ series, continueIds });
     const candidates = DashboardTool.followedUpdatedCandidates({
       series,
       followedIds,
-      exclude: continueIds,
+      exclude: owners,
       limit: DASHBOARD_LIMITS.followedUpdated,
     });
     const followedUpdated = DashboardTool.followedUpdated({
       candidates,
       digests: followedDigests,
-      exclude,
+      exclude: new Set([...shown, ...owners]),
       limit: DASHBOARD_LIMITS.followedUpdated,
       t,
     });
-    // The rails go top to bottom, and a series is on the Home once: what "followed series updated" owns
-    // (its first candidates, known from the list so nothing moves when the digests arrive, and what it
-    // shows) is not repeated in "not finished yet". Otherwise the two would be the same list.
-    const unreadExclude = new Set(exclude);
-    candidates.slice(0, DASHBOARD_LIMITS.followedUpdated).forEach(serie => unreadExclude.add(serie.id));
-    followedUpdated.forEach(item => unreadExclude.add(item.seriesId));
     return {
       continueReading,
       followedUpdated,
+      unfinished: DashboardTool.unfinished({ series, exclude: shown, limit: DASHBOARD_LIMITS.unfinished, t }),
       recentlyUpdated: DashboardTool.recentlyUpdated({ series, limit: DASHBOARD_LIMITS.recentlyUpdated, t }),
-      unreadFollowed: DashboardTool.unreadFollowed({ series, followedIds, exclude: unreadExclude, limit: DASHBOARD_LIMITS.unreadFollowed, t }),
       recentlyAdded: DashboardTool.recentlyAdded({ series, limit: DASHBOARD_LIMITS.recentlyAdded, t }),
       stats: DashboardTool.stats({ series, followedIds }),
     };

@@ -27,6 +27,11 @@ jest.mock('../../../shared/services/serials', () => ({
   SerialService: { get: (...a: unknown[]) => mockSerialGet(...a) },
 }));
 
+const mockLocalProgress = jest.fn();
+jest.mock('../../../shared/managers/store', () => ({
+  ReadingProgressManager: { get: (...a: unknown[]) => mockLocalProgress(...a) },
+}));
+
 const mockFollowedIds = jest.fn();
 jest.mock('../../../shared/services/followed-series', () => ({
   FollowedSeriesService: { ids: { get: (...a: unknown[]) => mockFollowedIds(...a) } },
@@ -62,6 +67,7 @@ function serialsDigest() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockLocalProgress.mockResolvedValue(null);
   mockAdult.mockImplementation((items: unknown[]) => items);
   mockSerialsGet.mockResolvedValue(serialsDigest());
   mockFollowedIds.mockResolvedValue(['2']);
@@ -344,5 +350,38 @@ describe('useDashboard — followed series updated', () => {
     await waitFor(() => expect(result.current.data?.followedUpdated).toHaveLength(1));
 
     expect(result.current.data!.followedUpdated[0].seriesId).toBe('2');
+  });
+});
+
+describe('useDashboard — progress from the device', () => {
+  const novelDigest = (seriesId: string) =>
+    digest(seriesId, {
+      chapters: {
+        total: 1,
+        list: [{ isSuccess: true, id: 'c1', number: 3, title: 'Vol 3', readStatus: 'UNREAD', pages: { count: 1, readCount: 0 } }],
+        resumePoint: { stoppedAtChapterId: 'c1', stoppedAtChapterIndex: 0, status: 'UNREAD' },
+      },
+    });
+
+  it('shows the position the device saved in the chapter, though the server has read nothing', async () => {
+    mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) => Promise.resolve(novelDigest(seriesId)));
+    mockLocalProgress.mockImplementation((chapterId: string) =>
+      Promise.resolve(chapterId === 'c1' ? { seriesId: '1', page: 0, scrollFraction: 0.4, updatedAtEpochMs: NOW } : null),
+    );
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => expect(result.current.data?.continueReading[0]?.progressFraction).toBeCloseTo(0.4));
+
+    expect(result.current.data!.continueReading[0].progressLabel).toBe('40% read');
+  });
+
+  it('has no bar when the device saved nothing', async () => {
+    mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) => Promise.resolve(novelDigest(seriesId)));
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => expect(result.current.data?.continueReading).toHaveLength(1));
+    await waitFor(() => expect(mockLocalProgress).toHaveBeenCalled());
+
+    expect(result.current.data!.continueReading[0].progressFraction).toBeUndefined();
   });
 });

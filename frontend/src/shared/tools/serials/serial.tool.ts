@@ -162,6 +162,8 @@ export interface SerialCard {
   errorsLabel?: string;
   // Epoch ms — only for the Library's RECENTLY_UPDATED sort; the card itself never shows it.
   lastChapterAddedEpochMs?: number;
+  // "Novel" / "PDF" — what the series is made of when it is not a comic, already localized.
+  formatLabel?: string;
 }
 
 // The optional extras a caller may already have. The Library has all of them (its external-metadata match + its
@@ -287,6 +289,14 @@ function readStatusLabel(status: SerialCard['readStatus'], t: Strings): string {
 }
 
 export const SerieTool = {
+  // A label for what a series is made of, when it is not a comic: an EPUB is a novel, a PDF says PDF
+  // (it may be a scanned comic, so it is not called a novel). Comics get none, to keep tiles clean.
+  formatBadge({ fileFormat, t }: { fileFormat?: string; t: Strings }): string | undefined {
+    if (fileFormat === 'epub') {return t.serieBadgeNovel;}
+    if (fileFormat === 'pdf') {return t.serieBadgePdf;}
+    return undefined;
+  },
+
   // Which chapter is "continue from" — the same 2-level cascade the Kotlin digest builder uses
   // (SerialDigest.chapters.resumePoint, see _contract-design-notes.md): first IN_PROGRESS chapter
   // in reading order → else first UNREAD chapter in reading order → else null (everything read,
@@ -385,6 +395,7 @@ export const SerieTool = {
         hasErrors: enrichment?.hasErrors,
         errorsLabel: enrichment?.hasErrors ? t.hasErrors : undefined,
         lastChapterAddedEpochMs: serial.lastUpdatesUTC?.chapterAdded,
+        formatLabel: SerieTool.formatBadge({ fileFormat: serial.fileFormat, t }),
       };
     },
   },

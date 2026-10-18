@@ -49,6 +49,14 @@ export const listStyles = createStyles(({ colors, text, line, spacing, radius, b
       justifyContent: 'space-between',
       alignItems: 'center',
     },
+    // The format pill sits before the chapter count; it adds no height to the (fixed) row.
+    metaStart: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+    formatBadge: {
+      paddingHorizontal: spacing[3],
+      borderRadius: radius.small,
+      backgroundColor: colors.button.primary,
+    },
+    formatBadgeText: { color: colors.text.button.primary, fontSize: text.size[1], fontWeight: text.weight.bold },
     meta: { color: colors.text.secondary, fontSize: text.size[2], lineHeight: line.height[3] },
     chapters: { color: colors.text.secondary, fontSize: text.size[2] },
     starBtn: { paddingHorizontal: spacing[5] },

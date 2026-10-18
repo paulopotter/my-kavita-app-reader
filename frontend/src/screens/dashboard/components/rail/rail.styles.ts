@@ -43,5 +43,4 @@ export const railStyles = createStyles(({ colors, text, spacing, radius, gutter 
     backgroundColor: colors.surface.tertiary,
     marginTop: spacing[1],
   },
-  empty: { color: colors.text.secondary, fontSize: text.size[3], paddingHorizontal: gutter },
 }));

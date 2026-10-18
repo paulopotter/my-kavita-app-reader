@@ -344,6 +344,25 @@ function serial(over: Partial<Serie> = {}): Serie {
   return { ...SerieTool.normalize.digest({ digest: makeSeriesDigest() }), ...over };
 }
 
+describe('what a series is made of (the format label)', () => {
+  const formatStrings = { ...cardStrings, serieBadgeNovel: 'Novel', serieBadgePdf: 'PDF' } as Strings;
+
+  it('labels an EPUB as a novel and a PDF as a PDF, and leaves a comic without one', () => {
+    expect(SerieTool.formatBadge({ fileFormat: 'epub', t: formatStrings })).toBe('Novel');
+    expect(SerieTool.formatBadge({ fileFormat: 'pdf', t: formatStrings })).toBe('PDF');
+    expect(SerieTool.formatBadge({ fileFormat: 'image', t: formatStrings })).toBeUndefined();
+    expect(SerieTool.formatBadge({ fileFormat: 'archive', t: formatStrings })).toBeUndefined();
+    expect(SerieTool.formatBadge({ t: formatStrings })).toBeUndefined();
+  });
+
+  it('puts the label on the card the Library and Search render, and keeps it through relabel', () => {
+    const card = SerieTool.normalize.card({ serial: serial({ fileFormat: 'epub' }), t: formatStrings });
+    expect(card.formatLabel).toBe('Novel');
+    expect(SerieTool.relabel({ card, t: formatStrings }).formatLabel).toBe('Novel');
+    expect(SerieTool.normalize.card({ serial: serial(), t: formatStrings }).formatLabel).toBeUndefined();
+  });
+});
+
 // The raw→enum mapping has no public entry point of its own — it's a step of normalize.card,
 // so it's exercised through the card (and through relabel, for the patched-in-place path).
 describe('publication status mapping (through normalize.card)', () => {

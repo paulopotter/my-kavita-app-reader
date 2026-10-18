@@ -1,15 +1,14 @@
 import React from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { useStrings } from '../../../../shared/i18n';
 import { useStyles } from '../../../../shared/context';
 import type { DashboardItem } from '../../dashboard.types';
 import { RailCard } from '../rail-card';
 import { RailWideCard } from '../rail-wide-card';
 import { railStyles } from './rail.styles';
 
-// A titled horizontal list of tiles. Always rendered: with nothing to show it says so instead of
-// disappearing — or, while its tiles are still on the way, holds their place with grey blocks so the
-// rail does not jump when they arrive. Local to the Dashboard until a second screen needs one.
+// A titled horizontal list of tiles. With nothing to show it is not drawn at all (an empty rail is
+// noise); while its tiles are still on the way it holds their place with grey blocks, so the rail does
+// not jump when they arrive. Local to the Dashboard until a second screen needs one.
 export interface RailProps {
   title: string;
   items: DashboardItem[];
@@ -26,7 +25,7 @@ const PLACEHOLDER_WIDE_TILES = [0, 1];
 export function Rail({ title, items, onPressItem, loading = false, variant = 'cover' }: RailProps) {
   const wide = variant === 'wide';
   const styles = useStyles(railStyles);
-  const t = useStrings();
+  if (items.length === 0 && !loading) {return null;}
   return (
     <View style={styles.section}>
       <Text style={styles.title}>{title}</Text>
@@ -42,8 +41,6 @@ export function Rail({ title, items, onPressItem, loading = false, variant = 'co
                 </View>
               ))}
         </View>
-      ) : items.length === 0 ? (
-        <Text style={styles.empty}>{t.dashboardEmpty}</Text>
       ) : (
         <FlatList
           horizontal

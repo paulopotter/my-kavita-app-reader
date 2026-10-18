@@ -1,3 +1,11 @@
+// Where the reader got to in a chapter, as the device itself saved it while reading (before — or
+// instead of — the server hearing about it).
+export interface LocalProgress {
+  page: number;
+  scrollFraction: number;
+  updatedAtEpochMs: number;
+}
+
 // One tile in a rail. Labels are already localized — the tile is a dumb component.
 export interface DashboardItem {
   seriesId: string;
@@ -26,7 +34,7 @@ export interface DashboardData {
   continueReading: DashboardItem[];
   followedUpdated: DashboardItem[];
   recentlyUpdated: DashboardItem[];
-  unreadFollowed: DashboardItem[];
+  unfinished: DashboardItem[];
   recentlyAdded: DashboardItem[];
   stats: DashboardStats;
 }

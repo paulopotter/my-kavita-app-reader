@@ -18,6 +18,7 @@ export interface CardProps {
   downloadedLabel?: string; // "12/40 caps." (BFF) — omitted when no BFF match
   publicationLabel?: string; // localized publication status — omitted when unknown
   errorsLabel?: string; // localized "Errors" — omitted unless hasErrors
+  formatLabel?: string; // "Novel" / "PDF" — omitted for a comic
   isFollowed: boolean;
   // Adult-content filter: draw the cover and the title blurred. Absent = plain.
   blurred?: boolean;
@@ -38,6 +39,7 @@ export const Card = React.memo(function Card({
   downloadedLabel,
   publicationLabel,
   errorsLabel,
+  formatLabel,
   isFollowed,
   blurred,
   onToggleFollow,
@@ -65,6 +67,11 @@ export const Card = React.memo(function Card({
         </View>
 
         <View style={styles.badges}>
+          {formatLabel && (
+            <View style={[styles.badge, styles.badgeFormat]} testID="card-format-badge">
+              <Text style={styles.badgeFormatText}>{formatLabel}</Text>
+            </View>
+          )}
           {publicationLabel && (
             <View style={[styles.badge, styles.badgePub]}>
               <Text style={styles.badgeText}>{publicationLabel}</Text>

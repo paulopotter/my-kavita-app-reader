@@ -91,6 +91,9 @@ export const cardStyles = createStyles(({ colors, text, line, spacing, radius, b
       fontSize: text.size[1],
       fontWeight: text.weight.bold,
     },
+    // What the series is made of (novel, PDF): the button fill with the label made for it.
+    badgeFormat: { backgroundColor: colors.button.primary },
+    badgeFormatText: { color: colors.text.button.primary, fontSize: text.size[1], fontWeight: text.weight.bold },
     badgePub: { backgroundColor: colors.badge.special },
     badgeError: { backgroundColor: colors.badge.error },
     // Fixed height reserved the same way as badges above — an entry with no BFF match (no

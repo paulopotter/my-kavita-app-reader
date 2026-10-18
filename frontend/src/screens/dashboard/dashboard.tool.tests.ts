@@ -253,26 +253,38 @@ describe('DashboardTool.recentlyAdded', () => {
   });
 });
 
-describe('DashboardTool.unreadFollowed', () => {
-  it('lists followed series with pages left, newest chapter first, with a percent caption', () => {
+describe('DashboardTool.unfinished', () => {
+  it('lists the series that are started and not finished, followed or not, most recently read first', () => {
     const series = [
-      serie({ id: 'a', pages: { read: 0, total: 10 }, lastUpdatesUTC: { chapterAdded: NOW - 2 * HOUR } }),
-      serie({ id: 'b', pages: { read: 5, total: 10 }, lastUpdatesUTC: { chapterAdded: NOW - HOUR } }),
+      serie({ id: 'old', pages: { read: 2, total: 10 }, lastUpdatesUTC: { readDate: NOW - 5 * HOUR } }),
+      serie({ id: 'recent', pages: { read: 5, total: 10 }, lastUpdatesUTC: { readDate: NOW - HOUR } }),
+      serie({ id: 'never-started', pages: { read: 0, total: 10 } }),
       serie({ id: 'finished', pages: { read: 10, total: 10 } }),
       serie({ id: 'empty', pages: { read: 0, total: 0 } }),
-      serie({ id: 'other', pages: { read: 0, total: 10 } }),
       serie({ id: 'nopages' }),
     ];
-    const items = DashboardTool.unreadFollowed({
-      series,
-      followedIds: new Set(['a', 'b', 'finished', 'empty', 'nopages']),
-      exclude: new Set(),
-      limit: 5,
-      t,
-    });
-    expect(items.map(i => i.seriesId)).toEqual(['b', 'a']);
+    const items = DashboardTool.unfinished({ series, exclude: new Set(), limit: 5, t });
+    expect(items.map(i => i.seriesId)).toEqual(['recent', 'old']);
     expect(items[0]).toMatchObject({ caption: '50% read', progressFraction: 0.5 });
-    expect(items[1]).toMatchObject({ caption: '0% read', progressFraction: undefined });
+  });
+
+  it('leaves out what is excluded and respects the limit', () => {
+    const series = Array.from({ length: 4 }, (_, i) =>
+      serie({ id: String(i), pages: { read: 1, total: 10 }, lastUpdatesUTC: { readDate: NOW - i * HOUR } }),
+    );
+    expect(DashboardTool.unfinished({ series, exclude: new Set(['0']), limit: 2, t }).map(i => i.seriesId)).toEqual(['1', '2']);
+  });
+});
+
+describe('DashboardTool.followedOwners', () => {
+  it('is what "continue reading" and "not finished yet" own, from the list alone', () => {
+    const series = [
+      serie({ id: 'continue', pages: { read: 1, total: 10 }, lastUpdatesUTC: { readDate: NOW } }),
+      serie({ id: 'unfinished', pages: { read: 1, total: 10 }, lastUpdatesUTC: { readDate: NOW - HOUR } }),
+      serie({ id: 'never-started', pages: { read: 0, total: 10 } }),
+    ];
+    const owners = DashboardTool.followedOwners({ series, continueIds: new Set(['continue']) });
+    expect([...owners].sort()).toEqual(['continue', 'unfinished']);
   });
 });
 
@@ -304,6 +316,7 @@ describe('DashboardTool.build', () => {
       followedIds: new Set(['x']),
       continueSeries: [serie({ id: 'fully-read' }), ...resumable],
       continueIds: new Set(),
+      localProgress: new Map(),
       followedDigests: new Map([['x', serie({ id: 'x', resumePoint: { stoppedAtChapterId: 'cx', stoppedAtChapterIndex: 0, status: 'UNREAD' } })]]),
       t,
     });
@@ -311,7 +324,7 @@ describe('DashboardTool.build', () => {
     expect(data.continueReading[0].seriesId).toBe('r0');
     expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['x']);
     expect(data.recentlyUpdated.map(i => i.seriesId)).toEqual(['x']);
-    expect(data.unreadFollowed).toEqual([]);
+    expect(data.unfinished).toEqual([]);
     expect(data.recentlyAdded).toEqual([]);
     expect(data.stats).toEqual({ series: 1, followed: 1, inProgress: 0 });
   });
@@ -355,8 +368,8 @@ describe('DashboardTool — what a tile says it is made of', () => {
     ];
     const items = DashboardTool.recentlyUpdated({ series, limit: 10, t });
     const badgeOf = (id: string) => items.find(i => i.seriesId === id)?.badge;
-    expect(badgeOf('n')).toBe(t.dashboardBadgeNovel);
-    expect(badgeOf('p')).toBe(t.dashboardBadgePdf);
+    expect(badgeOf('n')).toBe(t.serieBadgeNovel);
+    expect(badgeOf('p')).toBe(t.serieBadgePdf);
     expect(badgeOf('c')).toBeUndefined();
     expect(badgeOf('u')).toBeUndefined();
   });
@@ -365,65 +378,102 @@ describe('DashboardTool — what a tile says it is made of', () => {
 describe('DashboardTool.build — a series is on the Home once', () => {
   const unread = { chapterAdded: NOW - HOUR };
   const resumable = (id: string) => serie({ id, resumePoint: { stoppedAtChapterId: `c-${id}`, stoppedAtChapterIndex: 0, status: 'UNREAD' } });
-  const listRow = (id: string) => serie({ id, pages: { read: 3, total: 10 }, lastUpdatesUTC: unread });
-
-  it('keeps what "continue reading" owns out of the rails of things to do, shown or not', () => {
-    const data = DashboardTool.build({
-      series: [listRow('owned'), listRow('other')],
-      followedIds: new Set(['owned', 'other']),
+  const build = (over: Partial<Parameters<typeof DashboardTool.build>[0]>) =>
+    DashboardTool.build({
+      series: [],
+      followedIds: new Set(),
       continueSeries: [],
+      continueIds: new Set(),
+      followedDigests: new Map(),
+      localProgress: new Map(),
+      t,
+      ...over,
+    });
+
+  it('keeps what "continue reading" owns out of the rails below it', () => {
+    const data = build({
+      series: [
+        serie({ id: 'owned', pages: { read: 3, total: 10 }, lastUpdatesUTC: { ...unread, readDate: NOW } }),
+        serie({ id: 'other', pages: { read: 0, total: 10 }, lastUpdatesUTC: unread }),
+      ],
+      followedIds: new Set(['owned', 'other']),
       continueIds: new Set(['owned']),
       followedDigests: new Map([['other', resumable('other')]]),
-      t,
     });
     expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['other']);
-    // 'other' already has its place in "followed series updated", so it is not listed again below.
-    expect(data.unreadFollowed).toEqual([]);
+    expect(data.unfinished).toEqual([]);
     // The discovery rails are not "things to do": they repeat.
     expect(data.recentlyUpdated.map(i => i.seriesId).sort()).toEqual(['other', 'owned']);
   });
 
+  it('gives a started, unfinished series to "not finished yet" and not to "followed series updated"', () => {
+    const data = build({
+      series: [
+        // Started and unfinished, followed, with a chapter added since: it is "not finished yet".
+        serie({ id: 'started', pages: { read: 3, total: 10 }, lastUpdatesUTC: { ...unread, readDate: NOW - 2 * HOUR } }),
+        // Never started, followed, new chapters: it is "followed series updated".
+        serie({ id: 'fresh', pages: { read: 0, total: 10 }, lastUpdatesUTC: unread }),
+      ],
+      followedIds: new Set(['started', 'fresh']),
+      followedDigests: new Map([['fresh', resumable('fresh')]]),
+    });
+    expect(data.unfinished.map(i => i.seriesId)).toEqual(['started']);
+    expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['fresh']);
+  });
+
   it('drops a series that "continue reading" ended up showing though it was not owned up front', () => {
-    const data = DashboardTool.build({
-      series: [listRow('promoted')],
+    const data = build({
+      series: [serie({ id: 'promoted', pages: { read: 0, total: 10 }, lastUpdatesUTC: unread })],
       followedIds: new Set(['promoted']),
       continueSeries: [resumable('promoted')],
-      continueIds: new Set(),
       followedDigests: new Map([['promoted', resumable('promoted')]]),
-      t,
     });
     expect(data.continueReading.map(i => i.seriesId)).toEqual(['promoted']);
     expect(data.followedUpdated).toEqual([]);
-    expect(data.unreadFollowed).toEqual([]);
+    expect(data.unfinished).toEqual([]);
   });
 
-  it('does not repeat in "not finished yet" what "followed series updated" owns, so the two are not the same list', () => {
-    const data = DashboardTool.build({
-      series: [
-        serie({ id: 'updated', pages: { read: 3, total: 10 }, lastUpdatesUTC: unread }),
-        // Behind on old chapters: nothing added since the last read, but not finished.
-        serie({ id: 'behind', pages: { read: 3, total: 10 }, lastUpdatesUTC: { chapterAdded: NOW - 5 * HOUR, readDate: NOW - HOUR } }),
-      ],
-      followedIds: new Set(['updated', 'behind']),
-      continueSeries: [],
-      continueIds: new Set(),
-      followedDigests: new Map([['updated', resumable('updated')]]),
-      t,
-    });
-    expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['updated']);
-    expect(data.unreadFollowed.map(i => i.seriesId)).toEqual(['behind']);
-  });
-
-  it('keeps "not finished yet" steady while the digests of "followed series updated" are still on their way', () => {
-    const data = DashboardTool.build({
-      series: [serie({ id: 'updated', pages: { read: 3, total: 10 }, lastUpdatesUTC: unread })],
-      followedIds: new Set(['updated']),
-      continueSeries: [],
-      continueIds: new Set(),
-      followedDigests: new Map(),
-      t,
+  it('keeps "followed series updated" empty, not half-drawn, while its digests are on their way', () => {
+    const data = build({
+      series: [serie({ id: 'fresh', pages: { read: 0, total: 10 }, lastUpdatesUTC: unread })],
+      followedIds: new Set(['fresh']),
     });
     expect(data.followedUpdated).toEqual([]);
-    expect(data.unreadFollowed).toEqual([]);
+  });
+});
+
+describe('DashboardTool.continueItem — progress from the device', () => {
+  const resumeChapter = (over: Record<string, unknown> = {}) =>
+    ({ id: 'c1', number: 5, pages: { count: 1, readCount: 0, ...over } }) as unknown as Serie['chapters'][number];
+  const digest = (pages: Record<string, unknown> = {}, status: 'UNREAD' | 'IN_PROGRESS' = 'UNREAD') =>
+    serie({
+      id: 's1',
+      chapters: [resumeChapter(pages)],
+      resumePoint: { stoppedAtChapterId: 'c1', stoppedAtChapterIndex: 0, status },
+    });
+
+  it('shows how far the reader got when only the device knows (a novel is one page, the server sees 0)', () => {
+    const item = DashboardTool.continueItem({ serie: digest(), t, local: { page: 0, scrollFraction: 0.4, updatedAtEpochMs: NOW } });
+    expect(item?.progressFraction).toBeCloseTo(0.4);
+    expect(item?.progressLabel).toBe('40% read');
+  });
+
+  it('counts the pages already behind the reader, across the chapter', () => {
+    const item = DashboardTool.continueItem({ serie: digest({ count: 10 }), t, local: { page: 4, scrollFraction: 0.5, updatedAtEpochMs: NOW } });
+    expect(item?.progressFraction).toBeCloseTo(0.45);
+  });
+
+  it('prefers the server when it heard of the reading after the device saved its position', () => {
+    const item = DashboardTool.continueItem({
+      serie: digest({ count: 10, readCount: 8, resumePoint: { recordedAtEpochMs: NOW } }, 'IN_PROGRESS'),
+      t,
+      local: { page: 1, scrollFraction: 0, updatedAtEpochMs: NOW - HOUR },
+    });
+    expect(item?.progressFraction).toBeCloseTo(0.8);
+  });
+
+  it('has no bar when neither the device nor the server has anything', () => {
+    expect(DashboardTool.continueItem({ serie: digest(), t })?.progressFraction).toBeUndefined();
+    expect(DashboardTool.continueItem({ serie: digest(), t, local: { page: 0, scrollFraction: 0, updatedAtEpochMs: NOW } })?.progressFraction).toBeUndefined();
   });
 });
