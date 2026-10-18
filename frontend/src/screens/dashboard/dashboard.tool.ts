@@ -286,17 +286,24 @@ export const DashboardTool = {
       exclude: continueIds,
       limit: DASHBOARD_LIMITS.followedUpdated,
     });
+    const followedUpdated = DashboardTool.followedUpdated({
+      candidates,
+      digests: followedDigests,
+      exclude,
+      limit: DASHBOARD_LIMITS.followedUpdated,
+      t,
+    });
+    // The rails go top to bottom, and a series is on the Home once: what "followed series updated" owns
+    // (its first candidates, known from the list so nothing moves when the digests arrive, and what it
+    // shows) is not repeated in "not finished yet". Otherwise the two would be the same list.
+    const unreadExclude = new Set(exclude);
+    candidates.slice(0, DASHBOARD_LIMITS.followedUpdated).forEach(serie => unreadExclude.add(serie.id));
+    followedUpdated.forEach(item => unreadExclude.add(item.seriesId));
     return {
       continueReading,
-      followedUpdated: DashboardTool.followedUpdated({
-        candidates,
-        digests: followedDigests,
-        exclude,
-        limit: DASHBOARD_LIMITS.followedUpdated,
-        t,
-      }),
+      followedUpdated,
       recentlyUpdated: DashboardTool.recentlyUpdated({ series, limit: DASHBOARD_LIMITS.recentlyUpdated, t }),
-      unreadFollowed: DashboardTool.unreadFollowed({ series, followedIds, exclude, limit: DASHBOARD_LIMITS.unreadFollowed, t }),
+      unreadFollowed: DashboardTool.unreadFollowed({ series, followedIds, exclude: unreadExclude, limit: DASHBOARD_LIMITS.unreadFollowed, t }),
       recentlyAdded: DashboardTool.recentlyAdded({ series, limit: DASHBOARD_LIMITS.recentlyAdded, t }),
       stats: DashboardTool.stats({ series, followedIds }),
     };

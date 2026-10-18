@@ -377,7 +377,8 @@ describe('DashboardTool.build — a series is on the Home once', () => {
       t,
     });
     expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['other']);
-    expect(data.unreadFollowed.map(i => i.seriesId)).toEqual(['other']);
+    // 'other' already has its place in "followed series updated", so it is not listed again below.
+    expect(data.unreadFollowed).toEqual([]);
     // The discovery rails are not "things to do": they repeat.
     expect(data.recentlyUpdated.map(i => i.seriesId).sort()).toEqual(['other', 'owned']);
   });
@@ -392,6 +393,36 @@ describe('DashboardTool.build — a series is on the Home once', () => {
       t,
     });
     expect(data.continueReading.map(i => i.seriesId)).toEqual(['promoted']);
+    expect(data.followedUpdated).toEqual([]);
+    expect(data.unreadFollowed).toEqual([]);
+  });
+
+  it('does not repeat in "not finished yet" what "followed series updated" owns, so the two are not the same list', () => {
+    const data = DashboardTool.build({
+      series: [
+        serie({ id: 'updated', pages: { read: 3, total: 10 }, lastUpdatesUTC: unread }),
+        // Behind on old chapters: nothing added since the last read, but not finished.
+        serie({ id: 'behind', pages: { read: 3, total: 10 }, lastUpdatesUTC: { chapterAdded: NOW - 5 * HOUR, readDate: NOW - HOUR } }),
+      ],
+      followedIds: new Set(['updated', 'behind']),
+      continueSeries: [],
+      continueIds: new Set(),
+      followedDigests: new Map([['updated', resumable('updated')]]),
+      t,
+    });
+    expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['updated']);
+    expect(data.unreadFollowed.map(i => i.seriesId)).toEqual(['behind']);
+  });
+
+  it('keeps "not finished yet" steady while the digests of "followed series updated" are still on their way', () => {
+    const data = DashboardTool.build({
+      series: [serie({ id: 'updated', pages: { read: 3, total: 10 }, lastUpdatesUTC: unread })],
+      followedIds: new Set(['updated']),
+      continueSeries: [],
+      continueIds: new Set(),
+      followedDigests: new Map(),
+      t,
+    });
     expect(data.followedUpdated).toEqual([]);
     expect(data.unreadFollowed).toEqual([]);
   });
