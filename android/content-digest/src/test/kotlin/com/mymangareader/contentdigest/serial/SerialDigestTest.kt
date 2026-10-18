@@ -1547,6 +1547,22 @@ class SerialsDigestTest {
         }
 
     @Test
+    fun `a snapshot written before the current row shape is not served`() =
+        runTest {
+            activateGroup()
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1")))
+            buildSerialsDigest(server, cache)
+            writeSerialsSnapshot(cache, readSerialsSnapshot(cache)!!.copy(schema = 0))
+            assertNull(readSerialsSnapshot(cache))
+
+            plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", fileFormat = "epub")))
+            val result = buildSerialsDigest(server, cache) as SerialsDigest.Success
+
+            assertEquals(2, plugin.serialsListCallCount)
+            assertEquals("epub", (result.serials.single() as SerialDigest.Success).fileFormat)
+        }
+
+    @Test
     fun `an empty list is not remembered`() =
         runTest {
             activateGroup()

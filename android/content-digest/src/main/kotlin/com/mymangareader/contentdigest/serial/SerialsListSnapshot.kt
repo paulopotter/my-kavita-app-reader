@@ -25,8 +25,15 @@ internal const val SERIALS_SNAPSHOT_TTL_MS = 5 * 60 * 1000L
 // The row's own TTL is irrelevant (see above); it only has to outlive any realistic gap between uses.
 private const val SERIALS_SNAPSHOT_ROW_TTL_MS = 30L * 24 * 60 * 60 * 1000
 
+// Bumped whenever a field is added to what a list row carries: a snapshot written before it lacks that
+// field for every series, and would keep serving rows without it until its TTL ran out (the "novel"
+// badge, for one, would not show for minutes after an update). One of an older version is not served.
+internal const val SERIALS_SNAPSHOT_SCHEMA = 2
+
 @Serializable
 internal data class SerialsSnapshot(
+    // Default 0: a snapshot written before this field existed decodes as version 0, i.e. outdated.
+    val schema: Int = 0,
     val syncedAtEpochMs: Long,
     // The server the list came from: a snapshot of another server (or of the same one at another
     // address, which the covers' URLs would still point to) is not served.
@@ -63,7 +70,8 @@ internal suspend fun writeSerialsSnapshot(
 
 internal suspend fun readSerialsSnapshot(cache: Cache): SerialsSnapshot? {
     val entry = cache.persistent.get(SERIALS_SNAPSHOT_KEY, SERIALS_SNAPSHOT_VARIANT) ?: return null
-    return runCatching { serialDigestJson.decodeFromString(SerialsSnapshot.serializer(), entry.value) }.getOrNull()
+    val snapshot = runCatching { serialDigestJson.decodeFromString(SerialsSnapshot.serializer(), entry.value) }.getOrNull()
+    return snapshot?.takeIf { it.schema == SERIALS_SNAPSHOT_SCHEMA }
 }
 
 // What the app just learned about one series, written into its row of the snapshot without touching
