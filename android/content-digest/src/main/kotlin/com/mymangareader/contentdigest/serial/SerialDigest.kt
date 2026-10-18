@@ -253,7 +253,9 @@ suspend fun buildSerialDigest(
 
     if (!force) {
         // readSerialRow reassembles a series stored in segments; a missing part reads as a miss.
+        val readStartedAt = System.nanoTime()
         val row = readSerialRow(cache, key)
+        serialLog("read key=$key ${if (row != null) "hit chapters=${row.digest.chapters?.list?.size}" else "miss"} ms=${(System.nanoTime() - readStartedAt) / 1_000_000}")
         val cached = row?.entry
         if (row != null && cached != null) {
             val digest =
@@ -287,7 +289,9 @@ suspend fun buildSerialDigest(
         }
     }
 
+    val fetchStartedAt = System.nanoTime()
     val fresh = fetchSerialDigest(server, seriesId, cache, options, force)
+    serialLog("fetch key=$key force=$force ${if (fresh is SerialDigest.Success) "chapters=${fresh.chapters?.list?.size}" else "failed"} ms=${(System.nanoTime() - fetchStartedAt) / 1_000_000}")
     if (fresh !is SerialDigest.Success) return fresh
 
     val descriptor = persistSerialDigest(cache, key, fresh, variant = "full:external")

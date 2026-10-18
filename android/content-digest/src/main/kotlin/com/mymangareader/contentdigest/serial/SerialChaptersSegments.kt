@@ -35,6 +35,16 @@ internal const val SERIAL_SEGMENT_VARIANT = "chapters"
 internal const val SERIAL_INLINE_MAX_CHARS = 400_000
 internal const val SERIAL_SEGMENT_TARGET_CHARS = 450_000
 
+/** Logcat tag of the series cache's few, per-call diagnostic lines (never per chapter). */
+internal const val SERIAL_LOG_TAG = "SerialDigest"
+
+// A line per series read/write so a slow or cold open of a huge series can be told apart on the
+// device: cache hit or miss, how long each part took, how it was stored. runCatching because the
+// unit tests run against a stub android.util.Log.
+internal fun serialLog(message: String) {
+    runCatching { android.util.Log.i(SERIAL_LOG_TAG, message) }
+}
+
 @Serializable
 private data class SegmentIndex(
     val resolvedAtEpochMs: Long,
@@ -72,10 +82,13 @@ internal suspend fun persistSerialDigest(
     digest: SerialDigest.Success,
     variant: String = SERIAL_CACHE_VARIANT,
 ): CacheDescriptor {
+    val startedAt = System.nanoTime()
     val inline = serialDigestJson.encodeToString(SerialDigest.Success.serializer(), digest)
     val chapters = digest.chapters
     if (chapters == null || chapters.list.isEmpty() || inline.length <= SERIAL_INLINE_MAX_CHARS) {
-        return cache.persistent.put(key, inline, SERIAL_CACHE_DOMAIN, variant = variant)
+        return cache.persistent.put(key, inline, SERIAL_CACHE_DOMAIN, variant = variant).also {
+            serialLog("persist key=$key inline chars=${inline.length} chapters=${chapters?.list?.size ?: 0} ms=${(System.nanoTime() - startedAt) / 1_000_000}")
+        }
     }
 
     // Greedy grouping by encoded size, so a series of long chapters (or one carrying page lists)
@@ -108,7 +121,9 @@ internal suspend fun persistSerialDigest(
         variant = SERIAL_SEGMENT_VARIANT,
     )
     val main = digest.copy(chapters = chapters.copy(list = emptyList()))
-    return cache.persistent.put(key, serialDigestJson.encodeToString(SerialDigest.Success.serializer(), main), SERIAL_CACHE_DOMAIN, variant = variant)
+    return cache.persistent.put(key, serialDigestJson.encodeToString(SerialDigest.Success.serializer(), main), SERIAL_CACHE_DOMAIN, variant = variant).also {
+        serialLog("persist key=$key segments=${groups.size} chapters=${chapters.list.size} chars=${inline.length} ms=${(System.nanoTime() - startedAt) / 1_000_000}")
+    }
 }
 
 /**
