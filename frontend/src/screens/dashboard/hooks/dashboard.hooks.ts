@@ -39,6 +39,10 @@ export function useDashboard() {
   const [status, setStatus] = useState<DashboardStatus>('loading');
   const [source, setSource] = useState<Source | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // The "continue reading" tiles are still being fetched and none is on screen yet.
+  const [continueLoading, setContinueLoading] = useState(false);
+  // What the rail shows right now, so a reload starts from it instead of from nothing.
+  const shownContinueRef = useRef<Serie[]>([]);
   // Only the latest request may write state: focus and pull-to-refresh can overlap.
   const requestRef = useRef(0);
 
@@ -63,11 +67,21 @@ export function useDashboard() {
       setStatus('ready');
 
       const candidates = DashboardTool.continueCandidates({ series, limit: DASHBOARD_LIMITS.continueReading });
-      const resolved: Array<Serie | null> = candidates.map(() => null);
+      // Start from the digests already on screen: a reload only replaces a tile when its fresh digest
+      // lands, so the rail never empties and refills (that was the flicker on every return to the tab).
+      const shown = new Map(shownContinueRef.current.map(serie => [serie.id, serie]));
+      const resolved: Array<Serie | null> = candidates.map(candidate => shown.get(candidate.id) ?? null);
       const publish = () => {
         if (request !== requestRef.current) {return;}
-        setSource({ series, followedIds: followed, continueSeries: resolved.filter((s): s is Serie => s != null) });
+        const next = resolved.filter((s): s is Serie => s != null);
+        // Nothing the tiles show has changed: leave the screen alone.
+        if (DashboardTool.sameContinue({ previous: shownContinueRef.current, next })) {return;}
+        shownContinueRef.current = next;
+        setSource({ series, followedIds: followed, continueSeries: next });
       };
+      // Candidates that dropped out of the list (finished, read elsewhere) leave the rail right away.
+      publish();
+      setContinueLoading(shownContinueRef.current.length === 0 && candidates.length > 0);
       await ConcurrencyTool.each({
         items: candidates,
         limit: CONTINUE_DIGEST_CONCURRENCY,
@@ -79,11 +93,12 @@ export function useDashboard() {
           }
         },
       });
+      if (request === requestRef.current) {setContinueLoading(false);}
       // One line per load, so a slow open can be told apart on the device: the list, or the digests.
-      // eslint-disable-next-line no-console
       console.log(`[dashboard] list=${listMs}ms digests=${Date.now() - startedAt - listMs}ms candidates=${candidates.length} force=${force}`);
     } catch {
       if (request !== requestRef.current) {return;}
+      setContinueLoading(false);
       // A reload that fails keeps what is already on screen.
       setStatus(previous => (previous === 'ready' ? 'ready' : 'error'));
     }
@@ -136,5 +151,5 @@ export function useDashboard() {
     load({ force: false });
   }, [load]);
 
-  return { status, data, refreshing, refresh, retry };
+  return { status, data, refreshing, continueLoading, refresh, retry };
 }

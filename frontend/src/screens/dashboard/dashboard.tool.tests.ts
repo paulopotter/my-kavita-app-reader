@@ -243,3 +243,29 @@ describe('DashboardTool.build', () => {
     expect(data.stats).toEqual({ series: 1, followed: 1, inProgress: 0 });
   });
 });
+
+describe('DashboardTool.sameContinue', () => {
+  const resumed = (over: Partial<Serie> = {}): Serie =>
+    serie({
+      id: '1',
+      resumePoint: { stoppedAtChapterId: 'c1', stoppedAtChapterIndex: 0, status: 'IN_PROGRESS' },
+      chapters: [{ id: 'c1', number: 3, pages: { count: 10, readCount: 4 } } as Serie['chapters'][number]],
+      ...over,
+    });
+
+  it('is true for the same tiles, even when the digests are different objects', () => {
+    expect(DashboardTool.sameContinue({ previous: [resumed()], next: [resumed()] })).toBe(true);
+    expect(DashboardTool.sameContinue({ previous: [], next: [] })).toBe(true);
+  });
+
+  it('is false when the list grows or shrinks', () => {
+    expect(DashboardTool.sameContinue({ previous: [resumed()], next: [] })).toBe(false);
+  });
+
+  it('is false when the chapter to resume, or how far the reader got, changed', () => {
+    const moved = resumed({ resumePoint: { stoppedAtChapterId: 'c2', stoppedAtChapterIndex: 1, status: 'IN_PROGRESS' } });
+    expect(DashboardTool.sameContinue({ previous: [resumed()], next: [moved] })).toBe(false);
+    const further = resumed({ chapters: [{ id: 'c1', number: 3, pages: { count: 10, readCount: 7 } } as Serie['chapters'][number]] });
+    expect(DashboardTool.sameContinue({ previous: [resumed()], next: [further] })).toBe(false);
+  });
+});

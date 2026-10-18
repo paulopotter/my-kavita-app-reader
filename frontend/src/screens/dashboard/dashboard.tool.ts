@@ -83,6 +83,33 @@ export const DashboardTool = {
     };
   },
 
+  // What a "continue reading" tile is made of, as one string: two digests of the same series with
+  // the same signature draw the same tile, so a reload that changed nothing can leave the screen alone.
+  continueSignature(serie: Serie): string {
+    const resume = serie.resumePoint;
+    const chapter = resume ? serie.chapters.find(c => c.id === resume.stoppedAtChapterId) : undefined;
+    return JSON.stringify([
+      serie.id,
+      serie.name,
+      serie.coverImage.url,
+      resume?.stoppedAtChapterId,
+      resume?.status,
+      chapter?.isSpecial,
+      chapter?.specialLabel,
+      chapter?.decimalNumber,
+      chapter?.number,
+      chapter?.pages?.count,
+      chapter?.pages?.readCount,
+    ]);
+  },
+
+  sameContinue({ previous, next }: { previous: Serie[]; next: Serie[] }): boolean {
+    return (
+      previous.length === next.length &&
+      previous.every((serie, index) => DashboardTool.continueSignature(serie) === DashboardTool.continueSignature(next[index]))
+    );
+  },
+
   // Followed series that got a chapter after the last time the user read them.
   latestChapters({
     series,

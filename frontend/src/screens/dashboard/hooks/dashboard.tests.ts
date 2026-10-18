@@ -223,6 +223,49 @@ describe('useDashboard — adult filter', () => {
       expect(result.current.data!.continueReading).toHaveLength(1);
     });
 
+    it('never shrinks the rail while a reload brings the digests back one by one', async () => {
+      mockSerialsGet.mockResolvedValue({
+        isSuccess: true,
+        lastUpdatedEpochMs: NOW,
+        serials: [inProgress('1', NOW), inProgress('2', NOW - 1)],
+      });
+      mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) => Promise.resolve(digest(seriesId, resume(`c${seriesId}`))));
+      const { result } = renderHook(() => useDashboard());
+      await waitFor(() => expect(result.current.data?.continueReading).toHaveLength(2));
+
+      const seen: number[] = [];
+      mockSerialGet.mockImplementation(
+        ({ seriesId }: { seriesId: string }) =>
+          new Promise(resolve => setTimeout(() => resolve(digest(seriesId, resume(`c${seriesId}`))), seriesId === '1' ? 5 : 15)),
+      );
+      act(() => result.current.retry());
+      await waitFor(() => expect(mockSerialGet).toHaveBeenCalledTimes(4));
+      await waitFor(() => {
+        seen.push(result.current.data?.continueReading.length ?? 0);
+        expect(seen.length).toBeGreaterThan(5);
+      });
+
+      expect(Math.min(...seen)).toBe(2);
+    });
+
+    it('says the rail is loading until its first tile lands, and not again once one is shown', async () => {
+      mockSerialsGet.mockResolvedValue({ isSuccess: true, lastUpdatedEpochMs: NOW, serials: [inProgress('1', NOW)] });
+      let release: (value: unknown) => void = () => {};
+      mockSerialGet.mockImplementation(() => new Promise(resolve => (release = resolve)));
+      const { result } = renderHook(() => useDashboard());
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await waitFor(() => expect(result.current.continueLoading).toBe(true));
+
+      await act(async () => release(digest('1', resume('c1'))));
+      await waitFor(() => expect(result.current.continueLoading).toBe(false));
+      expect(result.current.data!.continueReading).toHaveLength(1);
+
+      mockSerialGet.mockReturnValue(new Promise(() => {}));
+      act(() => result.current.retry());
+      await waitFor(() => expect(mockSerialsGet).toHaveBeenCalledTimes(2));
+      expect(result.current.continueLoading).toBe(false);
+    });
+
     it('fetches at most four digests at a time', async () => {
       mockSerialsGet.mockResolvedValue({
         isSuccess: true,

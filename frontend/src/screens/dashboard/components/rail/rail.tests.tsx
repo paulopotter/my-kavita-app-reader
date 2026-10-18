@@ -23,4 +23,16 @@ describe('Rail', () => {
     fireEvent.press(getByText('One Piece'));
     expect(onPressItem).toHaveBeenCalledWith(item);
   });
+
+  it('holds the place of its tiles while they load, instead of saying there is nothing', () => {
+    const { getByTestId, queryByText } = render(<Rail title="Continue" items={[]} loading onPressItem={jest.fn()} />);
+    expect(getByTestId('rail-placeholder')).toBeTruthy();
+    expect(queryByText('Nothing here yet')).toBeNull();
+  });
+
+  it('shows the tiles it already has even while it is still loading', () => {
+    const { getByText, queryByTestId } = render(<Rail title="Continue" items={[item]} loading onPressItem={jest.fn()} />);
+    expect(getByText('One Piece')).toBeTruthy();
+    expect(queryByTestId('rail-placeholder')).toBeNull();
+  });
 });

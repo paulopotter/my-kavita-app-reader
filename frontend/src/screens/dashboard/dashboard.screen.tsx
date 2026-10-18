@@ -18,7 +18,7 @@ export function DashboardScreen() {
   const { colors } = useTheme();
   const t = useStrings();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const { status, data, refreshing, refresh, retry } = useDashboard();
+  const { status, data, refreshing, continueLoading, refresh, retry } = useDashboard();
 
   const open = useCallback(
     (item: DashboardItem) => {
@@ -56,7 +56,7 @@ export function DashboardScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
       <StatsStrip stats={data.stats} />
-      <Rail title={t.dashboardContinueReading} items={data.continueReading} onPressItem={open} />
+      <Rail title={t.dashboardContinueReading} items={data.continueReading} loading={continueLoading} onPressItem={open} />
       <Rail title={t.dashboardLatestChapters} items={data.latestChapters} onPressItem={open} />
       <Rail title={t.dashboardRecentlyUpdated} items={data.recentlyUpdated} onPressItem={open} />
       <Rail title={t.dashboardUnreadFollowed} items={data.unreadFollowed} onPressItem={open} />
