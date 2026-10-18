@@ -8,6 +8,8 @@ export interface DashboardItem {
   caption?: string;
   // 0..1 — absent means "no progress known", and the tile draws no bar.
   progressFraction?: number;
+  // The same progress as words ("45% lido"), for the tile that has room for it.
+  progressLabel?: string;
   // Adult-content filter: draw the tile blurred.
   blurred?: boolean;
   // What the series is made of when it is not a comic ("Novel", "PDF"), already localized.

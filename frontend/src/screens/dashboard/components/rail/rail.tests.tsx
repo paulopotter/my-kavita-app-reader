@@ -35,4 +35,16 @@ describe('Rail', () => {
     expect(getByText('One Piece')).toBeTruthy();
     expect(queryByTestId('rail-placeholder')).toBeNull();
   });
+
+  it('draws the wide card for a rail that goes straight into the content', () => {
+    const { getByTestId, queryByTestId, rerender } = render(<Rail title="Continue" items={[item]} variant="wide" onPressItem={jest.fn()} />);
+    expect(getByTestId('rail-wide-card')).toBeTruthy();
+    rerender(<Rail title="Continue" items={[item]} onPressItem={jest.fn()} />);
+    expect(queryByTestId('rail-wide-card')).toBeNull();
+  });
+
+  it('holds the place of a wide rail with wide blocks', () => {
+    const { getByTestId } = render(<Rail title="Continue" items={[]} loading variant="wide" onPressItem={jest.fn()} />);
+    expect(getByTestId('rail-placeholder')).toBeTruthy();
+  });
 });

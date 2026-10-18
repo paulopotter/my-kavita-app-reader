@@ -71,6 +71,7 @@ describe('DashboardTool.continueItem', () => {
       coverUrl: 'cover-s1',
       caption: 'Ch. 10',
       progressFraction: 0.25,
+      progressLabel: '25% read',
     });
   });
 

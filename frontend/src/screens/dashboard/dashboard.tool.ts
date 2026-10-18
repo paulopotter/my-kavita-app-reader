@@ -88,6 +88,7 @@ export const DashboardTool = {
       chapterId: resume.stoppedAtChapterId,
       caption: number != null ? t.dashboardChapter.replace('{0}', String(number)) : undefined,
       progressFraction: hasBar ? clamp01(pages!.readCount! / pages!.count!) : undefined,
+      progressLabel: hasBar ? t.dashboardPercentRead.replace('{0}', String(Math.round(clamp01(pages!.readCount! / pages!.count!) * 100))) : undefined,
     };
   },
 
