@@ -130,6 +130,7 @@ suspend fun buildSerialsDigest(
 
     // An empty list is not remembered: it is more likely a server hiccup than an empty library.
     if (minimals.isNotEmpty()) {
+        // Stamped after the per-series merge, so it reads as newer than anything written before this sync.
         writeSerialsSnapshot(cache, SerialsSnapshot(System.currentTimeMillis(), serverInfo.url, minimals))
     }
 

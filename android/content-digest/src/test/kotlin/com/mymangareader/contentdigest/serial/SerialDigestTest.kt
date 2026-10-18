@@ -31,6 +31,7 @@ import com.mymangareader.server.plugins.ServerPlugin
 import com.mymangareader.server.plugins.ServerPluginRegistration
 import com.mymangareader.tools.network.ActiveUrlSelector
 import com.mymangareader.tools.network.RequestTool
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -159,6 +160,7 @@ private class FakePlugin(
     var serialsListResult: Result<List<PluginSerial>> = Result.success(emptyList()),
 ) : ServerPlugin {
     var serialGetCallCount = 0
+    var serialGetDelayMs = 0L
     var serialsListCallCount = 0
     override val id = "fake"
     override val displayName = "Fake"
@@ -189,6 +191,7 @@ private class FakePlugin(
         object : ServerPlugin.Serial {
             override suspend fun get(): PluginSerial {
                 serialGetCallCount++
+                if (serialGetDelayMs > 0) kotlinx.coroutines.delay(serialGetDelayMs)
                 return serialResult.getOrThrow()
             }
 
@@ -1654,6 +1657,45 @@ class SerialsDigestTest {
         }
 
     @Test
+    fun `reading a chapter does not make the series screen variant look contradicted by its own default row`() =
+        runTest {
+            activateGroup()
+            val options = SerialDigestOptions(includeExternalMetadata = false, full = true)
+            plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", 1.0, pagesRead = 0, pageCount = 10)))
+            plugin.serialResult = Result.success(fakePluginSerial("s1", pagesRead = 0, totalPages = 10))
+            buildSerialDigest(server, "s1", cache) // the default row, with the list's page count
+            plugin.serialResult = Result.success(fakePluginSerial("s1", pagesRead = 5, totalPages = 10))
+            buildSerialDigest(server, "s1", cache, options) // the series screen's row, fresher
+            val fetches = plugin.serialGetCallCount
+
+            // Marking the chapter rewrites the default row (so it is newer) with its old page count.
+            Thread.sleep(5)
+            patchSerialChapterReadStatus(cache, "s1", "ch1", ChapterFields.ReadStatus.READ)
+            val again = buildSerialDigest(server, "s1", cache, options) as SerialDigest.Success
+
+            assertEquals(fetches, plugin.serialGetCallCount) // still a cache hit
+            assertEquals(1, again.chapters?.total)
+        }
+
+    @Test
+    fun `several simultaneous reads of the same series share one fetch`() =
+        runTest {
+            activateGroup()
+            plugin.chaptersListResult = Result.success(listOf(fakeChapter("ch1", 1.0, pageCount = 10)))
+            plugin.serialGetDelayMs = 200
+
+            val results =
+                kotlinx.coroutines.awaitAll(
+                    async { buildSerialDigest(server, "s1", cache) },
+                    async { buildSerialDigest(server, "s1", cache) },
+                    async { buildSerialDigest(server, "s1", cache) },
+                )
+
+            assertEquals(1, plugin.serialGetCallCount)
+            assertTrue(results.all { it is SerialDigest.Success && it.chapters?.total == 1 })
+        }
+
+    @Test
     fun `the series screen variant is re-fetched when a newer list row contradicts its progress`() =
         runTest {
             activateGroup()
@@ -1666,7 +1708,7 @@ class SerialsDigestTest {
 
             // A chapter is added server-side; the Library's list refresh sees 10/20 and merges it into
             // the default-variant entry only.
-            kotlinx.coroutines.delay(5)
+            Thread.sleep(5)
             plugin.serialsListResult = Result.success(listOf(fakePluginSerial("s1", pagesRead = 10, totalPages = 20)))
             buildSerialsDigest(server, cache, force = true)
             plugin.serialResult = Result.success(fakePluginSerial("s1", pagesRead = 10, totalPages = 20))

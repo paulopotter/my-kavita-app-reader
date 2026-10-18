@@ -24,6 +24,8 @@ import com.mymangareader.server.plugins.PluginGenreOrTag
 import com.mymangareader.server.plugins.PluginSeriesMetadata
 import com.mymangareader.tools.datetime.parseIsoUtcToEpochMs
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -32,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
+import java.util.concurrent.ConcurrentHashMap
 
 interface SerialFields {
     val id: String
@@ -285,6 +288,33 @@ suspend fun buildSerialDigest(
         }
     }
 
+    // The series screen, the reader and the dashboard can all ask for the same series at the same
+    // moment (a hit that was just rejected is rejected for all of them): one request answers them all,
+    // instead of one each — the server is what makes every one of them slow. A force always asks.
+    if (force) return fetchAndPersist(server, seriesId, cache, options, key, force = true)
+    val running = serialFetchesInFlight[key]
+    if (running != null) return running.await()
+    val created = serialDigestBackgroundScope.async(start = CoroutineStart.LAZY) { fetchAndPersist(server, seriesId, cache, options, key, force = false) }
+    val raced = serialFetchesInFlight.putIfAbsent(key, created)
+    if (raced != null) {
+        created.cancel()
+        return raced.await()
+    }
+    created.invokeOnCompletion { serialFetchesInFlight.remove(key, created) }
+    created.start()
+    return created.await()
+}
+
+private val serialFetchesInFlight = ConcurrentHashMap<String, Deferred<SerialDigest>>()
+
+private suspend fun fetchAndPersist(
+    server: Server,
+    seriesId: String,
+    cache: Cache,
+    options: SerialDigestOptions,
+    key: String,
+    force: Boolean,
+): SerialDigest {
     val fetchStartedAt = System.nanoTime()
     val fresh = fetchSerialDigest(server, seriesId, cache, options, force)
     serialLog("fetch key=$key force=$force ${if (fresh is SerialDigest.Success) "chapters=${fresh.chapters?.list?.size}" else "failed"} ms=${(System.nanoTime() - fetchStartedAt) / 1_000_000}")
@@ -308,12 +338,17 @@ private fun SerialDigest.Success.withRehostedPages(activeBaseUrl: String?): Seri
 
 // The series screen reads its own variant ("<id>:false:true": with enrichment) while the Library's
 // list refresh only ever merges into the default one ("<id>:false:false"). So a chapter added or
-// read elsewhere shows up in the list row at once, but the series screen kept serving its own older
+// read elsewhere shows up in the list at once, but the series screen kept serving its own older
 // chapters block — "all read" there while the Library (fresh) said otherwise — until the 15-minute
 // TTL and then still served it once more before the background refresh landed. Only a manual
-// pull-to-refresh fixed it. The list row is the newest thing the app knows without a network call,
-// so when it is NEWER than this entry and states a different progress (series pages or the
-// last-chapter-added date), this entry is stale. A purely local comparison: no extra request.
+// pull-to-refresh fixed it. The list is the newest thing the app knows without a network call, so
+// when its last SYNC WITH THE SERVER is newer than this entry and states a different progress
+// (series pages or the last-chapter-added date), this entry is stale. A purely local comparison: no
+// extra request.
+//
+// It compares against the list snapshot, never against the series' own default row: a chapter marked
+// read rewrites that row (so it is "newer") without bringing any list data, and its old page count
+// then read as a contradiction on every return to the series — a multi-second fetch each time.
 private suspend fun listRowContradicts(
     cache: Cache,
     seriesId: String,
@@ -321,11 +356,10 @@ private suspend fun listRowContradicts(
     cached: CacheEntry,
     digest: SerialDigest.Success,
 ): Boolean {
-    val listKey = serialsListCacheKey(seriesId)
-    if (key == listKey) return false
-    val listEntry = cache.persistent.get(listKey, variant = SERIAL_CACHE_VARIANT) ?: return false
-    if (listEntry.cachedAtEpochMs <= cached.cachedAtEpochMs) return false
-    val row = runCatching { serialDigestJson.decodeFromString<SerialDigest.Success>(listEntry.value) }.getOrNull() ?: return false
+    if (key == serialsListCacheKey(seriesId)) return false
+    val snapshot = readSerialsSnapshot(cache) ?: return false
+    if (snapshot.syncedAtEpochMs <= cached.cachedAtEpochMs) return false
+    val row = snapshot.serials.firstOrNull { it.id == seriesId } ?: return false
     val contradicts = row.pages != digest.pages || row.lastUpdatesUTC?.chapterAdded != digest.lastUpdatesUTC?.chapterAdded
     if (contradicts) {
         serialLog(
