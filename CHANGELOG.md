@@ -10,6 +10,24 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+
+- feat: leitura de livros (EPUB) pelo servidor Kavita, com informações, página em HTML e sumário no plugin e na ponte do app.
+- fix: capítulos "soltos" do Kavita (volumes de novel) passam a usar o número do volume e o título do capítulo, na ordem certa.
+- feat: séries com milhares de capítulos passam a ser guardadas em segmentos no cache, em vez de serem remontadas pela rede a cada abertura.
+- perf: a lista de obras é servida de um snapshot em cache e atualizada em segundo plano; leituras simultâneas da mesma obra dividem uma única busca, voltar a uma obra já aberta não refaz a busca e atualizar a lista não apaga mais os capítulos guardados.
+- feat: cada obra informa como seus arquivos são guardados (imagem, arquivo, epub ou pdf).
+- perf: imagens AVIF respeitam o orçamento de memória da página e não passam pelo codec de hardware, o que elimina as travadinhas em tiras muito altas.
+- fix: abrir o app em segundo plano com o serviço de notificações ativo não derruba mais o processo.
+
+### Frontend
+
+- feat: zoom por página no leitor de imagens (duplo toque, pinça de 1x a 4x e arrasto, com a rolagem travada enquanto amplia).
+- feat: leitor de novels (EPUB) com modo de leitura infinito (padrão) e paginado, barra de progresso, tema, fonte, tamanho, entrelinha, margens e justificação; as mesmas escolhas ficam em Ajustes > Preferências de leitura.
+- feat: nos dois leitores, o nome da obra no cabeçalho leva à tela da obra, e a seta de voltar continua levando à última tela.
+- feat: a Home reorganiza os trilhos — "Continuar lendo" em cartão horizontal com o progresso guardado no aparelho, "Obras seguidas atualizadas" com o próximo capítulo, "Ainda não terminei…" e "Atualizadas recentemente" — sem repetir obra entre trilhos nem mostrar trilho vazio, e pinta assim que a lista chega, sem piscar ao voltar.
+- feat: selo "Novel"/"PDF" nos cartões da Home, da Biblioteca e da Busca.
+
 ## [[2026.10.17.0115](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.17.0115)] - 2026-10-17
 
 O app agora conta com uma nova tela inicial com trilhos personalizados, salvamento instantâneo do progresso de leitura e otimizações na busca de metadados e categorias. / The app now features a new home screen with personalized rails, instant reading progress saving, and optimizations for metadata and category searches.
