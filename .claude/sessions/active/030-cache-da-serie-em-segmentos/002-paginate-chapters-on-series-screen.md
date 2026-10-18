@@ -1,6 +1,6 @@
 # Task 002 — Paginate chapters on the series screen
 
-**Status:** pending (conditional)
+**Status:** on_hold (2026-10-18) — conditional, contract change; the user parked it, not to be touched until they ask
 
 ## Why
 

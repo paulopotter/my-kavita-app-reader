@@ -1,6 +1,6 @@
 # Task 002 — Full-resolution region decode while zoomed
 
-**Status:** pending — conditional
+**Status:** on_hold (2026-10-18) — conditional; the user parked it, not to be touched until they ask
 
 ## Condition
 

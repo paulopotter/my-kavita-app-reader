@@ -5,7 +5,7 @@ See `README.md` for the approved design, the contract changes, and the blur risk
 | # | Task | Depends on | Status |
 |---|------|------------|--------|
 | [001](001-gestures-and-scale-on-bitmap.md) | Gestures + scale/translation on the existing bitmap, `zoomEnabled` prop, `onZoomChanged` event, overlay hidden while zoomed | — | done |
-| [002](002-full-resolution-region-decode.md) | Conditional: re-decode the visible region at full resolution while zoomed (`BitmapRegionDecoder`) | 001 | pending (only if the user judges Task 001 too blurry on device) |
+| [002](002-full-resolution-region-decode.md) | Conditional: re-decode the visible region at full resolution while zoomed (`BitmapRegionDecoder`) | 001 | on_hold (parked by the user on 2026-10-18; only if Task 001 is judged too blurry on device) |
 
 ## Suggested execution order
 
