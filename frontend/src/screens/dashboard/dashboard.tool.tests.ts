@@ -129,7 +129,7 @@ describe('DashboardTool.continueItem', () => {
   });
 });
 
-describe('DashboardTool.followedUpdated', () => {
+describe('DashboardTool.followedUpdatedCandidates', () => {
   it('lists followed series whose newest chapter is later than their last read, newest first', () => {
     const series = [
       serie({ id: 'a', lastUpdatesUTC: { chapterAdded: NOW - 2 * HOUR, readDate: NOW - 5 * HOUR } }),
@@ -138,20 +138,89 @@ describe('DashboardTool.followedUpdated', () => {
       serie({ id: 'not-followed', lastUpdatesUTC: { chapterAdded: NOW } }),
       serie({ id: 'no-date' }),
     ];
-    const items = DashboardTool.followedUpdated({
+    const candidates = DashboardTool.followedUpdatedCandidates({
       series,
       followedIds: new Set(['a', 'b', 'caught-up', 'no-date']),
+      exclude: new Set(),
       limit: 5,
-      t,
     });
-    expect(items.map(i => i.seriesId)).toEqual(['b', 'a']);
-    expect(items[0].caption).toBe(t.dateHoursAgo.replace('{0}', '1'));
+    expect(candidates.map(c => c.id)).toEqual(['b', 'a']);
   });
 
-  it('respects the limit', () => {
-    const series = Array.from({ length: 5 }, (_, i) => serie({ id: String(i), lastUpdatesUTC: { chapterAdded: NOW - i * HOUR } }));
-    const followedIds = new Set(series.map(s => s.id));
-    expect(DashboardTool.followedUpdated({ series, followedIds, limit: 2, t })).toHaveLength(2);
+  it('leaves out what "continue reading" owns', () => {
+    const series = [
+      serie({ id: 'a', lastUpdatesUTC: { chapterAdded: NOW - HOUR } }),
+      serie({ id: 'b', lastUpdatesUTC: { chapterAdded: NOW - 2 * HOUR } }),
+    ];
+    const candidates = DashboardTool.followedUpdatedCandidates({
+      series,
+      followedIds: new Set(['a', 'b']),
+      exclude: new Set(['a']),
+      limit: 5,
+    });
+    expect(candidates.map(c => c.id)).toEqual(['b']);
+  });
+
+  it('takes the limit plus the buffer, since some will have nothing left to read', () => {
+    const series = Array.from({ length: 20 }, (_, i) => serie({ id: String(i), lastUpdatesUTC: { chapterAdded: NOW - i * HOUR } }));
+    const candidates = DashboardTool.followedUpdatedCandidates({
+      series,
+      followedIds: new Set(series.map(s => s.id)),
+      exclude: new Set(),
+      limit: 2,
+    });
+    expect(candidates).toHaveLength(2 + CONTINUE_CANDIDATE_BUFFER);
+  });
+});
+
+describe('DashboardTool.followedUpdated', () => {
+  const candidate = (id: string, hoursAgo = 1) => serie({ id, lastUpdatesUTC: { chapterAdded: NOW - hoursAgo * HOUR } });
+  const withResume = (id: string, chapterNumber: number) =>
+    serie({
+      id,
+      resumePoint: { stoppedAtChapterId: 'c1', stoppedAtChapterIndex: 0, status: 'UNREAD' },
+      chapters: [{ id: 'c1', number: chapterNumber } as Serie['chapters'][number]],
+    });
+  const run = (over: Partial<Parameters<typeof DashboardTool.followedUpdated>[0]>) =>
+    DashboardTool.followedUpdated({ candidates: [], digests: new Map(), exclude: new Set(), limit: 5, t, ...over });
+
+  it('shows the next chapter to read instead of the time of the update', () => {
+    const items = run({ candidates: [candidate('a')], digests: new Map([['a', withResume('a', 12)]]) });
+    expect(items).toHaveLength(1);
+    expect(items[0].caption).toBe(t.dashboardNextChapter.replace('{0}', '12'));
+  });
+
+  it('drops a series whose digest says everything is read', () => {
+    const items = run({ candidates: [candidate('a'), candidate('b')], digests: new Map([['a', serie({ id: 'a' })], ['b', withResume('b', 3)]]) });
+    expect(items.map(i => i.seriesId)).toEqual(['b']);
+  });
+
+  it('keeps a series whose digest could not be had, with the time of the update', () => {
+    const items = run({ candidates: [candidate('a', 2)], digests: new Map([['a', null]]) });
+    expect(items[0].caption).toBe(t.dateHoursAgo.replace('{0}', '2'));
+  });
+
+  it('waits for a digest that is still on its way instead of showing the series', () => {
+    expect(run({ candidates: [candidate('a')], digests: new Map() })).toEqual([]);
+  });
+
+  it('leaves out excluded series and respects the limit', () => {
+    const digests = new Map([['a', withResume('a', 1)], ['b', withResume('b', 2)], ['c', withResume('c', 3)]]);
+    const items = run({ candidates: [candidate('a'), candidate('b'), candidate('c')], digests, exclude: new Set(['a']), limit: 1 });
+    expect(items.map(i => i.seriesId)).toEqual(['b']);
+  });
+});
+
+describe('DashboardTool.sameDigests', () => {
+  const digest = (id: string, chapterId: string) =>
+    serie({ id, resumePoint: { stoppedAtChapterId: chapterId, stoppedAtChapterIndex: 0, status: 'UNREAD' } });
+
+  it('is true for the same tiles even from different objects, and false when one differs', () => {
+    expect(DashboardTool.sameDigests({ previous: new Map([['a', digest('a', 'c1')]]), next: new Map([['a', digest('a', 'c1')]]) })).toBe(true);
+    expect(DashboardTool.sameDigests({ previous: new Map([['a', digest('a', 'c1')]]), next: new Map([['a', digest('a', 'c2')]]) })).toBe(false);
+    expect(DashboardTool.sameDigests({ previous: new Map([['a', null]]), next: new Map([['a', digest('a', 'c1')]]) })).toBe(false);
+    expect(DashboardTool.sameDigests({ previous: new Map(), next: new Map([['a', null]]) })).toBe(false);
+    expect(DashboardTool.sameDigests({ previous: new Map([['a', null]]), next: new Map([['a', null]]) })).toBe(true);
   });
 });
 
@@ -196,6 +265,7 @@ describe('DashboardTool.unreadFollowed', () => {
     const items = DashboardTool.unreadFollowed({
       series,
       followedIds: new Set(['a', 'b', 'finished', 'empty', 'nopages']),
+      exclude: new Set(),
       limit: 5,
       t,
     });
@@ -232,6 +302,8 @@ describe('DashboardTool.build', () => {
       series: [serie({ id: 'x', lastUpdatesUTC: { chapterAdded: NOW - HOUR } })],
       followedIds: new Set(['x']),
       continueSeries: [serie({ id: 'fully-read' }), ...resumable],
+      continueIds: new Set(),
+      followedDigests: new Map([['x', serie({ id: 'x', resumePoint: { stoppedAtChapterId: 'cx', stoppedAtChapterIndex: 0, status: 'UNREAD' } })]]),
       t,
     });
     expect(data.continueReading).toHaveLength(DASHBOARD_LIMITS.continueReading);
@@ -286,5 +358,40 @@ describe('DashboardTool — what a tile says it is made of', () => {
     expect(badgeOf('p')).toBe(t.dashboardBadgePdf);
     expect(badgeOf('c')).toBeUndefined();
     expect(badgeOf('u')).toBeUndefined();
+  });
+});
+
+describe('DashboardTool.build — a series is on the Home once', () => {
+  const unread = { chapterAdded: NOW - HOUR };
+  const resumable = (id: string) => serie({ id, resumePoint: { stoppedAtChapterId: `c-${id}`, stoppedAtChapterIndex: 0, status: 'UNREAD' } });
+  const listRow = (id: string) => serie({ id, pages: { read: 3, total: 10 }, lastUpdatesUTC: unread });
+
+  it('keeps what "continue reading" owns out of the rails of things to do, shown or not', () => {
+    const data = DashboardTool.build({
+      series: [listRow('owned'), listRow('other')],
+      followedIds: new Set(['owned', 'other']),
+      continueSeries: [],
+      continueIds: new Set(['owned']),
+      followedDigests: new Map([['other', resumable('other')]]),
+      t,
+    });
+    expect(data.followedUpdated.map(i => i.seriesId)).toEqual(['other']);
+    expect(data.unreadFollowed.map(i => i.seriesId)).toEqual(['other']);
+    // The discovery rails are not "things to do": they repeat.
+    expect(data.recentlyUpdated.map(i => i.seriesId).sort()).toEqual(['other', 'owned']);
+  });
+
+  it('drops a series that "continue reading" ended up showing though it was not owned up front', () => {
+    const data = DashboardTool.build({
+      series: [listRow('promoted')],
+      followedIds: new Set(['promoted']),
+      continueSeries: [resumable('promoted')],
+      continueIds: new Set(),
+      followedDigests: new Map([['promoted', resumable('promoted')]]),
+      t,
+    });
+    expect(data.continueReading.map(i => i.seriesId)).toEqual(['promoted']);
+    expect(data.followedUpdated).toEqual([]);
+    expect(data.unreadFollowed).toEqual([]);
   });
 });

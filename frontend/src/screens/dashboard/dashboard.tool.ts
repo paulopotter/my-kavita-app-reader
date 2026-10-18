@@ -118,27 +118,84 @@ export const DashboardTool = {
     );
   },
 
-  // Followed series that got a chapter after the last time the user read them.
-  followedUpdated({
+  // The ids "continue reading" will show (its first `limit` candidates). The rails of things to do
+  // leave them out — a series is on the Home once. Known from the list alone, so nothing moves when
+  // the digests arrive.
+  continueIds({ candidates, limit }: { candidates: Serie[]; limit: number }): Set<string> {
+    return new Set(candidates.slice(0, limit).map(serie => serie.id));
+  },
+
+  // Followed series that got a chapter after the last time the user read them, newest first (plus a
+  // buffer, since some will turn out to have nothing left to read). Series in `exclude` are left out.
+  followedUpdatedCandidates({
     series,
     followedIds,
+    exclude,
     limit,
-    t,
   }: {
     series: Serie[];
     followedIds: Set<string>;
+    exclude: Set<string>;
     limit: number;
-    t: Strings;
-  }): DashboardItem[] {
+  }): Serie[] {
     return series
-      .filter(s => followedIds.has(s.id))
+      .filter(s => followedIds.has(s.id) && !exclude.has(s.id))
       .filter(s => {
         const added = chapterAddedOf(s);
         return added != null && added > (readDateOf(s) ?? 0);
       })
       .sort((a, b) => chapterAddedOf(b)! - chapterAddedOf(a)!)
-      .slice(0, limit)
-      .map(s => ({ ...baseItem({ serie: s, t }), caption: updatedCaption({ serie: s, t }) }));
+      .slice(0, limit + CONTINUE_CANDIDATE_BUFFER);
+  },
+
+  // The "followed series updated" tiles. `digests` holds what is known of each candidate's own digest:
+  // a digest says what is left to read (nothing left → the series is not shown, the point of this rail),
+  // `null` means it could not be had (the tile stays, with the time of the update instead of a chapter),
+  // and no entry means it is still on its way (the tile waits, so it never shows one thing and then another).
+  followedUpdated({
+    candidates,
+    digests,
+    exclude,
+    limit,
+    t,
+  }: {
+    candidates: Serie[];
+    digests: Map<string, Serie | null>;
+    exclude: Set<string>;
+    limit: number;
+    t: Strings;
+  }): DashboardItem[] {
+    const items: DashboardItem[] = [];
+    for (const serie of candidates) {
+      if (exclude.has(serie.id) || !digests.has(serie.id)) {continue;}
+      const digest = digests.get(serie.id);
+      if (digest == null) {
+        items.push({ ...baseItem({ serie, t }), caption: updatedCaption({ serie, t }) });
+        continue;
+      }
+      const resume = digest.resumePoint;
+      if (!resume) {continue;}
+      const chapter = digest.chapters.find(c => c.id === resume.stoppedAtChapterId);
+      const number = chapter?.isSpecial ? chapter.specialLabel : (chapter?.decimalNumber ?? chapter?.number);
+      items.push({
+        ...baseItem({ serie, t }),
+        caption: number != null ? t.dashboardNextChapter.replace('{0}', String(number)) : undefined,
+      });
+    }
+    return items.slice(0, limit);
+  },
+
+  // Whether two sets of known candidate digests would draw the same tiles, so a reload that changed
+  // nothing can leave the screen alone.
+  sameDigests({ previous, next }: { previous: Map<string, Serie | null>; next: Map<string, Serie | null> }): boolean {
+    if (previous.size !== next.size) {return false;}
+    for (const [id, digest] of next) {
+      if (!previous.has(id)) {return false;}
+      const before = previous.get(id);
+      if ((before == null) !== (digest == null)) {return false;}
+      if (before != null && digest != null && DashboardTool.continueSignature(before) !== DashboardTool.continueSignature(digest)) {return false;}
+    }
+    return true;
   },
 
   recentlyUpdated({ series, limit, t }: { series: Serie[]; limit: number; t: Strings }): DashboardItem[] {
@@ -153,16 +210,18 @@ export const DashboardTool = {
   unreadFollowed({
     series,
     followedIds,
+    exclude,
     limit,
     t,
   }: {
     series: Serie[];
     followedIds: Set<string>;
+    exclude: Set<string>;
     limit: number;
     t: Strings;
   }): DashboardItem[] {
     return series
-      .filter(s => followedIds.has(s.id) && s.pages != null && s.pages.total > 0 && s.pages.read < s.pages.total)
+      .filter(s => followedIds.has(s.id) && !exclude.has(s.id) && s.pages != null && s.pages.total > 0 && s.pages.read < s.pages.total)
       .sort((a, b) => (chapterAddedOf(b) ?? 0) - (chapterAddedOf(a) ?? 0))
       .slice(0, limit)
       .map(s => {
@@ -193,27 +252,50 @@ export const DashboardTool = {
     };
   },
 
-  // `continueSeries` are the digests of DashboardTool.continueCandidates, already fetched.
+  // `continueSeries` are the digests of DashboardTool.continueCandidates, already fetched;
+  // `continueIds` is DashboardTool.continueIds; `followedDigests` what is known of the digests of
+  // DashboardTool.followedUpdatedCandidates (see followedUpdated).
   build({
     series,
     followedIds,
     continueSeries,
+    continueIds,
+    followedDigests,
     t,
   }: {
     series: Serie[];
     followedIds: Set<string>;
     continueSeries: Serie[];
+    continueIds: Set<string>;
+    followedDigests: Map<string, Serie | null>;
     t: Strings;
   }): DashboardData {
     const continueReading = continueSeries
       .map(serie => DashboardTool.continueItem({ serie, t }))
       .filter((item): item is DashboardItem => item != null)
       .slice(0, DASHBOARD_LIMITS.continueReading);
+    // What "continue reading" owns or shows is not repeated in the rails of things to do. The candidates
+    // are chosen with `continueIds` alone (the hook fetches exactly those); a series that turns out to be
+    // shown by "continue reading" after all (one promoted from beyond its limit) is dropped later.
+    const exclude = new Set(continueIds);
+    continueReading.forEach(item => exclude.add(item.seriesId));
+    const candidates = DashboardTool.followedUpdatedCandidates({
+      series,
+      followedIds,
+      exclude: continueIds,
+      limit: DASHBOARD_LIMITS.followedUpdated,
+    });
     return {
       continueReading,
-      followedUpdated: DashboardTool.followedUpdated({ series, followedIds, limit: DASHBOARD_LIMITS.followedUpdated, t }),
+      followedUpdated: DashboardTool.followedUpdated({
+        candidates,
+        digests: followedDigests,
+        exclude,
+        limit: DASHBOARD_LIMITS.followedUpdated,
+        t,
+      }),
       recentlyUpdated: DashboardTool.recentlyUpdated({ series, limit: DASHBOARD_LIMITS.recentlyUpdated, t }),
-      unreadFollowed: DashboardTool.unreadFollowed({ series, followedIds, limit: DASHBOARD_LIMITS.unreadFollowed, t }),
+      unreadFollowed: DashboardTool.unreadFollowed({ series, followedIds, exclude, limit: DASHBOARD_LIMITS.unreadFollowed, t }),
       recentlyAdded: DashboardTool.recentlyAdded({ series, limit: DASHBOARD_LIMITS.recentlyAdded, t }),
       stats: DashboardTool.stats({ series, followedIds }),
     };

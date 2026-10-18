@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import type { SerialDigest } from '../../../shared/bridge';
 import { useAdultFiltered } from '../../../shared/context/adult-filter';
 import { useStrings } from '../../../shared/i18n';
 import { useEvent } from '../../../shared/managers/events';
@@ -18,7 +19,14 @@ interface Source {
   series: Serie[];
   followedIds: Set<string>;
   continueSeries: Serie[];
+  // The series "continue reading" owns (known from the list), which the rails of things to do leave out.
+  continueIds: Set<string>;
+  // What is known of the digests of the "followed series updated" candidates: a digest, null when it
+  // could not be had, no entry while it is on its way.
+  followedDigests: Map<string, Serie | null>;
 }
+
+type DigestTask = { kind: 'continue'; serie: Serie; index: number } | { kind: 'followed'; serie: Serie };
 
 // useDashboard — loads the series list (cache-first, the same call the Library makes), the
 // followed ids, and a digest for each "continue reading" candidate, then hands them to
@@ -39,10 +47,12 @@ export function useDashboard() {
   const [status, setStatus] = useState<DashboardStatus>('loading');
   const [source, setSource] = useState<Source | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  // The "continue reading" tiles are still being fetched and none is on screen yet.
+  // The tiles of a rail are still being fetched and none is on screen yet.
   const [continueLoading, setContinueLoading] = useState(false);
-  // What the rail shows right now, so a reload starts from it instead of from nothing.
+  const [followedLoading, setFollowedLoading] = useState(false);
+  // What the rails show right now, so a reload starts from it instead of from nothing.
   const shownContinueRef = useRef<Serie[]>([]);
+  const shownFollowedRef = useRef<Map<string, Serie | null>>(new Map());
   // Only the latest request may write state: focus and pull-to-refresh can overlap.
   const requestRef = useRef(0);
 
@@ -62,43 +72,79 @@ export function useDashboard() {
       const listMs = Date.now() - startedAt;
 
       if (request !== requestRef.current) {return;}
-      // Paint now. What was already shown for "continue reading" stays until the new digests land.
-      setSource(previous => ({ series, followedIds: followed, continueSeries: previous?.continueSeries ?? [] }));
-      setStatus('ready');
-
       const candidates = DashboardTool.continueCandidates({ series, limit: DASHBOARD_LIMITS.continueReading });
+      const continueIds = DashboardTool.continueIds({ candidates, limit: DASHBOARD_LIMITS.continueReading });
+      const followedCandidates = DashboardTool.followedUpdatedCandidates({
+        series,
+        followedIds: followed,
+        exclude: continueIds,
+        limit: DASHBOARD_LIMITS.followedUpdated,
+      });
       // Start from the digests already on screen: a reload only replaces a tile when its fresh digest
-      // lands, so the rail never empties and refills (that was the flicker on every return to the tab).
+      // lands, so a rail never empties and refills (that was the flicker on every return to the tab).
       const shown = new Map(shownContinueRef.current.map(serie => [serie.id, serie]));
       const resolved: Array<Serie | null> = candidates.map(candidate => shown.get(candidate.id) ?? null);
+      const digests = new Map<string, Serie | null>();
+      followedCandidates.forEach(candidate => {
+        if (shownFollowedRef.current.has(candidate.id)) {digests.set(candidate.id, shownFollowedRef.current.get(candidate.id) ?? null);}
+      });
       const publish = () => {
         if (request !== requestRef.current) {return;}
         const next = resolved.filter((s): s is Serie => s != null);
         // Nothing the tiles show has changed: leave the screen alone.
-        if (DashboardTool.sameContinue({ previous: shownContinueRef.current, next })) {return;}
+        if (
+          DashboardTool.sameContinue({ previous: shownContinueRef.current, next }) &&
+          DashboardTool.sameDigests({ previous: shownFollowedRef.current, next: digests })
+        ) {
+          return;
+        }
         shownContinueRef.current = next;
-        setSource({ series, followedIds: followed, continueSeries: next });
+        shownFollowedRef.current = new Map(digests);
+        setSource({ series, followedIds: followed, continueSeries: next, continueIds, followedDigests: new Map(digests) });
       };
-      // Candidates that dropped out of the list (finished, read elsewhere) leave the rail right away.
-      publish();
+
+      if (request !== requestRef.current) {return;}
+      // Paint now, with what is already known for the rails that need a digest.
+      shownContinueRef.current = resolved.filter((s): s is Serie => s != null);
+      shownFollowedRef.current = new Map(digests);
+      setSource({ series, followedIds: followed, continueSeries: shownContinueRef.current, continueIds, followedDigests: new Map(digests) });
+      setStatus('ready');
       setContinueLoading(shownContinueRef.current.length === 0 && candidates.length > 0);
+      setFollowedLoading(digests.size === 0 && followedCandidates.length > 0);
+
+      const tasks: DigestTask[] = [
+        ...candidates.map((serie, index): DigestTask => ({ kind: 'continue', serie, index })),
+        ...followedCandidates.map((serie): DigestTask => ({ kind: 'followed', serie })),
+      ];
       await ConcurrencyTool.each({
-        items: candidates,
+        items: tasks,
         limit: CONTINUE_DIGEST_CONCURRENCY,
-        task: async (candidate, index) => {
-          const digest = await SerialService.get({ seriesId: candidate.id, force });
-          if (digest.isSuccess) {
-            resolved[index] = SerieTool.normalize.digest({ digest });
-            publish();
+        task: async task => {
+          let digest: SerialDigest | null = null;
+          try {
+            digest = await SerialService.get({ seriesId: task.serie.id, force });
+          } catch {
+            digest = null;
           }
+          const serie = digest?.isSuccess ? SerieTool.normalize.digest({ digest }) : null;
+          if (task.kind === 'continue') {
+            if (serie) {resolved[task.index] = serie;}
+          } else {
+            digests.set(task.serie.id, serie);
+          }
+          publish();
         },
       });
-      if (request === requestRef.current) {setContinueLoading(false);}
+      if (request === requestRef.current) {
+        setContinueLoading(false);
+        setFollowedLoading(false);
+      }
       // One line per load, so a slow open can be told apart on the device: the list, or the digests.
       console.log(`[dashboard] list=${listMs}ms digests=${Date.now() - startedAt - listMs}ms candidates=${candidates.length} force=${force}`);
     } catch {
       if (request !== requestRef.current) {return;}
       setContinueLoading(false);
+      setFollowedLoading(false);
       // A reload that fails keeps what is already on screen.
       setStatus(previous => (previous === 'ready' ? 'ready' : 'error'));
     }
@@ -126,6 +172,8 @@ export function useDashboard() {
       series: visibleSeries,
       followedIds: source.followedIds,
       continueSeries: source.continueSeries.filter(serie => visibleIds.has(serie.id)),
+      continueIds: source.continueIds,
+      followedDigests: source.followedDigests,
       t,
     });
     const mark = (items: DashboardItem[]): DashboardItem[] =>
@@ -151,5 +199,5 @@ export function useDashboard() {
     load({ force: false });
   }, [load]);
 
-  return { status, data, refreshing, continueLoading, refresh, retry };
+  return { status, data, refreshing, continueLoading, followedLoading, refresh, retry };
 }

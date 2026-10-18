@@ -128,7 +128,9 @@ describe('useDashboard', () => {
       await result.current.refresh();
     });
     expect(mockSerialsGet).toHaveBeenLastCalledWith({ force: true });
-    expect(mockSerialGet).toHaveBeenLastCalledWith({ seriesId: '1', force: true });
+    // Both the "continue reading" candidate and the "followed series updated" one are asked for fresh.
+    expect(mockSerialGet).toHaveBeenCalledWith({ seriesId: '1', force: true });
+    expect(mockSerialGet).toHaveBeenCalledWith({ seriesId: '2', force: true });
     expect(result.current.refreshing).toBe(false);
 
     mockSerialsGet.mockRejectedValueOnce(new Error('offline'));
@@ -293,3 +295,54 @@ describe('useDashboard — adult filter', () => {
   });
 });
 
+describe('useDashboard — followed series updated', () => {
+  const unreadResume = (chapterId: string, number: number) => ({
+    chapters: {
+      total: 1,
+      list: [{ isSuccess: true, id: chapterId, number, title: `Cap ${number}`, readStatus: 'UNREAD', pages: { count: 10, readCount: 0 } }],
+      resumePoint: { stoppedAtChapterId: chapterId, stoppedAtChapterIndex: 0, status: 'UNREAD' },
+    },
+  });
+
+  it('shows the next chapter to read for a followed series with something new', async () => {
+    mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) => Promise.resolve(digest(seriesId, unreadResume('c9', 9))));
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => expect(result.current.data?.followedUpdated).toHaveLength(1));
+
+    expect(result.current.data!.followedUpdated[0].seriesId).toBe('2');
+    expect(result.current.data!.followedUpdated[0].caption).toBe('Next: Ch. 9');
+    expect(result.current.followedLoading).toBe(false);
+  });
+
+  it('drops the series once its digest says there is nothing left to read', async () => {
+    mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) => Promise.resolve(digest(seriesId, { chapters: { total: 1, list: [] } })));
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => expect(result.current.followedLoading).toBe(false));
+    await waitFor(() => expect(mockSerialGet).toHaveBeenCalledWith({ seriesId: '2', force: false }));
+
+    expect(result.current.data!.followedUpdated).toEqual([]);
+  });
+
+  it('holds the place of the rail while its digests are on the way', async () => {
+    mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) => (seriesId === '2' ? new Promise(() => {}) : Promise.resolve(digest(seriesId, unreadResume('c1', 1)))));
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await waitFor(() => expect(result.current.followedLoading).toBe(true));
+    expect(result.current.data!.followedUpdated).toEqual([]);
+  });
+
+  it('keeps the series, with the time of the update, when its digest fails', async () => {
+    mockSerialGet.mockImplementation(({ seriesId }: { seriesId: string }) =>
+      seriesId === '2' ? Promise.reject(new Error('boom')) : Promise.resolve(digest(seriesId, unreadResume('c1', 1))),
+    );
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => expect(result.current.data?.followedUpdated).toHaveLength(1));
+
+    expect(result.current.data!.followedUpdated[0].seriesId).toBe('2');
+  });
+});
