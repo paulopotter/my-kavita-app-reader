@@ -10,23 +10,46 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
+## [[2026.10.18.1852](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.18.1852)] - 2026-10-18
 
-- feat: leitura de livros (EPUB) pelo servidor Kavita, com informações, página em HTML e sumário no plugin e na ponte do app.
-- fix: capítulos "soltos" do Kavita (volumes de novel) passam a usar o número do volume e o título do capítulo, na ordem certa.
-- feat: séries com milhares de capítulos passam a ser guardadas em segmentos no cache, em vez de serem remontadas pela rede a cada abertura.
-- perf: a lista de obras é servida de um snapshot em cache e atualizada em segundo plano; leituras simultâneas da mesma obra dividem uma única busca, voltar a uma obra já aberta não refaz a busca e atualizar a lista não apaga mais os capítulos guardados.
-- feat: cada obra informa como seus arquivos são guardados (imagem, arquivo, epub ou pdf).
-- perf: imagens AVIF respeitam o orçamento de memória da página e não passam pelo codec de hardware, o que elimina as travadinhas em tiras muito altas.
-- fix: abrir o app em segundo plano com o serviço de notificações ativo não derruba mais o processo.
+Agora você pode ler livros em EPUB com sumário, organizar capítulos soltos de novels, navegar por obras gigantes sem travamentos e aproveitar um leitor de imagens mais fluido e personalizável. / Now you can read EPUB books with a table of contents, organize loose novel chapters, browse massive series without lag, and enjoy a smoother, more customizable image reader.
 
-### Frontend
 
-- feat: zoom por página no leitor de imagens (duplo toque, pinça de 1x a 4x e arrasto, com a rolagem travada enquanto amplia).
-- feat: leitor de novels (EPUB) com modo de leitura infinito (padrão) e paginado, barra de progresso, tema, fonte, tamanho, entrelinha, margens e justificação; as mesmas escolhas ficam em Ajustes > Preferências de leitura.
-- feat: nos dois leitores, o nome da obra no cabeçalho leva à tela da obra, e a seta de voltar continua levando à última tela.
-- feat: a Home reorganiza os trilhos — "Continuar lendo" em cartão horizontal com o progresso guardado no aparelho, "Obras seguidas atualizadas" com o próximo capítulo, "Ainda não terminei…" e "Atualizadas recentemente" — sem repetir obra entre trilhos nem mostrar trilho vazio, e pinta assim que a lista chega, sem piscar ao voltar.
-- feat: selo "Novel"/"PDF" nos cartões da Home, da Biblioteca e da Busca.
+### **Backend** - `1.8.0`
+
+**[pt-BR]**
+- Leitura de livros em formato EPUB direto pelo servidor Kavita, exibindo informações, página em HTML e sumário completo.
+- Capítulos soltos de novels do Kavita agora usam o número do volume e o título correto, mantendo a ordem exata.
+- Séries com milhares de capítulos agora são salvas em pedaços no cache, evitando novas buscas pela rede a cada abertura.
+- A lista de obras carrega instantaneamente de um cache e atualiza em segundo plano, sem apagar os capítulos já salvos e evitando buscas repetidas.
+- Cada obra agora informa o formato em que seus arquivos são guardados, seja imagem, arquivo, EPUB ou PDF.
+- Imagens AVIF agora respeitam o limite de memória e evitam o uso do chip gráfico, eliminando travamentos em capítulos compridos.
+- Abrir o app em segundo plano com as notificações ativas não causa mais o encerramento inesperado do processo.
+
+**[en]**
+- Direct EPUB book reading via the Kavita server, displaying metadata, HTML pages, and a complete table of contents.
+- Loose novel chapters from Kavita now properly incorporate the volume number and correct title in the exact order.
+- Series containing thousands of chapters are now saved in segments within the cache, avoiding repeated network requests upon every opening.
+- The library list loads instantly from a cached snapshot while updating silently in the background without clearing saved chapters or duplicating searches.
+- Every title now reports the specific file format its contents are stored in, whether image, archive, EPUB, or PDF.
+- AVIF images now strictly adhere to page memory limits and bypass hardware codecs, eliminating stuttering on extra-long vertical strips.
+- Launching the application in the background while notification services are active no longer crashes the process.
+
+### **Frontend** - `1.9.0`
+
+**[pt-BR]**
+- Zoom por página no leitor de imagens com duplo toque, pinça de 1x a 4x, arrasto livre e rolagem travada durante a ampliação.
+- Novo leitor de novels em EPUB com opções de leitura infinita ou paginada, barra de progresso, temas, fontes, tamanhos, entrelinhas, margens e justificação centralizadas em Ajustes.
+- O nome da obra no cabeçalho de ambos os leitores agora leva direto à página da obra, enquanto a seta de retorno continua direcionando à última tela.
+- A tela inicial foi reorganizada em trilhos inteligentes para continuar leituras, acompanhar obras seguidas, retomar pendências e ver novidades sem repetir títulos ou exibir seções vazias.
+- Selos informativos indicando se o conteúdo é Novel ou PDF aparecem nos cartões da tela inicial, da biblioteca e da busca.
+
+**[en]**
+- Page-level zoom for the image reader supporting double-taps, 1x to 4x pinch gestures, free panning, and locked scrolling while zoomed in.
+- Brand new EPUB novel reader featuring infinite or paginated reading modes, a progress bar, custom themes, fonts, sizes, line spacing, margins, and text alignment managed under Settings.
+- Tapping a title's name in the header of either reader now opens its detail page, whereas the back arrow reliably returns to the previous screen.
+- The home screen was restructured into smart carousels to continue reading, track followed titles, resume unfinished items, and browse recent updates without duplicating cards or showing empty rows.
+- Informative badges identifying Novel or PDF content are now displayed on the cards across the home screen, library, and search views.
 
 ## [[2026.10.17.0115](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.17.0115)] - 2026-10-17
 
