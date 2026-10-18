@@ -50,11 +50,38 @@ opening a chapter fails: the reader requests image pages, and an EPUB is only se
    Opening a chapter whose `pages.fileFormat` is `"epub"` navigates to `book-reader` instead of
    the image reader (series screen). Multi-page EPUBs (`book-info` pages > 1): one page at a time
    with prev/next.
+5. **Task 005 — reader appearance (approved 2026-10-18, after the rc9 device test).** An "Aa"
+   button in the book reader's footer opens a sheet (A↓ A↑ stay in the footer) with theme, font
+   family, text size, line height, margins, justification and reading mode. Everything is
+   persisted in `BookPrefs`. Reader themes are their own fixed palette in
+   `shared/theme/reading-themes.ts`, independent of the app's 12 identities, with a Jest test
+   enforcing body text and links >= 7:1 (presets: app, Paper, Sepia, Gray, Green, Dark, Night,
+   Black/OLED, High contrast). Fonts: system serif, sans-serif, monospace. `BookDocumentTool`
+   gets the new inputs.
+6. **Task 006 — infinite reading mode (approved 2026-10-18).** Default for books; paged stays an
+   option chosen in the Task 005 sheet and stored in `BookPrefs` as `'infinite' | 'paged'`
+   (global). One WebView document that grows: the script posts `needNext` ~1.5 screens from the
+   end, RN fetches the next chapter through `BookService` and injects it as
+   `<section data-chapter-id>`; the script reports the chapter in view so RN updates progress,
+   saves per-chapter scroll and marks each chapter read once its end has passed. Previous
+   chapter stays a button; no trimming of old sections in v1; same CSP/nonce lockdown.
+
+## Follow-ups already done in Tasks 001-004 (after the user's device feedback)
+
+Bars closed on open; top bar without the chapter title (the page already opens with it); taller
+footer with previous chapter left / next chapter right / text size centre and the bottom inset;
+thin progress bar promoted to `shared/components/thin-progress-bar`; selected-chapter row no
+longer dimmed; selection bar respects the bottom inset (`useBottomInset`). Commits `97c0ab8`,
+`4ddc8d3`, `e84d5a3`, `2791a33`.
 
 ## Contract changes (approved)
 
 - `ServerPlugin.book` capability and `ServerBridge.getBookInfo` / `getBookPage`.
-- New route `book-reader`.
+- New route `book-reader` (in practice, `ReaderEntry` on the existing reader route; see Task 003).
+- Task 005: the new `BookPrefs` fields, the `reading-themes.ts` tokens and the `BookDocumentTool`
+  inputs.
+- Task 006: the `needNext` and chapter-in-view WebView messages, the `BookPrefs` reading-mode
+  field and the `BookDocumentTool`/`parseMessage` extension.
 - Title/order **values** for loose chapters (no change to the digest shape).
 
 Anything else is a contract change that needs a **new approval in text before any code**.
@@ -62,6 +89,7 @@ Anything else is a contract change that needs a **new approval in text before an
 ## Out of v1
 
 - Table-of-contents UI.
+- Bundled reading fonts (e.g. Literata) and trimming of old sections in infinite mode.
 - Annotations / highlights.
 - Server-side progress (`bookScrollId`).
 - PDF (later, via `extractPdf` into the image reader so it inherits zoom).
