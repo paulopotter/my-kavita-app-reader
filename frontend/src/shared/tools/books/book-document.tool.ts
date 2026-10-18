@@ -7,16 +7,36 @@
 // arrive as hex strings (the theme's tokens, already converted) and the font size as a multiplier
 // of a base size — the document owns no design value of its own.
 
+import type { BookFontFamily, BookMargin } from './book-prefs.tool';
+
 export const BOOK_BASE_FONT_PX = 18;
+
+// The document's own design values: CSS here is a string, outside the app's token system, so they
+// are named once instead of being scattered through the template.
+const BOOK_FONT_STACKS: Record<BookFontFamily, string> = {
+  serif: "Georgia, 'Noto Serif', serif",
+  sans: "'Roboto', 'Noto Sans', sans-serif",
+  mono: "'Roboto Mono', 'Droid Sans Mono', monospace",
+};
+const BOOK_SIDE_PADDING_PX: Record<BookMargin, number> = { narrow: 14, medium: 22, wide: 36 };
+
+export interface BookDocumentColors {
+  background: string;
+  text: string;
+  link: string;
+}
 
 export interface BookDocumentInput {
   // The page as the provider served it.
   html: string;
-  background: string;
-  text: string;
-  link: string;
+  colors: BookDocumentColors;
   // Multiplier over BOOK_BASE_FONT_PX (1 = default).
   fontScale: number;
+  fontFamily: BookFontFamily;
+  // Unitless multiplier of the font size.
+  lineSpacing: number;
+  margin: BookMargin;
+  justify: boolean;
   // Where to land once laid out, as a fraction of the scrollable height (0 = top).
   restoreFraction: number;
   // Distinguishes this document's script from anything inside the fragment.
@@ -73,6 +93,9 @@ export const BookDocumentTool = {
   build(input: BookDocumentInput): string {
     if (!NONCE_PATTERN.test(input.nonce)) {throw new Error('BookDocumentTool: nonce must be alphanumeric');}
     const fontPx = Math.round(BOOK_BASE_FONT_PX * input.fontScale * 100) / 100;
+    const family = BOOK_FONT_STACKS[input.fontFamily];
+    const side = BOOK_SIDE_PADDING_PX[input.margin];
+    const align = input.justify ? 'justify' : 'left';
     return `<!doctype html>
 <html>
 <head>
@@ -80,9 +103,15 @@ export const BookDocumentTool = {
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https: http:; font-src data: https: http:; script-src 'nonce-${input.nonce}'">
 <style>
-html { background: ${input.background}; color: ${input.text}; -webkit-text-size-adjust: none; }
-body { margin: 0; padding: 20px 18px 120px; font-size: ${fontPx}px; line-height: 1.6; overflow-wrap: anywhere; }
-a { color: ${input.link}; }
+html { background: ${input.colors.background}; color: ${input.colors.text}; -webkit-text-size-adjust: none; }
+body { margin: 0; padding: 20px ${side}px 120px; font-size: ${fontPx}px; overflow-wrap: anywhere; }
+/* The reader's choices win over whatever the book's own stylesheet says: its fonts, spacing,
+   alignment and colours were not picked against this page. */
+body, body * { font-family: ${family} !important; line-height: ${input.lineSpacing} !important; }
+body * { color: inherit !important; background-color: transparent !important; }
+p { text-align: ${align} !important; ${input.justify ? 'hyphens: auto;' : ''} }
+.book-content { margin: 0 !important; }
+a, a * { color: ${input.colors.link} !important; }
 img { max-width: 100%; height: auto; }
 </style>
 </head>

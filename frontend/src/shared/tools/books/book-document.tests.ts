@@ -6,10 +6,12 @@ const { Script } = require('vm') as { Script: new (code: string) => unknown };
 
 const input: BookDocumentInput = {
   html: '<div class=" "><h1>Capítulo 1</h1><p>Olá</p></div>',
-  background: '#101010',
-  text: '#eeeeee',
-  link: '#88aaff',
+  colors: { background: '#101010', text: '#eeeeee', link: '#88aaff' },
   fontScale: 1,
+  fontFamily: 'serif',
+  lineSpacing: 1.6,
+  margin: 'medium',
+  justify: false,
   restoreFraction: 0,
   nonce: 'abc123',
 };
@@ -24,10 +26,38 @@ describe('BookDocumentTool.build', () => {
     const doc = BookDocumentTool.build(input);
 
     expect(doc).toContain('<h1>Capítulo 1</h1>');
-    expect(doc).toContain('background: #101010');
+    expect(doc).toContain('html { background: #101010;');
     expect(doc).toContain('color: #eeeeee');
-    expect(doc).toContain('a { color: #88aaff; }');
+    expect(doc).toContain('a, a * { color: #88aaff !important; }');
     expect(doc).toContain(`font-size: ${BOOK_BASE_FONT_PX}px`);
+  });
+
+  it('applies the font family and the line height over the book\'s own stylesheet', () => {
+    expect(BookDocumentTool.build(input)).toContain("body, body * { font-family: Georgia, 'Noto Serif', serif !important; line-height: 1.6 !important; }");
+    expect(BookDocumentTool.build({ ...input, fontFamily: 'sans', lineSpacing: 2 })).toContain(
+      "font-family: 'Roboto', 'Noto Sans', sans-serif !important; line-height: 2 !important;",
+    );
+    expect(BookDocumentTool.build({ ...input, fontFamily: 'mono' })).toContain("'Roboto Mono'");
+  });
+
+  it('forces the page colours onto the book\'s own text and backgrounds', () => {
+    const doc = BookDocumentTool.build(input);
+    expect(doc).toContain('body * { color: inherit !important; background-color: transparent !important; }');
+  });
+
+  it('sets the side padding from the margin and drops the book\'s own margin', () => {
+    expect(BookDocumentTool.build({ ...input, margin: 'narrow' })).toContain('padding: 20px 14px 120px');
+    expect(BookDocumentTool.build({ ...input, margin: 'medium' })).toContain('padding: 20px 22px 120px');
+    expect(BookDocumentTool.build({ ...input, margin: 'wide' })).toContain('padding: 20px 36px 120px');
+    expect(BookDocumentTool.build(input)).toContain('.book-content { margin: 0 !important; }');
+  });
+
+  it('left-aligns by default and justifies, with hyphenation, only when asked', () => {
+    expect(BookDocumentTool.build(input)).toContain('p { text-align: left !important;');
+    expect(BookDocumentTool.build(input)).not.toContain('hyphens: auto');
+    const justified = BookDocumentTool.build({ ...input, justify: true });
+    expect(justified).toContain('p { text-align: justify !important;');
+    expect(justified).toContain('hyphens: auto');
   });
 
   it('scales the font size by the multiplier', () => {

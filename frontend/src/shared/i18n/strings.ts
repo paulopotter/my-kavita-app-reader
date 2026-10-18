@@ -176,6 +176,28 @@ export interface Strings {
   bookReaderPrevPage: string;
   bookReaderNextPage: string;
   bookReaderPage: string; // "{0}" = current page, "{1}" = total — "Página {0} de {1}"
+  bookReaderAppearance: string;
+  bookReaderClose: string;
+  bookReaderThemeLabel: string;
+  bookReaderThemeApp: string;
+  bookReaderThemePaper: string;
+  bookReaderThemeSepia: string;
+  bookReaderThemeGray: string;
+  bookReaderThemeGreen: string;
+  bookReaderThemeDark: string;
+  bookReaderThemeNight: string;
+  bookReaderThemeBlack: string;
+  bookReaderThemeContrast: string;
+  bookReaderFontLabel: string;
+  bookReaderFontSerif: string;
+  bookReaderFontSans: string;
+  bookReaderFontMono: string;
+  bookReaderLineSpacingLabel: string;
+  bookReaderMarginLabel: string;
+  bookReaderMarginNarrow: string;
+  bookReaderMarginMedium: string;
+  bookReaderMarginWide: string;
+  bookReaderJustify: string;
 
   // ── Search screen ────────────────────────────────────────────────────────
   searchPlaceholder: string;
@@ -614,6 +636,28 @@ const ptBR: Strings = {
   bookReaderPrevPage: 'Página anterior',
   bookReaderNextPage: 'Próxima página',
   bookReaderPage: 'Página {0} de {1}',
+  bookReaderAppearance: 'Aparência',
+  bookReaderClose: 'Fechar',
+  bookReaderThemeLabel: 'Tema',
+  bookReaderThemeApp: 'Do app',
+  bookReaderThemePaper: 'Papel',
+  bookReaderThemeSepia: 'Sépia',
+  bookReaderThemeGray: 'Cinza',
+  bookReaderThemeGreen: 'Verde',
+  bookReaderThemeDark: 'Escuro',
+  bookReaderThemeNight: 'Noite',
+  bookReaderThemeBlack: 'Preto',
+  bookReaderThemeContrast: 'Alto contraste',
+  bookReaderFontLabel: 'Fonte',
+  bookReaderFontSerif: 'Com serifa',
+  bookReaderFontSans: 'Sem serifa',
+  bookReaderFontMono: 'Monoespaçada',
+  bookReaderLineSpacingLabel: 'Entrelinha',
+  bookReaderMarginLabel: 'Margens',
+  bookReaderMarginNarrow: 'Estreitas',
+  bookReaderMarginMedium: 'Médias',
+  bookReaderMarginWide: 'Largas',
+  bookReaderJustify: 'Texto justificado',
   searchPlaceholder: 'Buscar por nome',
   searchClear: 'Limpar busca',
   searchLoading: 'Carregando séries...',
@@ -1017,6 +1061,28 @@ const en: Strings = {
   bookReaderPrevPage: 'Previous page',
   bookReaderNextPage: 'Next page',
   bookReaderPage: 'Page {0} of {1}',
+  bookReaderAppearance: 'Appearance',
+  bookReaderClose: 'Close',
+  bookReaderThemeLabel: 'Theme',
+  bookReaderThemeApp: 'App theme',
+  bookReaderThemePaper: 'Paper',
+  bookReaderThemeSepia: 'Sepia',
+  bookReaderThemeGray: 'Gray',
+  bookReaderThemeGreen: 'Green',
+  bookReaderThemeDark: 'Dark',
+  bookReaderThemeNight: 'Night',
+  bookReaderThemeBlack: 'Black',
+  bookReaderThemeContrast: 'High contrast',
+  bookReaderFontLabel: 'Font',
+  bookReaderFontSerif: 'Serif',
+  bookReaderFontSans: 'Sans serif',
+  bookReaderFontMono: 'Monospace',
+  bookReaderLineSpacingLabel: 'Line spacing',
+  bookReaderMarginLabel: 'Margins',
+  bookReaderMarginNarrow: 'Narrow',
+  bookReaderMarginMedium: 'Medium',
+  bookReaderMarginWide: 'Wide',
+  bookReaderJustify: 'Justified text',
   searchPlaceholder: 'Search by name',
   searchClear: 'Clear search',
   searchLoading: 'Loading series...',
