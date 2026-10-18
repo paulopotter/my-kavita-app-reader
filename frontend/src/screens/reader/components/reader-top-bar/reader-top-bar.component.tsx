@@ -1,6 +1,6 @@
 import React from 'react';
-import { Text, View } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
+import { Pressable, Text, View } from 'react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { STATUS_BAR_GAP, statusBarHeight, readerTopBarStyles } from './reader-top-bar.styles';
 import { useTheme, useStyles } from '../../../../shared/context';
 import { icon } from '../../../../shared/theme';
@@ -14,12 +14,15 @@ interface Props {
   pageIndicatorText?: string;
   onBack: () => void;
   backLabel: string;
+  // When given, the series name is a link to the series' own screen (whatever screen the reader came from).
+  onSeriesPress?: () => void;
+  seriesLabel?: string;
   visible: boolean;
 }
 
-// Dumb: renders the series name + chapter title + optional page indicator it's given, and fires
-// onBack.
-export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBack, backLabel, visible }: Props) {
+// Dumb: renders the series name (a link to the series, with a small arrow saying so) + chapter title +
+// optional page indicator it's given, and fires onBack (to the last screen).
+export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBack, backLabel, onSeriesPress, seriesLabel, visible }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(readerTopBarStyles);
   if (!visible) {return null;}
@@ -38,9 +41,18 @@ export function ReaderTopBar({ seriesName, chapterTitle, pageIndicatorText, onBa
       />
       <View style={styles.titles}>
         <View style={styles.titlesRow}>
-          <Text style={styles.seriesName} numberOfLines={1}>
-            {seriesName}
-          </Text>
+          {onSeriesPress != null ? (
+            <Pressable style={styles.seriesLink} onPress={onSeriesPress} accessibilityRole="link" accessibilityLabel={seriesLabel}>
+              <Text style={[styles.seriesName, styles.seriesShrink]} numberOfLines={1}>
+                {seriesName}
+              </Text>
+              <ChevronRight size={icon.size[3]} color={colors.icon.secondary} />
+            </Pressable>
+          ) : (
+            <Text style={styles.seriesName} numberOfLines={1}>
+              {seriesName}
+            </Text>
+          )}
           {pageIndicatorText != null && (
             <Text style={styles.pageIndicator} numberOfLines={1}>
               {pageIndicatorText}

@@ -354,6 +354,7 @@ export interface Strings {
   readerChapterPickerTitle: string;
   readerSettingsButtonLabel: string;
   readerPrevChapterButtonLabel: string;
+  readerOpenSeriesLabel: string;
   readerNextChapterButtonLabel: string;
   readerSettingsCloseButtonLabel: string;
   readerProgressColorLabel: string;
@@ -800,6 +801,7 @@ const ptBR: Strings = {
   readerChapterPickerTitle: 'Capítulos',
   readerSettingsButtonLabel: 'Ajustes de leitura',
   readerPrevChapterButtonLabel: 'Capítulo anterior',
+  readerOpenSeriesLabel: 'Ir para a obra',
   readerNextChapterButtonLabel: 'Próximo capítulo',
   readerSettingsCloseButtonLabel: 'Fechar',
   readerProgressColorLabel: 'Cor do progresso de leitura',
@@ -1233,6 +1235,7 @@ const en: Strings = {
   readerChapterPickerTitle: 'Chapters',
   readerSettingsButtonLabel: 'Reading settings',
   readerPrevChapterButtonLabel: 'Previous chapter',
+  readerOpenSeriesLabel: 'Go to the series',
   readerNextChapterButtonLabel: 'Next chapter',
   readerSettingsCloseButtonLabel: 'Close',
   readerProgressColorLabel: 'Reading progress colour',

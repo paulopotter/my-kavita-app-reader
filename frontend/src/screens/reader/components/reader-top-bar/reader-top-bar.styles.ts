@@ -41,7 +41,9 @@ export const readerTopBarStyles = createStyles(({ colors, text, spacing, alpha }
       paddingTop: spacing[2],
     },
     titlesRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[3] },
+    seriesLink: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
     seriesName: { color: colors.text.secondary, fontSize: text.size[2], ...TEXT_SHADOW },
+    seriesShrink: { flexShrink: 1 },
     chapterTitle: { color: colors.text.title.primary, fontSize: text.size[5], fontWeight: text.weight.bold, alignSelf: 'flex-start', ...TEXT_SHADOW },
     pageIndicator: { color: colors.text.secondary, fontSize: text.size[2], ...TEXT_SHADOW },
   };

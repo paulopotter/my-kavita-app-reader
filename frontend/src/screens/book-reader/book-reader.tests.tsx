@@ -12,6 +12,7 @@ jest.mock('@react-navigation/native', () => ({
 const mockRealize = jest.fn();
 jest.mock('../../shared/tools/actions', () => ({
   useAction: () => ({ realize: (action: unknown) => () => mockRealize(action) }),
+  createNavigateAction: (target: object) => ({ kind: 'navigate', ...target }),
 }));
 
 // The WebView is native: a stand-in that keeps the props the screen hands it.
@@ -142,6 +143,12 @@ describe('BookReaderScreen', () => {
     const { getByLabelText } = render(<BookReaderScreen />);
     fireEvent.press(getByLabelText('Back'));
     expect(mockRealize).toHaveBeenCalledWith({ kind: 'back' });
+  });
+
+  it('takes the series name to the series, whatever screen the reader came from', () => {
+    const { getByLabelText } = render(<BookReaderScreen />);
+    fireEvent.press(getByLabelText('Go to the series'));
+    expect(mockRealize).toHaveBeenCalledWith(expect.objectContaining({ kind: 'navigate', params: { seriesId: 's1' } }));
   });
 
   describe('infinite mode', () => {

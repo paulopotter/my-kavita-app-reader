@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
-import type { NavOrigin } from '../../navigation/routes';
+import { Routes, type NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
 import { useStyles, useTheme } from '../../shared/context';
-import { useAction } from '../../shared/tools/actions';
+import { createNavigateAction, useAction } from '../../shared/tools/actions';
 import { ReaderPrefs, type ProgressBarPosition } from '../../shared/tools/reader';
 import { ThinProgressBar } from '../../shared/components/thin-progress-bar';
 import { BookDocumentTool, BookThemeTool } from '../../shared/tools/books';
@@ -41,6 +41,11 @@ export function BookReaderScreen() {
   }, []);
 
   const handleBack = useCallback(() => realize(book.backAction)(), [realize, book.backAction]);
+  // The series name goes to the series, from wherever the reader was opened.
+  const openSeries = useCallback(
+    () => realize(createNavigateAction({ route: Routes.SERIES_DETAIL, params: { seriesId } }))(),
+    [realize, seriesId],
+  );
 
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -113,6 +118,8 @@ export function BookReaderScreen() {
         pageIndicatorText={book.pageIndicator}
         onBack={handleBack}
         backLabel={t.commonBackLabel}
+        onSeriesPress={openSeries}
+        seriesLabel={t.readerOpenSeriesLabel}
         visible={book.overlayVisible}
       />
       <BookReaderFooter

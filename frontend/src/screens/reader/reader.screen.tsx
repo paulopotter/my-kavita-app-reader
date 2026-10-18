@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
-import type { NavOrigin } from '../../navigation/routes';
+import { Routes, type NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
 import { buildPageLoadingNode, buildPageErrorNode } from './reader-sdu';
-import { useAction } from '../../shared/tools/actions';
+import { createNavigateAction, useAction } from '../../shared/tools/actions';
 import { ChapterTool } from '../../shared/tools/chapters';
 import {
   ReaderChapterPicker,
@@ -59,6 +59,11 @@ export function ReaderScreen() {
   }, [settingsVisible]);
 
   const handleBack = useCallback(() => realize(reader.backAction)(), [realize, reader.backAction]);
+  // The series name goes to the series, from wherever the reader was opened.
+  const openSeries = useCallback(
+    () => realize(createNavigateAction({ route: Routes.SERIES_DETAIL, params: { seriesId } }))(),
+    [realize, seriesId],
+  );
 
   useEffect(() => {
     return () => {
@@ -195,6 +200,8 @@ export function ReaderScreen() {
         pageIndicatorText={pageIndicatorText}
         onBack={handleBack}
         backLabel={t.commonBackLabel}
+        onSeriesPress={openSeries}
+        seriesLabel={t.readerOpenSeriesLabel}
         visible={reader.overlayVisible}
       />
       <ReaderSideProgressBar

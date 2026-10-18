@@ -38,4 +38,15 @@ describe('ReaderTopBar', () => {
     const { queryByText } = setup({ pageIndicatorText: undefined });
     expect(queryByText(/de/)).toBeNull();
   });
+
+  it('makes the series name a link to the series, with its own label, when given a way to go there', () => {
+    const onSeriesPress = jest.fn();
+    const { getByLabelText } = setup({ onSeriesPress, seriesLabel: 'Ir para a obra' });
+    fireEvent.press(getByLabelText('Ir para a obra'));
+    expect(onSeriesPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the series name plain when there is nowhere to go', () => {
+    expect(setup().queryByRole('link')).toBeNull();
+  });
 });
