@@ -1,6 +1,6 @@
 # Task 001 — Title and order for loose chapters
 
-**Status:** in progress
+**Status:** done
 
 ## Why
 
@@ -49,3 +49,9 @@ otherwise it keeps its own values. Applied to both `chapters.list()` and `chapte
 in `KavitaServerPluginTest`. Still to confirm on the device: the series 607 page shows
 "Capítulo N" in the right order (note: RN's `ChapterTool.format.title` prefixes the number, so the row
 reads "1. Capítulo 1" — cosmetic, left alone).
+
+## Result
+
+Done, 2026-10-18 (commit `556275e`). Confirmed on the device: the series 607 page lists its volumes by the
+right name and in the right order (the user: "ta listando com o nome certo"). The cosmetic note above
+("1. Capítulo 1") was left alone.

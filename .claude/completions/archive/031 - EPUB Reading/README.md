@@ -120,3 +120,15 @@ targeted (tsc, eslint, `jest --no-watchman <paths>`, no coverage output, Gradle 
 and `--tests`) and commits that would trigger the hook use `--no-verify`. Run `make coverage` by hand
 from time to time.
 
+## Outcome (closed 2026-10-18)
+
+All six tasks are done and were exercised on the device with the real novel (series 607). Beyond the task
+list, the follow-up work that came out of using it shipped outside this plan: the series' `fileFormat`
+travels from the Kavita plugin to the app so tiles can show a "Novel"/"PDF" badge (Home, Library, Search);
+the novel's reading preferences also live in Settings > Reading preferences; the series name in both
+readers' headers links to the series screen.
+
+Still open, on purpose: images and fonts of an EPUB that has them (the only novel available has none), a
+table-of-contents UI (`getBookToc` is on the bridge), annotations, reading progress on the server, and PDF
+(planned through `extractPdf`, reusing the image reader and its zoom).
+

@@ -1,6 +1,6 @@
 # Task 002 — `book` capability
 
-**Status:** pending
+**Status:** done
 
 ## Why
 
@@ -49,3 +49,10 @@ support reading books"); `KavitaBook` (`plugins/kavita/book`) over `/api/Book/{i
 getBookPage / getBookToc`; `BookService` (`shared/services/books`). Verified against the real server
 by hand earlier (series 607). UNVERIFIED: how images/fonts of an EPUB are served (book-resources,
 apiKey) — this book has none, so resource URL rewriting is not implemented yet.
+
+## Result
+
+Done, 2026-10-18 (commits `e86d17d`, `6f0cc1a`). Used end to end on the device by the reader (info, page,
+order); also verified against the real server by hand. Still unverified: how images/fonts of an EPUB are
+served — the only novel available has none, so resource URL rewriting is not implemented. `getBookToc` exists
+on the bridge but no screen uses it yet (a table-of-contents UI is outside this plan).

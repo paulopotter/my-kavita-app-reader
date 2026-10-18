@@ -1,6 +1,6 @@
 # Task 005 — Reader appearance
 
-**Status:** implemented (awaiting device check)
+**Status:** done
 
 ## Why
 
@@ -95,3 +95,10 @@ button, the hook and screen wiring).
 - Found on the way: `text.button.primary` over `colors.button.secondary` (the image reader's error
   retry button) is 1.1-1.5:1 in six identities; not touched here.
 
+## Result
+
+Done, 2026-10-18. On the device the first text colour was unreadable; the palettes were reworked and the 7:1
+jest test now guards them. The same choices (reading mode, theme, text size, font, line spacing, margins,
+justified text) are also offered in Settings > Reading preferences ("Leitura de novel" block) through the shared
+`BookAppearanceFields`, so the sheet and Settings can never disagree. The `text.button.primary` over
+`colors.button.secondary` finding (the image reader's retry button) is still open.

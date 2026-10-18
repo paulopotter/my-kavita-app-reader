@@ -1,6 +1,6 @@
 # Task 003 — WebView dependency and `book-reader` route
 
-**Status:** pending
+**Status:** done
 
 ## Why
 
@@ -44,3 +44,9 @@ which picks the screen by the chapter's file format. Same user outcome (an EPUB 
 reader) with no change at any call site — series screen, dashboard, notifications, deep links — and
 no new route or deep-link shape to maintain. The series screen passes `format` as an optional route
 param so it does not have to ask.
+
+## Result
+
+Done, 2026-10-18 (commit `228fbe3`). The new APK was installed (rc8 onwards) and the WebView renders the
+book. The route deviation stands: `ReaderEntry` picks the screen by the chapter's format, the series screen
+hands it `format`, and a chapter opened from the dashboard or a notification falls back to asking.

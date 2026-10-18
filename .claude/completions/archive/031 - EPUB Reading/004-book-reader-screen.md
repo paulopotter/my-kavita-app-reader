@@ -1,6 +1,6 @@
 # Task 004 — `screens/book-reader/`
 
-**Status:** pending
+**Status:** done
 
 ## Why
 
@@ -57,3 +57,12 @@ Top bar and footer are the screen's own components. 1746 JS tests pass.
 Still open / unverified on the device: how it feels (margins, line height, font steps), whether the
 saved scroll position restores correctly, and images/fonts of an EPUB that has them (the only novel
 available has none; `book-resources` URLs are not rewritten yet).
+
+## Result
+
+Done, 2026-10-18. The user read the novel on the device across many builds; what they found was fixed and is
+part of this task's delivery: bars closed on open, a bigger footer with centred icons and "next" on the
+right, a thin progress bar (promoted to `shared/components/thin-progress-bar` because the image reader uses it
+too), the footer clear of the system bar, readable selection labels, the series name in the header (looked up
+through `SerialService` when the route has none) and a link on that name to the series screen, from any
+origin; the back arrow keeps going to the last screen. Open: images/fonts of an EPUB that has them.

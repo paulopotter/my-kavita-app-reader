@@ -1,6 +1,6 @@
 # Task 006 — Infinite reading mode
 
-**Status:** implemented (awaiting device check)
+**Status:** done
 
 ## Why
 
@@ -80,3 +80,11 @@ Commits `cf7efca` (document + messages) and `961706e` (hook, screen, sheet, stri
 - Not done / unverified on the device: how it feels (preload distance, divider), that the saved position
   restores inside the first section, trimming of old sections (out of v1).
 
+## Result
+
+Done, 2026-10-18. Infinite is the default and was used on the device. Fixes that came out of it: the progress
+bar of a section is measured from the section's top edge to the point where its end reaches the bottom of the
+screen (it used to start already at a percentage), the saved position is restored with the inverse of the
+same formula, and switching mode hides the bars so the new mode is seen working. Verified with tsc, eslint and
+the targeted jest suites (the commit hook was skipped on purpose, NTFS note in the README). Not done: trimming
+of old sections (out of v1).

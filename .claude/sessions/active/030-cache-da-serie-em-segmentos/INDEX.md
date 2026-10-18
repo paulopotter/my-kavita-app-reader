@@ -4,7 +4,7 @@ See `README.md` for the problem, the approved decisions and the contract-change 
 
 | # | Task | Depends on | Status |
 |---|------|------------|--------|
-| [001](001-segment-chapters-in-cache.md) | Split `SerialDigest.chapters.list` into cached segments; reads reassemble an identical digest (internal, no contract change) | — | in progress |
+| [001](001-segment-chapters-in-cache.md) | Split `SerialDigest.chapters.list` into cached segments; reads reassemble an identical digest (internal, no contract change) | — | done |
 | [002](002-paginate-chapters-on-series-screen.md) | Conditional, CONTRACT CHANGE: paginate chapters on the series screen (window offset/limit, light id list for the Reader) | 001 | pending (only if the page is still too heavy after Task 001 on device; needs new user approval before any code) |
 
 ## Suggested execution order

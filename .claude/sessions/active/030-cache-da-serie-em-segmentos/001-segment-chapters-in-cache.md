@@ -1,6 +1,6 @@
 # Task 001 — Segment the chapters list in the cache
 
-**Status:** in progress
+**Status:** done
 
 ## Why
 
@@ -84,3 +84,18 @@ Tests: 8 new in `SerialDigestTest.kt` (round trip, small series stays inline, mi
 segment from another write, unreadable main row, patching one chapter, unknown chapter, list refresh
 over a segmented row). Still to do before closing: `make coverage`, device test with the
 3000-chapter manga.
+
+## Result
+
+Done, 2026-10-18. A series is stored as a small main row plus an index row plus segment rows of ~450k
+characters each (`SerialChaptersSegments.kt`: `persistSerialDigest`, `readSerialRow`,
+`patchSerialRowChapter`); `buildSerialDigest` reads and writes through them, so RN receives the very same
+`SerialDigest`. The consequence noted above (the list refresh nulling `chapters` in the main row) no longer
+holds: the list digest is now serialized with `explicitNulls = false`, so a field the list cannot know is
+left out of the row and the shallow merge keeps what a series fetch wrote (commit `d5a9b1a`).
+- Verified on the device with the 3000-chapter manga (rc5/rc6): the library and the series page load again
+  and a second open is a cache hit; the `SerialDigest` log lines (`read`/`fetch`/`persist`) stay on purpose.
+- Tests: the new cases in `SerialDigestTest.kt` plus the later ones for the list snapshot; targeted Gradle
+  runs only (no full `make coverage` here, NTFS note in plan 031's README) — the user runs it separately.
+- Task 002 (paginate on the series screen) stays pending and conditional: it changes a contract and needs
+  new approval, and the page was not reported as too heavy after this task.
