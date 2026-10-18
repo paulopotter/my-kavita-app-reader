@@ -6,8 +6,8 @@ import { BookService } from '../../../shared/services/books';
 import { ChapterService } from '../../../shared/services/chapters';
 import { SerialService } from '../../../shared/services/serials';
 import { createBackAction } from '../../../shared/tools/actions';
-import { BookDocumentTool, BookPrefs, DEFAULT_BOOK_FONT_SCALE } from '../../../shared/tools/books';
-import type { BookMessage } from '../../../shared/tools/books';
+import { BookDocumentTool, BookPrefs, DEFAULT_BOOK_APPEARANCE } from '../../../shared/tools/books';
+import type { BookAppearance, BookMessage } from '../../../shared/tools/books';
 import { adjacentChapterId, ChapterTool, toOrderedChapters } from '../../../shared/tools/chapters';
 import type { OrderedChapter } from '../../../shared/tools/chapters';
 import { pageIndicatorText, reachedEnd, resolveStartPage, shouldMarkRead } from '../book-reader.model';
@@ -38,7 +38,7 @@ export function useBookReader({
   const [pageScroll, setPageScroll] = useState(0);
   // Closed on open, like the image reader: the page comes first, the controls appear on a tap.
   const [overlayVisible, setOverlayVisible] = useState(false);
-  const [fontScale, setFontScale] = useState(DEFAULT_BOOK_FONT_SCALE);
+  const [appearance, setAppearance] = useState<BookAppearance>(DEFAULT_BOOK_APPEARANCE);
   const [order, setOrder] = useState<OrderedChapter[]>([]);
   // Bumped by retry() to run the load again for the same chapter.
   const [reloadTick, setReloadTick] = useState(0);
@@ -55,13 +55,13 @@ export function useBookReader({
     [seriesId],
   );
 
-  // ── text size ────────────────────────────────────────────────────
+  // ── how the page looks: theme, font, size, spacing ───────────────
   useEffect(() => {
     let cancelled = false;
-    BookPrefs.fontScale
+    BookPrefs.appearance
       .get()
       .then(value => {
-        if (!cancelled) {setFontScale(value);}
+        if (!cancelled) {setAppearance(value);}
       })
       .catch(() => {});
     return () => {
@@ -175,17 +175,20 @@ export function useBookReader({
     [chapterId, current?.readStatus, pageCount, pageIndex, seriesId],
   );
 
-  // ── text size ────────────────────────────────────────────────────
+  // ── appearance ───────────────────────────────────────────────────
+  const updateAppearance = useCallback(<K extends keyof BookAppearance>(key: K, value: BookAppearance[K]) => {
+    // The document is rebuilt with the new look; keep the reader where they are in it.
+    setRestoreFraction(fractionRef.current);
+    setAppearance(previous => ({ ...previous, [key]: value }));
+    BookPrefs.appearance.set({ key, value }).catch(() => {});
+  }, []);
+
   const changeFontScale = useCallback(
     (direction: 'smaller' | 'larger') => {
-      const next = BookPrefs.fontScale.step(fontScale, direction);
-      if (next === fontScale) {return;}
-      // The document is rebuilt with the new size; keep the reader where they are in it.
-      setRestoreFraction(fractionRef.current);
-      setFontScale(next);
-      BookPrefs.fontScale.set(next).catch(() => {});
+      const next = BookPrefs.fontScale.step(appearance.fontScale, direction);
+      if (next !== appearance.fontScale) {updateAppearance('fontScale', next);}
     },
-    [fontScale],
+    [appearance.fontScale, updateAppearance],
   );
 
   return {
@@ -200,7 +203,7 @@ export function useBookReader({
     restoreFraction,
     // Across the whole chapter: the pages already behind the reader plus how far into this one.
     chapterFraction: pageCount > 0 ? Math.min(1, (pageIndex + pageScroll) / pageCount) : 0,
-    fontScale,
+    appearance,
     overlayVisible,
     hasPrevChapter: prevChapterId != null,
     hasNextChapter: nextChapterId != null,
@@ -213,6 +216,7 @@ export function useBookReader({
     goToNextChapter,
     goToPrevChapter,
     changeFontScale,
+    updateAppearance,
     retry,
   };
 }

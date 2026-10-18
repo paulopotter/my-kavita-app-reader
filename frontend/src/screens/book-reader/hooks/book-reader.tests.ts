@@ -32,17 +32,17 @@ jest.mock('../../../shared/managers/store', () => ({
   },
 }));
 
-const mockFontGet = jest.fn();
-const mockFontSet = jest.fn();
+const mockAppearanceGet = jest.fn();
+const mockAppearanceSet = jest.fn();
 jest.mock('../../../shared/tools/books', () => {
   const actual = jest.requireActual('../../../shared/tools/books');
   return {
     ...actual,
     BookPrefs: {
-      fontScale: {
-        get: (...a: unknown[]) => mockFontGet(...a),
-        set: (...a: unknown[]) => mockFontSet(...a),
-        step: actual.BookPrefs.fontScale.step,
+      fontScale: { step: actual.BookPrefs.fontScale.step },
+      appearance: {
+        get: (...a: unknown[]) => mockAppearanceGet(...a),
+        set: (...a: unknown[]) => mockAppearanceSet(...a),
       },
     },
   };
@@ -60,6 +60,7 @@ jest.mock('../../../shared/tools/chapters', () => {
   };
 });
 
+import { DEFAULT_BOOK_APPEARANCE } from '../../../shared/tools/books/book-prefs.tool';
 import { useBookReader } from './book-reader.hooks';
 
 function chapter(id: string, number: number, readStatus: 'READ' | 'UNREAD' = 'UNREAD') {
@@ -81,8 +82,8 @@ describe('useBookReader', () => {
     mockStoreGet.mockResolvedValue(null);
     mockStoreSet.mockResolvedValue(undefined);
     mockProgressSet.mockResolvedValue(undefined);
-    mockFontGet.mockResolvedValue(1);
-    mockFontSet.mockResolvedValue(undefined);
+    mockAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE });
+    mockAppearanceSet.mockResolvedValue(undefined);
   });
 
   describe('opening a chapter', () => {
@@ -352,33 +353,64 @@ describe('useBookReader', () => {
     });
   });
 
-  describe('text size', () => {
-    it('starts at the saved size', async () => {
-      mockFontGet.mockResolvedValue(1.3);
+  describe('appearance', () => {
+    it('starts at the saved look', async () => {
+      mockAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE, theme: 'sepia', fontScale: 1.3 });
       const { result } = setup();
-      await waitFor(() => expect(result.current.fontScale).toBe(1.3));
+      await waitFor(() => expect(result.current.appearance.theme).toBe('sepia'));
+      expect(result.current.appearance.fontScale).toBe(1.3);
     });
 
-    it('steps the size, saves it and keeps the reader where they are', async () => {
+    it('keeps the defaults when the saved look cannot be read', async () => {
+      mockAppearanceGet.mockRejectedValue(new Error('x'));
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      expect(result.current.appearance).toEqual(DEFAULT_BOOK_APPEARANCE);
+    });
+
+    it('changes one preference, saves it, and keeps the reader where they are', async () => {
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      act(() => result.current.handleMessage('{"type":"progress","fraction":0.6}'));
+
+      act(() => result.current.updateAppearance('theme', 'black'));
+
+      expect(result.current.appearance.theme).toBe('black');
+      expect(result.current.appearance.fontFamily).toBe('serif');
+      expect(result.current.restoreFraction).toBe(0.6);
+      expect(mockAppearanceSet).toHaveBeenCalledWith({ key: 'theme', value: 'black' });
+    });
+
+    it('survives a failed save', async () => {
+      mockAppearanceSet.mockRejectedValue(new Error('x'));
+      const { result } = setup();
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      act(() => result.current.updateAppearance('justify', true));
+      expect(result.current.appearance.justify).toBe(true);
+    });
+  });
+
+  describe('text size', () => {
+    it('steps the size through the same save', async () => {
       const { result } = setup();
       await waitFor(() => expect(result.current.status).toBe('ready'));
       act(() => result.current.handleMessage('{"type":"progress","fraction":0.6}'));
 
       act(() => result.current.changeFontScale('larger'));
 
-      expect(result.current.fontScale).toBe(1.15);
+      expect(result.current.appearance.fontScale).toBe(1.15);
       expect(result.current.restoreFraction).toBe(0.6);
-      expect(mockFontSet).toHaveBeenCalledWith(1.15);
+      expect(mockAppearanceSet).toHaveBeenCalledWith({ key: 'fontScale', value: 1.15 });
     });
 
     it('does nothing at the smallest size', async () => {
-      mockFontGet.mockResolvedValue(0.85);
+      mockAppearanceGet.mockResolvedValue({ ...DEFAULT_BOOK_APPEARANCE, fontScale: 0.85 });
       const { result } = setup();
-      await waitFor(() => expect(result.current.fontScale).toBe(0.85));
+      await waitFor(() => expect(result.current.appearance.fontScale).toBe(0.85));
 
       act(() => result.current.changeFontScale('smaller'));
 
-      expect(mockFontSet).not.toHaveBeenCalled();
+      expect(mockAppearanceSet).not.toHaveBeenCalled();
     });
   });
 });

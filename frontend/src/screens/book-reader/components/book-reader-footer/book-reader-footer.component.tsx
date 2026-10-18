@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { AArrowDown, AArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react-native';
+import { AArrowDown, AArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Palette } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { bookReaderFooterStyles } from './book-reader-footer.styles';
 import { useBottomInset, useTheme, useStyles } from '../../../../shared/context';
@@ -15,6 +15,7 @@ export interface BookReaderFooterLabels {
   nextPage: string;
   smallerText: string;
   largerText: string;
+  appearance: string;
 }
 
 interface Props {
@@ -32,6 +33,7 @@ interface Props {
   onNextPage: () => void;
   onSmallerText: () => void;
   onLargerText: () => void;
+  onOpenAppearance: () => void;
 }
 
 // Dumb: a row of controls, each one enabled or not as it is told. Nothing here knows what a
@@ -50,6 +52,7 @@ export function BookReaderFooter({
   onNextPage,
   onSmallerText,
   onLargerText,
+  onOpenAppearance,
 }: Props) {
   const { colors } = useTheme();
   const styles = useStyles(bookReaderFooterStyles);
@@ -89,6 +92,7 @@ export function BookReaderFooter({
       <View style={styles.center}>
         {button({ glyph: 'arrow', Icon: AArrowDown, label: labels.smallerText, enabled: true, onPress: onSmallerText })}
         {button({ glyph: 'arrow', Icon: AArrowUp, label: labels.largerText, enabled: true, onPress: onLargerText })}
+        {button({ glyph: 'circle', Icon: Palette, label: labels.appearance, enabled: true, onPress: onOpenAppearance })}
       </View>
       <View style={[styles.side, styles.sideEnd]}>
         {showPages &&

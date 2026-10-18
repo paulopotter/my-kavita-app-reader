@@ -5,12 +5,11 @@ import { WebView } from 'react-native-webview';
 import type { NavOrigin } from '../../navigation/routes';
 import { useStrings } from '../../shared/i18n';
 import { useStyles, useTheme } from '../../shared/context';
-import { ColorTool } from '../../shared/theme';
 import { useAction } from '../../shared/tools/actions';
 import { ReaderPrefs, type ProgressBarPosition } from '../../shared/tools/reader';
 import { ThinProgressBar } from '../../shared/components/thin-progress-bar';
-import { BookDocumentTool } from '../../shared/tools/books';
-import { BookReaderFooter, BookReaderTopBar } from './components';
+import { BookDocumentTool, BookThemeTool } from '../../shared/tools/books';
+import { BookReaderFooter, BookReaderSettingsSheet, BookReaderTopBar } from './components';
 import { useBookReader } from './hooks';
 import { makeNonce } from './book-reader.model';
 import { bookReaderStyles } from './book-reader.styles';
@@ -40,29 +39,39 @@ export function BookReaderScreen() {
 
   const handleBack = useCallback(() => realize(book.backAction)(), [realize, book.backAction]);
 
+  const [settingsVisible, setSettingsVisible] = useState(false);
+
+  // The page's own colours: a reading theme's palette, or the app's when the reader chose that.
+  const pageColors = useMemo(
+    () => BookThemeTool.colors({ theme: book.appearance.theme, appColors: colors }),
+    [book.appearance.theme, colors],
+  );
+
   // The document is rebuilt only when what it shows changes; a fresh nonce goes with each one.
   const document = useMemo(
     () =>
       book.status === 'ready'
         ? BookDocumentTool.build({
             html: book.html,
-            background: ColorTool.to.hex(colors.surface.primary),
-            text: ColorTool.to.hex(colors.text.primary),
-            link: ColorTool.to.hex(colors.text.link.primary),
-            fontScale: book.fontScale,
+            colors: pageColors,
+            fontScale: book.appearance.fontScale,
+            fontFamily: book.appearance.fontFamily,
+            lineSpacing: book.appearance.lineSpacing,
+            margin: book.appearance.margin,
+            justify: book.appearance.justify,
             restoreFraction: book.restoreFraction,
             nonce: makeNonce(),
           })
         : null,
-    [book.status, book.html, book.fontScale, book.restoreFraction, colors],
+    [book.status, book.html, book.appearance, book.restoreFraction, pageColors],
   );
 
   return (
-    <View style={styles.root} testID="book-reader">
+    <View style={[styles.root, { backgroundColor: pageColors.background }]} testID="book-reader">
       {document != null && (
         <WebView
           testID="book-reader-webview"
-          style={styles.webview}
+          style={[styles.webview, { backgroundColor: pageColors.background }]}
           accessibilityLabel={book.chapterTitle}
           source={{ html: document }}
           originWhitelist={['about:*']}
@@ -110,6 +119,7 @@ export function BookReaderScreen() {
           nextPage: t.bookReaderNextPage,
           smallerText: t.bookReaderFontSmaller,
           largerText: t.bookReaderFontLarger,
+          appearance: t.bookReaderAppearance,
         }}
         hasPrevChapter={book.hasPrevChapter}
         hasNextChapter={book.hasNextChapter}
@@ -122,6 +132,14 @@ export function BookReaderScreen() {
         onNextPage={book.nextPage}
         onSmallerText={() => book.changeFontScale('smaller')}
         onLargerText={() => book.changeFontScale('larger')}
+        onOpenAppearance={() => setSettingsVisible(true)}
+      />
+      <BookReaderSettingsSheet
+        visible={settingsVisible}
+        appearance={book.appearance}
+        t={t}
+        onChange={book.updateAppearance}
+        onClose={() => setSettingsVisible(false)}
       />
     </View>
   );

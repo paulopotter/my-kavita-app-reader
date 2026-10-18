@@ -12,6 +12,7 @@ const labels = {
   nextPage: 'Próxima página',
   smallerText: 'Diminuir o texto',
   largerText: 'Aumentar o texto',
+  appearance: 'Aparência',
 };
 
 function setup(over: Partial<React.ComponentProps<typeof BookReaderFooter>> = {}) {
@@ -22,6 +23,7 @@ function setup(over: Partial<React.ComponentProps<typeof BookReaderFooter>> = {}
     onNextPage: jest.fn(),
     onSmallerText: jest.fn(),
     onLargerText: jest.fn(),
+    onOpenAppearance: jest.fn(),
   };
   const utils = render(
     <BookReaderFooter
@@ -55,6 +57,12 @@ describe('BookReaderFooter', () => {
     expect(h.onLargerText).toHaveBeenCalledTimes(1);
     expect(h.onPrevChapter).toHaveBeenCalledTimes(1);
     expect(h.onNextChapter).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the appearance sheet from its own button', () => {
+    const h = setup();
+    fireEvent.press(h.getByLabelText(labels.appearance));
+    expect(h.onOpenAppearance).toHaveBeenCalledTimes(1);
   });
 
   it('does not fire a chapter handler that is not available', () => {
@@ -96,6 +104,7 @@ describe('BookReaderFooter', () => {
       labels.prevChapter,
       labels.smallerText,
       labels.largerText,
+      labels.appearance,
       labels.nextChapter,
     ]);
   });
@@ -117,6 +126,7 @@ describe('BookReaderFooter', () => {
           onNextPage={jest.fn()}
           onSmallerText={jest.fn()}
           onLargerText={jest.fn()}
+          onOpenAppearance={jest.fn()}
         />
       </SafeAreaInsetsContext.Provider>,
     );

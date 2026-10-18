@@ -49,7 +49,7 @@ function book(over: Record<string, unknown> = {}) {
     pageIndicator: undefined,
     restoreFraction: 0.25,
     chapterFraction: 0.5,
-    fontScale: 1,
+    appearance: { theme: 'app', fontScale: 1, fontFamily: 'serif', lineSpacing: 1.6, margin: 'medium', justify: false },
     overlayVisible: true,
     hasPrevChapter: true,
     hasNextChapter: true,
@@ -62,6 +62,7 @@ function book(over: Record<string, unknown> = {}) {
     goToNextChapter: jest.fn(),
     goToPrevChapter: jest.fn(),
     changeFontScale: jest.fn(),
+    updateAppearance: jest.fn(),
     retry: jest.fn(),
     ...over,
   };
@@ -156,4 +157,50 @@ describe('BookReaderScreen', () => {
     expect(queryByTestId('book-reader-top-bar')).toBeNull();
     expect(queryByTestId('book-reader-footer')).toBeNull();
   });
+
+  describe('appearance', () => {
+    it('paints the page with the reading theme the reader chose', () => {
+      mockBook = book({ appearance: { theme: 'sepia', fontScale: 1, fontFamily: 'serif', lineSpacing: 1.6, margin: 'medium', justify: false } });
+      render(<BookReaderScreen />);
+      const html = (mockWebViewProps.source as { html: string }).html;
+      expect(html).toContain('html { background: #F3EAD3; color: #2E2417;');
+    });
+
+    it('follows the app theme when the reader chose that', () => {
+      render(<BookReaderScreen />);
+      const html = (mockWebViewProps.source as { html: string }).html;
+      expect(html).not.toContain('#F3EAD3');
+      expect(html).toMatch(/html \{ background: #[0-9a-f]{6}; color: #[0-9a-f]{6};/i);
+    });
+
+    it('hands the font, spacing and margin to the document', () => {
+      mockBook = book({ appearance: { theme: 'app', fontScale: 1.3, fontFamily: 'sans', lineSpacing: 1.8, margin: 'wide', justify: true } });
+      render(<BookReaderScreen />);
+      const html = (mockWebViewProps.source as { html: string }).html;
+      expect(html).toContain("'Roboto', 'Noto Sans', sans-serif !important; line-height: 1.8 !important;");
+      expect(html).toContain('padding: 20px 36px 120px');
+      expect(html).toContain('font-size: 23.4px');
+      expect(html).toContain('text-align: justify');
+    });
+
+    it('opens the appearance sheet from the footer and reports a choice to the hook', () => {
+      const { getByLabelText, queryByText, getByText } = render(<BookReaderScreen />);
+      expect(queryByText('Appearance')).toBeNull();
+
+      fireEvent.press(getByLabelText('Appearance'));
+      expect(getByText('Theme')).toBeTruthy();
+
+      fireEvent.press(getByLabelText('Night'));
+      expect(mockBook.updateAppearance).toHaveBeenCalledWith('theme', 'night');
+    });
+
+    it('closes the sheet', () => {
+      const { getByLabelText, getByText, queryByText } = render(<BookReaderScreen />);
+      fireEvent.press(getByLabelText('Appearance'));
+      fireEvent.press(getByText('Close'));
+      // A closed Modal renders nothing.
+      expect(queryByText('Theme')).toBeNull();
+    });
+  });
 });
+
