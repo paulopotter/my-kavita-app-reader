@@ -5,7 +5,7 @@ import { MainNavigator } from './MainNavigator';
 import { SplashScreen } from '../screens/splash';
 import { SetupScreen } from '../screens/config/setup';
 import { SerieScreen } from '../screens/serie';
-import { ReaderScreen } from '../screens/reader';
+import { ReaderEntry } from './ReaderEntry';
 
 const Stack = createNativeStackNavigator();
 
@@ -47,7 +47,7 @@ export function RootNavigator({ initialRoute = Routes.SPLASH, onSetupComplete }:
 
       <Stack.Screen
         name={Routes.READER}
-        component={ReaderScreen}
+        component={ReaderEntry}
         getId={({ params }) => {
           const p = params as any;
           return `${p?.seriesId}/${p?.chapterId}`;

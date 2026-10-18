@@ -168,6 +168,14 @@ export interface Strings {
   dashboardStatInProgress: string;
   dashboardError: string;
   dashboardRetry: string;
+  bookReaderLoading: string;
+  bookReaderError: string;
+  bookReaderRetry: string;
+  bookReaderFontSmaller: string;
+  bookReaderFontLarger: string;
+  bookReaderPrevPage: string;
+  bookReaderNextPage: string;
+  bookReaderPage: string; // "{0}" = current page, "{1}" = total — "Página {0} de {1}"
 
   // ── Search screen ────────────────────────────────────────────────────────
   searchPlaceholder: string;
@@ -598,6 +606,14 @@ const ptBR: Strings = {
   dashboardStatInProgress: 'Em andamento',
   dashboardError: 'Não foi possível carregar a Home',
   dashboardRetry: 'Tentar novamente',
+  bookReaderLoading: 'Carregando capítulo…',
+  bookReaderError: 'Não foi possível abrir este capítulo',
+  bookReaderRetry: 'Tentar novamente',
+  bookReaderFontSmaller: 'Diminuir o texto',
+  bookReaderFontLarger: 'Aumentar o texto',
+  bookReaderPrevPage: 'Página anterior',
+  bookReaderNextPage: 'Próxima página',
+  bookReaderPage: 'Página {0} de {1}',
   searchPlaceholder: 'Buscar por nome',
   searchClear: 'Limpar busca',
   searchLoading: 'Carregando séries...',
@@ -993,6 +1009,14 @@ const en: Strings = {
   dashboardStatInProgress: 'In progress',
   dashboardError: 'Could not load Home',
   dashboardRetry: 'Try again',
+  bookReaderLoading: 'Loading chapter…',
+  bookReaderError: 'Could not open this chapter',
+  bookReaderRetry: 'Try again',
+  bookReaderFontSmaller: 'Smaller text',
+  bookReaderFontLarger: 'Larger text',
+  bookReaderPrevPage: 'Previous page',
+  bookReaderNextPage: 'Next page',
+  bookReaderPage: 'Page {0} of {1}',
   searchPlaceholder: 'Search by name',
   searchClear: 'Clear search',
   searchLoading: 'Loading series...',

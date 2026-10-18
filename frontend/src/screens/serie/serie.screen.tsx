@@ -109,6 +109,14 @@ export function SerieScreen() {
     onHeaderLayout,
   } = useSerie({ seriesId, origin });
 
+  // Every row's press handler must stay a stable reference (see handleChapterPress), so the
+  // chapters they look a format up in are read through a ref instead of being a dependency.
+  const chaptersRef = useRef(chapters);
+  chaptersRef.current = chapters;
+  // The reader that opens a chapter depends on its file format (a book or images). The chapters
+  // already carry it, so it travels as a hint and the reader entry never has to ask.
+  const formatOf = useCallback((chapterId: string) => chaptersRef.current.find(c => c.id === chapterId)?.pages.fileFormat, []);
+
   const enrichmentBanner = enrichmentBannerFor({ gap: enrichmentGap, outcome: enrichmentOutcome, t });
 
 
@@ -144,9 +152,9 @@ export function SerieScreen() {
       // seriesName is a fast-path hint so the reader's top bar doesn't flash empty while it
       // would otherwise fetch the name — the reader falls back to fetching it when opened
       // without this.
-      navigation.navigate(Routes.READER, { seriesId, chapterId, origin, seriesName: serie?.name });
+      navigation.navigate(Routes.READER, { seriesId, chapterId, origin, seriesName: serie?.name, format: formatOf(chapterId) });
     },
-    [selectionMode, onChapterClick, navigation, seriesId, origin, serie?.name],
+    [selectionMode, onChapterClick, navigation, seriesId, origin, serie?.name, formatOf],
   );
 
   // Every chapter row is the same height, and that height is known without measuring anything —
@@ -182,7 +190,13 @@ export function SerieScreen() {
   function handleActionPress() {
     const target = continueChapter ?? chapters[0];
     if (!target) {return;}
-    navigation.navigate(Routes.READER, { seriesId, chapterId: target.id, origin, seriesName: serie?.name });
+    navigation.navigate(Routes.READER, {
+      seriesId,
+      chapterId: target.id,
+      origin,
+      seriesName: serie?.name,
+      format: target.pages.fileFormat,
+    });
   }
 
   // Measures the ⋮ button's own on-screen position before opening the menu, so the card renders
