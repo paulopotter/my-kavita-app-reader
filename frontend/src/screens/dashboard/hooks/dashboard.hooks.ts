@@ -5,9 +5,14 @@ import { useStrings } from '../../../shared/i18n';
 import { useEvent } from '../../../shared/managers/events';
 import { FollowedSeriesService } from '../../../shared/services/followed-series';
 import { SerialService, SerialsService } from '../../../shared/services/serials';
+import { ConcurrencyTool } from '../../../shared/tools/concurrency';
 import { SeriesTool, SerieEvents, SerieTool, type Serie } from '../../../shared/tools/serials';
 import { DASHBOARD_LIMITS, DashboardTool } from '../dashboard.tool';
 import type { DashboardData, DashboardItem, DashboardStatus } from '../dashboard.types';
+
+// How many "continue reading" digests are fetched at once. Each is a whole series (all its chapters),
+// so asking for a dozen together makes every one of them slow and the first tile the last to appear.
+const CONTINUE_DIGEST_CONCURRENCY = 4;
 
 interface Source {
   series: Serie[];
@@ -23,6 +28,10 @@ interface Source {
 // up, and again when SerialRefreshTool reports a series was re-fetched after reading;
 // pull-to-refresh is the only `force` here.
 //
+// The screen paints as soon as the series list is in: every rail but "continue reading" is built from
+// the list alone, and the digests that rail needs can take seconds (a cold or very long series), so
+// nothing else waits for them. Its tiles appear one by one as each digest arrives.
+//
 // What it loads stays raw. The adult-content filter runs at read time over that source, before the
 // rails are built — so a hidden series is absent from every rail and from the stats alike.
 export function useDashboard() {
@@ -35,6 +44,7 @@ export function useDashboard() {
 
   const load = useCallback(async ({ force }: { force: boolean }) => {
     const request = ++requestRef.current;
+    const startedAt = Date.now();
     try {
       const [serialsDigest, followedIds] = await Promise.all([
         SerialsService.get({ force }),
@@ -44,21 +54,34 @@ export function useDashboard() {
         throw new Error(serialsDigest.error.message ?? serialsDigest.error.code ?? 'serials digest failed');
       }
       const series = SeriesTool.normalize({ serials: serialsDigest.serials });
-
-      const candidates = DashboardTool.continueCandidates({ series, limit: DASHBOARD_LIMITS.continueReading });
-      const settled = await Promise.allSettled(
-        candidates.map(candidate => SerialService.get({ seriesId: candidate.id, force })),
-      );
-      const continueSeries: Serie[] = [];
-      settled.forEach(result => {
-        if (result.status === 'fulfilled' && result.value.isSuccess) {
-          continueSeries.push(SerieTool.normalize.digest({ digest: result.value }));
-        }
-      });
+      const followed = new Set(followedIds);
+      const listMs = Date.now() - startedAt;
 
       if (request !== requestRef.current) {return;}
-      setSource({ series, followedIds: new Set(followedIds), continueSeries });
+      // Paint now. What was already shown for "continue reading" stays until the new digests land.
+      setSource(previous => ({ series, followedIds: followed, continueSeries: previous?.continueSeries ?? [] }));
       setStatus('ready');
+
+      const candidates = DashboardTool.continueCandidates({ series, limit: DASHBOARD_LIMITS.continueReading });
+      const resolved: Array<Serie | null> = candidates.map(() => null);
+      const publish = () => {
+        if (request !== requestRef.current) {return;}
+        setSource({ series, followedIds: followed, continueSeries: resolved.filter((s): s is Serie => s != null) });
+      };
+      await ConcurrencyTool.each({
+        items: candidates,
+        limit: CONTINUE_DIGEST_CONCURRENCY,
+        task: async (candidate, index) => {
+          const digest = await SerialService.get({ seriesId: candidate.id, force });
+          if (digest.isSuccess) {
+            resolved[index] = SerieTool.normalize.digest({ digest });
+            publish();
+          }
+        },
+      });
+      // One line per load, so a slow open can be told apart on the device: the list, or the digests.
+      // eslint-disable-next-line no-console
+      console.log(`[dashboard] list=${listMs}ms digests=${Date.now() - startedAt - listMs}ms candidates=${candidates.length} force=${force}`);
     } catch {
       if (request !== requestRef.current) {return;}
       // A reload that fails keeps what is already on screen.

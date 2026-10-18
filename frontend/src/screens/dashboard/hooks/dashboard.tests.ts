@@ -85,6 +85,7 @@ describe('useDashboard', () => {
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(mockSerialsGet).toHaveBeenCalledWith({ force: false });
     expect(mockSerialGet).toHaveBeenCalledWith({ seriesId: '1', force: false });
+    await waitFor(() => expect(result.current.data!.continueReading).toHaveLength(1));
     const data = result.current.data!;
     expect(data.continueReading.map(i => i.chapterId)).toEqual(['c1']);
     expect(data.latestChapters.map(i => i.seriesId)).toEqual(['2']);
@@ -169,4 +170,83 @@ describe('useDashboard — adult filter', () => {
     expect(data.continueReading.every(i => i.seriesId !== '2')).toBe(true);
     expect(data.continueReading[0].blurred).toBe(true);
   });
+
+  describe('painting before the digests arrive', () => {
+    const resume = (chapterId: string) => ({
+      chapters: { total: 1, list: [], resumePoint: { stoppedAtChapterId: chapterId, stoppedAtChapterIndex: 0, status: 'UNREAD' } },
+    });
+    const inProgress = (id: string, readDate: number) =>
+      digest(id, { pages: { read: 5, total: 10 }, lastUpdatesUTC: { readDate, chapterAdded: NOW - 5000 } });
+
+    it('shows every rail built from the list while a digest is still being fetched', async () => {
+      mockSerialGet.mockReturnValue(new Promise(() => {}));
+      const { result } = renderHook(() => useDashboard());
+
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      expect(result.current.data!.recentlyUpdated).toHaveLength(2);
+      expect(result.current.data!.stats.series).toBe(2);
+      expect(result.current.data!.continueReading).toEqual([]);
+    });
+
+    it('fills "continue reading" in as the digests land, one tile at a time, in reading order', async () => {
+      mockSerialsGet.mockResolvedValue({
+        isSuccess: true,
+        lastUpdatedEpochMs: NOW,
+        serials: [inProgress('1', NOW), inProgress('2', NOW - 1)],
+      });
+      const release: Record<string, (value: unknown) => void> = {};
+      mockSerialGet.mockImplementation(
+        ({ seriesId }: { seriesId: string }) => new Promise(resolve => (release[seriesId] = resolve)),
+      );
+      const { result } = renderHook(() => useDashboard());
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await waitFor(() => expect(Object.keys(release)).toHaveLength(2));
+
+      // The second series answers first: its tile shows alone.
+      await act(async () => release['2'](digest('2', resume('c2'))));
+      await waitFor(() => expect(result.current.data!.continueReading.map(i => i.chapterId)).toEqual(['c2']));
+
+      // Then the first: both, the most recently read first.
+      await act(async () => release['1'](digest('1', resume('c1'))));
+      await waitFor(() => expect(result.current.data!.continueReading.map(i => i.chapterId)).toEqual(['c1', 'c2']));
+    });
+
+    it('keeps the tiles already on screen while a reload fetches the digests again', async () => {
+      const { result } = renderHook(() => useDashboard());
+      await waitFor(() => expect(result.current.data?.continueReading).toHaveLength(1));
+
+      mockSerialGet.mockReturnValue(new Promise(() => {}));
+      act(() => result.current.retry());
+      await waitFor(() => expect(mockSerialsGet).toHaveBeenCalledTimes(2));
+
+      expect(result.current.data!.continueReading).toHaveLength(1);
+    });
+
+    it('fetches at most four digests at a time', async () => {
+      mockSerialsGet.mockResolvedValue({
+        isSuccess: true,
+        lastUpdatedEpochMs: NOW,
+        serials: Array.from({ length: 6 }, (_, i) => inProgress(String(i + 1), NOW - i)),
+      });
+      mockSerialGet.mockReturnValue(new Promise(() => {}));
+      const { result } = renderHook(() => useDashboard());
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      await waitFor(() => expect(mockSerialGet).toHaveBeenCalledTimes(4));
+      await new Promise<void>(resolve => setTimeout(resolve, 20));
+      expect(mockSerialGet).toHaveBeenCalledTimes(4);
+    });
+
+    it('logs one timing line per load so a slow open can be told apart', async () => {
+      const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+      const { result } = renderHook(() => useDashboard());
+      await waitFor(() => expect(result.current.data?.continueReading).toHaveLength(1));
+      await waitFor(() => expect(log).toHaveBeenCalled());
+
+      expect(String(log.mock.calls[0][0])).toMatch(/^\[dashboard\] list=\d+ms digests=\d+ms candidates=1 force=false$/);
+      log.mockRestore();
+    });
+  });
 });
+
