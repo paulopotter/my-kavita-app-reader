@@ -89,6 +89,31 @@ class SafeBitmapDecoderTest {
         }
 
     @Test
+    fun `shrinkToBudget scales a decoded bitmap down to the budget, keeping its shape`() {
+        val full = Bitmap.createBitmap(1600, 4000, Bitmap.Config.ARGB_8888)
+
+        val result = shrinkToBudget(full, maxOutputBytes = 8L * 1024 * 1024, cacheKey = "avif-strip")
+
+        assertNotNull(result)
+        val kept = (result!!.drawable as android.graphics.drawable.BitmapDrawable).bitmap
+        assertTrue(kept.byteCount <= 8L * 1024 * 1024)
+        assertEquals(1600.0 / 4000.0, kept.width.toDouble() / kept.height, 0.01)
+        assertTrue(result.isSampled)
+        assertTrue(full.isRecycled) // the full-size copy does not outlive the decode
+    }
+
+    @Test
+    fun `shrinkToBudget leaves a bitmap that already fits untouched`() {
+        val full = Bitmap.createBitmap(400, 600, Bitmap.Config.ARGB_8888)
+
+        val result = shrinkToBudget(full, maxOutputBytes = 48L * 1024 * 1024, cacheKey = "small")
+
+        assertTrue((result!!.drawable as android.graphics.drawable.BitmapDrawable).bitmap === full)
+        assertEquals(false, result.isSampled)
+        assertEquals(false, full.isRecycled)
+    }
+
+    @Test
     fun `factory creates a SafeBitmapDecoder`() {
         val factory = SafeBitmapDecoder.Factory()
 

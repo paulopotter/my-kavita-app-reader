@@ -81,6 +81,38 @@ private fun outputScaleFor(
     val full = fullBytesOf(width, height)
     return if (full <= maxOutputBytes) 1f else Math.sqrt(maxOutputBytes.toDouble() / full).toFloat()
 }
+
+/**
+ * Keeps [full] as it is when it fits [maxOutputBytes], else replaces it with a smoothly scaled copy
+ * that does (and recycles [full]). Null when the copy cannot be made.
+ */
+internal fun shrinkToBudget(
+    full: Bitmap,
+    maxOutputBytes: Long,
+    cacheKey: String?,
+): DecodeResult? {
+    val scale = outputScaleFor(full.width, full.height, maxOutputBytes)
+    if (scale >= 1f) {
+        return DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, full), isSampled = false)
+    }
+    // Rounded DOWN: rounding to the nearest could land a few bytes over the budget it exists to keep.
+    val outWidth = maxOf(1, Math.floor(full.width * scale.toDouble()).toInt())
+    val outHeight = maxOf(1, Math.floor(full.height * scale.toDouble()).toInt())
+    return try {
+        val scaled = Bitmap.createScaledBitmap(full, outWidth, outHeight, true)
+        android.util.Log.i(
+            "CoilDiagnostic",
+            "shrinkToBudget ${full.width}x${full.height} -> ${outWidth}x$outHeight cacheKey=$cacheKey",
+        )
+        DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, scaled), isSampled = true)
+    } catch (t: Throwable) {
+        android.util.Log.e("CoilDiagnostic", "shrinkToBudget THREW cacheKey=$cacheKey", t)
+        null
+    } finally {
+        full.recycle()
+    }
+}
+
 private const val MAX_CONCURRENT_HEAVY_DECODES = 1
 private val heavyDecodeGate = java.util.concurrent.Semaphore(MAX_CONCURRENT_HEAVY_DECODES, true)
 
@@ -139,7 +171,10 @@ class SafeBitmapDecoder(
                 return@runInterruptible null
             }
 
-            if (originalHeight <= TILE_HEIGHT_PX) {
+            // AVIF never takes the small path: BitmapFactory hands it to the hardware AV1 codec, which on
+            // the device log took ~1.5s to start (and then fell back to software anyway) for a 1600x1600
+            // page. The software decoder below does the same page in tens of milliseconds.
+            if (originalHeight <= TILE_HEIGHT_PX && bounds.outMimeType != "image/avif") {
                 ReaderDebugFlags.d("CoilDiagnostic") { "decodeNow SMALL PATH (no tiling needed) cacheKey=$cacheKey" }
                 val bitmap =
                     try {
@@ -210,8 +245,8 @@ class SafeBitmapDecoder(
     // downsampling option avoids the codec being configured with the file's raw dimensions first
     // (confirmed: ImageDecoder.setTargetSize reproduced the same BAD_VALUE failure as the untouched
     // path). org.aomedia.avif.android:avif decodes AVIF in pure software (libavif+dav1d JNI) into a
-    // Bitmap the caller pre-allocates — here, sized at the image's real dimensions, since this path
-    // never triggers the hardware bug that made downsampling necessary elsewhere in this class.
+    // Bitmap the caller pre-allocates at the image's real dimensions; the result is then shrunk to the
+    // page budget (see shrinkToBudget), so the full-size bitmap only lives for the decode.
     private fun decodeAvif(
         bytes: ByteArray,
         originalWidth: Int,
@@ -233,7 +268,11 @@ class SafeBitmapDecoder(
             ReaderDebugFlags.d("CoilDiagnostic") {
                 "decodeAvif SUCCESS bitmap=${bitmap.width}x${bitmap.height} cacheKey=$cacheKey"
             }
-            DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, bitmap), isSampled = false)
+            // The decode itself needs the full size (the library writes into a bitmap of the image's
+            // dimensions), but what is KEPT and drawn obeys the same page budget as every other format:
+            // a 1600x15900 strip is ~97MB and, as the log of a real device showed, every strip that big
+            // costs 30-46 skipped frames when it first draws.
+            shrinkToBudget(bitmap, maxOutputBytes, cacheKey)
         } catch (t: Throwable) {
             android.util.Log.e("CoilDiagnostic", "decodeAvif THREW cacheKey=$cacheKey", t)
             null
@@ -245,7 +284,6 @@ class SafeBitmapDecoder(
         originalWidth: Int,
         originalHeight: Int,
     ): DecodeResult? {
-        val scale = outputScaleFor(originalWidth, originalHeight, maxOutputBytes)
         val full =
             try {
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options())
@@ -253,24 +291,7 @@ class SafeBitmapDecoder(
                 android.util.Log.e("CoilDiagnostic", "decodeWholeScaled decode THREW cacheKey=$cacheKey", t)
                 null
             } ?: return null
-        if (scale >= 1f) {
-            return DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, full), isSampled = false)
-        }
-        val outWidth = maxOf(1, Math.round(originalWidth * scale))
-        val outHeight = maxOf(1, Math.round(originalHeight * scale))
-        return try {
-            val scaled = Bitmap.createScaledBitmap(full, outWidth, outHeight, true)
-            android.util.Log.i(
-                "CoilDiagnostic",
-                "decodeWholeScaled ${originalWidth}x$originalHeight -> ${outWidth}x$outHeight cacheKey=$cacheKey",
-            )
-            DecodeResult(drawable = android.graphics.drawable.BitmapDrawable(null, scaled), isSampled = true)
-        } catch (t: Throwable) {
-            android.util.Log.e("CoilDiagnostic", "decodeWholeScaled scale THREW cacheKey=$cacheKey", t)
-            null
-        } finally {
-            full.recycle()
-        }
+        return shrinkToBudget(full, maxOutputBytes, cacheKey)
     }
 
     private fun decodeTiled(
