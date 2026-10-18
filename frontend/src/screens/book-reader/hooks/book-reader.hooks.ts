@@ -59,6 +59,8 @@ export function useBookReader({
   // defaults and again with the real ones.
   const [prefsReady, setPrefsReady] = useState(false);
   const [order, setOrder] = useState<OrderedChapter[]>([]);
+  // The series' own name, for when the route did not carry one (the Home and notifications don't).
+  const [loadedName, setLoadedName] = useState('');
   // Bumped to run the load again for the same chapter.
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -106,7 +108,9 @@ export function useBookReader({
     let cancelled = false;
     SerialService.get({ seriesId })
       .then(digest => {
-        if (!cancelled && digest.isSuccess) {setOrder(toOrderedChapters(digest));}
+        if (cancelled || !digest.isSuccess) {return;}
+        setOrder(toOrderedChapters(digest));
+        setLoadedName(digest.name ?? '');
       })
       .catch(() => {});
     return () => {
@@ -189,6 +193,14 @@ export function useBookReader({
 
   const nextChapterId = adjacentChapterId(order, activeChapterId, 'next');
   const prevChapterId = adjacentChapterId(order, activeChapterId, 'prev');
+
+  // One line each time where the reader is changes, so a mode switch that loses the neighbours (or
+  // the bar) can be read off the device log.
+  useEffect(() => {
+    console.log(
+      `[book-reader] mode=${mode} status=${status} chapter=${activeChapterId} page=${pageIndex}/${pageCount} order=${order.length} prev=${prevChapterId} next=${nextChapterId} overlay=${overlayVisible}`,
+    );
+  }, [mode, status, activeChapterId, pageIndex, pageCount, order.length, prevChapterId, nextChapterId, overlayVisible]);
 
   const goToChapter = useCallback((targetId: string | null) => {
     if (!targetId) {return;}
@@ -325,6 +337,8 @@ export function useBookReader({
     (next: BookReadingMode) => {
       if (next === mode) {return;}
       setMode(next);
+      // The bars give way to the page, so the new mode is seen working (progress bar included).
+      setOverlayVisible(false);
       BookPrefs.mode.set(next).catch(() => {});
       // The same place, read the other way.
       reopenAt({ chapterId: activeChapterId, page: pageIndex, fraction: fractionRef.current });
@@ -333,7 +347,7 @@ export function useBookReader({
   );
 
   return {
-    seriesName: seriesName ?? '',
+    seriesName: seriesName || loadedName,
     chapterId: activeChapterId,
     chapterTitle: current ? ChapterTool.format.title(current, t) : '',
     status,

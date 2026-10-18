@@ -156,6 +156,21 @@ describe('useBookReader', () => {
     });
   });
 
+  describe('series name', () => {
+    it('uses the name the route carried', async () => {
+      mockSerialGet.mockResolvedValue({ ...series, name: 'From the server' });
+      const { result } = setup();
+      await waitFor(() => expect(result.current.hasNextChapter).toBe(true));
+      expect(result.current.seriesName).toBe('Leveling');
+    });
+
+    it('asks the series for it when the route did not carry one', async () => {
+      mockSerialGet.mockResolvedValue({ ...series, name: 'From the server' });
+      const { result } = renderHook(() => useBookReader({ seriesId: 's1', chapterId: 'c2' }));
+      await waitFor(() => expect(result.current.seriesName).toBe('From the server'));
+    });
+  });
+
   describe('series order', () => {
     it('knows the title and the neighbours of the chapter', async () => {
       const { result } = setup('c2');
@@ -679,6 +694,24 @@ describe('useBookReader — infinite mode', () => {
       expect(mockModeSet).toHaveBeenCalledWith('paged');
       await waitFor(() => expect(mockPage).toHaveBeenCalledWith({ chapterId: 'c2', page: 0 }));
       await waitFor(() => expect(hook.result.current.restoreFraction).toBe(0.5));
+      expect(hook.result.current.firstSection).toEqual({ chapterId: 'c2', page: 0 });
+    });
+
+    it('keeps the neighbours and the progress when a paged book is switched to the infinite mode', async () => {
+      mockModeGet.mockResolvedValue('paged');
+      const hook = await ready('c2');
+      send(hook, { type: 'progress', fraction: 0.4 });
+
+      act(() => hook.result.current.changeMode('infinite'));
+      expect(hook.result.current.overlayVisible).toBe(false);
+      await waitFor(() => expect(hook.result.current.infinite).toBe(true));
+      await waitFor(() => expect(hook.result.current.status).toBe('ready'));
+      send(hook, { type: 'progress', fraction: 0.1, chapterId: 'c2', page: 0 });
+
+      expect(hook.result.current.chapterId).toBe('c2');
+      expect(hook.result.current.hasPrevChapter).toBe(true);
+      expect(hook.result.current.hasNextChapter).toBe(true);
+      expect(hook.result.current.chapterFraction).toBeCloseTo(0.1);
       expect(hook.result.current.firstSection).toEqual({ chapterId: 'c2', page: 0 });
     });
 
