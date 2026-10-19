@@ -28,6 +28,12 @@ cd frontend && yarn test
 
 # List connected devices
 adb devices
+
+# Retake the docs screenshots on the device (covers → placeholder, titles → lorem ipsum,
+# status bar painted over, Do Not Disturb on while it runs). Script: scripts/screenshots/shots.json
+make screenshots
+make screenshots ONLY=home            # one shot; OUT=/some/dir to keep docs/ untouched
+python3 scripts/take-screenshots.tests.py
 ```
 
 Testing always happens on a real physical device — never an emulator.

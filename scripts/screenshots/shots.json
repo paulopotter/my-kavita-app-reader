@@ -1,0 +1,1008 @@
+{
+  "defaults": {
+    "status_bar_px": 120,
+    "replace_items": true,
+    "blur": [],
+    "profiles": {
+      "series": {
+        "covers": [
+          {
+            "class": "ImageView",
+            "min_size": [
+              250,
+              250
+            ],
+            "clickable": false
+          }
+        ],
+        "lorem": [
+          {
+            "class": "TextView",
+            "has_text": true,
+            "top_between": [
+              250,
+              300
+            ],
+            "line_px": 68
+          },
+          {
+            "class": "TextView",
+            "has_text": true,
+            "top_between": [
+              340,
+              700
+            ],
+            "not_text": [
+              "Autor",
+              "Outros títulos"
+            ],
+            "regular": true,
+            "line_px": 49
+          },
+          {
+            "class": "TextView",
+            "has_text": true,
+            "top_between": [
+              700,
+              800
+            ],
+            "regular": true,
+            "line_px": 54
+          }
+        ]
+      },
+      "reader-manga": {
+        "covers": [
+          {
+            "id": "reader-page-list-view"
+          }
+        ],
+        "lorem": [
+          {
+            "class": "TextView",
+            "has_text": true,
+            "top_between": [
+              110,
+              140
+            ],
+            "min_size": [
+              300,
+              30
+            ],
+            "regular": true,
+            "line_px": 49
+          }
+        ],
+        "keep": [
+          {
+            "class": "ViewGroup",
+            "at_top": true,
+            "max_h": 300
+          },
+          {
+            "id": "reader-overlay-footer"
+          },
+          {
+            "id": "thin-progress-fill",
+            "round": true
+          },
+          {
+            "desc": "Capítulo anterior",
+            "clickable": true,
+            "round": true
+          },
+          {
+            "desc": "Próximo capítulo",
+            "clickable": true,
+            "round": true
+          },
+          {
+            "class": "ViewGroup",
+            "max_w": 200,
+            "min_size": [
+              60,
+              1500
+            ],
+            "round": true
+          },
+          {
+            "desc": "Capítulos",
+            "class": "ViewGroup"
+          },
+          {
+            "desc": "Ajustes de leitura",
+            "class": "ViewGroup"
+          }
+        ],
+        "scrub": [
+          {
+            "id": "reader-overlay-footer",
+            "below": 110
+          }
+        ]
+      },
+      "reader-novel": {
+        "lorem": [
+          {
+            "class": "TextView",
+            "has_text": true,
+            "top_between": [
+              440,
+              2700
+            ],
+            "regular": true,
+            "serif": true,
+            "line_px": 100,
+            "size_px": 46
+          },
+          {
+            "class": "TextView",
+            "has_text": true,
+            "top_between": [
+              120,
+              150
+            ],
+            "line_px": 73,
+            "size_px": 44
+          }
+        ],
+        "restore": [
+          {
+            "id": "book-reader-footer"
+          }
+        ]
+      },
+      "servers": {
+        "lorem": [
+          {
+            "class": "TextView",
+            "text": "••••",
+            "replace_with": "ab12••••yz89",
+            "regular": true,
+            "line_px": 57
+          },
+          {
+            "class": "TextView",
+            "text": "https://",
+            "replace_with": "https://kavita.example.com",
+            "regular": true,
+            "line_px": 57
+          },
+          {
+            "class": "TextView",
+            "text": "http://",
+            "replace_with": "http://192.168.0.10:5150",
+            "regular": true,
+            "line_px": 57
+          },
+          {
+            "class": "TextView",
+            "has_text": true,
+            "left_between": [
+              130,
+              136
+            ],
+            "top_between": [
+              400,
+              2300
+            ],
+            "replace_with": "Meu servidor",
+            "line_px": 57
+          }
+        ]
+      },
+      "server-urls": {
+        "lorem": [
+          {
+            "class": "TextView",
+            "text": "https://",
+            "replace_with": "https://kavita.example.com",
+            "regular": true,
+            "line_px": 57
+          },
+          {
+            "class": "TextView",
+            "text": "http://",
+            "replace_with": "http://192.168.0.10:5150",
+            "regular": true,
+            "line_px": 57
+          }
+        ]
+      }
+    }
+  },
+  "snippets": {
+    "boot": [
+      {
+        "launch": true
+      },
+      {
+        "wait_for": {
+          "desc": "Home",
+          "clickable": true
+        }
+      }
+    ],
+    "series-from-home": [
+      {
+        "launch": true
+      },
+      {
+        "wait_for": {
+          "desc": "Home",
+          "clickable": true
+        }
+      },
+      {
+        "tap": {
+          "clickable": true,
+          "min_size": [
+            300,
+            600
+          ]
+        }
+      },
+      {
+        "wait_for": {
+          "desc": "Voltar",
+          "clickable": true
+        }
+      }
+    ],
+    "novel-from-library": [
+      {
+        "launch": true
+      },
+      {
+        "wait_for": {
+          "desc": "Home",
+          "clickable": true
+        }
+      },
+      {
+        "tap": {
+          "desc": "Biblioteca",
+          "clickable": true
+        }
+      },
+      {
+        "tap_if": {
+          "desc": "Lista",
+          "clickable": true
+        }
+      },
+      {
+        "scroll_until": {
+          "find": {
+            "desc": ", Novel,",
+            "clickable": true
+          },
+          "max": 60
+        }
+      },
+      {
+        "tap": {
+          "desc": ", Novel,",
+          "clickable": true
+        }
+      },
+      {
+        "wait_for": {
+          "desc": "Voltar",
+          "clickable": true
+        }
+      }
+    ],
+    "manga-reader": [
+      {
+        "launch": true
+      },
+      {
+        "wait_for": {
+          "desc": "Home",
+          "clickable": true
+        }
+      },
+      {
+        "tap": {
+          "id": "rail-wide-card"
+        }
+      },
+      {
+        "wait_for": {
+          "id": "reader-page-list-view"
+        }
+      },
+      {
+        "wait": 4
+      }
+    ],
+    "novel-reader": [
+      {
+        "use": "novel-from-library"
+      },
+      {
+        "tap": {
+          "clickable": true,
+          "class": "ViewGroup",
+          "min_size": [
+            900,
+            120
+          ],
+          "max_h": 140,
+          "desc_any": [
+            "lendo",
+            "a ler"
+          ]
+        }
+      },
+      {
+        "wait_for": {
+          "id": "book-reader-webview"
+        }
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "library": [
+      {
+        "use": "boot"
+      },
+      {
+        "tap": {
+          "desc": "Biblioteca",
+          "clickable": true
+        }
+      }
+    ],
+    "ensure-list": [
+      {
+        "tap_if": {
+          "desc": "Lista",
+          "clickable": true
+        }
+      }
+    ],
+    "ensure-grid": [
+      {
+        "tap_if": {
+          "desc": "Grade",
+          "clickable": true
+        }
+      }
+    ],
+    "ensure-alpha": [
+      {
+        "tap_if": {
+          "desc": "Atualizado recentemente",
+          "clickable": true
+        }
+      }
+    ],
+    "ensure-recent": [
+      {
+        "tap_if": {
+          "desc": "Alfabético",
+          "clickable": true
+        }
+      }
+    ]
+  },
+  "shots": [
+    {
+      "name": "splash",
+      "steps": [
+        {
+          "launch": true,
+          "launch_wait": 0
+        },
+        {
+          "wait_for": {
+            "text": "frontend"
+          }
+        },
+        {
+          "shot": "splash",
+          "settle": 0
+        }
+      ]
+    },
+    {
+      "name": "home",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "shot": "home"
+        }
+      ]
+    },
+    {
+      "name": "following-grid-recent",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Seguindo",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "following-grid-recent"
+        }
+      ]
+    },
+    {
+      "name": "library-list-alphabetical",
+      "steps": [
+        {
+          "use": "library"
+        },
+        {
+          "use": "ensure-list"
+        },
+        {
+          "use": "ensure-alpha"
+        },
+        {
+          "shot": "library-list-alphabetical"
+        }
+      ]
+    },
+    {
+      "name": "library-list-recent",
+      "steps": [
+        {
+          "use": "library"
+        },
+        {
+          "use": "ensure-list"
+        },
+        {
+          "use": "ensure-recent"
+        },
+        {
+          "shot": "library-list-recent"
+        }
+      ]
+    },
+    {
+      "name": "library-grid-recent",
+      "steps": [
+        {
+          "use": "library"
+        },
+        {
+          "use": "ensure-grid"
+        },
+        {
+          "use": "ensure-recent"
+        },
+        {
+          "shot": "library-grid-recent"
+        }
+      ]
+    },
+    {
+      "name": "library-grid-alphabetical",
+      "steps": [
+        {
+          "use": "library"
+        },
+        {
+          "use": "ensure-grid"
+        },
+        {
+          "use": "ensure-alpha"
+        },
+        {
+          "shot": "library-grid-alphabetical"
+        }
+      ]
+    },
+    {
+      "name": "library-filter-modal",
+      "steps": [
+        {
+          "use": "library"
+        },
+        {
+          "use": "ensure-list"
+        },
+        {
+          "snapshot": true
+        },
+        {
+          "tap": {
+            "desc": "Filtrar",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "library-filter-modal",
+          "use_snapshot": true,
+          "restore": [
+            {
+              "desc": "Filtrar por status de leitura",
+              "class": "ViewGroup"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "series-detail-full",
+      "steps": [
+        {
+          "use": "series-from-home"
+        },
+        {
+          "shot": "series-detail-full",
+          "profile": "series"
+        }
+      ]
+    },
+    {
+      "name": "series-detail-scrolled",
+      "steps": [
+        {
+          "use": "series-from-home"
+        },
+        {
+          "scroll": "down"
+        },
+        {
+          "shot": "series-detail-scrolled"
+        }
+      ]
+    },
+    {
+      "name": "series-detail-options-menu",
+      "steps": [
+        {
+          "use": "series-from-home"
+        },
+        {
+          "snapshot": true
+        },
+        {
+          "tap": {
+            "desc": "Opções da lista de capítulos"
+          }
+        },
+        {
+          "shot": "series-detail-options-menu",
+          "profile": "series",
+          "use_snapshot": true,
+          "restore": [
+            {
+              "desc": "Ordenação",
+              "clickable": true,
+              "class": "ViewGroup",
+              "radius": 30
+            },
+            {
+              "desc": "Selecionar intervalo",
+              "clickable": true,
+              "class": "ViewGroup",
+              "radius": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "series-detail-sort-modal",
+      "steps": [
+        {
+          "use": "series-from-home"
+        },
+        {
+          "snapshot": true
+        },
+        {
+          "tap": {
+            "desc": "Opções da lista de capítulos"
+          }
+        },
+        {
+          "tap": {
+            "desc": "Ordenação",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "series-detail-sort-modal",
+          "profile": "series",
+          "use_snapshot": true,
+          "dim_covers": 0.4,
+          "restore": [
+            {
+              "desc": "Ordenação de capítulos",
+              "class": "ViewGroup",
+              "radius": 48
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "series-detail-range-modal",
+      "steps": [
+        {
+          "use": "series-from-home"
+        },
+        {
+          "snapshot": true
+        },
+        {
+          "tap": {
+            "desc": "Opções da lista de capítulos"
+          }
+        },
+        {
+          "tap": {
+            "desc": "Selecionar intervalo",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "series-detail-range-modal",
+          "profile": "series",
+          "use_snapshot": true,
+          "dim_covers": 0.4,
+          "restore": [
+            {
+              "desc": "Selecionar intervalo de capítulos",
+              "class": "ViewGroup",
+              "radius": 48
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "series-novel-detail",
+      "steps": [
+        {
+          "use": "novel-from-library"
+        },
+        {
+          "shot": "series-novel-detail",
+          "profile": "series"
+        }
+      ]
+    },
+    {
+      "name": "reader-manga",
+      "steps": [
+        {
+          "use": "manga-reader"
+        },
+        {
+          "shot": "reader-manga",
+          "profile": "reader-manga"
+        }
+      ]
+    },
+    {
+      "name": "reader-manga-overlay",
+      "steps": [
+        {
+          "use": "manga-reader"
+        },
+        {
+          "tap": {
+            "id": "reader-page-list-view"
+          }
+        },
+        {
+          "shot": "reader-manga-overlay",
+          "profile": "reader-manga"
+        }
+      ]
+    },
+    {
+      "name": "reader-manga-chapters",
+      "steps": [
+        {
+          "use": "manga-reader"
+        },
+        {
+          "tap": {
+            "id": "reader-page-list-view"
+          }
+        },
+        {
+          "tap": {
+            "desc": "Selecionar capítulo"
+          }
+        },
+        {
+          "shot": "reader-manga-chapters",
+          "profile": "reader-manga",
+          "covers": [
+            {
+              "screen": true,
+              "dim": 0.45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "reader-manga-settings",
+      "steps": [
+        {
+          "use": "manga-reader"
+        },
+        {
+          "tap": {
+            "id": "reader-page-list-view"
+          }
+        },
+        {
+          "tap": {
+            "desc": "Ajustes de leitura",
+            "clickable": true,
+            "class": "Button"
+          }
+        },
+        {
+          "shot": "reader-manga-settings",
+          "profile": "reader-manga",
+          "covers": [
+            {
+              "screen": true,
+              "dim": 0.45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "reader-novel",
+      "steps": [
+        {
+          "use": "novel-reader"
+        },
+        {
+          "shot": "reader-novel",
+          "profile": "reader-novel"
+        }
+      ]
+    },
+    {
+      "name": "reader-novel-overlay",
+      "steps": [
+        {
+          "use": "novel-reader"
+        },
+        {
+          "tap": {
+            "id": "book-reader-webview"
+          }
+        },
+        {
+          "shot": "reader-novel-overlay",
+          "profile": "reader-novel"
+        }
+      ]
+    },
+    {
+      "name": "reader-novel-appearance",
+      "steps": [
+        {
+          "use": "novel-reader"
+        },
+        {
+          "tap": {
+            "id": "book-reader-webview"
+          }
+        },
+        {
+          "tap": {
+            "desc": "Aparência",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "reader-novel-appearance",
+          "lorem": [
+            {
+              "rect": [
+                160,
+                118,
+                640,
+                215
+              ],
+              "line_px": 73,
+              "size_px": 44
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "search-history",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Buscar",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "search-history"
+        }
+      ]
+    },
+    {
+      "name": "search-results",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Buscar",
+            "clickable": true
+          }
+        },
+        {
+          "tap": {
+            "class": "EditText"
+          }
+        },
+        {
+          "type": "reg"
+        },
+        {
+          "back": true
+        },
+        {
+          "wait": 2
+        },
+        {
+          "shot": "search-results"
+        }
+      ]
+    },
+    {
+      "name": "notifications-list",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Notificações",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "notifications-list"
+        }
+      ]
+    },
+    {
+      "name": "config-main",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Ajustes",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "config-main"
+        }
+      ]
+    },
+    {
+      "name": "config-server",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Ajustes",
+            "clickable": true
+          }
+        },
+        {
+          "tap": {
+            "desc": "Servidor",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "config-server",
+          "profile": "servers"
+        }
+      ]
+    },
+    {
+      "name": "config-reading-prefs",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Ajustes",
+            "clickable": true
+          }
+        },
+        {
+          "tap": {
+            "desc": "Preferências de leitura",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "config-reading-prefs"
+        }
+      ]
+    },
+    {
+      "name": "config-manga-page",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Ajustes",
+            "clickable": true
+          }
+        },
+        {
+          "tap": {
+            "desc": "Página do mangá",
+            "clickable": true
+          }
+        },
+        {
+          "shot": "config-manga-page"
+        }
+      ]
+    },
+    {
+      "name": "config-notifications",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Ajustes",
+            "clickable": true
+          }
+        },
+        {
+          "tap": {
+            "desc": "Notificações",
+            "clickable": true,
+            "class": "ViewGroup"
+          }
+        },
+        {
+          "shot": "config-notifications",
+          "profile": "server-urls"
+        }
+      ]
+    }
+  ]
+}
