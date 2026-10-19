@@ -13,7 +13,7 @@ Android app for reading manga and webtoons from your own home servers - today
 through [Kavita](https://www.kavitareader.com/), with room for others (see
 [plugins](#plugins)).
 
-![Library, series, search, notifications and settings](docs/external/screenshots/hero_preview.png)
+![Library, series, search, reader and settings](docs/external/screenshots/hero_preview.png)
 
 ## Why this app
 

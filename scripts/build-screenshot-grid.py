@@ -25,8 +25,8 @@ COLUMNS = 5
 THUMB_W = 200
 GAP = 12
 CAPTION_H = 22
-# 1080x2501 is what the device actually produces; every thumb is padded/cropped to this ratio.
-THUMB_ASPECT = 2501 / 1080
+# 1080x2640 is what `make screenshots` produces; every thumb is padded/cropped to this ratio.
+THUMB_ASPECT = 2640 / 1080
 PAD = 16
 BG = (13, 17, 33)
 FG = (232, 236, 245)
@@ -36,9 +36,9 @@ SECTION_H = 34
 # The README strip: one row, the screens that actually sell the app.
 HERO = [
     ("library-grid-recent.png", "Biblioteca"),
-    ("series-detail-full.jpeg", "Série"),
+    ("series-detail-full.png", "Série"),
     ("search-history.png", "Busca"),
-    ("notifications-list.png", "Notificações"),
+    ("reader-manga-overlay.png", "Leitor"),
     ("config-main.png", "Ajustes"),
 ]
 HERO_THUMB_W = 300
@@ -51,18 +51,36 @@ SECTIONS = [
         ("config-welcome-setup.png", "Bem-vindo (configurando)"),
         ("config-welcome.png", "Bem-vindo (configurado)"),
     ]),
+    ("Início", [
+        ("home.png", "Início"),
+    ]),
     ("Biblioteca", [
         ("library-grid-recent.png", "Grade · recente"),
         ("library-grid-alphabetical.png", "Grade · A–Z"),
         ("library-list-recent.png", "Lista · recente"),
         ("library-list-alphabetical.png", "Lista · A–Z"),
+        ("library-filter-modal.png", "Filtro"),
         ("following-grid-recent.png", "Seguindo · grade"),
     ]),
-    ("Série e leitura", [
-        ("series-detail-full.jpeg", "Detalhe da série"),
-        ("series-detail-scrolled.jpeg", "Lista de capítulos"),
+    ("Série", [
+        ("series-detail-full.png", "Detalhe da série"),
+        ("series-detail-scrolled.png", "Lista de capítulos"),
+        ("series-detail-options-menu.png", "Opções da lista"),
+        ("series-detail-sort-modal.png", "Modal de ordenação"),
+        ("series-detail-range-modal.png", "Selecionar intervalo"),
         ("series-detail-selection-mode.jpeg", "Seleção múltipla"),
-        ("series-detail-sort-modal.jpeg", "Modal de ordenação"),
+        ("series-novel-detail.png", "Detalhe de novel"),
+    ]),
+    ("Leitor de mangá", [
+        ("reader-manga.png", "Leitura"),
+        ("reader-manga-overlay.png", "Controles"),
+        ("reader-manga-chapters.png", "Capítulos"),
+        ("reader-manga-settings.png", "Ajustes de leitura"),
+    ]),
+    ("Leitor de novel", [
+        ("reader-novel.png", "Leitura"),
+        ("reader-novel-overlay.png", "Controles"),
+        ("reader-novel-appearance.png", "Aparência"),
     ]),
     ("Busca", [
         ("search-history.png", "Abertas recentemente"),
@@ -77,6 +95,7 @@ SECTIONS = [
         ("config-main.png", "Ajustes"),
         ("config-server.png", "Servidores"),
         ("config-reading-prefs.png", "Preferências de leitura"),
+        ("config-manga-page.png", "Página do mangá"),
         ("config-notifications.png", "Notificações"),
         ("settings-chapter-sort-fixed.jpeg", "Ordenação de capítulos"),
     ]),
