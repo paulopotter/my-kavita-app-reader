@@ -127,6 +127,18 @@ class SelectorTests(unittest.TestCase):
         </hierarchy>"""
         self.assertEqual(shots.item_regions(nodes=shots.parse_nodes(xml=btn)), {"covers": [], "titles": []})
 
+    def test_inside_follows_the_container_not_fixed_coordinates(self):
+        def tree(offset):
+            return shots.parse_nodes(xml=f"""<hierarchy>
+              <node text="" class="android.view.ViewGroup" content-desc="" resource-id="x:id/bar" bounds="[0,{offset}][1080,{offset + 300}]"/>
+              <node text="Titulo da obra" class="android.widget.TextView" content-desc="" bounds="[135,{offset + 20}][800,{offset + 70}]"/>
+              <node text="Fora da barra" class="android.widget.TextView" content-desc="" bounds="[135,1000][800,1050]"/>
+            </hierarchy>""")
+        sel = {"class": "TextView", "has_text": True, "inside": {"id": "bar"}}
+        for offset in (0, 128):  # a taller status bar moves the whole bar down
+            hits = shots.find(nodes=tree(offset), selector=sel)
+            self.assertEqual([n["text"] for n in hits], ["Titulo da obra"])
+
     def test_center(self):
         self.assertEqual(shots.center(box=(0, 2463, 180, 2595)), (90, 2529))
 
@@ -208,6 +220,21 @@ class ScriptTests(unittest.TestCase):
             shots.expand_steps(script=script, shot={"name": "x", "steps": [{"use": "loop"}]})
         with self.assertRaises(shots.ScriptError):
             shots.expand_steps(script=script, shot={"name": "x", "steps": [{"use": "nope"}]})
+
+    def test_select_shots_keeps_fresh_ones_out_unless_asked(self):
+        script = {"shots": [{"name": "a"}, {"name": "b", "fresh": True}, {"name": "c"}]}
+        self.assertEqual([s["name"] for s in shots.select_shots(script=script)], ["a", "c"])
+        self.assertEqual([s["name"] for s in shots.select_shots(script=script, fresh=True)], ["a", "b", "c"])
+        self.assertEqual([s["name"] for s in shots.select_shots(script=script, only=["b"])], ["b"])
+        with self.assertRaises(shots.ScriptError):
+            shots.select_shots(script=script, only=["zzz"])
+
+    def test_reset_app_refuses_a_real_device(self):
+        class Phone:
+            serial = "adb-RQCW703EBQK-5v4REm._adb-tls-connect._tcp"
+            snapshot = None
+        with self.assertRaises(shots.ScriptError):
+            shots.run_step(device=Phone(), step={"reset_app": True}, defaults={}, out_dir=None)
 
     def test_rejects_bad_names_duplicates_and_missing_final_shot(self):
         def one(*, name="a", steps=None):

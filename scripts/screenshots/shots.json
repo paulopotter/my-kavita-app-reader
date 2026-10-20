@@ -61,23 +61,30 @@
           {
             "class": "TextView",
             "has_text": true,
-            "top_between": [
-              110,
-              140
-            ],
             "min_size": [
               300,
               30
             ],
             "regular": true,
-            "line_px": 49
+            "line_px": 49,
+            "inside": {
+              "class": "ViewGroup",
+              "top_between": [
+                0,
+                140
+              ],
+              "max_h": 400
+            }
           }
         ],
         "keep": [
           {
             "class": "ViewGroup",
-            "at_top": true,
-            "max_h": 300
+            "top_between": [
+              0,
+              140
+            ],
+            "max_h": 400
           },
           {
             "id": "reader-overlay-footer"
@@ -138,12 +145,11 @@
           {
             "class": "TextView",
             "has_text": true,
-            "top_between": [
-              120,
-              150
-            ],
             "line_px": 73,
-            "size_px": 44
+            "size_px": 44,
+            "inside": {
+              "id": "book-reader-top-bar"
+            }
           }
         ],
         "restore": [
@@ -218,58 +224,17 @@
       },
       {
         "wait_for": {
-          "desc": "Home",
-          "clickable": true
-        }
-      }
-    ],
-    "series-from-home": [
-      {
-        "launch": true
-      },
-      {
-        "wait_for": {
-          "desc": "Home",
-          "clickable": true
-        }
-      },
-      {
-        "tap": {
-          "clickable": true,
-          "min_size": [
-            300,
-            600
-          ]
-        }
-      },
-      {
-        "wait_for": {
-          "desc": "Voltar",
+          "desc": "Biblioteca",
           "clickable": true
         }
       }
     ],
     "novel-from-library": [
       {
-        "launch": true
+        "use": "library"
       },
       {
-        "wait_for": {
-          "desc": "Home",
-          "clickable": true
-        }
-      },
-      {
-        "tap": {
-          "desc": "Biblioteca",
-          "clickable": true
-        }
-      },
-      {
-        "tap_if": {
-          "desc": "Lista",
-          "clickable": true
-        }
+        "use": "ensure-list"
       },
       {
         "scroll_until": {
@@ -295,17 +260,44 @@
     ],
     "manga-reader": [
       {
-        "launch": true
+        "use": "library"
+      },
+      {
+        "use": "ensure-list"
+      },
+      {
+        "scroll_until": {
+          "find": {
+            "desc_re": "^(?!.*, Novel,).*, (?:[1-9]\\d?|100)%(?:,|$)",
+            "clickable": true,
+            "class": "ViewGroup"
+          },
+          "max": 60
+        }
+      },
+      {
+        "tap": {
+          "desc_re": "^(?!.*, Novel,).*, (?:[1-9]\\d?|100)%(?:,|$)",
+          "clickable": true,
+          "class": "ViewGroup"
+        }
       },
       {
         "wait_for": {
-          "desc": "Home",
+          "desc": "Voltar",
           "clickable": true
         }
       },
       {
         "tap": {
-          "id": "rail-wide-card"
+          "clickable": true,
+          "class": "ViewGroup",
+          "min_size": [
+            900,
+            120
+          ],
+          "max_h": 140,
+          "nth": 0
         }
       },
       {
@@ -387,6 +379,52 @@
           "clickable": true
         }
       }
+    ],
+    "welcome": [
+      {
+        "reset_app": true
+      },
+      {
+        "launch": true,
+        "launch_wait": 8
+      },
+      {
+        "tap": {
+          "desc": "PT",
+          "clickable": true
+        }
+      },
+      {
+        "wait_for": {
+          "desc": "Adicionar servidor",
+          "clickable": true
+        }
+      }
+    ],
+    "series-from-library": [
+      {
+        "use": "library"
+      },
+      {
+        "use": "ensure-list"
+      },
+      {
+        "tap": {
+          "clickable": true,
+          "class": "ViewGroup",
+          "min_size": [
+            800,
+            200
+          ],
+          "nth": 0
+        }
+      },
+      {
+        "wait_for": {
+          "desc": "Voltar",
+          "clickable": true
+        }
+      }
     ]
   },
   "shots": [
@@ -415,6 +453,12 @@
           "use": "boot"
         },
         {
+          "skip_unless": {
+            "desc": "Home",
+            "clickable": true
+          }
+        },
+        {
           "shot": "home"
         }
       ]
@@ -424,6 +468,12 @@
       "steps": [
         {
           "use": "boot"
+        },
+        {
+          "skip_unless": {
+            "desc": "Seguindo",
+            "clickable": true
+          }
         },
         {
           "tap": {
@@ -538,7 +588,7 @@
       "name": "series-detail-full",
       "steps": [
         {
-          "use": "series-from-home"
+          "use": "series-from-library"
         },
         {
           "shot": "series-detail-full",
@@ -550,7 +600,7 @@
       "name": "series-detail-scrolled",
       "steps": [
         {
-          "use": "series-from-home"
+          "use": "series-from-library"
         },
         {
           "scroll": "down"
@@ -564,7 +614,7 @@
       "name": "series-detail-options-menu",
       "steps": [
         {
-          "use": "series-from-home"
+          "use": "series-from-library"
         },
         {
           "snapshot": true
@@ -599,7 +649,7 @@
       "name": "series-detail-sort-modal",
       "steps": [
         {
-          "use": "series-from-home"
+          "use": "series-from-library"
         },
         {
           "snapshot": true
@@ -634,7 +684,7 @@
       "name": "series-detail-range-modal",
       "steps": [
         {
-          "use": "series-from-home"
+          "use": "series-from-library"
         },
         {
           "snapshot": true
@@ -805,6 +855,9 @@
           }
         },
         {
+          "snapshot": true
+        },
+        {
           "tap": {
             "desc": "Aparência",
             "clickable": true
@@ -812,16 +865,13 @@
         },
         {
           "shot": "reader-novel-appearance",
-          "lorem": [
+          "profile": "reader-novel",
+          "use_snapshot": "only",
+          "restore": [
             {
-              "rect": [
-                160,
-                118,
-                640,
-                215
-              ],
-              "line_px": 73,
-              "size_px": 44
+              "desc": "Aparência",
+              "class": "ViewGroup",
+              "radius": 48
             }
           ]
         }
@@ -865,7 +915,7 @@
           "type": "reg"
         },
         {
-          "back": true
+          "key": 66
         },
         {
           "wait": 2
@@ -1001,6 +1051,70 @@
         {
           "shot": "config-notifications",
           "profile": "server-urls"
+        }
+      ]
+    },
+    {
+      "name": "config-welcome-empty",
+      "fresh": true,
+      "steps": [
+        {
+          "use": "welcome"
+        },
+        {
+          "shot": "config-welcome-empty"
+        }
+      ]
+    },
+    {
+      "name": "config-welcome-setup",
+      "fresh": true,
+      "steps": [
+        {
+          "use": "welcome"
+        },
+        {
+          "tap": {
+            "desc": "Adicionar servidor",
+            "clickable": true
+          }
+        },
+        {
+          "wait_for": {
+            "desc": "Salvar"
+          }
+        },
+        {
+          "shot": "config-welcome-setup"
+        }
+      ]
+    },
+    {
+      "name": "config-theme-picker",
+      "steps": [
+        {
+          "use": "boot"
+        },
+        {
+          "tap": {
+            "desc": "Ajustes",
+            "clickable": true
+          }
+        },
+        {
+          "tap": {
+            "desc_re": "^(Petróleo|Carmim|Âmbar|Floresta|Ônix|Sépia|Aço|Vinho)",
+            "clickable": true,
+            "class": "ViewGroup",
+            "min_size": [
+              900,
+              100
+            ],
+            "max_h": 160
+          }
+        },
+        {
+          "shot": "config-theme-picker"
         }
       ]
     }

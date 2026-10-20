@@ -22,7 +22,7 @@ MSG_BUILD_ANDROID        := Gera APK de debug
 MSG_BUILD_BUNDLE         := Gera bundle JS (React Native / Expo)
 MSG_DEPLOY               := Instala o APK no dispositivo físico via USB
 MSG_LOG                  := Exibe logs do app em tempo real via adb logcat
-MSG_SCREENSHOTS          := Tira os screenshots da documentação no aparelho via adb (ONLY=nome para um só)
+MSG_SCREENSHOTS          := Tira os screenshots da documentação via adb (ONLY=nome, EMULATOR=1 ou SERIAL=...)
 MSG_SERVER               := Levanta servidor OTA local na porta 8080 (adb reverse incluso)
 MSG_KILL                 := Force-stop do app no dispositivo (sem desinstalar)
 MSG_REDEPLOY_LOG         := Build + kill + deploy + log, salvando em /tmp/reader-log-vN.txt
@@ -57,7 +57,7 @@ MSG_BUILD_ANDROID        := Build debug APK
 MSG_BUILD_BUNDLE         := Build JS bundle (React Native / Expo)
 MSG_DEPLOY               := Install APK on physical device via USB
 MSG_LOG                  := Stream app logs via adb logcat
-MSG_SCREENSHOTS          := Take the docs screenshots on the device over adb (ONLY=name for just one)
+MSG_SCREENSHOTS          := Take the docs screenshots over adb (ONLY=name, EMULATOR=1 or SERIAL=...)
 MSG_SERVER               := Start local OTA server on port 8080 (adb reverse included)
 MSG_KILL                 := Force-stop the app on device (no uninstall)
 MSG_REDEPLOY_LOG         := Build + kill + deploy + log, saved to /tmp/reader-log-vN.txt
@@ -163,7 +163,7 @@ log: ## $(MSG_LOG)
 	fi
 
 screenshots: ## $(MSG_SCREENSHOTS)
-	@python3 scripts/take-screenshots.py $(if $(ONLY),--only $(ONLY),) $(if $(OUT),--out $(OUT),)
+	@python3 scripts/take-screenshots.py $(if $(ONLY),--only $(ONLY),) $(if $(OUT),--out $(OUT),) $(if $(SERIAL),--serial $(SERIAL),) $(if $(EMULATOR),--emulator,)
 
 redeploy-log: ## $(MSG_REDEPLOY_LOG)
 	@clear; \

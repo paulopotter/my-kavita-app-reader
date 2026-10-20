@@ -36,7 +36,16 @@ make screenshots ONLY=home            # one shot; OUT=/some/dir to keep docs/ un
 python3 scripts/take-screenshots.tests.py
 ```
 
-Testing always happens on a real physical device — never an emulator.
+Testing always happens on a real physical device — never an emulator. The one exception is the
+docs screenshots, which can be taken on an emulator (`make screenshots EMULATOR=1`) so a clean
+install, a fixed theme and no personal notifications are possible.
+
+Emulator on an Intel Mac with Hypervisor.framework (12th-gen+ CPUs): the Android 35 kernel panics at
+boot on `TPAUSE` (WAITPKG). Boot it with the kernel told to ignore the feature — add to the
+`emulator` command `-qemu -append "<default cmdline> clearcpuid=waitpkg"`, where the default is
+`8250.nr_uarts=1 clocksource=pit no_timer_check console=ttyS0,38400 earlyprintk=ttyS0 ndns=2
+loop.max_part=7 ramoops.mem_address=0xff018000 ramoops.mem_size=0x10000 memmap=0x10000$0xff018000
+printk.devkmsg=on bootconfig`. Never `pkill qemu-system-x86_64`: other VMs (Docker) use that binary.
 
 Before generating a build that goes to the user's device: apply the
 `versionar-build` skill (adds `-rcN` suffix to APK `versionName` AND JS

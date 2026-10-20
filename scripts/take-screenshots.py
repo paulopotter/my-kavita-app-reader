@@ -16,8 +16,11 @@ Nothing from the device or from the user's library reaches the docs:
   - every library item's cover is replaced by a default image and its title by "Lorem ipsum",
     placed from the same dump's bounds; a shot can also list extra regions under "blur".
 
-Usage: python3 scripts/take-screenshots.py [--only NAME ...] [--out DIR] [--serial SERIAL]
+Usage: python3 scripts/take-screenshots.py [--only NAME ...] [--out DIR] [--serial SERIAL | --emulator]
        [--display ID] [--list]
+
+With a phone and an emulator attached, name the one to use (--serial, --emulator or ANDROID_SERIAL);
+otherwise the first attached device is taken.
 """
 
 import argparse
@@ -39,6 +42,7 @@ SCRIPT = ROOT / "scripts" / "screenshots" / "shots.json"
 DEFAULT_OUT = ROOT / "docs" / "external" / "screenshots"
 APP_PACKAGE = "com.mymangareader"
 APP_ACTIVITY = ".MainActivity"
+EMULATOR_SERIAL = "emulator-5554"
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
@@ -69,6 +73,11 @@ FONT_SERIF_BOLD = [
 SETTLE_SECONDS = 1.0
 WAIT_FOR_SECONDS = 20
 BLUR_RADIUS = 28
+
+
+class SkipShot(Exception):
+    """The screen this shot needs is not available on this device (say, a tab that depends on a
+    server this install does not have). Not a failure: the shot is left out."""
 
 
 class ScriptError(Exception):
@@ -105,7 +114,7 @@ def parse_nodes(*, xml):
 
 
 def matches(*, node, selector):
-    """text/desc/class are substring matches, desc_any is a list of alternative desc substrings, id is exact, clickable is a boolean.
+    """text/desc/class are substring matches, desc_any is a list of alternative desc substrings, desc_re a regex on desc, id is exact, clickable is a boolean.
 
     Geometry: min_size [w, h], max_w, max_h, top_between [min, max] (on the box top), at_top
     (box starts at y=0), left_between [min, max] (on the box left). Text: has_text (non-empty), not_text (list of exact texts to skip)."""
@@ -113,6 +122,8 @@ def matches(*, node, selector):
     for key in ("text", "desc", "class"):
         if key in selector and selector[key] not in node[key]:
             return False
+    if "desc_re" in selector and not re.search(selector["desc_re"], node["desc"]):
+        return False
     if "desc_any" in selector and not any(d in node["desc"] for d in selector["desc_any"]):
         return False
     if "id" in selector and selector["id"] != node["id"]:
@@ -145,7 +156,20 @@ def matches(*, node, selector):
 
 
 def find(*, nodes, selector):
-    return [n for n in nodes if matches(node=n, selector=selector)]
+    """Nodes matching the selector. {"inside": selector} keeps only those whose centre lies in a
+    node matching that container selector, so a rule follows the layout instead of fixed
+    coordinates (a taller status bar on another device moves everything)."""
+    rest = {k: v for k, v in selector.items() if k != "inside"}
+    hits = [n for n in nodes if matches(node=n, selector=rest)]
+    if "inside" not in selector:
+        return hits
+    boxes = [n["box"] for n in find(nodes=nodes, selector=selector["inside"])]
+    inside = []
+    for n in hits:
+        cx, cy = center(box=n["box"])
+        if any(l <= cx <= r and t <= cy <= b for l, t, r, b in boxes):
+            inside.append(n)
+    return inside
 
 
 def clamp_box(*, box, within):
@@ -401,6 +425,18 @@ def pick_serial(*, devices_output):
     return serials[0]
 
 
+def select_shots(*, script, only=None, fresh=False):
+    """The shots to run. Shots marked "fresh" need a clean install (they wipe the app first), so
+    they run only with --fresh or when named explicitly with --only."""
+    shots = script["shots"]
+    if only:
+        unknown = set(only) - {s["name"] for s in shots}
+        if unknown:
+            raise ScriptError(f"unknown shot(s): {', '.join(sorted(unknown))}")
+        return [s for s in shots if s["name"] in only]
+    return [s for s in shots if fresh or not s.get("fresh")]
+
+
 def expand_steps(*, script, shot):
     """Inline {"use": name} steps from script["snippets"], so the opening of the app is written once.
     Snippets may use other snippets; a cycle is an error."""
@@ -423,7 +459,7 @@ def expand_steps(*, script, shot):
 
 def validate_script(*, script):
     """Every step is exactly one known action; every shot has a name that is a safe filename."""
-    actions = {"launch", "snapshot", "tap", "tap_if", "type", "wait", "wait_for", "scroll", "scroll_until",
+    actions = {"reset_app", "key", "skip_unless", "launch", "snapshot", "tap", "tap_if", "type", "wait", "wait_for", "scroll", "scroll_until",
                "back", "shot", "use"}
     names = set()
     for shot in script.get("shots", []):
@@ -463,6 +499,7 @@ def resolve_adb():
 class Device:
     def __init__(self, *, adb, serial, display):
         self.base = [adb, "-s", serial]
+        self.serial = serial
         self.display = display
         self.snapshot = None  # nodes of the screen before a modal hid it from the dump
 
@@ -579,7 +616,8 @@ def do_shot(*, device, step, defaults, out_dir):
     image = device.screenshot()
     # A modal hides the page behind it from the dump but not from the capture, so what identifies
     # the content is read from the snapshot taken before the modal opened.
-    content = (device.snapshot or []) + nodes if step.get("use_snapshot") else nodes
+    use = step.get("use_snapshot")
+    content = (device.snapshot or []) if use == "only" else (device.snapshot or []) + nodes if use else nodes
     original = image.copy()
     profile = defaults.get("profiles", {}).get(step.get("profile"), {})
     merged = {k: profile.get(k, []) + step.get(k, []) for k in ("covers", "lorem", "keep", "scrub", "restore", "blur")}
@@ -626,6 +664,13 @@ def do_shot(*, device, step, defaults, out_dir):
 def run_step(*, device, step, defaults, out_dir):
     if "snapshot" in step:
         device.snapshot = device.dump()
+    elif "reset_app" in step:
+        # Wipes the app's data: only ever on an emulator, never on the user's phone.
+        if not device.serial.startswith("emulator-"):
+            raise ScriptError(f"reset_app refuses to wipe {device.serial}: it is not an emulator")
+        device.shell(command=f"pm clear {APP_PACKAGE}")
+        subprocess.run(device.base + ["shell", "pm", "grant", APP_PACKAGE, "android.permission.POST_NOTIFICATIONS"],
+                       capture_output=True, timeout=30)
     elif "launch" in step:
         device.snapshot = None
         device.shell(command=f"am force-stop {APP_PACKAGE}")
@@ -634,6 +679,12 @@ def run_step(*, device, step, defaults, out_dir):
     elif "tap" in step:
         do_tap(device=device, selector=step["tap"])
         time.sleep(SETTLE_SECONDS)
+    elif "key" in step:
+        device.shell(command=f"input keyevent {int(step['key'])}")
+        time.sleep(SETTLE_SECONDS)
+    elif "skip_unless" in step:
+        if not find(nodes=device.dump(), selector=step["skip_unless"]):
+            raise SkipShot(f"{step['skip_unless']} is not on screen")
     elif "tap_if" in step:
         hits = find(nodes=device.dump(), selector=step["tap_if"])
         if hits:
@@ -663,23 +714,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--only", nargs="+", metavar="NAME", help="take only these shots")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output folder")
-    parser.add_argument("--serial", help="adb serial (default: first attached)")
+    parser.add_argument("--serial", help="adb serial (default: ANDROID_SERIAL, else the first attached)")
+    parser.add_argument("--emulator", action="store_true", help=f"use the emulator ({EMULATOR_SERIAL})")
     parser.add_argument("--display", help="display id (default: main screen)")
+    parser.add_argument("--fresh", action="store_true",
+                        help="also take the shots that need a clean install (emulator only; they wipe the app)")
     parser.add_argument("--list", action="store_true", help="list the shot names and exit")
     args = parser.parse_args()
 
     script = validate_script(script=json.loads(SCRIPT.read_text()))
-    shots = script["shots"]
     if args.list:
-        print("\n".join(s["name"] for s in shots))
+        print("\n".join(s["name"] + ("  (fresh)" if s.get("fresh") else "") for s in script["shots"]))
         return
-    if args.only:
-        unknown = set(args.only) - {s["name"] for s in shots}
-        if unknown:
-            raise ScriptError(f"unknown shot(s): {', '.join(sorted(unknown))}")
-        shots = [s for s in shots if s["name"] in args.only]
+    shots = select_shots(script=script, only=args.only, fresh=args.fresh)
 
-    device = connect(serial=args.serial, display=args.display)
+    serial = EMULATOR_SERIAL if args.emulator else args.serial or os.environ.get("ANDROID_SERIAL")
+    device = connect(serial=serial, display=args.display)
     args.out.mkdir(parents=True, exist_ok=True)
     defaults = script.get("defaults", {})
 
@@ -693,6 +743,8 @@ def main():
             try:
                 for step in expand_steps(script=script, shot=shot):
                     run_step(device=device, step=step, defaults=defaults, out_dir=args.out)
+            except SkipShot as e:
+                print(f"  – skipped: {e}")
             except (ScriptError, subprocess.SubprocessError) as e:
                 print(f"  ✗ {e}")
                 failed.append(shot["name"])
