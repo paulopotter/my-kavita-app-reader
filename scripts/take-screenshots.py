@@ -17,7 +17,14 @@ Nothing from the device or from the user's library reaches the docs:
     placed from the same dump's bounds; a shot can also list extra regions under "blur".
 
 Usage: python3 scripts/take-screenshots.py [--only NAME ...] [--out DIR] [--serial SERIAL | --emulator]
-       [--display ID] [--list]
+       [--display ID] [--fresh] [--themes [KEY ...]] [--list]
+
+With the emulator, a run that finds it off boots it and shuts it down at the end; one that finds it
+already running leaves it running.
+
+--themes takes the shots marked "themed" once per theme, switching the theme from Settings and putting
+the result under <out>/by-theme/<theme>/. The themes are read from frontend/src/shared/theme/themes/index.ts,
+so a new one is picked up without touching this script; with no keys, all of them run.
 
 With a phone and an emulator attached, name the one to use (--serial, --emulator or ANDROID_SERIAL);
 otherwise the first attached device is taken.
@@ -43,6 +50,10 @@ DEFAULT_OUT = ROOT / "docs" / "external" / "screenshots"
 APP_PACKAGE = "com.mymangareader"
 APP_ACTIVITY = ".MainActivity"
 EMULATOR_SERIAL = "emulator-5554"
+THEMES_INDEX = ROOT / "frontend" / "src" / "shared" / "theme" / "themes" / "index.ts"
+# The picker is the first full-width row under the "TEMA" label; its options are rows of the same shape.
+THEME_ROW = {"clickable": True, "class": "ViewGroup", "min_size": [900, 100], "max_h": 160}
+THEME_PICKER = dict(THEME_ROW, below={"text": "TEMA"})
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 BOUNDS = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
@@ -159,8 +170,14 @@ def find(*, nodes, selector):
     """Nodes matching the selector. {"inside": selector} keeps only those whose centre lies in a
     node matching that container selector, so a rule follows the layout instead of fixed
     coordinates (a taller status bar on another device moves everything)."""
-    rest = {k: v for k, v in selector.items() if k != "inside"}
+    rest = {k: v for k, v in selector.items() if k not in ("inside", "below")}
     hits = [n for n in nodes if matches(node=n, selector=rest)]
+    if "below" in selector:
+        anchors = find(nodes=nodes, selector=selector["below"])
+        if not anchors:
+            return []
+        bottom_of_anchor = anchors[0]["box"][3]
+        hits = [n for n in hits if n["box"][1] >= bottom_of_anchor]
     if "inside" not in selector:
         return hits
     boxes = [n["box"] for n in find(nodes=nodes, selector=selector["inside"])]
@@ -332,12 +349,40 @@ def wrap_lorem(*, font, width, lines):
     return out
 
 
+def ring_median(*, region):
+    """Median colour of a region's outer 1px ring: what a box sits on, even when its inside is text."""
+    w, h = region.size
+    px = region.load()
+    ring = [px[x, y] for x in range(w) for y in (0, h - 1)] + [px[x, y] for y in range(h) for x in (0, w - 1)]
+    return tuple(sorted(c[i] for c in ring)[len(ring) // 2] for i in range(3))
+
+
+def flatten_box(*, image, original, box):
+    """Paint a box with one flat colour taken from its edge in the original capture. For a translucent
+    bar: it lets the page behind show through, and that page is what must not reach the docs."""
+    left, top, right, bottom = clamp_box(box=box, within=(0, 0) + image.size)
+    if right > left and bottom > top:
+        colour = ring_median(region=original.crop((left, top, right, bottom)))
+        ImageDraw.Draw(image).rectangle((left, top, right - 1, bottom - 1), fill=colour)
+    return image
+
+
 def text_colors(*, image, box):
-    """(background, text) of a text box: the commonest colour, and the one farthest from it."""
-    colors = image.crop(box).getcolors(maxcolors=image.width * image.height)
-    background = max(colors, key=lambda c: c[0])[1]
-    distance = lambda c: sum((a - b) ** 2 for a, b in zip(c[1], background))
-    return background, max(colors, key=distance)[1]
+    """(background, text) of a text box.
+
+    The background is the median colour of the box's outer ring, not its commonest colour: over a
+    translucent bar on top of artwork the background is noisy (every shade is rare) while the text is
+    one exact colour covering many pixels, so "commonest" picks the text. The text colour is then the
+    commonest colour among the pixels that differ clearly from the background."""
+    left, top, right, bottom = box
+    region = image.crop(box)
+    w, h = region.size
+    background = ring_median(region=region)
+    far = [(n, c) for n, c in region.getcolors(maxcolors=w * h)
+           if sum((a - b) ** 2 for a, b in zip(c, background)) > 120 ** 2]
+    if far:
+        return background, max(far, key=lambda nc: nc[0])[1]
+    return background, (255, 255, 255) if sum(background) < 384 else (0, 0, 0)
 
 
 def replace_title(*, image, box, line_px=TITLE_LINE_PX, size_px=None, bold=True, serif=False, text=None):
@@ -423,6 +468,25 @@ def pick_serial(*, devices_output):
     if not serials:
         raise ScriptError("no device attached (adb devices is empty)")
     return serials[0]
+
+
+def parse_theme_keys(*, text):
+    """The theme keys, in the order the picker shows them (the registry keeps that order on purpose)."""
+    m = re.search(r"export const themes = \{(.*?)\} as const;", text, re.DOTALL)
+    if not m:
+        raise ScriptError("could not find the themes registry in themes/index.ts")
+    return re.findall(r"^\s*([A-Za-z0-9]+)\s*:", m.group(1), re.MULTILINE)
+
+
+def theme_slug(*, key):
+    """crimsonOled -> crimson-oled, the name the theme cards already use."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "-", key).lower()
+
+
+def emulator_is_up(*, devices_output, serial=None):
+    """Whether `adb devices` lists the emulator as a usable device (an `offline` one is still booting)."""
+    serial = serial or EMULATOR_SERIAL
+    return any(re.match(rf"^{re.escape(serial)}\s+device(\s|$)", line) for line in devices_output.splitlines())
 
 
 def select_shots(*, script, only=None, fresh=False):
@@ -528,6 +592,32 @@ class Device:
         self.shell(command=f"input swipe {x1} {y1} {x2} {y2} {ms}")
 
 
+EMULATOR_SCRIPT = ROOT / "scripts" / "emulator.sh"
+
+
+def emulator_running():
+    out = subprocess.run([resolve_adb(), "devices"], capture_output=True, text=True, timeout=30).stdout
+    return emulator_is_up(devices_output=out)
+
+
+def start_emulator_if_needed():
+    """Boot the emulator when it is not up. Returns True when this call booted it, so the caller knows to
+    shut it down again; an emulator that was already running is left as it was."""
+    if emulator_running():
+        return False
+    print("→ o emulador estava desligado: subindo (uns 2 minutos); desligo no fim")
+    try:
+        subprocess.run([str(EMULATOR_SCRIPT), "start"], check=True, timeout=900)
+    except (subprocess.SubprocessError, OSError) as e:
+        raise ScriptError(f"could not boot the emulator: {e}")
+    return True
+
+
+def stop_emulator():
+    subprocess.run([str(EMULATOR_SCRIPT), "stop"], capture_output=True, timeout=120)
+    print("→ emulador desligado")
+
+
 def connect(*, serial, display):
     adb = resolve_adb()
     if serial is None:
@@ -568,11 +658,14 @@ def do_tap(*, device, selector):
     device.tap(x=x, y=y)
 
 
-def do_scroll(*, device, direction):
-    top, bottom = 1700, 900  # "down" moves the content up: finger goes from low to high
+def do_scroll(*, device, direction, distance=800, ms=350):
+    """One swipe of `distance` px around the middle of the screen. "down" moves the content up.
+    A fast long swipe flings and skips rows; measured on the emulator, 800 px/350 ms moves the list ~1000 px
+    and 1400 px/900 ms ~1500 px with rows still in common, while 1900 px skips past them."""
+    start, end = 1300 + distance // 2, 1300 - distance // 2
     if direction == "up":
-        top, bottom = bottom, top
-    device.swipe(x1=540, y1=top, x2=540, y2=bottom)
+        start, end = end, start
+    device.swipe(x1=540, y1=start, x2=540, y2=end, ms=ms)
 
 
 def selected(*, nodes, selectors, size=None):
@@ -602,8 +695,8 @@ def do_scroll_until(*, device, spec):
     for _ in range(spec.get("max", 40) + 1):
         if find(nodes=device.dump(), selector=spec["find"]):
             return
-        do_scroll(device=device, direction=spec.get("direction", "down"))
-        time.sleep(0.6)
+        do_scroll(device=device, direction=spec.get("direction", "down"), distance=spec.get("distance", 800), ms=spec.get("ms", 350))
+        time.sleep(0.4)
     raise ScriptError(f"scrolled {spec.get('max', 40)} times without finding {spec['find']}")
 
 
@@ -620,7 +713,7 @@ def do_shot(*, device, step, defaults, out_dir):
     content = (device.snapshot or []) if use == "only" else (device.snapshot or []) + nodes if use else nodes
     original = image.copy()
     profile = defaults.get("profiles", {}).get(step.get("profile"), {})
-    merged = {k: profile.get(k, []) + step.get(k, []) for k in ("covers", "lorem", "keep", "scrub", "restore", "blur")}
+    merged = {k: profile.get(k, []) + step.get(k, []) for k in ("covers", "flatten", "lorem", "keep", "scrub", "restore", "blur")}
 
     # 1. What identifies the content: covers (library items, series cover, reader page).
     regions = item_regions(nodes=content) if defaults.get("replace_items", True) else {"covers": [], "titles": []}
@@ -635,12 +728,15 @@ def do_shot(*, device, step, defaults, out_dir):
         replace_cover(image=image, box=box)
         if "dim" in sel or dim:
             dim_box(image=image, box=box, factor=sel.get("dim", dim))
+    # 2a. A translucent bar shows the page behind it: flatten it, then put back only its own controls.
+    for box, _ in selected(nodes=nodes, selectors=merged["flatten"], size=image.size):
+        flatten_box(image=image, original=original, box=box)
     # 2. The app's own controls, drawn over a replaced page, are put back from the capture...
     for box, sel in selected(nodes=nodes, selectors=merged["keep"], size=image.size):
         paste_back(image=image, original=original, box=box, round_corners=sel.get("round", False), radius=sel.get("radius"))
     # 3. ...minus what a translucent bar let through from the page behind it.
     for box, sel in selected(nodes=nodes, selectors=merged["scrub"], size=image.size):
-        scrub_dark(image=image, box=box, below=sel.get("below", 110))
+        scrub_dark(image=image, box=box, below=sel.get("darker_than", 110))
     # 4. Text goes last, so a kept bar cannot bring a real title back.
     for box in regions["titles"]:
         replace_title(image=image, box=box)
@@ -710,6 +806,59 @@ def run_step(*, device, step, defaults, out_dir):
         do_shot(device=device, step=step, defaults=defaults, out_dir=out_dir)
 
 
+def run_shots(*, device, script, shots, out_dir, failed):
+    """Run each shot; one that fails or is skipped does not stop the others."""
+    defaults = script.get("defaults", {})
+    for shot in shots:
+        print(f"{shot['name']}")
+        try:
+            for step in expand_steps(script=script, shot=shot):
+                run_step(device=device, step=step, defaults=defaults, out_dir=out_dir)
+        except SkipShot as e:
+            print(f"  – skipped: {e}")
+        except Exception as e:  # a bug in one shot must not cost the rest of a long run
+            print(f"  ✗ {e}" if isinstance(e, (ScriptError, subprocess.SubprocessError)) else f"  ✗ {type(e).__name__}: {e}")
+            failed.append(f"{out_dir.name}/{shot['name']}" if out_dir.parent.name == "by-theme" else shot["name"])
+
+
+def pick_theme(*, device, index, count):
+    """Choose the theme at `index` in the Settings picker; returns the index that was current.
+
+    The picker lists the themes in the registry's order, so position is the identity: the labels are
+    translations and a new theme needs no change here. The picker must show exactly `count` rows."""
+    run_step(device=device, step={"launch": True}, defaults={}, out_dir=None)
+    do_tap(device=device, selector={"desc": "Ajustes", "clickable": True})
+    nodes = wait_for(device=device, selector=THEME_PICKER)
+    current_label = find(nodes=nodes, selector=THEME_PICKER)[0]["desc"]
+    do_tap(device=device, selector=THEME_PICKER)
+    time.sleep(SETTLE_SECONDS)
+    options = find(nodes=device.dump(), selector=THEME_ROW)
+    if len(options) != count:
+        raise ScriptError(f"the theme picker shows {len(options)} rows but the registry has {count}: "
+                          "a new theme may need the picker scrolled")
+    labels = [o["desc"] for o in options]
+    x, y = center(box=options[index]["box"])
+    device.tap(x=x, y=y)
+    time.sleep(SETTLE_SECONDS)
+    return labels.index(current_label) if current_label in labels else None
+
+
+def run_themes(*, device, script, shots, out_root, keys, targets, failed):
+    original = None
+    for key in targets:
+        print(f"== tema {key}")
+        current = pick_theme(device=device, index=keys.index(key), count=len(keys))
+        original = current if original is None else original
+        out_dir = out_root / "by-theme" / theme_slug(key=key)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        run_shots(device=device, script=script, shots=shots, out_dir=out_dir, failed=failed)
+    if original is not None:
+        print(f"== volta ao tema {keys[original]}")
+        pick_theme(device=device, index=original, count=len(keys))
+    else:
+        print("aviso: não consegui saber qual era o tema atual; ele ficou no último da lista")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--only", nargs="+", metavar="NAME", help="take only these shots")
@@ -719,35 +868,53 @@ def main():
     parser.add_argument("--display", help="display id (default: main screen)")
     parser.add_argument("--fresh", action="store_true",
                         help="also take the shots that need a clean install (emulator only; they wipe the app)")
+    parser.add_argument("--themes", nargs="*", metavar="KEY",
+                        help='take the "themed" shots once per theme (no keys: every theme)')
     parser.add_argument("--list", action="store_true", help="list the shot names and exit")
     args = parser.parse_args()
 
     script = validate_script(script=json.loads(SCRIPT.read_text()))
+    keys = parse_theme_keys(text=THEMES_INDEX.read_text())
     if args.list:
-        print("\n".join(s["name"] + ("  (fresh)" if s.get("fresh") else "") for s in script["shots"]))
+        print("\n".join(s["name"] + ("  (fresh)" if s.get("fresh") else "") + ("  (themed)" if s.get("themed") else "")
+                        for s in script["shots"]))
+        print("themes:", " ".join(keys))
         return
-    shots = select_shots(script=script, only=args.only, fresh=args.fresh)
+    targets = None
+    if args.themes is not None:
+        targets = args.themes or keys
+        unknown = [k for k in targets if k not in keys]
+        if unknown:
+            raise ScriptError(f"unknown theme(s): {', '.join(unknown)}; known: {', '.join(keys)}")
+        shots = [s for s in select_shots(script=script, only=args.only) if s.get("themed")]
+        if not shots:
+            raise ScriptError('no shot is marked "themed"')
+    else:
+        shots = select_shots(script=script, only=args.only, fresh=args.fresh)
 
     serial = EMULATOR_SERIAL if args.emulator else args.serial or os.environ.get("ANDROID_SERIAL")
+    booted_here = start_emulator_if_needed() if serial == EMULATOR_SERIAL else False
+    try:
+        run(args=args, script=script, shots=shots, keys=keys, targets=targets, serial=serial)
+    finally:
+        if booted_here:
+            stop_emulator()
+
+
+def run(*, args, script, shots, keys, targets, serial):
     device = connect(serial=serial, display=args.display)
     args.out.mkdir(parents=True, exist_ok=True)
-    defaults = script.get("defaults", {})
 
     previous_zen = device.shell(command="settings get global zen_mode").strip() or ZEN_OFF
     device.shell(command="input keyevent KEYCODE_WAKEUP")
     device.shell(command=f"settings put global zen_mode {ZEN_NO_INTERRUPTIONS}")
     failed = []
     try:
-        for shot in shots:
-            print(f"{shot['name']}")
-            try:
-                for step in expand_steps(script=script, shot=shot):
-                    run_step(device=device, step=step, defaults=defaults, out_dir=args.out)
-            except SkipShot as e:
-                print(f"  – skipped: {e}")
-            except (ScriptError, subprocess.SubprocessError) as e:
-                print(f"  ✗ {e}")
-                failed.append(shot["name"])
+        if targets is None:
+            run_shots(device=device, script=script, shots=shots, out_dir=args.out, failed=failed)
+        else:
+            run_themes(device=device, script=script, shots=shots, out_root=args.out, keys=keys,
+                       targets=targets, failed=failed)
     finally:
         device.shell(command=f"settings put global zen_mode {previous_zen}")
     if failed:

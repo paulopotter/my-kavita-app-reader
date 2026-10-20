@@ -267,6 +267,16 @@ that palette, which is enough for its character to show. The colours are parsed 
 files, so a theme repainted in code is repainted here on the next run and the images cannot drift
 from the app. `generate-theme.js` runs this for you once the theme is registered and named.
 
+The cards are a mock. A new theme also needs the real app's main screens in its palette:
+
+```bash
+make screenshots EMULATOR=1 THEMES=<key>
+make check-screenshots
+```
+
+They land in `docs/external/screenshots/by-theme/<theme>/`. The rule and the commands are in
+`.claude/docs/screenshots.md`; `make check-screenshots` fails until the theme has them.
+
 ## Adding a token
 
 Prefer an existing token. A new one means a role the app genuinely did not have before — if two

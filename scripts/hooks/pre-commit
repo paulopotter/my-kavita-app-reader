@@ -79,6 +79,14 @@ if [ -n "$CHANGED_TS_SRC" ]; then
   fi
 fi
 
+# ── Docs screenshots (a reminder, never blocks) ───────────────────────────────
+# A new screen or theme needs its screenshots; the shots need a device, so the commit is not held for them.
+# `finalizar-task` (via checar-arquitetura) is where it blocks.
+if git diff --cached --name-only --diff-filter=ACM | grep -qE '^frontend/src/(screens/|shared/theme/themes/)'; then
+  python3 "$ROOT/scripts/check-screenshots.py" --quiet || \
+    echo "  ⚠ screenshots da doc em falta — veja .claude/docs/screenshots.md (não bloqueia este commit)"
+fi
+
 if [ "$FAILED" -eq 1 ]; then
   echo ""
   echo "✗ Pre-commit checks failed. Fix the issues above before committing."

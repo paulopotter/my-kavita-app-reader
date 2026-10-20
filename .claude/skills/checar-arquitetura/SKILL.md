@@ -6,7 +6,7 @@ description: Mechanical, diff-level architectural compliance check. Runs as step
 # Checar Arquitetura
 
 A mechanical, diff-level review of a task's changes against the project's
-structural rules. It complements — never replaces — the human contract-vs-point-fix
+structural rules (plus the docs-screenshot coverage). It complements — never replaces — the human contract-vs-point-fix
 judgment call (`CLAUDE.md` § Process); this skill only catches the mechanically
 checkable violations.
 
@@ -137,6 +137,20 @@ git diff <lower>..HEAD -- 'android/tools/**/*.kt' | grep -nE "^\+import com\.mym
 `:cache` and `:preferences` are Layer-2 generic modules — `core ← tools`
 still holds; `:tools` may import `:cache` (documented in
 `architecture.md § Kotlin Layer Rules`). No other exception.
+
+### 7. Screen or theme without a docs screenshot — BLOCKS
+
+A folder added under `frontend/src/screens/`, or a theme added to
+`frontend/src/shared/theme/themes/index.ts`, with no screenshots in
+`docs/external/screenshots/` (rule: `.claude/docs/screenshots.md`).
+
+```
+python3 scripts/check-screenshots.py
+```
+
+Exit 1 lists each missing screen, shot or theme: BLOCKS, with the command that takes them. Its `⚠` lines
+(a screen's code changed after its screenshots) are REPORT-ONLY: whether the layout change is significant is
+the user's call, so surface them and ask whether to retake.
 
 ## Output
 

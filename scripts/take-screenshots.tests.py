@@ -139,6 +139,17 @@ class SelectorTests(unittest.TestCase):
             hits = shots.find(nodes=tree(offset), selector=sel)
             self.assertEqual([n["text"] for n in hits], ["Titulo da obra"])
 
+    def test_below_picks_the_row_under_a_label(self):
+        nodes = shots.parse_nodes(xml="""<hierarchy>
+          <node text="TELA INICIAL" class="android.widget.TextView" content-desc="" bounds="[0,100][1080,150]"/>
+          <node text="" class="android.view.ViewGroup" content-desc="Home" clickable="true" bounds="[48,160][1032,290]"/>
+          <node text="TEMA" class="android.widget.TextView" content-desc="" bounds="[0,330][1080,380]"/>
+          <node text="" class="android.view.ViewGroup" content-desc="Carmim - OLED" clickable="true" bounds="[48,400][1032,534]"/>
+        </hierarchy>""")
+        sel = {"clickable": True, "class": "ViewGroup", "min_size": [900, 100], "below": {"text": "TEMA"}}
+        self.assertEqual([n["desc"] for n in shots.find(nodes=nodes, selector=sel)], ["Carmim - OLED"])
+        self.assertEqual(shots.find(nodes=nodes, selector=dict(sel, below={"text": "NÃO EXISTE"})), [])
+
     def test_center(self):
         self.assertEqual(shots.center(box=(0, 2463, 180, 2595)), (90, 2529))
 
@@ -186,6 +197,29 @@ class ReplacementTests(unittest.TestCase):
                 image.putpixel((x, y), (250, 250, 250))
         self.assertEqual(shots.text_colors(image=image, box=(0, 0, 60, 20)), ((10, 10, 30), (250, 250, 250)))
 
+    def test_text_colors_survive_a_noisy_background_behind_the_text(self):
+        import random
+        random.seed(1)
+        image = Image.new("RGB", (200, 40))
+        for x in range(200):
+            for y in range(40):  # translucent bar over artwork: every background shade is rare
+                image.putpixel((x, y), (random.randint(20, 60), random.randint(20, 60), random.randint(20, 60)))
+        for x in range(30, 170):
+            for y in range(10, 30):  # the title, one exact colour covering many pixels
+                image.putpixel((x, y), (230, 215, 190))
+        background, ink = shots.text_colors(image=image, box=(0, 0, 200, 40))
+        self.assertEqual(ink, (230, 215, 190))
+        self.assertTrue(all(20 <= c <= 60 for c in background))
+
+    def test_flatten_box_hides_what_shows_through_a_translucent_bar(self):
+        original = Image.new("RGB", (100, 60), (40, 40, 40))
+        for x in range(20, 80):
+            for y in range(20, 40):
+                original.putpixel((x, y), (200, 180, 120))  # artwork behind the bar
+        image = original.copy()
+        shots.flatten_box(image=image, original=original, box=(0, 0, 100, 60))
+        self.assertEqual(image.getpixel((50, 30)), (40, 40, 40))
+
     def test_replace_title_erases_the_original_and_draws_lorem(self):
         image = Image.new("RGB", (400, 120), (10, 10, 30))
         for x in range(10, 300):
@@ -220,6 +254,33 @@ class ScriptTests(unittest.TestCase):
             shots.expand_steps(script=script, shot={"name": "x", "steps": [{"use": "loop"}]})
         with self.assertRaises(shots.ScriptError):
             shots.expand_steps(script=script, shot={"name": "x", "steps": [{"use": "nope"}]})
+
+    def test_emulator_is_up_only_when_it_is_a_usable_device(self):
+        up = "List of devices attached\nemulator-5554\tdevice\nadb-XYZ._adb-tls-connect._tcp\tdevice\n"
+        booting = "List of devices attached\nemulator-5554\toffline\n"
+        self.assertTrue(shots.emulator_is_up(devices_output=up))
+        self.assertFalse(shots.emulator_is_up(devices_output=booting))
+        self.assertFalse(shots.emulator_is_up(devices_output="List of devices attached\n\n"))
+        self.assertFalse(shots.emulator_is_up(devices_output="List of devices attached\nemulator-55540\tdevice\n"))
+
+    def test_theme_keys_follow_the_registry_order_and_slugs_are_kebab(self):
+        text = """import x;
+        export const themes = {
+          amber: amberColors,
+          crimson: crimsonColors,
+          crimsonOled: crimsonOledColors,
+        } as const;
+        export type ThemeName = keyof typeof themes;"""
+        self.assertEqual(shots.parse_theme_keys(text=text), ["amber", "crimson", "crimsonOled"])
+        self.assertEqual([shots.theme_slug(key=k) for k in ("amber", "crimsonOled", "wineOled")],
+                         ["amber", "crimson-oled", "wine-oled"])
+        with self.assertRaises(shots.ScriptError):
+            shots.parse_theme_keys(text="nothing here")
+
+    def test_the_real_registry_parses(self):
+        keys = shots.parse_theme_keys(text=shots.THEMES_INDEX.read_text())
+        self.assertIn("teal", keys)
+        self.assertEqual(len(keys), len(set(keys)))
 
     def test_select_shots_keeps_fresh_ones_out_unless_asked(self):
         script = {"shots": [{"name": "a"}, {"name": "b", "fresh": True}, {"name": "c"}]}

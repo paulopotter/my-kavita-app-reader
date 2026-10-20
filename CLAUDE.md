@@ -7,6 +7,7 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
 - File locations / layers → `architecture.md`
 - Pitfalls → `mistakes.md`
 - Read-path freshness (force / cache-first / optimistic) → `data-freshness.md`
+- Docs screenshots (new screen / theme / layout change) → `screenshots.md`
 
 ## Code structure
 - Data flow: `Bridge → Service → Tool/model → Hook → Screen → Component`
@@ -27,6 +28,8 @@ Kotlin shell + React Native UI + OTA bundle. GPL v3. Open-source.
   digest (`useReader()`, an EventBus event, a route, `SeriesDigest`). Describe it in text and
   wait for approval **before** editing code, even if it looks small. A point fix (label, color,
   icon, typo, spacing — no behavior change) doesn't need this
+- **Screenshots** — a new screen, a new theme or a significant layout change needs its docs screenshots
+  (`make screenshots`, `THEMES=1`); `make check-screenshots` must pass before closing a task
 - Test + approval before committing. Cannot commit Kotlin/TS source without `make coverage`
   passing (pre-commit hook enforces it)
 - Build for device → `versionar-build` skill (bump `-rcN` + compile-check before asking the user
