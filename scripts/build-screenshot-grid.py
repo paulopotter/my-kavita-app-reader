@@ -49,7 +49,6 @@ SECTIONS = [
         ("splash.png", "Splash"),
         ("config-welcome-empty.png", "Bem-vindo (vazio)"),
         ("config-welcome-setup.png", "Bem-vindo (configurando)"),
-        ("config-welcome.png", "Bem-vindo (configurado)"),
     ]),
     ("Início", [
         ("home.png", "Início"),
@@ -68,7 +67,6 @@ SECTIONS = [
         ("series-detail-options-menu.png", "Opções da lista"),
         ("series-detail-sort-modal.png", "Modal de ordenação"),
         ("series-detail-range-modal.png", "Selecionar intervalo"),
-        ("series-detail-selection-mode.jpeg", "Seleção múltipla"),
         ("series-novel-detail.png", "Detalhe de novel"),
     ]),
     ("Leitor de mangá", [
@@ -88,16 +86,14 @@ SECTIONS = [
     ]),
     ("Notificações", [
         ("notifications-list.png", "Lista de notificações"),
-        ("notifications-selection-mode.png", "Seleção múltipla"),
-        ("notifications-detail-modal.png", "Detalhes"),
     ]),
     ("Configurações", [
         ("config-main.png", "Ajustes"),
         ("config-server.png", "Servidores"),
         ("config-reading-prefs.png", "Preferências de leitura"),
         ("config-manga-page.png", "Página do mangá"),
+        ("config-theme-picker.png", "Temas"),
         ("config-notifications.png", "Notificações"),
-        ("settings-chapter-sort-fixed.jpeg", "Ordenação de capítulos"),
     ]),
 ]
 

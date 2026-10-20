@@ -3,8 +3,9 @@
 Anonymized screenshots of the app. Covers, titles, synopses, reader pages and novel text are replaced
 with a default image and "Lorem ipsum"; IPs, tokens and domain names with placeholders.
 
-Most of them are taken by `make screenshots` (see `scripts/screenshots/shots.json`), which fills in
-that placeholder content itself. The ones listed under "Taken by hand" are older and not covered by it yet.
+Taken by `make screenshots` (see `scripts/screenshots/shots.json`), which fills in that placeholder
+content itself. `following-grid-recent.png` and `search-history.png` come from a phone with the Following
+tab and a search history; the emulator used for the rest has neither.
 
 ## Overview
 
@@ -78,17 +79,15 @@ the file list and its captions live in that script, not here.
 | File | Description |
 |------|-------------|
 | [notifications-list.png](notifications-list.png) | Notification list with the unread header |
-| [notifications-selection-mode.png](notifications-selection-mode.png) | Multi-select mode active |
-| [notifications-detail-modal.png](notifications-detail-modal.png) | Single notification detail modal |
 
 ## Settings
 
 | File | Description |
 |------|-------------|
 | [config-main.png](config-main.png) | Settings root menu |
-| [config-main-2.png](config-main-2.png) | Server configuration screen (older shot, kept by hand) |
 | [config-reading-prefs.png](config-reading-prefs.png) | Reading preferences screen |
 | [config-manga-page.png](config-manga-page.png) | Manga page settings — chapter sort and data source |
+| [config-theme-picker.png](config-theme-picker.png) | Settings — theme picker open |
 | [config-notifications.png](config-notifications.png) | Notification settings — toggles, history retention, notification servers |
 | [config-server.png](config-server.png) | Kavita + BFF server configuration |
 
@@ -98,11 +97,9 @@ the file list and its captions live in that script, not here.
 |------|-------------|
 | [config-welcome-empty.png](config-welcome-empty.png) | Welcome screen — no servers configured yet |
 | [config-welcome-setup.png](config-welcome-setup.png) | Welcome screen — server setup in progress |
-| [config-welcome.png](config-welcome.png) | Welcome screen — servers configured |
 
-## Taken by hand
+## Clean install
 
-Not produced by `make screenshots` yet; they predate it and may be the old 1080x2501 size.
-`series-detail-selection-mode.jpeg`, `settings-chapter-sort-fixed.jpeg`, `settings-chapter-sort-progress.jpeg`,
-`notifications-selection-mode.png`, `notifications-detail-modal.png`, `config-main-2.png` and the three
-`config-welcome*.png` (a fresh install is needed for those; the script does not wipe app data).
+`config-welcome-empty.png` and `config-welcome-setup.png` need a clean install, so they are marked
+`fresh` in the script and only run with `make screenshots EMULATOR=1 ONLY="config-welcome-empty config-welcome-setup"`
+(or `--fresh`). They wipe the app's data, which the script refuses to do anywhere but an emulator.
