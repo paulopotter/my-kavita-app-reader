@@ -16,6 +16,26 @@ tab and a search history; the emulator used for the rest has neither.
 Regenerate the grid with `python3 scripts/build-screenshot-grid.py` after adding a screenshot —
 the file list and its captions live in that script, not here.
 
+## By theme
+
+The main screens (home, library, series, both readers, search, settings) in every theme, from
+`make screenshots EMULATOR=1 THEMES=1`: `by-theme/<theme>/<screen>.png`, with the theme in the registry's
+key form (`crimson-oled`). [by-theme/overview.png](by-theme/overview.png) lays them all out as one matrix.
+
+| File | Description |
+|------|-------------|
+| [by-theme/overview.png](by-theme/overview.png) | Every theme against every main screen |
+| `by-theme/<theme>/home.png` | Home |
+| `by-theme/<theme>/library-grid-recent.png` | Library, grid view |
+| `by-theme/<theme>/series-detail-full.png` | Series detail |
+| `by-theme/<theme>/reader-manga-overlay.png` | Manga reader with controls |
+| `by-theme/<theme>/reader-novel-overlay.png` | Novel reader with controls |
+| `by-theme/<theme>/search-results.png` | Search results |
+| `by-theme/<theme>/config-main.png` | Settings |
+
+The set of themes and of screens is not listed by hand: `make check-screenshots` fails when a theme in
+the registry is missing any of them. Regenerate the matrix with `python3 scripts/build-theme-matrix.py`.
+
 ## Home
 
 | File | Description |
