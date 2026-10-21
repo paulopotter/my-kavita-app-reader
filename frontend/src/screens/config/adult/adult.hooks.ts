@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Routes } from '../../../navigation/routes';
 import { useAdultFilter } from '../../../shared/context/adult-filter';
 import { CategoriesService } from '../../../shared/services/categories';
 
@@ -10,6 +13,7 @@ type CategoriesStatus = 'loading' | 'ready' | 'error';
 // NAME, so it survives the server being replaced.
 export function useAdultFilterConfig() {
   const filter = useAdultFilter();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [available, setAvailable] = useState<string[]>([]);
   const [status, setStatus] = useState<CategoriesStatus>('loading');
 
@@ -45,6 +49,16 @@ export function useAdultFilterConfig() {
   const reveal = filter.mode === 'blur';
   const setReveal = useCallback((value: boolean) => filter.setMode(value ? 'blur' : 'hidden'), [filter]);
 
+  // Entering or leaving the restricted view changes what every screen shows, so land on Home
+  // instead of leaving the user on a screen that no longer matches.
+  const setOnly = useCallback(
+    (value: boolean) => {
+      filter.setOnly(value);
+      navigation.navigate(Routes.DASHBOARD);
+    },
+    [filter, navigation],
+  );
+
   return {
     unblur: filter.unblur,
     selected: filter.categories,
@@ -53,7 +67,7 @@ export function useAdultFilterConfig() {
     reveal,
     setReveal,
     only: filter.only,
-    setOnly: filter.setOnly,
+    setOnly,
     setUnblur: filter.setUnblur,
     addCategory,
     removeCategory,

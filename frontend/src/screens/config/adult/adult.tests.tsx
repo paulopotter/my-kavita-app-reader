@@ -20,6 +20,9 @@ const mockFilter = {
 };
 jest.mock('../../../shared/context/adult-filter', () => ({ useAdultFilter: () => mockFilter }));
 
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+
 const mockList = jest.fn();
 jest.mock('../../../shared/services/categories', () => ({
   CategoriesService: { list: (...a: unknown[]) => mockList(...a) },
@@ -137,6 +140,7 @@ describe('AdultFilterScreen', () => {
     const off = renderScreen();
     fireEvent.press(await off.findByText(t.adultOnlyButton));
     expect(mockFilter.setOnly).toHaveBeenCalledWith(true);
+    expect(mockNavigate).toHaveBeenCalledWith('dashboard');
     expect(await off.findByText(t.adultOnlyHint)).toBeTruthy();
     off.unmount();
 
@@ -144,6 +148,7 @@ describe('AdultFilterScreen', () => {
     const on = renderScreen();
     fireEvent.press(await on.findByText(t.adultOnlyButtonOff));
     expect(mockFilter.setOnly).toHaveBeenCalledWith(false);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
   it('says so when the server offers no categories, and when loading them fails', async () => {
