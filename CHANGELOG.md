@@ -10,13 +10,30 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
-### Backend
-- fix: o serviço de notificações não derruba mais o app quando o Android recusa ou expira o serviço em segundo plano; ele para sozinho e volta a conectar quando o app é aberto.
+## [[2026.10.26.1331](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.26.1331)] - 2026-10-26
 
-### Frontend
-- feat: aviso discreto de notificação com o app aberto — uma pílula fina no topo, que some em 4 segundos ou ao deslizar para cima, mostra a mensagem da série que chegou (ou quantas séries têm novidades) e, ao tocar, abre a lista do que chegou agrupada por série, com a capa de cada uma, respeitando o filtro de conteúdo sensível.
-- fix: o botão voltar da tela da série, aberta a partir do leitor, agora volta para onde o capítulo foi aberto, em vez de voltar ao capítulo.
-- fix: entrar ou sair da visão restrita de conteúdo sensível leva para a tela inicial.
+Maior estabilidade nas notificações em segundo plano e melhorias na navegação e visualização de avisos dentro do app. / Better background notification stability and improvements to navigation and in-app alert viewing.
+
+
+### **Backend** - `1.9.0`
+
+**[pt-BR]**
+- O serviço de notificações do celular foi aprimorado para não fechar mais o aplicativo inesperadamente quando o sistema interrompe tarefas em segundo plano, voltando a funcionar automaticamente ao reabrir o leitor.
+
+**[en]**
+- The mobile notification service was improved to prevent the app from crashing unexpectedly when the system interrupts background tasks, resuming operation automatically once the reader is reopened.
+
+### **Frontend` - `1.10.0`
+
+**[pt-BR]**
+- Adicionado um aviso visual discreto no topo da tela quando novas notificações chegam com o aplicativo aberto, permitindo tocar para ver a lista agrupada por série com capas e respeito ao filtro de conteúdo sensível.
+- O botão de voltar na tela de detalhes da série, quando acessada direto pelo leitor, agora retorna corretamente para o ponto de origem em vez de reabrir o capítulo.
+- Ativar ou desativar o modo de restrição de conteúdo sensível agora redireciona automaticamente para a tela inicial para atualizar a exibição.
+
+**[en]**
+- Added a subtle top banner alert when new notifications arrive while the app is open, letting you tap to view a grouped list by series with cover art and content filter respect.
+- The back button on the series details screen, when opened directly from the reader, now correctly returns to the starting point instead of reopening the chapter.
+- Toggling the sensitive content restriction mode now automatically redirects you to the home screen to refresh the display.
 
 ## [[2026.10.18.1852](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.18.1852)] - 2026-10-18
 
