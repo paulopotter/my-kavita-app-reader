@@ -96,7 +96,16 @@ class NotificationConnectionService : Service() {
         startId: Int,
     ): Int {
         Log.i(TAG, "onStartCommand() — starting foreground service")
-        startForegroundWithConnectedNotification()
+        if (!attemptForegroundStart { startForegroundWithConnectedNotification() }) {
+            // Android refused to promote this service to the foreground (a system restart of a sticky
+            // service while the app is in the background). Without startForeground() it would be killed
+            // anyway, taking the process with it. Stop quietly: the app starts it again (tryStart) the
+            // next time it is in the foreground.
+            Log.w(TAG, "onStartCommand() — startForeground refused, stopping self")
+            updateStatus(NotificationServiceStatus.STOPPED)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         updateStatus(NotificationServiceStatus.CONNECTING)
         val previousPlugin = activePlugin
         val previousJob = connectJob
@@ -108,6 +117,18 @@ class NotificationConnectionService : Service() {
                 connectAndObserve()
             }
         return START_STICKY
+    }
+
+    // Android 15+ calls this when a foreground service type with a time budget runs out; ignoring it
+    // makes the system crash the whole app a moment later. The type is specialUse (no budget), so this
+    // is a safety net: stop cleanly, and the app starts the service again once it is in the foreground.
+    override fun onTimeout(
+        startId: Int,
+        fgsType: Int,
+    ) {
+        Log.w(TAG, "onTimeout() — foreground service timed out (type=$fgsType), stopping self")
+        updateStatus(NotificationServiceStatus.STOPPED)
+        stopSelf()
     }
 
     override fun onDestroy() {
@@ -213,7 +234,7 @@ class NotificationConnectionService : Service() {
             this,
             NOTIFICATION_ID_CONNECTED,
             notification,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
     }
 
@@ -250,6 +271,21 @@ class NotificationConnectionService : Service() {
                 true
             } catch (e: IllegalStateException) {
                 android.util.Log.w("NotificationConnection", "start refused while in the background", e)
+                false
+            }
+
+        // startForeground() is refused (ForegroundServiceStartNotAllowedException, an
+        // IllegalStateException on API 31+; SecurityException when the type's permission is missing)
+        // when the app is in the background. False means "refused", never a crash.
+        internal fun attemptForegroundStart(start: () -> Unit): Boolean =
+            try {
+                start()
+                true
+            } catch (e: IllegalStateException) {
+                Log.w(TAG, "startForeground refused", e)
+                false
+            } catch (e: SecurityException) {
+                Log.w(TAG, "startForeground refused", e)
                 false
             }
 

@@ -39,4 +39,19 @@ class NotificationConnectionServiceStartTest {
     fun `tryStart says no, instead of crashing, when Android refuses a start from the background`() {
         assertFalse(NotificationConnectionService.tryStart(Refusing(ApplicationProvider.getApplicationContext())))
     }
+
+    @Test
+    fun `attemptForegroundStart is true when startForeground goes through`() {
+        assertTrue(NotificationConnectionService.attemptForegroundStart { })
+    }
+
+    @Test
+    fun `attemptForegroundStart is false, not a crash, when Android refuses startForeground`() {
+        assertFalse(NotificationConnectionService.attemptForegroundStart { throw IllegalStateException("not allowed") })
+    }
+
+    @Test
+    fun `attemptForegroundStart is false when the foreground service permission is missing`() {
+        assertFalse(NotificationConnectionService.attemptForegroundStart { throw SecurityException("missing permission") })
+    }
 }
