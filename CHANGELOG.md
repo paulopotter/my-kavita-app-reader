@@ -10,6 +10,14 @@ Kotlin and RN bundle versions follow Semantic Versioning independently.
 
 ## [Unreleased]
 
+### Backend
+- fix: o serviço de notificações não derruba mais o app quando o Android recusa ou expira o serviço em segundo plano; ele para sozinho e volta a conectar quando o app é aberto.
+
+### Frontend
+- feat: aviso discreto de notificação com o app aberto — uma pílula fina no topo, que some em 4 segundos ou ao deslizar para cima, mostra a mensagem da série que chegou (ou quantas séries têm novidades) e, ao tocar, abre a lista do que chegou agrupada por série, com a capa de cada uma, respeitando o filtro de conteúdo sensível.
+- fix: o botão voltar da tela da série, aberta a partir do leitor, agora volta para onde o capítulo foi aberto, em vez de voltar ao capítulo.
+- fix: entrar ou sair da visão restrita de conteúdo sensível leva para a tela inicial.
+
 ## [[2026.10.18.1852](https://github.com/paulopotter/my-kavita-app-reader/releases/tag/2026.10.18.1852)] - 2026-10-18
 
 Agora você pode ler livros em EPUB com sumário, organizar capítulos soltos de novels, navegar por obras gigantes sem travamentos e aproveitar um leitor de imagens mais fluido e personalizável. / Now you can read EPUB books with a table of contents, organize loose novel chapters, browse massive series without lag, and enjoy a smoother, more customizable image reader.
