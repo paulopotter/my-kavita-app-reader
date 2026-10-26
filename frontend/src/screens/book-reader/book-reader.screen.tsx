@@ -41,9 +41,10 @@ export function BookReaderScreen() {
   }, []);
 
   const handleBack = useCallback(() => realize(book.backAction)(), [realize, book.backAction]);
-  // The series name goes to the series, from wherever the reader was opened.
+  // The series name goes to the series, from wherever the reader was opened. It replaces the reader
+  // so that back from the series lands where the reader was entered, not on the reader again.
   const openSeries = useCallback(
-    () => realize(createNavigateAction({ route: Routes.SERIES_DETAIL, params: { seriesId } }))(),
+    () => realize(createNavigateAction({ route: Routes.SERIES_DETAIL, params: { seriesId }, canReplace: true }))(),
     [realize, seriesId],
   );
 

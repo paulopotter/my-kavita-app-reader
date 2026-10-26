@@ -27,6 +27,8 @@ export interface NavigateTarget {
   // just stacking on top of whatever already exists (navigate — the default; never destroys
   // history the caller didn't explicitly ask to destroy).
   canResetStack?: boolean;
+  // A 'to' target that replaces the current screen instead of stacking on top of it.
+  canReplace?: boolean;
 }
 
 // navigate.to / navigate.back — a discriminated pair, not a flat `method` union, so a domain tool
@@ -39,8 +41,16 @@ export interface ActionContract {
   };
 }
 
-export function createNavigateAction({ route, params }: { route: RouteName; params?: Record<string, unknown> }): ActionContract {
-  return { navigate: { to: { route, params } } };
+export function createNavigateAction({
+  route,
+  params,
+  canReplace,
+}: {
+  route: RouteName;
+  params?: Record<string, unknown>;
+  canReplace?: boolean;
+}): ActionContract {
+  return { navigate: { to: { route, params, canReplace } } };
 }
 
 // The domain tool calling this (SerieTool, the Reader's own hook, ...) already knows its own

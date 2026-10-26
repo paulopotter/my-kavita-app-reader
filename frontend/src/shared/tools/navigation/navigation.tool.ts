@@ -9,6 +9,8 @@ interface NavigationLike {
   canGoBack(): boolean;
   goBack(): void;
   navigate(route: string, params?: Record<string, unknown>): void;
+  replace(...args: any[]): void;
+  getState(): { routes: Array<{ name: string; params?: Record<string, unknown> }> };
   reset(state: { index: number; routes: Array<{ name: string; params?: Record<string, unknown> }> }): void;
 }
 
@@ -17,6 +19,19 @@ interface NavigateTargetLike {
   params?: Record<string, unknown>;
   canUseGoBack?: boolean;
   canResetStack?: boolean;
+  // Swaps the current screen for the target instead of stacking on top — for a screen that must
+  // not stay in the back stack once the user moves on (the Reader, when its series is opened:
+  // back from the series has to land where the Reader was entered, not on the Reader again).
+  canReplace?: boolean;
+}
+
+// The stack already holds this exact screen (same route, same params minus navigation-only
+// `origin`) — navigating then pops back to it rather than adding a second copy.
+function isInStack({ navigation, target }: { navigation: NavigationLike; target: NavigateTargetLike }): boolean {
+  const keys = Object.keys(target.params ?? {}).filter(k => k !== 'origin');
+  return navigation.getState().routes.some(
+    r => r.name === target.route && keys.every(k => r.params?.[k] === target.params?.[k]),
+  );
 }
 
 export const NavigationTool = {
@@ -28,6 +43,10 @@ export const NavigationTool = {
   go(navigation: NavigationLike, target: NavigateTargetLike): void {
     if (target.canUseGoBack && navigation.canGoBack()) {
       navigation.goBack();
+      return;
+    }
+    if (target.canReplace && !isInStack({ navigation, target })) {
+      navigation.replace(target.route, target.params);
       return;
     }
     if (target.canResetStack) {

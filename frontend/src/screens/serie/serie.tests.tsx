@@ -56,7 +56,7 @@ const mockMarkSelectedUnread = jest.fn();
 const mockRealize = jest.fn((action: ActionContract) => {
   const target = action.navigate.to ?? action.navigate.back;
   return () => {
-    if (target) {NavigationTool.go({ goBack: mockGoBack, canGoBack: mockCanGoBack, navigate: mockNavigate, reset: mockReset }, target);}
+    if (target) {NavigationTool.go({ goBack: mockGoBack, canGoBack: mockCanGoBack, navigate: mockNavigate, reset: mockReset, replace: jest.fn(), getState: () => ({ routes: [] }) }, target);}
   };
 });
 const mockHideScrollTop = jest.fn();
