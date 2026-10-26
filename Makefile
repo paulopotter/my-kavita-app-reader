@@ -1,7 +1,7 @@
 .PHONY: setup build-android build-bundle build-all deploy log server help \
         ota-none ota-required ota-highly-recommended ota-recommended \
         coverage coverage-kotlin coverage-js \
-        kill redeploy-log screenshots emulator emulator-stop check-screenshots
+        kill redeploy-log screenshots emulator emulator-stop check-screenshots pair
 
 APP_PACKAGE  := com.mymangareader
 APP_ACTIVITY := .MainActivity
@@ -25,6 +25,7 @@ MSG_LOG                  := Exibe logs do app em tempo real via adb logcat
 MSG_CHECK_SHOTS          := Confere se toda tela e todo tema têm screenshot na documentação
 MSG_EMULATOR             := Sobe o emulador dos screenshots da documentação (HEADLESS=1 sem janela)
 MSG_EMULATOR_STOP        := Desliga o emulador dos screenshots
+MSG_PAIR                 := Pareia o celular com o adb por QR code (depuração sem fio)
 MSG_SCREENSHOTS          := Tira os screenshots da documentação via adb (ONLY=nome, EMULATOR=1, THEMES=1 ou SERIAL=...)
 MSG_SERVER               := Levanta servidor OTA local na porta 8080 (adb reverse incluso)
 MSG_KILL                 := Force-stop do app no dispositivo (sem desinstalar)
@@ -63,6 +64,7 @@ MSG_LOG                  := Stream app logs via adb logcat
 MSG_CHECK_SHOTS          := Check that every screen and theme has a docs screenshot
 MSG_EMULATOR             := Boot the docs-screenshots emulator (HEADLESS=1 for no window)
 MSG_EMULATOR_STOP        := Shut the docs-screenshots emulator down
+MSG_PAIR                 := Pair the phone with adb by QR code (wireless debugging)
 MSG_SCREENSHOTS          := Take the docs screenshots over adb (ONLY=name, EMULATOR=1, THEMES=1 or SERIAL=...)
 MSG_SERVER               := Start local OTA server on port 8080 (adb reverse included)
 MSG_KILL                 := Force-stop the app on device (no uninstall)
@@ -103,6 +105,7 @@ help: ## help
 	@printf "  \033[36m%-26s\033[0m %s\n" "check-screenshots"       "$(MSG_CHECK_SHOTS)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "emulator"                "$(MSG_EMULATOR)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "emulator-stop"           "$(MSG_EMULATOR_STOP)"
+	@printf "  \033[36m%-26s\033[0m %s\n" "pair"                    "$(MSG_PAIR)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "redeploy-log"            "$(MSG_REDEPLOY_LOG)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "server"                  "$(MSG_SERVER)"
 	@printf "  \033[36m%-26s\033[0m %s\n" "ota-none"                "$(MSG_OTA_NONE)"
@@ -179,6 +182,9 @@ emulator: ## $(MSG_EMULATOR)
 
 emulator-stop: ## $(MSG_EMULATOR_STOP)
 	@scripts/emulator.sh stop
+
+pair: ## $(MSG_PAIR)
+	@scripts/adb-pair-qr.sh
 
 screenshots: ## $(MSG_SCREENSHOTS)
 	@python3 scripts/take-screenshots.py $(if $(ONLY),--only $(ONLY),) $(if $(OUT),--out $(OUT),) $(if $(SERIAL),--serial $(SERIAL),) $(if $(EMULATOR),--emulator,) $(if $(THEMES),--themes $(filter-out 1,$(THEMES)),)
