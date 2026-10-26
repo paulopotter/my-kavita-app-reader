@@ -44,6 +44,13 @@ export interface NotificationActiveGroupUrl {
   urlId: string;
 }
 
+// "newNotificationReceived", emitted only while the app is in the foreground (nothing goes to the
+// system tray then): the ids of the history rows just written, so the in-app toast shows exactly
+// what arrived.
+export interface NewNotificationReceivedEvent {
+  historyIds: string[];
+}
+
 export interface UnreadCountChangedEvent {
   count: number;
 }

@@ -50,8 +50,8 @@ private const val BIG_PICTURE_HEIGHT_PX = 720
  * Per the user's own rule: a visible system-tray notification only makes sense while the app is
  * NOT the thing the user is already looking at. When [AppForegroundState.isForeground] is true,
  * [post] skips the system tray entirely — it only records history/updates the unread badge and
- * emits [NotificationsBridgeModule.notifyNewNotificationReceived] for a future in-app banner to
- * react to (not built here — see this task's own scope note).
+ * emits [NotificationsBridgeModule.notifyNewNotificationReceived] (with the new rows' ids) for the
+ * in-app notification toast to show.
  */
 @Singleton
 class NotificationDisplay
@@ -78,7 +78,7 @@ class NotificationDisplay
             NotificationsBridgeModule.notifyUnreadCountChanged(notifications.history.countUnread())
 
             if (AppForegroundState.isForeground.value) {
-                NotificationsBridgeModule.notifyNewNotificationReceived()
+                NotificationsBridgeModule.notifyNewNotificationReceived(historyIds)
                 return
             }
 

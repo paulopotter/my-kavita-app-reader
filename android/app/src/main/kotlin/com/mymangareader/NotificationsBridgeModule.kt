@@ -1,5 +1,6 @@
 package com.mymangareader
 
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -444,12 +445,19 @@ class NotificationsBridgeModule(
 
         // Called by NotificationDisplay when the app is in foreground — no system-tray
         // notification is posted in that case, only history/badge is updated (README's "in-app
-        // banner instead of the system tray while the app is open" rule) plus this event, so a
-        // future banner UI has a signal to react to.
-        fun notifyNewNotificationReceived() {
+        // banner instead of the system tray while the app is open" rule) plus this event, which the
+        // in-app notification toast reacts to. It carries the ids of the history rows just written
+        // ({ historyIds: string[] }), so the toast reads exactly what arrived and never has to guess
+        // from the whole history.
+        fun notifyNewNotificationReceived(historyIds: List<String>) {
             val context = instance?.reactApplicationContext ?: return
-            context.emitEvent(EVENT_NEW_NOTIFICATION_RECEIVED, null)
+            context.emitEvent(EVENT_NEW_NOTIFICATION_RECEIVED, newNotificationPayload(historyIds))
         }
+
+        private fun newNotificationPayload(historyIds: List<String>) =
+            Arguments.createMap().apply {
+                putArray("historyIds", Arguments.fromList(historyIds))
+            }
 
         fun notifyUnreadCountChanged(count: Int) {
             val context = instance?.reactApplicationContext ?: return

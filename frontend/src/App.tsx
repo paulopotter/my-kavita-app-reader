@@ -13,6 +13,7 @@ import { RootNavigator, Routes, BOTTOM_NAV_ROUTES } from './navigation';
 import { linking } from './navigation/linking.config';
 import { MAX_FONT_SCALE } from './shared/theme';
 import { ThemeProvider, useTheme } from './shared/context';
+import { NotificationToastHost } from './shared/context/notification-toast';
 
 // Caps how far the device's font-size setting may enlarge text, app-wide. Set once on the
 // components' defaults rather than on every <Text>, so a screen added later inherits it without
@@ -122,6 +123,7 @@ function AppContent() {
                 navRef.current?.reset({ index: 0, routes: [{ name: Routes.HUB }] });
               }}
             />
+            <NotificationToastHost />
           </NavigationContainer>
         </StartupProvider>
         </AdultFilterProvider>

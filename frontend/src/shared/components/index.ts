@@ -5,5 +5,6 @@ export * from './confirm-dialog';
 export * from './follow-star';
 export * from './freshness-banner';
 export * from './icon-button';
+export * from './notification-toast';
 export * from './scroll-to-top-button';
 export * from './selection-bottom-bar';

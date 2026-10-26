@@ -5,6 +5,7 @@ export * from './date';
 export * from './metadata-sources';
 export * from './methods';
 export * from './navigation';
+export * from './notification-toast';
 export * from './reader';
 export * from './serials';
 export * from './startup';

@@ -468,6 +468,11 @@ export interface Strings {
   notificationsHistoryTotalCount: string;
   notificationsHistoryTotalCountAllRead: string;
   notificationsHistoryInfo: string;
+
+  // ── In-app notification toast (a notification arriving while the app is open) ──
+  notificationToastSummary: string; // "{0}" = how many series have news
+  notificationToastOpen: string; // a11y: expands the pill into the list
+  notificationToastClose: string; // a11y: closes the expanded list
   // Selection mode (long-press a row) — mirrors seriesDetailSelection* naming.
   notificationsHistorySelectionSelectAll: string;
   notificationsHistorySelectionMarkRead: string;
@@ -903,6 +908,9 @@ const ptBR: Strings = {
   notificationsHistoryBodyUnnumbered: 'Novo capítulo disponível',
   notificationsHistoryTotalCount: '{0}/{1} notificações',
   notificationsHistoryTotalCountAllRead: '{0} notificações',
+  notificationToastSummary: '{0} novas notificações',
+  notificationToastOpen: 'Ver o que chegou',
+  notificationToastClose: 'Fechar notificações',
   notificationsHistoryInfo: 'Mais informações',
   notificationsHistorySelectionSelectAll: 'Selecionar tudo',
   notificationsHistorySelectionMarkRead: 'Marcar como lido',
@@ -1336,6 +1344,9 @@ const en: Strings = {
   notificationsHistoryBodyUnnumbered: 'New chapter available',
   notificationsHistoryTotalCount: '{0}/{1} notifications',
   notificationsHistoryTotalCountAllRead: '{0} notifications',
+  notificationToastSummary: '{0} new notifications',
+  notificationToastOpen: 'See what arrived',
+  notificationToastClose: 'Close notifications',
   notificationsHistoryInfo: 'More information',
   notificationsHistorySelectionSelectAll: 'Select all',
   notificationsHistorySelectionMarkRead: 'Mark as read',
